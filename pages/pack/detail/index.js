@@ -20,9 +20,10 @@ function calcSwiperHeight() {
   }
 }
 
-function buildSaveLabel(slot, downloadReady, variant, hasAnimAny) {
-  if (!downloadReady) return '去兑换';
+function buildSaveLabel(slot, downloadReady, variant, hasAnimAny, canSaveStatic) {
+  if (!canSaveStatic) return '去兑换';
   if (hasAnimAny && variant === 'anim' && !slot.hasAnim) return '无动态';
+  if (!downloadReady) return '积分不足';
   const costTip = `${downloadCost(variant)}积分`;
   if (!hasAnimAny) return `保存 ·${costTip}`;
   if (variant === 'anim') return `动态 ·${costTip}`;
@@ -35,7 +36,7 @@ function isSlotSelectable(slot, downloadReady, variant) {
   return true;
 }
 
-function decorateSlots(slots, downloadReady, variant, hasAnimAny) {
+function decorateSlots(slots, downloadReady, variant, hasAnimAny, canSaveStatic) {
   return (slots || []).map((s) => {
     const selectable = isSlotSelectable(s, downloadReady, variant);
     return {
@@ -43,7 +44,7 @@ function decorateSlots(slots, downloadReady, variant, hasAnimAny) {
       hasAnim: !!s.hasAnim,
       selectable,
       selected: selectable && !!s.selected,
-      saveLabel: buildSaveLabel(s, downloadReady, variant, hasAnimAny),
+      saveLabel: buildSaveLabel(s, downloadReady, variant, hasAnimAny, canSaveStatic),
     };
   });
 }
@@ -96,6 +97,7 @@ Page({
       mode: 'aspectFit',
     },
     downloadReady: false,
+    canSaveStatic: false,
     isVip: false,
     costHint: '',
     entitlementHint: '',
@@ -183,6 +185,7 @@ Page({
   refreshEntitlementUi() {
     const entitlement = getCachedEntitlement();
     const { emojiSlots, downloadVariant, hasAnimAny } = this.data;
+    const canSaveStatic = canAttemptDownload(entitlement, 'static');
     const downloadReady = canAttemptDownload(entitlement, downloadVariant);
     const isVip = !!entitlement.isVip;
     const nextSlots = decorateSlots(
@@ -190,10 +193,12 @@ Page({
       downloadReady,
       downloadVariant,
       hasAnimAny,
+      canSaveStatic,
     );
     const summary = summarizeSelection(nextSlots, downloadVariant);
     this.setData({
       downloadReady,
+      canSaveStatic,
       isVip,
       costHint: '先扣本月额度，再扣积分',
       entitlementHint: formatEntitlementHint(entitlement),
@@ -235,6 +240,7 @@ Page({
       const hasAnimAny = !!pack.hasAnimAny;
       const downloadVariant = 'static';
       const entitlement = getCachedEntitlement();
+      const canSaveStatic = canAttemptDownload(entitlement, 'static');
       const downloadReady = canAttemptDownload(entitlement, downloadVariant);
       const isVip = !!entitlement.isVip;
       const rawSlots =
@@ -252,6 +258,7 @@ Page({
         downloadReady,
         downloadVariant,
         hasAnimAny,
+        canSaveStatic,
       );
       const summary = summarizeSelection(emojiSlots, downloadVariant);
       const heroList = this.buildHeroList(pack);
@@ -263,6 +270,7 @@ Page({
         hasAnimAny,
         downloadVariant,
         downloadReady,
+        canSaveStatic,
         isVip,
         costHint: '先扣本月额度，再扣积分',
         entitlementHint: formatEntitlementHint(entitlement),
@@ -333,21 +341,7 @@ Page({
     this.applySlots(next);
   },
 
-  /** 可下载时点封面=勾选；否则打开预览。长按始终预览 */
-  onCoverTap(e) {
-    const { downloadReady, saving } = this.data;
-    if (saving) return;
-    const index = Number(e.currentTarget.dataset.index);
-    if (Number.isNaN(index)) return;
-    const slot = (this.data.emojiSlots || []).find((s) => s.index === index);
-    if (downloadReady && slot && slot.selectable) {
-      this.onToggleSelect(e);
-      return;
-    }
-    this.onPreviewTap(e);
-  },
-
-  /** 可下载时点封面勾选；否则打开预览 */
+  /** 可下载时点封面勾选；否则打开预览。长按始终预览 */
   onCoverTap(e) {
     if (this.data.saving) return;
     const index = Number(e.currentTarget.dataset.index);
@@ -370,7 +364,7 @@ Page({
     this.applySlots(next);
   },
 
-  /** Twemoji 图文确认框（替代系统 Modal） */
+  /** IconPark 图文确认框（替代系统 Modal） */
   confirmAsync(content, options = {}) {
     const {
       title = '确认保存',
@@ -503,8 +497,12 @@ Page({
   },
 
   onSaveOrRedeem(e) {
-    if (!this.data.downloadReady) {
+    if (!this.data.canSaveStatic) {
       this.goRedeem();
+      return;
+    }
+    if (!this.data.downloadReady) {
+      wx.showToast({ title: '积分不够保存动态，请切回静态', icon: 'none' });
       return;
     }
     const index = Number(e.currentTarget.dataset.index);
@@ -536,6 +534,8 @@ Page({
     });
 
     const url = res.data && res.data.url;
+    const fromVip = Number((res.data && res.data.fromVip) || 0);
+    const fromPoints = Number((res.data && res.data.fromPoints) || 0);
     if (!url) throw new Error('未获取到下载链接');
 
     if (res.data.entitlement) {
@@ -543,7 +543,12 @@ Page({
       this.refreshEntitlementUi();
     }
 
-    await saveRemoteImageToAlbum(url);
+    try {
+      await saveRemoteImageToAlbum(url);
+    } catch (saveErr) {
+      await this.refundDownloadCharge(fromVip, fromPoints);
+      throw saveErr;
+    }
 
     try {
       const report = await callFunction('reportDownload', {
@@ -561,11 +566,28 @@ Page({
 
     return {
       cost: Number((res.data && res.data.cost) || 0),
-      fromVip: Number((res.data && res.data.fromVip) || 0),
-      fromPoints: Number((res.data && res.data.fromPoints) || 0),
+      fromVip,
+      fromPoints,
       grantType: (res.data && res.data.grantType) || '',
       variant,
     };
+  },
+
+  async refundDownloadCharge(fromVip, fromPoints) {
+    if (!fromVip && !fromPoints) return;
+    try {
+      const refund = await callFunction('getEmojiDownload', {
+        action: 'refund',
+        fromVip,
+        fromPoints,
+      });
+      if (refund.entitlement) {
+        setCachedEntitlement(refund.entitlement);
+        this.refreshEntitlementUi();
+      }
+    } catch (refundErr) {
+      console.warn('[refundDownload]', refundErr.message || refundErr);
+    }
   },
 
   formatSaveTip(stat) {
@@ -655,17 +677,11 @@ Page({
     }
 
     if (!estimate.canAll) {
-      const ok = await this.confirmAsync(
-        `余额约 ${estimate.spendable} 积分，只够保存 ${estimate.maxCount} / ${indexes.length} 张（每张 ${estimate.cost} 积分）。是否先保存能付的部分？`,
-        { title: '积分不太够哦', icon: CONFIRM_ICONS.warn, okText: '先保存能付的' },
+      await this.confirmAsync(
+        `余额约 ${estimate.spendable} 积分，只够保存 ${estimate.maxCount} / ${indexes.length} 张（每张 ${estimate.cost} 积分）。请取消部分勾选后再保存。`,
+        { title: '积分不太够哦', icon: CONFIRM_ICONS.warn, okText: '去重选' },
       );
-      if (!ok) return;
-      indexes = indexes.slice(0, estimate.maxCount);
-      estimate = estimateBatchAffordable(
-        getCachedEntitlement(),
-        variant,
-        indexes.length,
-      );
+      return;
     }
 
     const kindLabel = this.data.hasAnimAny

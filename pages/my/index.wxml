@@ -304,6 +304,7 @@
   bind:cancel="onLookupCancel"
 >
   <view slot="content" class="my__lookup">
+    <image class="my__lookup-art" src="/static/emoji/search.png" mode="aspectFit" />
     <t-input
       borderless
       placeholder="粘贴作品 ID"
@@ -331,6 +332,7 @@
       />
     </view>
     <scroll-view scroll-y class="my__guide-scroll" enhanced show-scrollbar="{{false}}">
+      <image class="my__guide-art" src="/static/emoji/guide.png" mode="aspectFit" />
       <view class="my__guide-tip">
         趣集负责把原图保存到相册；导入微信需在微信里完成下面几步（不同系统文案可能略有差异）。
       </view>
@@ -369,6 +371,7 @@
         bind:tap="closeFeedback"
       />
     </view>
+    <image class="my__feedback-art" src="/static/emoji/feedback.png" mode="aspectFit" />
     <view class="my__feedback-desc">我们会认真阅读每条建议，也可留下联系方式方便回访</view>
     <t-textarea
       t-class="my__feedback-textarea"
@@ -464,20 +467,36 @@
         </view>
         <view class="my__pricing-card-side">
           <text class="my__pricing-card-price">{{item.price}}</text>
-          <t-button
-            wx:if="{{isAdmin}}"
-            t-class="my__pricing-card-btn"
-            size="extra-small"
-            theme="light"
-            variant="base"
-            shape="round"
-            loading="{{genCodeKey === item.key}}"
-            disabled="{{!!genCodeKey}}"
-            content="{{genCodeKey === item.key ? '生成中' : '生成兑换码'}}"
-            data-key="{{item.key}}"
-            data-kind="vip"
-            bind:tap="onAdminGenPlanCode"
-          />
+          <view class="my__pricing-card-actions">
+            <t-button
+              wx:if="{{pricing.virtualPayEnabled}}"
+              t-class="my__pricing-card-btn"
+              size="extra-small"
+              theme="primary"
+              variant="base"
+              shape="round"
+              loading="{{buyingKey === item.key}}"
+              disabled="{{!!buyingKey || !!genCodeKey}}"
+              content="{{buyingKey === item.key ? '支付中' : '购买'}}"
+              data-key="{{item.key}}"
+              data-kind="vip"
+              bind:tap="onBuyPlan"
+            />
+            <t-button
+              wx:if="{{isAdmin}}"
+              t-class="my__pricing-card-btn"
+              size="extra-small"
+              theme="light"
+              variant="base"
+              shape="round"
+              loading="{{genCodeKey === item.key}}"
+              disabled="{{!!genCodeKey || !!buyingKey}}"
+              content="{{genCodeKey === item.key ? '生成中' : '兑码'}}"
+              data-key="{{item.key}}"
+              data-kind="vip"
+              bind:tap="onAdminGenPlanCode"
+            />
+          </view>
         </view>
       </view>
 
@@ -502,20 +521,36 @@
         </view>
         <view class="my__pricing-card-side">
           <text class="my__pricing-card-price">{{item.price}}</text>
-          <t-button
-            wx:if="{{isAdmin}}"
-            t-class="my__pricing-card-btn"
-            size="extra-small"
-            theme="light"
-            variant="base"
-            shape="round"
-            loading="{{genCodeKey === item.key}}"
-            disabled="{{!!genCodeKey}}"
-            content="{{genCodeKey === item.key ? '生成中' : '生成兑换码'}}"
-            data-key="{{item.key}}"
-            data-kind="points"
-            bind:tap="onAdminGenPlanCode"
-          />
+          <view class="my__pricing-card-actions">
+            <t-button
+              wx:if="{{pricing.virtualPayEnabled}}"
+              t-class="my__pricing-card-btn"
+              size="extra-small"
+              theme="primary"
+              variant="base"
+              shape="round"
+              loading="{{buyingKey === item.key}}"
+              disabled="{{!!buyingKey || !!genCodeKey}}"
+              content="{{buyingKey === item.key ? '支付中' : '购买'}}"
+              data-key="{{item.key}}"
+              data-kind="points"
+              bind:tap="onBuyPlan"
+            />
+            <t-button
+              wx:if="{{isAdmin}}"
+              t-class="my__pricing-card-btn"
+              size="extra-small"
+              theme="light"
+              variant="base"
+              shape="round"
+              loading="{{genCodeKey === item.key}}"
+              disabled="{{!!genCodeKey || !!buyingKey}}"
+              content="{{genCodeKey === item.key ? '生成中' : '兑码'}}"
+              data-key="{{item.key}}"
+              data-kind="points"
+              bind:tap="onAdminGenPlanCode"
+            />
+          </view>
         </view>
       </view>
 

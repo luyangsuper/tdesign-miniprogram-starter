@@ -1,0 +1,10 @@
+{
+  "name": "virtualPayNotify",
+  "version": "1.0.0",
+  "description": "虚拟支付发货 / 退款消息推送",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

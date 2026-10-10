@@ -1,15 +1,15 @@
-# Pricing card icons
+# Pricing card illustrations
 
-Graphics from [Twemoji](https://github.com/twitter/twemoji) 14.0.2.
+Graphics from [IconPark](https://iconpark.oceanengine.com/) two-tone PNG.
 
-- Code: MIT
-- Graphics: **CC-BY 4.0** — attribution: © Twitter / Twemoji contributors
+- License: **Apache-2.0**
+- Regenerate: `npm run icons:gen`
 
-| File | Emoji | Codepoint |
-|------|-------|-----------|
-| month.png | 📅 | 1f4c5 |
-| quarter.png | 🎟️ admission ticket | 1f39f |
-| year.png | 👑 | 1f451 |
-| points.png | 🎁 | 1f381 |
-| points2.png | 💰 | 1f4b0 |
-| points3.png | 🌟 | 1f31f |
+| File | IconPark | Use |
+|------|----------|-----|
+| month.png | CalendarThirty | 包月 |
+| quarter.png | Schedule | 季卡 |
+| year.png | Crown | 年卡 |
+| points.png | Gift | 积分包1 |
+| points2.png | Diamond | 积分包2 |
+| points3.png | Star | 积分包3 |

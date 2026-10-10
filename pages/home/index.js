@@ -69,7 +69,8 @@ Page({
     applyThemeToTabBar();
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
-      bar.setData({ value: 'home' });
+      if (typeof bar.setSelected === 'function') bar.setSelected('home');
+      else bar.setData({ value: 'home' });
       if (typeof bar.syncTheme === 'function') bar.syncTheme();
     }
     this.refreshAdmin();

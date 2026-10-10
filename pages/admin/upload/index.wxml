@@ -107,7 +107,6 @@
       variant="outline"
       size="medium"
       block
-      icon="browse"
       content="从相册选择"
       bind:tap="pickPreviewFromAlbum"
     />
@@ -151,7 +150,10 @@
         </view>
       </view>
     </view>
-    <view class="file-grid__empty" wx:else bindtap="pickPreviewFromAlbum">点击上方按钮选择预览图</view>
+    <view class="file-grid__empty" wx:else bindtap="pickPreviewFromAlbum">
+      <image class="file-grid__empty-art" src="/static/emoji/eyes.png" mode="aspectFit" />
+      <text class="file-grid__empty-text">点击上方按钮选择预览图</text>
+    </view>
   </view>
 
   <view class="block block--file block--warn">
@@ -162,11 +164,10 @@
     <view class="block__tip">相册多选；拖到与预览相同序号即可配对。</view>
     <t-button
       t-class="pick-btn"
-      theme="warning"
+      theme="primary"
       variant="outline"
       size="medium"
       block
-      icon="file-image"
       content="从相册选择静态原图"
       bind:tap="pickEmojiFromAlbum"
     />
@@ -210,7 +211,10 @@
         </view>
       </view>
     </view>
-    <view class="file-grid__empty" wx:else bindtap="pickEmojiFromAlbum">点击上方按钮选择静态原图</view>
+    <view class="file-grid__empty" wx:else bindtap="pickEmojiFromAlbum">
+      <image class="file-grid__empty-art" src="/static/emoji/static.png" mode="aspectFit" />
+      <text class="file-grid__empty-text">点击上方按钮选择静态原图</text>
+    </view>
   </view>
 
   <view class="block block--file">
@@ -225,7 +229,6 @@
       variant="outline"
       size="medium"
       block
-      icon="gif"
       content="从相册选择动态原图"
       bind:tap="pickAnimFromAlbum"
     />
@@ -269,7 +272,23 @@
         </view>
       </view>
     </view>
-    <view class="file-grid__empty" wx:else bindtap="pickAnimFromAlbum">可选：点击选择动态原图</view>
+    <view class="file-grid__empty" wx:else bindtap="pickAnimFromAlbum">
+      <image class="file-grid__empty-art" src="/static/emoji/anim.png" mode="aspectFit" />
+      <text class="file-grid__empty-text">可选：点击选择动态原图</text>
+    </view>
+  </view>
+
+  <view class="block">
+    <view class="block__label">订阅通知</view>
+    <view class="block__tip block__tip--tight">{{notifyHint}}</view>
+    <view class="upload-page__notify-row">
+      <text class="upload-page__notify-label">保存后通知已订阅用户</text>
+      <t-switch
+        value="{{notifySubscribers}}"
+        disabled="{{submitting || loadingPack}}"
+        bind:change="onNotifyChange"
+      />
+    </view>
   </view>
 
   <view class="upload-page__actions">
@@ -281,7 +300,7 @@
       disabled="{{submitting || loadingPack}}"
       bindtap="onSubmit"
     >
-      {{isEdit ? '保存修改' : '发布合集'}}
+      {{isEdit ? (notifySubscribers ? '保存并通知' : '保存修改') : (notifySubscribers ? '发布并通知' : '发布合集')}}
     </t-button>
   </view>
 

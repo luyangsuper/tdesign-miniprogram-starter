@@ -1,5 +1,11 @@
 const cloud = require('wx-server-sdk');
-const { consumeDownload, syncVipMonthQuota } = require('./membership');
+const {
+  buildEntitlement,
+  consumeDownload,
+  downloadCost,
+  refundDownload,
+  syncVipMonthQuota,
+} = require('./membership');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -9,6 +15,7 @@ const _ = db.command;
 /**
  * 下发一张原图临时链接。
  * 鉴权：本月包月额度 → 购买积分（广告通道关闭）。
+ * 先确认原图可下发，再扣费；相册保存失败可 action=refund 原路退回。
  * 不增加 packs.downloadCount（相册保存成功后由 reportDownload 负责）。
  */
 
@@ -33,32 +40,66 @@ async function ensureUser(openid) {
   }
 }
 
-/**
- * @returns {{ ok: true, grantType: string, cost: number, entitlement: object } | { ok: false, code: string, message: string, entitlement?: object }}
- */
-async function authorizeDownload(openid, variant) {
+function denyGrant(user, variant) {
+  const cost = downloadCost(variant);
+  const vipMonthQuota = Math.max(0, Number(user.vipMonthQuota) || 0);
+  const points = Math.max(0, Number(user.points) || 0);
+  const kind = variant === 'anim' ? '动态' : '静态';
+  return {
+    ok: false,
+    code: 'NO_GRANT',
+    message:
+      vipMonthQuota + points > 0
+        ? `积分不足：${kind}需 ${cost} 积分，本月额度 ${vipMonthQuota}、积分 ${points}`
+        : '暂无法下载，请兑换包月会员或积分',
+    entitlement: buildEntitlement(user),
+  };
+}
+
+function canAfford(user, variant) {
+  const cost = downloadCost(variant);
+  const vipMonthQuota = Math.max(0, Number(user.vipMonthQuota) || 0);
+  const points = Math.max(0, Number(user.points) || 0);
+  return vipMonthQuota + points >= cost;
+}
+
+async function handleRefund(openid, event) {
+  const fromVip = Number(event.fromVip) || 0;
+  const fromPoints = Number(event.fromPoints) || 0;
   const { ref, data: user } = await ensureUser(openid);
   const synced = await syncVipMonthQuota(ref, user, db.serverDate());
-  return consumeDownload(ref, synced, variant, _, db.serverDate());
+  return refundDownload(ref, synced, fromVip, fromPoints, _, db.serverDate());
 }
 
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
-  const packId = event.packId;
-  const index = Number(event.index);
-  const variant = event.variant === 'anim' ? 'anim' : 'static';
 
   if (!OPENID) {
     return { ok: false, code: 'NO_OPENID', message: '请先登录' };
   }
+
+  if (event.action === 'refund') {
+    try {
+      return await handleRefund(OPENID, event);
+    } catch (e) {
+      console.error(e);
+      return { ok: false, code: 'REFUND_FAIL', message: e.message || '退回积分失败' };
+    }
+  }
+
+  const packId = event.packId;
+  const index = Number(event.index);
+  const variant = event.variant === 'anim' ? 'anim' : 'static';
+
   if (!packId || Number.isNaN(index) || index < 0) {
     return { ok: false, code: 'BAD_PARAM', message: '参数错误' };
   }
 
   try {
-    const auth = await authorizeDownload(OPENID, variant);
-    if (!auth.ok) {
-      return auth;
+    const { ref, data: user } = await ensureUser(OPENID);
+    const synced = await syncVipMonthQuota(ref, user, db.serverDate());
+    if (!canAfford(synced, variant)) {
+      return denyGrant(synced, variant);
     }
 
     const doc = await db.collection('packs').doc(packId).get();
@@ -85,6 +126,13 @@ exports.main = async (event) => {
     const item = (temp.fileList || [])[0];
     if (!item || !item.tempFileURL) {
       return { ok: false, code: 'URL_FAIL', message: '获取下载链接失败' };
+    }
+
+    const freshSnap = await ref.get();
+    const freshUser = { ...synced, ...(freshSnap.data || {}) };
+    const auth = await consumeDownload(ref, freshUser, variant, _, db.serverDate());
+    if (!auth.ok) {
+      return auth;
     }
 
     return {

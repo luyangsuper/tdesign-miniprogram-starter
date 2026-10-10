@@ -57,6 +57,13 @@
     height: 88rpx !important;
     --td-avatar-bg-color: var(--td-brand-color-light);
     --td-avatar-content-color: var(--td-brand-color);
+
+    /* Pixabot 像素风，避免被模糊成糊块 */
+    image,
+    .t-image__img {
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+    }
   }
 
   &__info {
@@ -400,9 +407,9 @@
 }
 
 .my__pricing-card-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 20rpx;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 22rpx;
   background: var(--plan-icon-bg);
   display: flex;
   align-items: center;
@@ -411,8 +418,8 @@
 }
 
 .my__pricing-card-emoji {
-  width: 48rpx;
-  height: 48rpx;
+  width: 56rpx;
+  height: 56rpx;
 }
 
 .my__pricing-card-main {
@@ -466,6 +473,15 @@
   line-height: 1.2;
 }
 
+.my__pricing-card-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10rpx;
+}
+
 .my__pricing-card-btn {
   /* 纯色浅底：关掉 TDesign 默认 ::after 描边 */
   --td-button-border-width: 0 !important;
@@ -474,11 +490,12 @@
   --td-button-light-active-bg-color: var(--plan-accent-soft) !important;
   --td-button-light-border-color: var(--plan-icon-bg) !important;
   --td-button-light-active-border-color: var(--plan-accent-soft) !important;
-  --td-button-extra-small-padding-horizontal: 16rpx !important;
+  --td-button-extra-small-padding-horizontal: 14rpx !important;
   border: 0 solid transparent !important;
   margin: 0 !important;
   font-weight: 600 !important;
   overflow: hidden !important;
+  flex-shrink: 0;
 
   &::after {
     border: none !important;
@@ -633,8 +650,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16rpx;
   width: 100%;
   box-sizing: border-box;
+}
+
+.my__feedback-art {
+  display: block;
+  width: 96rpx;
+  height: 96rpx;
+  margin: 12rpx auto 4rpx;
 }
 
 .my__feedback-title {
@@ -732,10 +757,20 @@
 }
 
 .my__lookup {
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16rpx;
+  padding: 4rpx 0 0;
   --td-input-vertical-padding: 8rpx;
   --td-input-border-left-space: 12rpx;
   --td-input-border-right-space: 12rpx;
+}
+
+.my__lookup-art {
+  width: 96rpx;
+  height: 96rpx;
+  margin: 0 auto;
 }
 
 .my__guide {
@@ -774,6 +809,13 @@
   max-height: 62vh;
   padding: 0 28rpx 28rpx;
   box-sizing: border-box;
+}
+
+.my__guide-art {
+  display: block;
+  width: 96rpx;
+  height: 96rpx;
+  margin: 4rpx auto 16rpx;
 }
 
 .my__guide-tip {

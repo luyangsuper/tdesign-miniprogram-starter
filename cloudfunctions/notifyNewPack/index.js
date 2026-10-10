@@ -130,6 +130,19 @@ exports.main = async (event) => {
       }
     }
 
+    if (packId) {
+      try {
+        await db.collection('packs').doc(packId).update({
+          data: {
+            notifiedAt: Date.now(),
+            updatedAt: db.serverDate(),
+          },
+        });
+      } catch (markErr) {
+        console.warn('[notifyNewPack] mark notifiedAt', markErr.message || markErr);
+      }
+    }
+
     return { ok: true, data: { sent, skipped, total: users.length } };
   } catch (e) {
     console.error(e);

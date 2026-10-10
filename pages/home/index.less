@@ -261,6 +261,17 @@
     animation: home-fade-in 0.22s ease both;
   }
 
+  &__empty {
+    --td-empty-icon-size: 180rpx;
+    --td-empty-description-color: var(--td-text-color-placeholder);
+    padding: 80rpx 48rpx 48rpx;
+  }
+
+  &__empty-img {
+    width: 180rpx !important;
+    height: 180rpx !important;
+  }
+
   &__subscribe {
     padding: 40rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
     background: var(--td-bg-color-container);

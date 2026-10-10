@@ -17,6 +17,13 @@ function assertAdmin(openid) {
   return getAdminList().includes(openid);
 }
 
+function toMs(value) {
+  if (!value) return 0;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 async function toUrlMap(fileIds) {
   const urlMap = {};
   const list = (fileIds || []).filter(Boolean);
@@ -95,6 +102,7 @@ exports.main = async (event) => {
         previewFiles: mapFiles(pack.previewFileIDs),
         emojiFiles: mapFiles(pack.emojiFileIDs),
         emojiAnimFiles,
+        notifiedAt: toMs(pack.notifiedAt),
       },
     };
   } catch (e) {

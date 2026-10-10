@@ -127,6 +127,29 @@ async function consumeDownload(ref, user, variant, command, serverDate) {
   };
 }
 
+/**
+ * 保存失败时退回本次扣费（额度 / 购买积分原路返回）。
+ */
+async function refundDownload(ref, user, fromVip, fromPoints, command, serverDate) {
+  const vip = Math.max(0, Math.floor(Number(fromVip) || 0));
+  const pts = Math.max(0, Math.floor(Number(fromPoints) || 0));
+  if (!vip && !pts) {
+    return { ok: true, entitlement: buildEntitlement(user || {}) };
+  }
+
+  const data = { updatedAt: serverDate };
+  if (vip) data.vipMonthQuota = command.inc(vip);
+  if (pts) data.points = command.inc(pts);
+  await ref.update({ data });
+
+  const nextUser = {
+    ...(user || {}),
+    vipMonthQuota: Math.max(0, Number((user && user.vipMonthQuota) || 0)) + vip,
+    points: Math.max(0, Number((user && user.points) || 0)) + pts,
+  };
+  return { ok: true, entitlement: buildEntitlement(nextUser) };
+}
+
 module.exports = {
   MONTHLY_QUOTA,
   COST,
@@ -135,4 +158,5 @@ module.exports = {
   buildEntitlement,
   syncVipMonthQuota,
   consumeDownload,
+  refundDownload,
 };

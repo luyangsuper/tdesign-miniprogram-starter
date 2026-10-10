@@ -14,6 +14,7 @@ import {
   setCachedEntitlement,
 } from '~/utils/entitlement';
 import { getPricingPlans } from '~/utils/pricing';
+import { buyPlan } from '~/utils/virtualPay';
 import { createAndCopyCode } from '~/utils/redeemCode';
 import { resolveDisplayAvatarUrl } from '~/utils/avatar';
 import config from '~/config';
@@ -59,6 +60,7 @@ Page({
     pricingVisible: false,
     serviceWechat: config.serviceWechat || 'Shine_Luyang',
     genCodeKey: '',
+    buyingKey: '',
     redeemCode: '',
     redeeming: false,
     lookupVisible: false,
@@ -83,7 +85,7 @@ Page({
       },
       {
         title: '获取下载权限',
-        desc: '在「我的」兑换包月（每月 36 积分，月底清零）或购买积分（静态 1 积分 / 动态 2 积分）。',
+        desc: '在「我的」购买或兑换包月（每月 36 积分，月底清零）与积分（静态 1 积分 / 动态 2 积分）。',
       },
       {
         title: '保存原图到相册',
@@ -109,7 +111,8 @@ Page({
     applyThemeToTabBar();
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
-      bar.setData({ value: 'my' });
+      if (typeof bar.setSelected === 'function') bar.setSelected('my');
+      else bar.setData({ value: 'my' });
       if (typeof bar.syncTheme === 'function') bar.syncTheme();
     }
     this.refreshIdentity();
@@ -161,9 +164,50 @@ Page({
     });
   },
 
+  async onBuyPlan(e) {
+    if (this.data.buyingKey || this.data.genCodeKey) return;
+    const key = e.currentTarget.dataset.key;
+    const kind = e.currentTarget.dataset.kind;
+    const pricing = this.data.pricing || getPricingPlans();
+    if (!pricing.virtualPayEnabled) {
+      wx.showToast({ title: '暂未开通在线购买', icon: 'none' });
+      return;
+    }
+    const list = kind === 'points' ? pricing.pointPlans : pricing.vipPlans;
+    const plan = (list || []).find((p) => p.key === key);
+    if (!plan) return;
+
+    this.setData({ buyingKey: key });
+    wx.showLoading({ title: '下单中', mask: true });
+    try {
+      const result = await buyPlan(plan);
+      wx.hideLoading();
+      if (result && result.entitlement) {
+        setCachedEntitlement(result.entitlement);
+        this.refreshIdentity();
+      }
+      await this.syncEntitlement();
+      wx.showToast({
+        title: (result && result.message) || '购买成功',
+        icon: 'success',
+      });
+    } catch (err) {
+      wx.hideLoading();
+      if (err && err.code === 'CANCEL') {
+        wx.showToast({ title: '已取消支付', icon: 'none' });
+      } else if (err && err.code === 'IOS_VERSION') {
+        /* modal already shown */
+      } else {
+        wx.showToast({ title: (err && err.message) || '购买失败', icon: 'none' });
+      }
+    } finally {
+      this.setData({ buyingKey: '' });
+    }
+  },
+
   async onAdminGenPlanCode(e) {
     if (!this.data.isAdmin && !resolveIsAdmin()) return;
-    if (this.data.genCodeKey) return;
+    if (this.data.genCodeKey || this.data.buyingKey) return;
     const key = e.currentTarget.dataset.key;
     const kind = e.currentTarget.dataset.kind;
     const pricing = this.data.pricing || getPricingPlans();
@@ -299,7 +343,7 @@ Page({
       serviceWechat: pricing.serviceWechat || config.serviceWechat || 'Shine_Luyang',
     };
 
-    // 无微信头像时用 DiceBear（openid 作 seed，每人固定一张）
+    // 无微信头像时用 Pixabot（openid 固定外形+色相）
     const nextAvatar = resolveDisplayAvatarUrl({
       avatarFileID: cached.avatarFileID || '',
       avatarUrl: cached.avatarUrl || '',

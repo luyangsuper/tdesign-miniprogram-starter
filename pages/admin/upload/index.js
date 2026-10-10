@@ -38,6 +38,10 @@ Page({
       lazy: true,
     },
     themeStyle: '',
+    /** 本次保存后是否推送订阅消息；默认关，排好序再开 */
+    notifySubscribers: false,
+    packNotifiedAt: 0,
+    notifyHint: '排好序、内容定稿后再开；关闭则只上架不推送',
   },
 
   onLoad(options) {
@@ -77,6 +81,13 @@ Page({
     try {
       const res = await callFunction('adminGetPack', { packId });
       const pack = res.data || {};
+      const packNotifiedAt = (() => {
+        const raw = pack.notifiedAt;
+        if (!raw) return 0;
+        if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+        const ms = new Date(raw).getTime();
+        return Number.isFinite(ms) ? ms : 0;
+      })();
       this.setData({
         title: pack.title || '',
         description: pack.description || '',
@@ -89,6 +100,9 @@ Page({
         previewFiles: this.withAutoSeq(pack.previewFiles || []),
         emojiFiles: this.withAutoSeq(pack.emojiFiles || []),
         emojiAnimFiles: this.withPreservedSeq(pack.emojiAnimFiles || []),
+        notifySubscribers: false,
+        packNotifiedAt,
+        notifyHint: this.buildNotifyHint(packNotifiedAt),
         loadingPack: false,
       });
       wx.hideLoading();
@@ -97,6 +111,18 @@ Page({
       wx.hideLoading();
       wx.showToast({ title: e.message || '加载失败', icon: 'none' });
     }
+  },
+
+  buildNotifyHint(notifiedAt) {
+    if (notifiedAt) {
+      return '该合集已通知过；再开开会再推一次给仍有额度的用户';
+    }
+    return '排好序、内容定稿后再开；关闭则只上架不推送';
+  },
+
+  onNotifyChange(e) {
+    const on = !!(e.detail && e.detail.value);
+    this.setData({ notifySubscribers: on });
   },
 
   onTitleChange(e) {
@@ -566,6 +592,25 @@ Page({
     this.doSubmit(paired);
   },
 
+  async sendNewPackNotify(targetPackId, payload, categoryId) {
+    const cat = (this.data.categories || []).find((c) => c.id === categoryId);
+    const notify = await callFunction('notifyNewPack', {
+      packId: targetPackId,
+      title: payload.title,
+      categoryName: (cat && cat.name) || '',
+      description: payload.description,
+      emojiCount: (payload.emojiFileIDs || []).length,
+    });
+    const sent = Number((notify.data && notify.data.sent) || 0);
+    const now = Date.now();
+    this.setData({
+      notifySubscribers: false,
+      packNotifiedAt: now,
+      notifyHint: this.buildNotifyHint(now),
+    });
+    return { sent, skipped };
+  },
+
   async doSubmit(paired) {
     const {
       packId,
@@ -578,8 +623,24 @@ Page({
       categoryId,
       coverWidth,
       coverHeight,
+      notifySubscribers,
+      packNotifiedAt,
     } = this.data;
     const wasEdit = isEdit;
+    const shouldNotify = !!notifySubscribers;
+
+    if (shouldNotify && packNotifiedAt) {
+      const ok = await new Promise((resolve) => {
+        wx.showModal({
+          title: '再次通知？',
+          content: '该合集已经通知过订阅用户。确认本次保存后再推送一次吗？',
+          confirmText: '再通知',
+          cancelText: '取消',
+          success: (r) => resolve(!!r.confirm),
+        });
+      });
+      if (!ok) return;
+    }
 
     this.setData({ submitting: true });
     wx.showLoading({ title: isEdit ? '保存中...' : '上传中...', mask: true });
@@ -638,33 +699,32 @@ Page({
         status: 'published',
       };
 
+      let savedPackId = packId;
       if (wasEdit) {
         await callFunction('adminUpdatePack', { ...payload, packId });
       } else {
         const created = await callFunction('adminCreatePack', payload);
         const newId = created && created.data && created.data._id;
         if (newId) {
+          savedPackId = newId;
           this.setData({ packId: newId, isEdit: true });
           wx.setClipboardData({ data: newId });
-          // 新发布：推送给已订阅用户（失败不影响发布）
-          try {
-            const cat = (this.data.categories || []).find(
-              (c) => c.id === categoryId,
-            );
-            const notify = await callFunction('notifyNewPack', {
-              packId: newId,
-              title: payload.title,
-              categoryName: (cat && cat.name) || '',
-              description: payload.description,
-              emojiCount: (payload.emojiFileIDs || []).length,
-            });
-            const sent = (notify.data && notify.data.sent) || 0;
-            if (sent > 0) {
-              console.log('[notifyNewPack] sent', sent);
-            }
-          } catch (notifyErr) {
-            console.warn('[notifyNewPack]', notifyErr.message || notifyErr);
-          }
+        }
+      }
+
+      let notifyTip = '';
+      if (shouldNotify && savedPackId) {
+        try {
+          wx.showLoading({ title: '通知中...', mask: true });
+          const { sent } = await this.sendNewPackNotify(
+            savedPackId,
+            payload,
+            categoryId,
+          );
+          notifyTip = sent > 0 ? `，已通知 ${sent} 人` : '，暂无订阅用户';
+        } catch (notifyErr) {
+          console.warn('[notifyNewPack]', notifyErr.message || notifyErr);
+          notifyTip = '，通知失败可稍后重试';
         }
       }
 
@@ -676,9 +736,9 @@ Page({
 
       wx.hideLoading();
       wx.showToast({
-        title: wasEdit ? '已保存' : '已发布，作品 ID 已复制',
+        title: `${wasEdit ? '已保存' : '已发布，作品 ID 已复制'}${notifyTip}`,
         icon: 'success',
-        duration: 2000,
+        duration: 2200,
       });
       setTimeout(() => {
         wx.navigateBack({

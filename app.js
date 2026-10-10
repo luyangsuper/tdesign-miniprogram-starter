@@ -35,7 +35,16 @@ App({
 
   async login() {
     try {
-      const res = await callFunction('login');
+      let code = '';
+      try {
+        const loginRes = await new Promise((resolve, reject) => {
+          wx.login({ success: resolve, fail: reject });
+        });
+        code = (loginRes && loginRes.code) || '';
+      } catch (e) {
+        /* 无 code 仍可静默拿 openid */
+      }
+      const res = await callFunction('login', code ? { code } : {});
       if (res.openid) {
         applyLoginResult(res);
         console.log('[login] openid ok, isAdmin =', res.isAdmin, 'nick =', res.nickName || '');

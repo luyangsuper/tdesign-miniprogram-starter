@@ -1,5 +1,6 @@
 const cloud = require('wx-server-sdk');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
+const { code2Session, saveSessionKey } = require('./session');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -125,6 +126,16 @@ exports.main = async (event = {}) => {
     user = await getOrCreateUser(OPENID, isAdmin);
   } catch (e) {
     console.warn('users upsert skip', e.message);
+  }
+
+  // 可选：前端传入 wx.login code，缓存 session_key 供虚拟支付签名
+  if (event.code) {
+    try {
+      const { sessionKey } = await code2Session(String(event.code), cloud);
+      await saveSessionKey(db, OPENID, sessionKey);
+    } catch (e) {
+      console.warn('login session cache', e.message || e);
+    }
   }
 
   const avatarUrl = await resolveAvatarUrl(user.avatarFileID || '');

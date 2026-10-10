@@ -74,25 +74,28 @@
     </view>
 
     <view class="detail__section">
-      <view class="detail__section-title">{{downloadReady ? '保存原图' : '原图预览'}}</view>
+      <view class="detail__section-title">{{canSaveStatic ? '保存原图' : '原图预览'}}</view>
       <view class="detail__hint">
         <block wx:if="{{downloadReady}}">
           {{entitlementHint}} · {{costHint}}
           点封面勾选，长按预览；也可点单张保存。
+        </block>
+        <block wx:elif="{{canSaveStatic}}">
+          当前积分不够保存动态图（需 2 积分）。可切回静态图（1 积分），或兑换更多积分。
         </block>
         <block wx:else>
           暂无法下载。可到「我的」查看定价并兑换包月 / 积分（静态 1 积分 / 动态 2 积分）。
         </block>
       </view>
 
-      <!-- 静/动切换：图标 + 说明，避免选错 -->
-      <view class="detail__variant" wx:if="{{hasAnimAny && downloadReady}}">
+      <!-- 静/动切换：图标 + 说明，避免选错；有静态额度时也要能切回来 -->
+      <view class="detail__variant" wx:if="{{hasAnimAny && canSaveStatic}}">
         <view
           class="detail__variant-card {{downloadVariant === 'static' ? 'detail__variant-card--active' : ''}}"
           data-value="static"
           bindtap="onVariantTap"
         >
-          <image class="detail__variant-emoji" src="/static/emoji/static.png" mode="aspectFit" />
+          <image class="detail__variant-art" src="/static/emoji/static.png" mode="aspectFit" />
           <view class="detail__variant-text">
             <text class="detail__variant-title">静态图</text>
             <text class="detail__variant-desc">静止原图 · 1 积分/张</text>
@@ -103,15 +106,15 @@
           data-value="anim"
           bindtap="onVariantTap"
         >
-          <image class="detail__variant-emoji" src="/static/emoji/anim.png" mode="aspectFit" />
+          <image class="detail__variant-art" src="/static/emoji/anim.png" mode="aspectFit" />
           <view class="detail__variant-text">
             <text class="detail__variant-title">动态图</text>
             <text class="detail__variant-desc">GIF 动图 · 2 积分/张</text>
           </view>
         </view>
       </view>
-      <view class="detail__variant-tip" wx:if="{{hasAnimAny && downloadReady}}">
-        当前保存：{{downloadVariant === 'anim' ? '动态 GIF' : '静态原图'}}（切换后请重新勾选）
+      <view class="detail__variant-tip" wx:if="{{hasAnimAny && canSaveStatic}}">
+        当前保存：{{downloadVariant === 'anim' ? '动态 GIF' : '静态原图'}}{{downloadReady ? '（切换后请重新勾选）' : ' · 积分不够，请切回静态'}}
       </view>
 
       <view class="detail__batch" wx:if="{{downloadReady}}">
@@ -225,6 +228,7 @@
     bind:cancel="closeRedeem"
   >
     <view slot="content" class="detail__redeem-body">
+      <image class="detail__redeem-art" src="/static/emoji/ticket.png" mode="aspectFit" />
       <t-input
         placeholder="请输入兑换码"
         value="{{redeemCode}}"

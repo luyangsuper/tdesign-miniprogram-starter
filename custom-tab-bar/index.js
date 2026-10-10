@@ -1,9 +1,18 @@
 import { resolveIsAdmin } from '~/utils/auth';
 import { getThemeBrand, getThemeStyle } from '~/utils/theme';
 
+function routeToValue(route) {
+  if (!route) return '';
+  if (route.indexOf('pages/home/') === 0) return 'home';
+  if (route.indexOf('pages/my/') === 0) return 'my';
+  return '';
+}
+
 Component({
   data: {
     value: '',
+    /** 首帧关闭过渡，避免新 tab 页实例从空态「跳」到选中 */
+    cold: true,
     themeStyle: '',
     brand: '#07C160',
     colorIdle: '#C8C3BD',
@@ -20,7 +29,19 @@ Component({
   },
   lifetimes: {
     attached() {
-      this.syncTheme();
+      const pages = getCurrentPages();
+      const cur = pages[pages.length - 1];
+      const value = routeToValue(cur && cur.route);
+      const brand = getThemeBrand();
+      const themeStyle = getThemeStyle();
+      const isAdmin = resolveIsAdmin();
+      this.setData({
+        value,
+        cold: true,
+        brand,
+        themeStyle,
+        isAdmin,
+      });
       this._onThemeChange = () => this.syncTheme();
       try {
         const app = getApp();
@@ -30,12 +51,10 @@ Component({
       }
     },
     ready() {
-      this.syncTheme();
-      const pages = getCurrentPages();
-      const curPage = pages[pages.length - 1];
-      if (!curPage || !curPage.route) return;
-      if (curPage.route.indexOf('pages/home/') === 0) this.setData({ value: 'home' });
-      else if (curPage.route.indexOf('pages/my/') === 0) this.setData({ value: 'my' });
+      // 等首帧画完再开过渡
+      setTimeout(() => {
+        if (this.data.cold) this.setData({ cold: false });
+      }, 60);
     },
     detached() {
       try {
@@ -51,32 +70,36 @@ Component({
   pageLifetimes: {
     show() {
       this.syncTheme();
+      const pages = getCurrentPages();
+      const cur = pages[pages.length - 1];
+      this.setSelected(routeToValue(cur && cur.route));
     },
   },
   methods: {
     syncTheme() {
-      this.setData({
-        themeStyle: getThemeStyle(),
-        brand: getThemeBrand(),
-        isAdmin: resolveIsAdmin(),
-      });
+      const themeStyle = getThemeStyle();
+      const brand = getThemeBrand();
+      const isAdmin = resolveIsAdmin();
+      const patch = {};
+      if (this.data.themeStyle !== themeStyle) patch.themeStyle = themeStyle;
+      if (this.data.brand !== brand) patch.brand = brand;
+      if (this.data.isAdmin !== isAdmin) patch.isAdmin = isAdmin;
+      if (Object.keys(patch).length) this.setData(patch);
     },
-    /** 先 setData 让指示条/缩放开启动画，再 switchTab（否则原生切页常把过渡掐掉） */
-    switchTabWithAnim(value, url) {
-      if (this.data.value === value) return;
+    /** 页面 onShow / 点击共用：相同值不刷新，避免闪一下 */
+    setSelected(value) {
+      if (!value || this.data.value === value) return;
       this.setData({ value });
-      const go = () => wx.switchTab({ url });
-      if (typeof wx.nextTick === 'function') {
-        wx.nextTick(() => setTimeout(go, 40));
-      } else {
-        setTimeout(go, 50);
-      }
     },
     onTapHome() {
-      this.switchTabWithAnim('home', '/pages/home/index');
+      if (this.data.value === 'home') return;
+      this.setData({ value: 'home' });
+      wx.switchTab({ url: '/pages/home/index' });
     },
     onTapMy() {
-      this.switchTabWithAnim('my', '/pages/my/index');
+      if (this.data.value === 'my') return;
+      this.setData({ value: 'my' });
+      wx.switchTab({ url: '/pages/my/index' });
     },
     onTapUpload() {
       if (!resolveIsAdmin()) return;

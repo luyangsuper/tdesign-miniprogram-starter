@@ -1,5 +1,5 @@
 {
   "permissions": {
-    "openapi": []
+    "openapi": ["auth.code2Session"]
   }
 }

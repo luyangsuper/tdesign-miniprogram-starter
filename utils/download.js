@@ -16,10 +16,12 @@ export function saveRemoteImageToAlbum(url) {
         wx.saveImageToPhotosAlbum({
           filePath: res.tempFilePath,
           success: resolve,
-          fail: reject,
+          fail: (err) =>
+            reject(new Error((err && (err.errMsg || err.message)) || '保存到相册失败')),
         });
       },
-      fail: reject,
+      fail: (err) =>
+        reject(new Error((err && (err.errMsg || err.message)) || '下载失败')),
     });
   });
 }

@@ -1,0 +1,10 @@
+{
+  "name": "createVirtualOrder",
+  "version": "1.0.0",
+  "description": "虚拟支付下单 / 查单确认发货",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

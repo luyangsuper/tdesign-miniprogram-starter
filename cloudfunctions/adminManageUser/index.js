@@ -42,10 +42,7 @@ async function resolveAvatarMap(fileIDs = []) {
   return map;
 }
 
-function defaultAvatarUrl(openid) {
-  const seed = encodeURIComponent(String(openid || 'guest').trim() || 'guest');
-  return `https://api.dicebear.com/9.x/fun-emoji/png?seed=${seed}&size=128`;
-}
+const { defaultAvatarUrl } = require('./avatar');
 
 function formatUser(doc, avatarMap = {}) {
   const data = doc || {};

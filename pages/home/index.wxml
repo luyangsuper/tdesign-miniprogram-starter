@@ -117,7 +117,12 @@
       </view>
 
       <view class="home__state" wx:else>
-        <t-empty description="没有找到合集，试试换个关键词或分类" />
+        <t-empty
+          t-class="home__empty"
+          t-class-image="home__empty-img"
+          image="/static/emoji/search.png"
+          description="没有找到合集，试试换个关键词或分类"
+        />
       </view>
     </t-pull-down-refresh>
   </view>

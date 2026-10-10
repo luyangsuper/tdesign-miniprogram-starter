@@ -15,17 +15,18 @@
 ```
 
 兑换码：管理员「兑换码管理」生成 → 用户「我的」兑换 → `users.vipExpireAt` / `users.points` / `users.vipMonthQuota`。  
+虚拟支付：用户在「我的」点「购买」→ `createVirtualOrder` 签名 → `wx.requestVirtualPayment` → 发货（消息推送 `virtualPayNotify` 或沙箱查单确认）→ 同套权益字段。  
 已发放权益可在「用户权益」取消包月 / 调整积分；未使用的码可在兑换码列表作废。
 
-### 建议定价（整包静≈¥2、动≈¥4）
+### 定价（与虚拟支付道具一致）
 
-| 商品 | 建议售价 | 说明 |
-|------|----------|------|
-| 包月 30 天 | ¥9.9 | 每月 36 积分（约 18 张动态），月底清零 |
-| 季卡 / 年卡 | ¥25 / ¥68 | 约 ¥8.3 / ¥5.7 每月 |
-| 积分 20 | ¥6 | ≈10 张动态或 20 张静态 |
-| 积分 60（赠 6） | ¥15 | 大包略赠 |
-| 积分 150（赠 20） | ¥30 | 囤积档 |
+| 商品 | 售价 | 道具 ID | 说明 |
+|------|------|---------|------|
+| 包月 30 天 | ¥10 | `vip_month` | 每月 36 积分（约 18 张动态），月底清零 |
+| 季卡 / 年卡 | ¥25 / ¥68 | `vip_quarter` / `vip_year` | 约 ¥8.3 / ¥5.7 每月 |
+| 积分 20 | ¥6 | `points_20` | ≈10 张动态或 20 张静态 |
+| 积分 60（赠 6） | ¥15 | `points_66` | 大包略赠 |
+| 积分 150（赠 20） | ¥30 | `points_170` | 囤积档 |
 
 单张积分通道略贵于整包均价，避免冲击整包网盘销售。
 
@@ -55,6 +56,7 @@
 | `categories` | 主题分类 |
 | `users` | 登录用户与权益（`vipExpireAt` / `vipMonthQuota` / `vipQuotaPeriod` / `points`）；订阅额度 `newPackNotifyCredits` / `feedbackNotifyCredits` |
 | `redeem_codes` | 兑换码（`vip_days` / `points`；`unused` / `used` / `disabled`） |
+| `orders` | 虚拟支付订单（`outTradeNo` / `productId` / `status` / `wxOrderId`） |
 | `download_logs` | 下载记录（含 `grantType`: vip / points） |
 | `feedback` | 用户意见反馈（`content` / `contact` / `status`） |
 
@@ -64,6 +66,7 @@
 - `redeem_codes`：`code`（唯一）；`status` + `createdAt`
 - `download_logs`：`createdAt`（降序）
 - `users`：`vipExpireAt`；`lastLoginAt`（降序，openid 片段搜索）
+- `orders`：`outTradeNo`（唯一）；`openid` + `createdAt`；`wxOrderId`
 
 **权限建议：** 集合对客户端「所有用户不可读写」，只走云函数。
 
@@ -74,6 +77,8 @@
 | 云函数 | 作用 |
 |--------|------|
 | `login` / `userEntitlement` | 登录、查询 / 兑换权益 |
+| `createVirtualOrder` | 虚拟支付下单签名 / 查单确认发货 |
+| `virtualPayNotify` | 虚拟支付发货消息推送（云开发消息推送绑定） |
 | `adminCreateCodes` | 批量生成兑换码 |
 | `adminManageCodes` | 兑换码列表 / 作废 |
 | `adminManageUser` | 查用户、取消包月、设天数 / 积分 |
@@ -81,11 +86,32 @@
 | `reportDownload` | 保存成功后 +1，并记录 `grantType` |
 | `userSubscribe` | 记录订阅消息发送额度（新合集 / 反馈） |
 | `submitFeedback` | 写入反馈；向有额度的管理员推订阅消息 |
-| `notifyNewPack` | 新合集上线推送给已订阅用户 |
+| `notifyNewPack` | 管理员在上传页勾选「保存后通知」时推送；写入 `packs.notifiedAt` |
 
 ### 4. 配置管理员
 
 「我的」复制 openid → 云函数环境变量 `ADMIN_OPENIDS` + `config.js` 的 `adminOpenids`。
+
+### 4.1 虚拟支付（沙箱 → 现网）
+
+1. MP 后台道具管理：开发版道具测试通过后 **发布现网**
+2. 云开发控制台创建集合 `orders`（权限仅云函数）
+3. 部署云函数（均选「云端安装依赖」）：`login`（已改）、`createVirtualOrder`、`virtualPayNotify`
+4. 云函数环境变量（至少配在 `createVirtualOrder`；`login` 也建议配 `WX_APP_SECRET`）：
+
+| 变量 | 说明 |
+|------|------|
+| `WX_APP_SECRET` | **必配**：MP → 开发 → 开发管理 → AppSecret（支付签名要 session_key） |
+| `VIRTUAL_PAY_OFFER_ID` | OfferId，如 `1450673547`（不配则用代码默认） |
+| `VIRTUAL_PAY_ENV` | `0` 现网（默认）/ `1` 沙箱 |
+| `VIRTUAL_PAY_APPKEY` | 现网 AppKey（建议配环境变量；代码内有默认） |
+| `VIRTUAL_PAY_APPKEY_SANDBOX` | 沙箱 AppKey（仅 `VIRTUAL_PAY_ENV=1` 时用） |
+
+5. 云开发 → 设置 → 消息推送：事件 `xpay_goods_deliver_notify` → 云函数 `virtualPayNotify`（沙箱可用支付 success 后查单/确认兜底）
+6. 沙箱测通后：道具「发布现网」→ `VIRTUAL_PAY_ENV=0` + 现网 AppKey → `config.js` 的 `virtualPay.env` 改为 `0`
+7. **真机**调试购买（模拟器通常拉不起虚拟支付）
+
+> AppKey / AppSecret 不要写进前端。若密钥曾出现在聊天记录，上线前建议在 MP 重置。
 
 ### 5. 订阅消息（新合集 + 管理员反馈通知）
 
@@ -93,6 +119,7 @@
    - **新合集**：已有 `config.subscribeNewPackTmplId`（thing1 作品名 / thing2 分类 / time3 时间 / thing4 简介）  
    - **反馈通知（仅管理员）**：模板「留言通知」`jYzc2X5SfzI89vwnNVGU00v3x4poeZhl9KIkiOaBvm4`（name1 留言人 / thing2 留言内容 / time3 留言时间），已写入 `config.subscribeFeedbackTmplId`
 2. 云函数 `submitFeedback` 可设环境变量 `SUBSCRIBE_FEEDBACK_TMPL_ID`（可选，默认同上）；并确认已勾选 `subscribeMessage.send`
+3. **新合集推送时机**：上传 / 编辑页底部「保存后通知已订阅用户」默认关闭。先发布或改排序再保存即可；内容定稿后打开开关再保存才会推送。已通知过的合集会提示，确认后可再推一次。
 4. 真机：管理员在「我的 → 反馈通知」点同意攒额度 → 用户提交反馈 → 管理员收到服务通知  
 5. 云开发控制台集合 `feedback` 可查看全部反馈正文
 
@@ -102,10 +129,11 @@
 
 `config.js` 的 `rewardedAdUnitId` 留空则无免费通道；无包月/积分时引导兑换。接好广告后再填广告位 ID。
 
-### 7. 默认头像（DiceBear）
+### 7. 默认头像（Pixabots）
 
-未选微信头像时，用 [DiceBear](https://www.dicebear.com/) 按 openid 固定生成可爱头像（`config.avatarStyle`，默认 `fun-emoji`）。  
-小程序后台 → 开发管理 → 服务器域名 → **downloadFile 合法域名** 增加：`https://api.dicebear.com`（开发期可勾选不校验合法域名）。
+未选微信头像时，用 [Pixabots](https://pixabots.com/browse) 按 openid 固定分配一只像素角色，并用色相拉开颜色差异。  
+小程序后台 → 开发管理 → 服务器域名 → **downloadFile 合法域名** 增加：`https://pixabots.com`（开发期可勾选不校验合法域名）。  
+否则头像会裂成「X」。
 
 ## 管理入口（「我的」管理员可见）
 
