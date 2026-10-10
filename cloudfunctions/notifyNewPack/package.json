@@ -1,0 +1,10 @@
+{
+  "name": "notifyNewPack",
+  "version": "1.0.0",
+  "description": "新合集发布订阅消息推送",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

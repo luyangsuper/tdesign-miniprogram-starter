@@ -1,0 +1,10 @@
+{
+  "name": "submitFeedback",
+  "version": "1.0.0",
+  "description": "用户意见反馈写入云数据库",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

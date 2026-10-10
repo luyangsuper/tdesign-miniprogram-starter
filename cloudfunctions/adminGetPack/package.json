@@ -1,0 +1,9 @@
+{
+  "name": "adminGetPack",
+  "version": "1.0.0",
+  "description": "管理员获取表情包详情用于编辑",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

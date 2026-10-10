@@ -1,0 +1,79 @@
+<view class="cat-page" style="{{themeStyle}}">
+  <view class="cat-page__tip">内置主题分类（海绵宝宝、哆啦A梦、库洛米、蜡笔小新）可改名不可删；可新增自定义分类，用于表情、壁纸等合集。</view>
+
+  <view class="cat-page__state" wx:if="{{loading}}">
+    <t-loading theme="circular" size="48rpx" text="加载中" />
+  </view>
+
+  <block wx:elif="{{categories.length}}">
+    <t-cell-group theme="card" t-class="cat-cell-group">
+      <t-cell
+        wx:for="{{categories}}"
+        wx:key="id"
+        title="{{item.name}}"
+        description="{{item.builtin ? '内置' : '自定义'}} · {{item.id}}"
+      >
+        <view slot="right-icon" class="cat-page__actions">
+          <t-button
+            size="extra-small"
+            variant="outline"
+            theme="primary"
+            content="改名"
+            data-id="{{item.id}}"
+            data-name="{{item.name}}"
+            catch:tap="openRename"
+          />
+          <t-button
+            wx:if="{{!item.builtin}}"
+            size="extra-small"
+            variant="outline"
+            theme="danger"
+            content="删除"
+            data-id="{{item.id}}"
+            data-name="{{item.name}}"
+            data-builtin="{{item.builtin}}"
+            catch:tap="onDelete"
+          />
+        </view>
+      </t-cell>
+    </t-cell-group>
+  </block>
+
+  <view class="cat-page__state" wx:else>
+    <t-empty description="暂无分类" />
+  </view>
+
+  <view class="cat-page__fab">
+    <t-button theme="primary" size="large" block icon="add" bind:tap="openAdd">
+      新增分类
+    </t-button>
+  </view>
+
+  <t-dialog
+    visible="{{dialogVisible}}"
+    title="{{dialogMode === 'add' ? '新增分类' : '重命名'}}"
+    confirm-btn="保存"
+    cancel-btn="取消"
+    bind:confirm="confirmDialog"
+    bind:cancel="closeDialog"
+  >
+    <view slot="content" class="cat-page__dialog-body">
+      <t-input
+        placeholder="例如 派大星"
+        value="{{newName}}"
+        maxlength="32"
+        bind:change="onNewNameChange"
+      />
+    </view>
+  </t-dialog>
+
+  <t-dialog
+    visible="{{deleteDialogVisible}}"
+    title="确认删除"
+    content="确定删除「{{deleteName}}」？相关合集将变为未分类，此操作不可恢复。"
+    confirm-btn="删除"
+    cancel-btn="取消"
+    bind:confirm="onConfirmDelete"
+    bind:cancel="onCancelDelete"
+  />
+</view>

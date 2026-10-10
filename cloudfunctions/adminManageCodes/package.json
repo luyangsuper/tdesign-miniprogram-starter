@@ -1,0 +1,10 @@
+{
+  "name": "adminManageCodes",
+  "version": "1.0.0",
+  "description": "管理员查询与作废兑换码",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -1,0 +1,65 @@
+<view
+  class="pack-card"
+  style="width: {{cardWidth}}px;"
+  hover-class="pack-card--press"
+  hover-start-time="20"
+  hover-stay-time="80"
+  bindtap="onTap"
+>
+  <view class="pack-card__media" style="height: {{mediaHeight}}px;">
+    <t-image
+      wx:if="{{coverUrl}}"
+      class="pack-card__image"
+      t-class="pack-card__t-image"
+      t-class-image="{{coverReady ? 'pack-card__img pack-card__img--ready' : 'pack-card__img'}}"
+      t-class-load="pack-card__load"
+      src="{{coverUrl}}"
+      mode="aspectFill"
+      shape="square"
+      lazy
+      loading="slot"
+      width="100%"
+      height="100%"
+      bind:load="onCoverLoad"
+    >
+      <view slot="loading" class="pack-card__skeleton" aria-hidden="true" />
+    </t-image>
+  </view>
+
+  <view class="pack-card__info">
+    <text class="pack-card__title">{{title}}</text>
+    <view class="pack-card__tag-group" wx:if="{{tags.length}}">
+      <t-tag
+        wx:for="{{tags}}"
+        wx:key="text"
+        size="small"
+        variant="light"
+        theme="{{item.theme}}"
+        custom-style="{{item.customStyle}}"
+      >
+        {{item.text}}
+      </t-tag>
+    </view>
+    <view class="pack-card__admin" wx:if="{{showAdmin}}" catchtap="noop">
+      <t-button
+        t-class="pack-card__admin-btn"
+        size="extra-small"
+        theme="primary"
+        variant="text"
+        icon="edit"
+        content="编辑"
+        bind:tap="onEdit"
+      />
+      <view class="pack-card__admin-split" aria-hidden="true" />
+      <t-button
+        t-class="pack-card__admin-btn pack-card__admin-btn--danger"
+        size="extra-small"
+        theme="danger"
+        variant="text"
+        icon="delete"
+        content="删除"
+        bind:tap="onDelete"
+      />
+    </view>
+  </view>
+</view>

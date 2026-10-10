@@ -1,0 +1,34 @@
+---
+description: emojiShare 必须优先使用 TDesign 小程序组件，禁止手写丑按钮/标签
+alwaysApply: true
+---
+
+# TDesign 优先（强制）
+
+本项目产品名「趣集」，内容叫「合集」（表情、壁纸等），UI 文案用「合集 / 预览 / 原图」，不要写死「仅表情包」或「图包」。
+
+UI **必须**用 `tdesign-miniprogram`。每次改页面/组件前先查 TDesign 是否有现成组件，有则只用它，不要自己画一套。
+
+## 硬性要求
+
+1. **先查文档再写样式**：https://tdesign.tencent.com/miniprogram/overview  
+2. 在页面/组件 `index.json` → `usingComponents` 引入，例如：
+   - 导航：`t-button`（`theme` / `variant` / `size` / `shape` / `icon`）
+   - 标签筛选：`t-check-tag` / `t-tag`（禁止手写圆角 view 当标签）
+   - 搜索：`t-search`（用 CSS 变量改底色，如 `--td-search-bg-color`）
+   - 导航/设置行：`t-cell` + `t-cell-group`
+   - 确认框：`t-dialog`；轻提示：`t-toast` / `t-message`
+   - 空态/加载：`t-empty` / `t-loading`
+   - 导航：`t-navbar`；底栏：`t-tab-bar`
+   - 上传/表单：`t-upload` / `t-input` / `t-textarea`
+   - 轮播：`t-swiper`
+3. **禁止**：用原生 `button`、手写色块「按钮」、自制胶囊分类条替代 `t-check-tag`。
+4. 仅当 TDesign **无对应能力**时才用原生（如 `image` 的 `widthFix`、`scroll-view` 横向滚动容器、云开发 API）。
+5. 业务组件（如 `pack-card`）内部也要组合 TDesign；外观跟官方示例/本仓库模板页（`pages/release`、`components/card`）对齐。
+6. 改样式优先调 **组件 API + CSS 变量**（`--td-*`），少写覆盖样式；覆盖时用 `t-class` / 文档推荐方式。
+
+## 反例 → 正例
+
+- ❌ `<view class="btn">删除</view>` → ✅ `<t-button theme="danger" variant="text" icon="delete" content="删除" />`
+- ❌ 自制蓝底白字分类 pill → ✅ `<t-check-tag checked content="哆啦A梦" />`
+- ❌ 裸 `input` 搜索框 → ✅ `<t-search shape="round" />`

@@ -1,0 +1,10 @@
+{
+  "name": "userEntitlement",
+  "version": "1.0.0",
+  "description": "查询权益 / 兑换码核销",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -1,55 +1,25 @@
 {
-  "pages": ["pages/home/index", "pages/message/index", "pages/my/index"],
-  "usingComponents": {
-    "t-toast": "tdesign-miniprogram/toast/toast"
-  },
+  "pages": ["pages/home/index", "pages/my/index"],
   "subpackages": [
     {
-      "root": "pages/search",
-      "name": "search",
-      "pages": ["index"]
+      "root": "pages/pack",
+      "name": "pack",
+      "pages": ["detail/index"]
     },
     {
-      "root": "pages/my/info-edit",
-      "name": "edit",
-      "pages": ["index"]
-    },
-    {
-      "root": "pages/chat",
-      "name": "chat",
-      "pages": ["index"]
-    },
-    {
-      "root": "pages/login",
-      "name": "login",
-      "pages": ["login"]
-    },
-    {
-      "root": "pages/loginCode",
-      "name": "loginCode",
-      "pages": ["loginCode"]
-    },
-    {
-      "root": "pages/dataCenter",
-      "name": "dataCenter",
-      "pages": ["index"]
-    },
-    {
-      "root": "pages/setting",
-      "name": "setting",
-      "pages": ["index"]
-    },
-    {
-      "root": "pages/release",
-      "name": "release",
-      "pages": ["index"]
+      "root": "pages/admin",
+      "name": "admin",
+      "pages": ["upload/index", "categories/index", "codes/index", "users/index"]
     }
   ],
+  "darkmode": true,
+  "themeLocation": "theme.json",
   "window": {
-    "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#fff",
-    "navigationBarTitleText": "Weixin",
-    "navigationBarTextStyle": "black"
+    "backgroundTextStyle": "@bgTextStyle",
+    "navigationBarBackgroundColor": "@navBgColor",
+    "navigationBarTitleText": "趣集",
+    "navigationBarTextStyle": "@navTextStyle",
+    "backgroundColor": "@bgColor"
   },
   "tabBar": {
     "custom": true,
@@ -57,10 +27,6 @@
       {
         "pagePath": "pages/home/index",
         "text": "首页"
-      },
-      {
-        "pagePath": "pages/message/index",
-        "text": "消息"
       },
       {
         "pagePath": "pages/my/index",
@@ -71,5 +37,6 @@
   "resolveAlias": {
     "~/*": "/*"
   },
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
 }

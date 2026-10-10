@@ -1,10 +1,246 @@
 @import '/variable.less';
 
-.custom-tab-bar {
-  --td-tab-bar-height: @tab-bar-height;
+@tab-float-h: 100rpx;
+@tab-plus-size: 112rpx;
 
-  &-item {
-    margin: 0;
-    padding: 16rpx 24rpx;
+.custom-tab-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
+  /* 顶部留出加号超出的空间，避免被裁切 */
+  padding: 24rpx 96rpx calc(14rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: transparent;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.tab-float {
+  position: relative;
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  height: @tab-float-h;
+  padding: 0 20rpx;
+  border-radius: 999px;
+  background: var(--td-bg-color-container);
+  box-shadow:
+    0 8rpx 28rpx rgba(0, 0, 0, 0.06),
+    0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+  overflow: visible;
+
+  /* 有加号：左右菜单略向两侧挪一点，不要顶到端点 */
+  &--admin {
+    .tab-item--home {
+      transform: translateX(-18rpx);
+    }
+
+    .tab-item--my {
+      transform: translateX(18rpx);
+    }
+
+    .tab-item--home.tab-item--press {
+      transform: translateX(-18rpx) scale(0.96);
+    }
+
+    .tab-item--my.tab-item--press {
+      transform: translateX(18rpx) scale(0.96);
+    }
+
+    .tab-indicator:not(.tab-indicator--right) .tab-indicator__thumb {
+      transform: translateX(-18rpx);
+    }
+
+    .tab-indicator--right .tab-indicator__thumb {
+      transform: translateX(18rpx);
+    }
   }
+}
+
+/* 半宽轨道 + translateX(100%)，比改 left 更顺滑（同 Tabs 指示条思路） */
+.tab-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 10rpx;
+  z-index: 1;
+  width: 50%;
+  height: 8rpx;
+  /* 不占 grid 轨道，避免挤乱左右菜单 */
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: transform 0.34s cubic-bezier(0.34, 1.3, 0.64, 1);
+  will-change: transform;
+
+  &--right {
+    transform: translateX(100%);
+  }
+}
+
+.tab-indicator__thumb {
+  width: 28rpx;
+  height: 6rpx;
+  border-radius: 999px;
+  transition:
+    background-color 0.28s ease,
+    width 0.28s ease,
+    transform 0.34s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+.tab-item {
+  position: relative;
+  z-index: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  gap: 6rpx;
+  min-width: 0;
+  padding: 8rpx 0 14rpx;
+  transition: opacity 0.18s ease, transform 0.28s cubic-bezier(0.34, 1.3, 0.64, 1);
+
+  &--home {
+    grid-column: 1;
+  }
+
+  &--my {
+    grid-column: 2;
+  }
+
+  &--press {
+    opacity: 0.75;
+    transform: scale(0.96);
+  }
+}
+
+/* 相对胶囊几何中心定位，不受左右栏内容影响 */
+.tab-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: @tab-plus-size;
+  height: @tab-plus-size;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &--press .tab-center__btn {
+    transform: scale(0.94);
+  }
+}
+
+.tab-center__btn {
+  width: @tab-plus-size;
+  height: @tab-plus-size;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.14);
+  transition: transform 0.18s ease;
+}
+
+/* 用两条线画加号，避免字体基线导致视觉不居中 */
+.tab-center__cross {
+  position: relative;
+  width: 44rpx;
+  height: 44rpx;
+}
+
+.tab-center__bar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: #fff;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+}
+
+.tab-center__bar--h {
+  width: 40rpx;
+  height: 5rpx;
+}
+
+.tab-center__bar--v {
+  width: 5rpx;
+  height: 40rpx;
+}
+
+.tab-icon {
+  position: relative;
+  width: 48rpx;
+  height: 48rpx;
+  display: block;
+  transform: scale(0.9);
+  transition: transform 0.34s cubic-bezier(0.34, 1.35, 0.64, 1);
+  will-change: transform;
+}
+
+.tab-icon--active {
+  transform: scale(1.16);
+}
+
+.tab-icon__img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48rpx;
+  height: 48rpx;
+  transition:
+    opacity 0.28s ease,
+    transform 0.34s cubic-bezier(0.34, 1.35, 0.64, 1);
+}
+
+.tab-icon__img--idle {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.tab-icon__img--active {
+  opacity: 0;
+  transform: scale(0.55);
+}
+
+.tab-icon--active .tab-icon__img--idle {
+  opacity: 0;
+  transform: scale(1.12);
+}
+
+.tab-icon--active .tab-icon__img--active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.tab-label {
+  display: block;
+  font-size: 22rpx;
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: 0.5rpx;
+  opacity: 0.72;
+  transform: scale(0.92);
+  transform-origin: center bottom;
+  transition:
+    color 0.28s ease,
+    opacity 0.28s ease,
+    font-weight 0.28s ease,
+    transform 0.34s cubic-bezier(0.34, 1.35, 0.64, 1);
+}
+
+.tab-item--active .tab-label {
+  font-weight: 500;
+  opacity: 1;
+  transform: scale(1.05);
 }

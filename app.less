@@ -1,9 +1,68 @@
-/**app.wxss**/
-page {
-  background-color: #f3f3f3;
+/** 全局样式：引入 TDesign Design Token，组件与页面随系统深浅色自动切换 */
+@import 'miniprogram_npm/tdesign-miniprogram/common/style/theme/_index.wxss';
+
+/* 主题色对齐微信绿 #07C160，覆盖 TDesign 默认品牌蓝 */
+page,
+.page {
+  --td-primary-color-1: #e8f8ef;
+  --td-primary-color-2: #c6f0d6;
+  --td-primary-color-3: #91e3b0;
+  --td-primary-color-4: #5ad68a;
+  --td-primary-color-5: #2dcc6f;
+  --td-primary-color-6: #1db85c;
+  --td-primary-color-7: #07c160;
+  --td-primary-color-8: #06ad56;
+  --td-primary-color-9: #058f47;
+  --td-primary-color-10: #046b36;
+  --td-brand-color: var(--td-primary-color-7);
+  --td-brand-color-focus: var(--td-primary-color-1);
+  --td-brand-color-active: var(--td-primary-color-8);
+  --td-brand-color-disabled: var(--td-primary-color-3);
+  --td-brand-color-light: var(--td-primary-color-1);
+  --td-brand-color-light-active: var(--td-primary-color-2);
+  --td-text-color-brand: var(--td-brand-color);
+  --td-text-color-link: var(--td-brand-color);
 }
 
+@media (prefers-color-scheme: dark) {
+  page,
+  .page {
+    --td-primary-color-1: #06351c;
+    --td-primary-color-2: #0a4a28;
+    --td-primary-color-3: #0d6335;
+    --td-primary-color-4: #117c43;
+    --td-primary-color-5: #159650;
+    --td-primary-color-6: #1aaf5e;
+    --td-primary-color-7: #07c160;
+    --td-primary-color-8: #38d07c;
+    --td-primary-color-9: #6ddc9c;
+    --td-primary-color-10: #a3e9c0;
+    --td-brand-color: var(--td-primary-color-7);
+    --td-brand-color-focus: var(--td-primary-color-1);
+    --td-brand-color-active: var(--td-primary-color-8);
+    --td-brand-color-disabled: var(--td-primary-color-3);
+    --td-brand-color-light: var(--td-primary-color-1);
+    --td-brand-color-light-active: var(--td-primary-color-2);
+  }
+}
+
+page {
+  background-color: var(--td-bg-color-page);
+  color: var(--td-text-color-primary);
+  --app-page-bg: var(--td-bg-color-page);
+  --app-card-bg: var(--td-bg-color-container);
+  --app-text: var(--td-text-color-primary);
+  --app-text-secondary: var(--td-text-color-secondary);
+  --app-text-placeholder: var(--td-text-color-placeholder);
+  --app-border: var(--td-component-border);
+  --app-brand: var(--td-brand-color);
+  --app-brand-light: var(--td-brand-color-light);
+  --app-warning: var(--td-warning-color);
+  --app-warning-light: var(--td-warning-color-light);
+}
+
+/* custom-tab-bar / 组件内需挂 .page 才能吃到同一套 token */
 .page {
-  height: 100vh;
-  background-color: #fff;
+  background-color: var(--td-bg-color-page);
+  color: var(--td-text-color-primary);
 }

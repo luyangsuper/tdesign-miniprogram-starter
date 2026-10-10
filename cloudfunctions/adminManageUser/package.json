@@ -1,0 +1,10 @@
+{
+  "name": "adminManageUser",
+  "version": "1.0.0",
+  "description": "管理员查询与调整用户 VIP / 下载次数",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

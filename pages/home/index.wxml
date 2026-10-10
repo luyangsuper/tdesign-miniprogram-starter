@@ -1,48 +1,163 @@
-<nav nav-type="search" />
-<view class="home-container">
-  <view class="home-content">
-    <t-tabs defaultValue="recommend">
-      <t-tab-panel label="推荐" value="recommend">
-        <t-pull-down-refresh
-          value="{{enable}}"
-          bind:refresh="onRefresh"
-          loadingTexts="{{['下拉刷新', '松手刷新', '正在刷新', '刷新完成']}}"
-        >
-          <view class="home-card-list">
-            <t-swiper
-              list="{{swiperList}}"
-              navigation="{{ { type: 'dots-bar' } }}"
-              height="488rpx"
-              style="width: 340rpx"
-            />
-            <card
-              wx:for="{{cardInfo}}"
-              wx:key="index"
-              desc="{{item.desc}}"
-              url="{{item.url}}"
-              tags="{{item.tags}}"
+<view class="home" style="{{themeStyle}}">
+  <t-navbar title="趣集" t-class="home__navbar" />
+
+  <!-- 搜索放进分类同一滚动行，避免与 scroll-view 兄弟节点垂直错位 -->
+  <view class="home__fixed" style="top: {{navHeight}}px;">
+    <scroll-view
+      class="home__toolbar"
+      scroll-x
+      enhanced
+      show-scrollbar="{{false}}"
+      enable-flex
+    >
+      <view class="home__toolbar-inner">
+        <view class="home__search {{searchExpanded ? 'home__search--open' : ''}}">
+          <view
+            class="home__search-fab"
+            hover-class="home__search-fab--press"
+            bindtap="openSearch"
+            aria-role="button"
+            aria-label="搜索"
+          >
+            <t-icon name="search" size="32rpx" />
+            <view wx:if="{{keyword && !searchExpanded}}" class="home__search-dot" aria-hidden="true" />
+          </view>
+          <view class="home__search-panel">
+            <view
+              class="home__search-collapse"
+              hover-class="home__search-collapse--press"
+              catchtap="closeSearch"
+              aria-role="button"
+              aria-label="收起搜索"
+            >
+              <t-icon name="chevron-left" size="32rpx" />
+            </view>
+            <t-search
+              t-class="home__search-input"
+              value="{{keyword}}"
+              shape="round"
+              placeholder="搜索合集"
+              clearable
+              focus="{{searchFocus}}"
+              bind:change="onSearchChange"
+              bind:submit="onSearchSubmit"
+              bind:clear="onSearchClear"
+              bind:blur="onSearchBlur"
             />
           </view>
-        </t-pull-down-refresh>
-      </t-tab-panel>
-      <t-tab-panel label="我的关注" value="follow">
-        <view class="home-card-list">
-          <card
-            wx:for="{{focusCardInfo}}"
-            wx:key="index"
-            desc="{{item.desc}}"
-            url="{{item.url}}"
-            tags="{{item.tags}}"
-          />
         </view>
-      </t-tab-panel>
-    </t-tabs>
+        <t-check-tag
+          wx:for="{{filters}}"
+          wx:key="id"
+          t-class="home__cat"
+          size="medium"
+          shape="round"
+          variant="light"
+          content=""
+          checked="{{item.id === categoryId}}"
+          data-id="{{item.id}}"
+          bind:change="onCategoryTap"
+        >
+          <view class="home__cat-inner">
+            <text class="home__cat-name">{{item.name}}</text>
+            <text
+              class="home__cat-count {{item.id === categoryId ? 'home__cat-count--show' : ''}}"
+            >{{item.id === categoryId ? listTotal : item.count}}</text>
+          </view>
+        </t-check-tag>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view
+    class="home__body"
+    style="padding-top: {{fixedOffset}}px; padding-left: {{listGap}}px; padding-right: {{listGap}}px;"
+  >
+    <t-pull-down-refresh
+      value="{{enable}}"
+      bind:refresh="onRefresh"
+      loadingTexts="{{['下拉刷新', '松手刷新', '正在刷新', '刷新完成']}}"
+    >
+      <block wx:if="{{!loading && list.length}}">
+        <view class="home__list" style="gap: {{listGap}}px;">
+          <view
+            class="home__col"
+            wx:for="{{columns}}"
+            wx:for-item="col"
+            wx:for-index="colIndex"
+            wx:key="colIndex"
+            style="width: {{cardWidth}}px; gap: {{rowGap}}px;"
+          >
+            <view class="home__item" wx:for="{{col}}" wx:for-item="item" wx:key="_id">
+              <pack-card
+                packId="{{item._id}}"
+                title="{{item.title}}"
+                coverUrl="{{item.coverUrl}}"
+                emojiCount="{{item.emojiCount}}"
+                downloadCount="{{item.downloadCount}}"
+                categoryId="{{item.categoryId}}"
+                categoryName="{{item.categoryName}}"
+                coverRatio="{{item.coverRatio}}"
+                cardWidth="{{cardWidth}}"
+                showAdmin="{{isAdmin}}"
+                bind:edit="onEditPack"
+                bind:delete="onDeletePack"
+              />
+            </view>
+          </view>
+        </view>
+        <view class="home__footer" wx:if="{{loadingMore}}">
+          <fun-loading size="small" variant="wave" funTips="{{false}}" text="加载更多" />
+        </view>
+        <view class="home__footer" wx:elif="{{!hasMore}}">共 {{listTotal}} 个合集</view>
+      </block>
+
+      <view class="home__state" wx:elif="{{loading}}">
+        <fun-loading />
+      </view>
+
+      <view class="home__state" wx:else>
+        <t-empty description="没有找到合集，试试换个关键词或分类" />
+      </view>
+    </t-pull-down-refresh>
   </view>
 </view>
 
-<view class="home-release">
-  <t-button theme="primary" size="large" icon="add" shape="round" bindtap="goRelease">
-    发布
-  </t-button>
-</view>
-<t-message id="t-message" />
+<t-dialog
+  visible="{{deleteDialogVisible}}"
+  title="确认删除"
+  content="确定删除「{{deleteTitle}}」？删除后不可恢复。"
+  confirm-btn="删除"
+  cancel-btn="取消"
+  bind:confirm="onConfirmDelete"
+  bind:cancel="onCancelDelete"
+/>
+
+<!-- 微信官方订阅弹窗须用户点击后才能调起；底部引导条承接「进首页提醒」体验 -->
+<t-popup
+  visible="{{subscribeGuideVisible}}"
+  placement="bottom"
+  bind:visible-change="onSubscribeGuideVisibleChange"
+>
+  <view class="home__subscribe">
+    <view class="home__subscribe-title">开启新合集提醒</view>
+    <view class="home__subscribe-desc">
+      有新表情 / 壁纸合集上线时，通过微信服务通知提醒你。可在弹窗中勾选「总是保持以上选择」。
+    </view>
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      content="开启提醒"
+      bind:tap="onSubscribeGuideConfirm"
+    />
+    <t-button
+      theme="default"
+      variant="text"
+      size="medium"
+      block
+      content="以后再说"
+      bind:tap="onSubscribeGuideLater"
+    />
+  </view>
+</t-popup>

@@ -1,0 +1,255 @@
+<view class="detail" style="{{themeStyle}}">
+  <view class="detail__state" wx:if="{{loading}}">
+    <fun-loading />
+  </view>
+
+  <block wx:elif="{{pack}}">
+  <view class="detail__body">
+  <view class="detail__hero" style="height: {{swiperHeight}}px;">
+    <t-swiper
+      wx:if="{{heroList.length}}"
+      list="{{heroList}}"
+      height="{{swiperHeight}}"
+      autoplay="{{false}}"
+      loop="{{heroList.length > 1}}"
+      navigation="{{swiperNav}}"
+      image-props="{{swiperImageProps}}"
+      current="{{heroCurrent}}"
+      bind:change="onHeroChange"
+      bind:click="onHeroClick"
+    />
+    <view class="detail__hero-placeholder" wx:else>
+      <text class="detail__hero-empty">暂无图片</text>
+    </view>
+  </view>
+
+    <view class="detail__info">
+      <view class="detail__title-row">
+        <view class="detail__title">{{pack.title}}</view>
+        <t-button
+          t-class="detail__share-btn"
+          size="small"
+          theme="light"
+          variant="base"
+          shape="round"
+          icon="share-1"
+          content="分享"
+          open-type="share"
+        />
+      </view>
+      <text class="detail__desc" wx:if="{{pack.description}}" user-select>{{pack.description}}</text>
+      <view class="detail__meta">
+        <text wx:if="{{pack.categoryName}}">{{pack.categoryName}} · </text>
+        共 {{pack.emojiCount}} 张
+      </view>
+      <view class="detail__entitlement">{{entitlementHint}}</view>
+
+      <!-- 管理员：作品 ID + 私有备注（普通用户不可见） -->
+      <block wx:if="{{isAdmin}}">
+        <view class="detail__id-row">
+          <text class="detail__id-label">作品 ID</text>
+          <text class="detail__id-value">{{packId}}</text>
+          <t-button
+            size="small"
+            variant="outline"
+            theme="primary"
+            content="复制 ID"
+            bind:tap="onCopyPackId"
+          />
+        </view>
+        <view class="detail__drive" wx:if="{{staticDriveUrl || animDriveUrl}}">
+          <view class="detail__drive-title">网盘链接（仅管理员）</view>
+          <view class="detail__drive-row" wx:if="{{staticDriveUrl}}">
+            <text class="detail__drive-label">静态</text>
+            <text class="detail__drive-url" user-select>{{staticDriveUrl}}</text>
+            <t-button size="small" variant="text" theme="primary" content="复制" data-kind="static" bind:tap="onCopyDrive" />
+          </view>
+          <view class="detail__drive-row" wx:if="{{animDriveUrl}}">
+            <text class="detail__drive-label">动态</text>
+            <text class="detail__drive-url" user-select>{{animDriveUrl}}</text>
+            <t-button size="small" variant="text" theme="primary" content="复制" data-kind="anim" bind:tap="onCopyDrive" />
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <view class="detail__section">
+      <view class="detail__section-title">{{downloadReady ? '保存原图' : '原图预览'}}</view>
+      <view class="detail__hint">
+        <block wx:if="{{downloadReady}}">
+          {{entitlementHint}} · {{costHint}}
+          点封面勾选，长按预览；也可点单张保存。
+        </block>
+        <block wx:else>
+          暂无法下载。可到「我的」查看定价并兑换包月 / 积分（静态 1 积分 / 动态 2 积分）。
+        </block>
+      </view>
+
+      <!-- 静/动切换：图标 + 说明，避免选错 -->
+      <view class="detail__variant" wx:if="{{hasAnimAny && downloadReady}}">
+        <view
+          class="detail__variant-card {{downloadVariant === 'static' ? 'detail__variant-card--active' : ''}}"
+          data-value="static"
+          bindtap="onVariantTap"
+        >
+          <image class="detail__variant-emoji" src="/static/emoji/static.png" mode="aspectFit" />
+          <view class="detail__variant-text">
+            <text class="detail__variant-title">静态图</text>
+            <text class="detail__variant-desc">静止原图 · 1 积分/张</text>
+          </view>
+        </view>
+        <view
+          class="detail__variant-card {{downloadVariant === 'anim' ? 'detail__variant-card--active detail__variant-card--anim' : ''}}"
+          data-value="anim"
+          bindtap="onVariantTap"
+        >
+          <image class="detail__variant-emoji" src="/static/emoji/anim.png" mode="aspectFit" />
+          <view class="detail__variant-text">
+            <text class="detail__variant-title">动态图</text>
+            <text class="detail__variant-desc">GIF 动图 · 2 积分/张</text>
+          </view>
+        </view>
+      </view>
+      <view class="detail__variant-tip" wx:if="{{hasAnimAny && downloadReady}}">
+        当前保存：{{downloadVariant === 'anim' ? '动态 GIF' : '静态原图'}}（切换后请重新勾选）
+      </view>
+
+      <view class="detail__batch" wx:if="{{downloadReady}}">
+        <view
+          class="detail__batch-all"
+          hover-class="detail__batch-all--press"
+          bindtap="onToggleSelectAll"
+          aria-role="button"
+        >
+          <t-icon
+            name="{{allSelected ? 'check-circle-filled' : 'circle'}}"
+            size="36rpx"
+            color="{{allSelected ? themeBrand : '#bbb'}}"
+          />
+          <text class="detail__batch-all-label">全选</text>
+        </view>
+        <text class="detail__batch-meta">已选 {{selectedCount}} · {{selectedCost}} 积分</text>
+        <t-button
+          t-class="detail__batch-btn"
+          size="small"
+          theme="primary"
+          shape="round"
+          disabled="{{!selectedCount || saving}}"
+          loading="{{saving}}"
+          content="{{selectedCount ? '保存选中' : '请先选择'}}"
+          bind:tap="onBatchSave"
+        />
+      </view>
+
+      <view class="detail__slots">
+        <view
+          class="detail__slot {{item.selected ? 'detail__slot--selected' : ''}}"
+          wx:for="{{emojiSlots}}"
+          wx:key="index"
+        >
+          <view class="detail__slot-cover-wrap">
+            <t-image
+              wx:if="{{item.previewUrl}}"
+              t-class="detail__slot-cover"
+              t-class-image="detail__slot-img"
+              t-class-load="detail__slot-load"
+              src="{{item.previewUrl}}"
+              mode="aspectFill"
+              shape="round"
+              lazy
+              loading="slot"
+              width="210rpx"
+              height="280rpx"
+            >
+              <view slot="loading" class="detail__slot-skeleton" aria-hidden="true" />
+            </t-image>
+            <view wx:else class="detail__slot-cover detail__slot-cover--empty">无预览</view>
+            <view
+              wx:if="{{item.selected}}"
+              class="detail__slot-mask"
+              aria-hidden="true"
+            />
+            <!-- 整块透明热区：点选 / 长按预览，避免点到 t-image 误开大图 -->
+            <view
+              class="detail__slot-hit"
+              data-index="{{item.index}}"
+              bindtap="onCoverTap"
+              bindlongpress="onPreviewTap"
+            />
+            <view
+              wx:if="{{downloadReady && item.selectable}}"
+              class="detail__slot-check {{item.selected ? 'detail__slot-check--on' : ''}}"
+              aria-hidden="true"
+            >
+              <t-icon
+                name="{{item.selected ? 'check-circle-filled' : 'circle'}}"
+                size="36rpx"
+                color="{{item.selected ? '#fff' : 'rgba(255,255,255,0.95)'}}"
+              />
+            </view>
+          </view>
+          <view class="detail__slot-label">{{item.label}}</view>
+          <t-button
+            size="small"
+            theme="{{downloadReady ? 'primary' : 'default'}}"
+            variant="outline"
+            block
+            disabled="{{saving || (downloadReady && !item.selectable)}}"
+            content="{{item.saveLabel}}"
+            data-index="{{item.index}}"
+            bind:tap="onSaveOrRedeem"
+          />
+        </view>
+      </view>
+    </view>
+  </view>
+  </block>
+
+  <t-image-viewer
+    visible="{{viewerVisible}}"
+    images="{{viewerImages}}"
+    initial-index="{{viewerIndex}}"
+    show-index
+    close-btn
+    lazy
+    image-props="{{viewerImageProps}}"
+    bind:close="onViewerClose"
+  />
+
+  <t-dialog
+    visible="{{redeemVisible}}"
+    title="兑换权益"
+    confirm-btn="{{redeeming ? '兑换中' : '兑换'}}"
+    cancel-btn="取消"
+    bind:confirm="confirmRedeem"
+    bind:cancel="closeRedeem"
+  >
+    <view slot="content" class="detail__redeem-body">
+      <t-input
+        placeholder="请输入兑换码"
+        value="{{redeemCode}}"
+        maxlength="20"
+        bind:change="onRedeemInput"
+      />
+    </view>
+  </t-dialog>
+
+  <t-dialog
+    visible="{{confirmVisible}}"
+    title="{{confirmTitle}}"
+    confirm-btn="{{confirmOkText}}"
+    cancel-btn="取消"
+    bind:confirm="onConfirmOk"
+    bind:cancel="onConfirmCancel"
+  >
+    <view slot="content" class="detail__confirm">
+      <image
+        wx:if="{{confirmIcon}}"
+        class="detail__confirm-icon"
+        src="{{confirmIcon}}"
+        mode="aspectFit"
+      />
+      <text class="detail__confirm-text">{{confirmContent}}</text>
+    </view>
+  </t-dialog>
+</view>

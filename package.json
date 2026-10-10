@@ -1,6 +1,6 @@
 {
-  "name": "tdesign-miniprogram-starter",
-  "version": "0.0.2",
+  "name": "emoji-share",
+  "version": "0.1.0",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -12,12 +12,14 @@
   "keywords": [
     "wechat",
     "miniprogram",
-    "starter"
+    "cloud",
+    "emoji"
   ],
   "author": "leejim",
   "license": "MIT",
-  "description": "a start-kit for wechat miniprogram powerby TDesign miniprogram",
+  "description": "趣集 · 微信云开发合集分享（表情/壁纸等）：封面/预览/原图，看广告后单张保存",
   "dependencies": {
+    "dayjs": "^1.11.13",
     "tdesign-miniprogram": "^1.11.2"
   },
   "devDependencies": {

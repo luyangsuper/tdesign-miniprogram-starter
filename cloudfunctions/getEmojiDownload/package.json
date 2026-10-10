@@ -1,0 +1,10 @@
+{
+  "name": "getEmojiDownload",
+  "version": "1.0.0",
+  "description": "鉴权后下发单张原图临时链接（VIP / 次数 / 广告）",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

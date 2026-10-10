@@ -1,39 +1,315 @@
 @import '/variable.less';
 
-@home-tab-item-height: 96rpx;
+.home {
+  min-height: 100vh;
+  background: var(--td-bg-color-page);
+  box-sizing: border-box;
 
-.home-container {
-  height: calc(100vh - @tab-bar-height);
-
-  .home-content {
-    height: calc(100% - @nav-bar-height);
+  &__fixed {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 8rpx 0 10rpx;
+    background: var(--td-bg-color-container);
+    box-sizing: border-box;
   }
 
-  .t-tabs {
-    --td-tab-item-tag-height: @home-tab-item-height;
-    --td-tab-font-size: @font-size-small;
-    width: 100%;
-    height: 100%;
+  /* 搜索 + 分类同一行，统一行高 56rpx（标签默认 border/padding 会撑高，需强制） */
+  @toolbar-h: 56rpx;
 
-    &__content {
-      height: calc(100% - @home-tab-item-height);
-      overflow: auto;
-      background-color: @bg-color;
+  &__toolbar {
+    width: 100%;
+    height: @toolbar-h;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+
+  &__toolbar-inner {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12rpx;
+    height: @toolbar-h;
+    padding: 0 16rpx;
+    box-sizing: border-box;
+  }
+
+  &__search {
+    position: relative;
+    flex-shrink: 0;
+    width: @toolbar-h;
+    height: @toolbar-h;
+    overflow: hidden;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &--open {
+      width: 300rpx;
     }
   }
 
-  .home-card-list {
+  &__search-fab {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    width: @toolbar-h;
+    height: @toolbar-h;
+    border-radius: 999rpx;
+    background: var(--td-bg-color-secondarycontainer);
     display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 24rpx 12rpx;
-    padding: 24rpx;
-    background-color: @bg-color;
+    align-items: center;
+    justify-content: center;
+    color: var(--td-brand-color);
+    opacity: 1;
+    transform: scale(1);
+    transition:
+      opacity 0.2s ease,
+      transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
+
+    &--press {
+      transform: scale(0.94);
+      opacity: 0.9;
+    }
+
+    .home__search--open & {
+      opacity: 0;
+      transform: scale(0.85);
+      pointer-events: none;
+    }
+  }
+
+  &__search-dot {
+    position: absolute;
+    top: 8rpx;
+    right: 8rpx;
+    width: 10rpx;
+    height: 10rpx;
+    border-radius: 50%;
+    background: var(--td-brand-color);
+    box-shadow: 0 0 0 2rpx var(--td-bg-color-container);
+  }
+
+  &__search-panel {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 2rpx;
+    width: 300rpx;
+    height: @toolbar-h;
+    opacity: 0;
+    transform: translateX(-12rpx);
+    pointer-events: none;
+    transition:
+      opacity 0.22s ease 0.04s,
+      transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
+    --td-search-height: @toolbar-h;
+    --td-search-icon-size: 24rpx;
+    --td-search-clear-icon-size: 24rpx;
+    --td-search-font: var(--td-font-body-small, 24rpx / 40rpx var(--td-font-family));
+    --td-search-padding: 0 14rpx;
+    --td-search-bg-color: var(--td-bg-color-secondarycontainer);
+
+    .home__search--open & {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+  }
+
+  &__search-collapse {
+    flex-shrink: 0;
+    width: 40rpx;
+    height: @toolbar-h;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--td-text-color-secondary);
+    transition: opacity 0.16s ease;
+
+    &--press {
+      opacity: 0.65;
+    }
+  }
+
+  &__search-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__cat {
+    flex-shrink: 0;
+    height: @toolbar-h !important;
+    min-height: @toolbar-h !important;
+    max-height: @toolbar-h !important;
+    padding: 0 20rpx !important;
+    border-width: 0 !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 24rpx !important;
+    line-height: 1 !important;
+    transition: background-color 0.22s ease, color 0.22s ease, transform 0.16s ease;
+
+    &.t-tag {
+      line-height: 1 !important;
+    }
+
+    .t-tag__text {
+      display: inline-flex !important;
+      align-items: center !important;
+      line-height: 1 !important;
+      height: auto !important;
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
+  }
+
+  &__cat-inner {
+    display: flex;
+    align-items: center;
+    line-height: 1;
+  }
+
+  &__cat-name {
+    display: inline-block;
+    font-size: 24rpx;
+    line-height: 28rpx;
+    height: 28rpx;
+  }
+
+  /* 数量用行高盒子居中（小程序数字比 flex 更稳） */
+  &__cat-count {
+    display: inline-block;
+    height: 28rpx;
+    max-width: 0;
+    min-width: 0;
+    margin-left: 0;
+    padding: 0;
+    overflow: hidden;
+    opacity: 0;
+    border-radius: 14rpx;
+    font-size: 20rpx;
+    font-weight: 600;
+    line-height: 28rpx;
+    color: var(--td-brand-color);
+    background: var(--td-bg-color-container);
+    box-sizing: border-box;
+    text-align: center;
+    transition:
+      max-width 0.28s ease,
+      min-width 0.28s ease,
+      margin-left 0.28s ease,
+      padding 0.28s ease,
+      opacity 0.22s ease;
+  }
+
+  &__cat-count--show {
+    max-width: 72rpx;
+    min-width: 28rpx;
+    margin-left: 8rpx;
+    padding: 0 8rpx;
+    opacity: 1;
+  }
+
+  &__body {
+    /* 左右边距由 inline padding 与卡片 gap 统一，避免 CSS rpx 与 JS 计算叠宽 */
+    padding: 0 0 160rpx;
+    box-sizing: border-box;
+  }
+
+  &__list {
+    width: 100%;
+    margin-top: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    box-sizing: border-box;
+    animation: home-fade-up 0.28s ease both;
+  }
+
+  &__col {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  &__item {
+    width: 100%;
+  }
+
+  &__footer {
+    text-align: center;
+    color: var(--td-text-color-placeholder);
+    font-size: 24rpx;
+    padding: 16rpx 0 48rpx;
+    display: flex;
+    justify-content: center;
+    animation: home-fade-in 0.22s ease both;
+  }
+
+  &__state {
+    padding-top: 160rpx;
+    display: flex;
+    justify-content: center;
+    animation: home-fade-in 0.22s ease both;
+  }
+
+  &__subscribe {
+    padding: 40rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
+    background: var(--td-bg-color-container);
+    border-radius: 24rpx 24rpx 0 0;
+  }
+
+  &__subscribe-title {
+    font-size: 34rpx;
+    font-weight: 600;
+    color: var(--td-text-color-primary);
+  }
+
+  &__subscribe-desc {
+    margin: 16rpx 0 32rpx;
+    font-size: 26rpx;
+    line-height: 1.5;
+    color: var(--td-text-color-secondary);
   }
 }
 
-.home-release {
-  position: fixed;
-  bottom: 208rpx;
-  right: 32rpx;
+@media (prefers-color-scheme: dark) {
+  .home__cat {
+    /* 选中浅底用品牌半透明，未选中保持 secondarycontainer */
+    --td-tag-primary-color: var(--td-brand-color);
+    --td-tag-primary-light-color: var(--td-brand-color-light);
+  }
+
+  .home__cat-count {
+    color: var(--td-text-color-anti, #fff);
+    background: var(--td-brand-color);
+  }
+}
+
+@keyframes home-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes home-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

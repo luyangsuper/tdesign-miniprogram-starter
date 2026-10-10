@@ -1,0 +1,216 @@
+<view class="codes-page" style="{{themeStyle}}">
+  <view class="codes-page__tip">点选定价档位可一键生成 1 个兑换码并复制；也可下方自定义批量生成。</view>
+
+  <view class="block">
+    <view class="block__label">包月档位 · 点按生成并复制</view>
+    <view class="codes-page__plans">
+      <view
+        class="codes-page__plan codes-page__plan--{{item.tone}} {{activePlanKey === item.key ? 'codes-page__plan--active' : ''}}"
+        wx:for="{{pricing.vipPlans}}"
+        wx:key="key"
+        data-key="{{item.key}}"
+        data-kind="vip"
+        bindtap="onQuickGen"
+      >
+        <text class="codes-page__plan-title">{{item.title}}</text>
+        <text class="codes-page__plan-price">{{item.price}}</text>
+        <text class="codes-page__plan-meta">{{item.period}} · {{item.value}} 天</text>
+        <text class="codes-page__plan-action">{{genPlanKey === item.key ? '生成中…' : '生成 1 码'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="block">
+    <view class="block__label">积分档位 · 点按生成并复制</view>
+    <view class="codes-page__plans">
+      <view
+        class="codes-page__plan codes-page__plan--{{item.tone}} {{activePlanKey === item.key ? 'codes-page__plan--active' : ''}}"
+        wx:for="{{pricing.pointPlans}}"
+        wx:key="key"
+        data-key="{{item.key}}"
+        data-kind="points"
+        bindtap="onQuickGen"
+      >
+        <text class="codes-page__plan-title">{{item.title}}</text>
+        <text class="codes-page__plan-price">{{item.price}}</text>
+        <text class="codes-page__plan-meta">到账 {{item.value}} 积分</text>
+        <text class="codes-page__plan-action">{{genPlanKey === item.key ? '生成中…' : '生成 1 码'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="block">
+    <view class="block__label">自定义类型</view>
+    <view class="codes-page__tags">
+      <t-check-tag
+        size="medium"
+        variant="dark"
+        checked="{{type === 'vip_days'}}"
+        content="包月天数"
+        data-type="vip_days"
+        bind:change="onTypeChange"
+      />
+      <t-check-tag
+        size="medium"
+        variant="dark"
+        checked="{{type === 'points'}}"
+        content="积分"
+        data-type="points"
+        bind:change="onTypeChange"
+      />
+    </view>
+  </view>
+
+  <view class="block">
+    <view class="block__label">{{type === 'vip_days' ? '包月天数' : '积分数'}}</view>
+    <t-input
+      class="block__td-field"
+      borderless
+      type="number"
+      placeholder="{{type === 'vip_days' ? '如 30' : '如 20'}}"
+      value="{{value}}"
+      bind:change="onValueChange"
+    />
+  </view>
+
+  <view class="block">
+    <view class="block__label">生成数量（1–50）</view>
+    <t-input
+      class="block__td-field"
+      borderless
+      type="number"
+      placeholder="1"
+      value="{{count}}"
+      bind:change="onCountChange"
+    />
+  </view>
+
+  <view class="block">
+    <view class="block__label">备注（可选）</view>
+    <t-textarea
+      class="block__td-field"
+      placeholder="如：活动赠送"
+      value="{{note}}"
+      maxlength="{{80}}"
+      disable-default-padding
+      bind:change="onNoteChange"
+    />
+  </view>
+
+  <view class="codes-page__submit">
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      loading="{{submitting}}"
+      disabled="{{submitting || !!genPlanKey}}"
+      content="批量生成兑换码"
+      bind:tap="onSubmit"
+    />
+  </view>
+
+  <view class="block" wx:if="{{codes.length}}">
+    <view class="block__label-row">
+      <view class="block__label">刚生成 · {{resultLabel}} · {{codes.length}} 个</view>
+      <t-button size="extra-small" variant="outline" theme="primary" content="复制全部" bind:tap="copyAll" />
+    </view>
+    <view class="codes-page__gen-list">
+      <view
+        class="codes-page__gen-item"
+        wx:for="{{codes}}"
+        wx:key="*this"
+        data-code="{{item}}"
+        bindtap="copyOne"
+      >
+        {{item}}
+      </view>
+    </view>
+  </view>
+
+  <view class="block">
+    <view class="block__label">兑换码列表</view>
+    <view class="codes-page__tags">
+      <t-check-tag
+        size="small"
+        variant="dark"
+        checked="{{filterStatus === 'all'}}"
+        content="全部"
+        data-status="all"
+        bind:change="onFilterChange"
+      />
+      <t-check-tag
+        size="small"
+        variant="dark"
+        checked="{{filterStatus === 'unused'}}"
+        content="未使用"
+        data-status="unused"
+        bind:change="onFilterChange"
+      />
+      <t-check-tag
+        size="small"
+        variant="dark"
+        checked="{{filterStatus === 'used'}}"
+        content="已使用"
+        data-status="used"
+        bind:change="onFilterChange"
+      />
+      <t-check-tag
+        size="small"
+        variant="dark"
+        checked="{{filterStatus === 'disabled'}}"
+        content="已作废"
+        data-status="disabled"
+        bind:change="onFilterChange"
+      />
+    </view>
+
+    <view class="codes-page__state" wx:if="{{listLoading && !list.length}}">
+      <t-loading theme="circular" size="40rpx" text="加载中" />
+    </view>
+
+    <block wx:elif="{{list.length}}">
+      <view class="codes-page__card" wx:for="{{list}}" wx:key="id">
+        <view class="codes-page__card-top">
+          <text class="codes-page__code" data-code="{{item.code}}" bindtap="copyOne">{{item.code}}</text>
+          <t-tag
+            size="small"
+            variant="light"
+            theme="{{item.status === 'unused' ? 'primary' : item.status === 'used' ? 'success' : 'danger'}}"
+          >
+            {{item.status === 'unused' ? '未使用' : item.status === 'used' ? '已使用' : '已作废'}}
+          </t-tag>
+        </view>
+        <view class="codes-page__card-meta">{{item.label}} · {{item.createdAtText || '—'}}</view>
+        <view class="codes-page__card-meta" wx:if="{{item.note}}">备注：{{item.note}}</view>
+        <view class="codes-page__card-meta" wx:if="{{item.usedBy}}">使用者：{{item.usedBy}}</view>
+        <view class="codes-page__card-actions">
+          <t-button
+            wx:if="{{item.usedBy}}"
+            size="extra-small"
+            theme="primary"
+            variant="outline"
+            content="管理权益"
+            data-openid="{{item.usedBy}}"
+            bind:tap="goManageUser"
+          />
+          <t-button
+            wx:if="{{item.canDisable}}"
+            size="extra-small"
+            theme="danger"
+            variant="outline"
+            content="作废"
+            loading="{{disablingId === item.id}}"
+            data-id="{{item.id}}"
+            data-code="{{item.code}}"
+            bind:tap="onDisable"
+          />
+        </view>
+      </view>
+      <view class="codes-page__footer">{{listHasMore ? (listLoading ? '加载中...' : '上拉加载更多') : '没有更多了'}}</view>
+    </block>
+
+    <view class="codes-page__state" wx:else>
+      <t-empty description="暂无兑换码" />
+    </view>
+  </view>
+</view>

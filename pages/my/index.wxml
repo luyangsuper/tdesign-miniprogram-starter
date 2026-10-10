@@ -1,75 +1,555 @@
-<t-toast id="t-toast" />
-
+<view class="my-page" style="{{themeStyle}}">
+<t-navbar title="我的" />
 <view class="my">
-  <image class="nav-bg" src="/static/bg_navbar.png" />
-  <nav title-text="我的" />
-  <view class="my-info">
-    <t-cell-group>
-      <t-cell wx:if="{{isLoad}}" bordered="{{false}}">
-        <t-avatar image="{{personalInfo.image}}" slot="left-icon" size="large" />
-        <view class="my-info__person" slot="description">
-          <view class="name">{{personalInfo.name}}</view>
-          <view class="tags">
-            <t-tag class="tag" variant="light" icon="discount">{{personalInfo.star}}</t-tag>
-            <t-tag class="tag" variant="light" icon="location">{{personalInfo.city}}</t-tag>
-          </view>
+  <view class="my__profile">
+    <button class="my__avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+      <t-avatar
+        t-class="my__avatar"
+        image="{{avatarUrl}}"
+        icon="user"
+        size="88rpx"
+        shape="circle"
+      />
+    </button>
+    <view class="my__info">
+      <input
+        class="my__name-input"
+        type="nickname"
+        maxlength="32"
+        placeholder="填写昵称"
+        value="{{nickName}}"
+        bindblur="onNickBlur"
+        bindchange="onNickChange"
+      />
+      <view class="my__meta">
+        <t-tag size="small" variant="light" theme="{{isAdmin ? 'danger' : isVip ? 'warning' : 'default'}}">
+          {{roleLabel}}
+        </t-tag>
+        <text class="my__id" bindtap="copyOpenId">{{shortId}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="my__benefit">
+    <view class="my__benefit-row">
+      <text class="my__benefit-hint">{{entitlementHint}}</text>
+      <text class="my__pricing-link" bindtap="openPricing">看定价</text>
+    </view>
+    <view class="my__pricing-strip" bindtap="openPricing">
+      <view
+        class="my__pricing-chip my__pricing-chip--{{item.tone}}"
+        wx:for="{{pricing.vipPlans}}"
+        wx:key="key"
+      >
+        <text class="my__pricing-chip-title">{{item.title}}</text>
+        <text class="my__pricing-chip-price">{{item.price}}</text>
+      </view>
+      <view
+        wx:if="{{pricing.pointsStrip}}"
+        class="my__pricing-chip my__pricing-chip--{{pricing.pointsStrip.tone}}"
+      >
+        <text class="my__pricing-chip-title">{{pricing.pointsStrip.title}}</text>
+        <text class="my__pricing-chip-price">{{pricing.pointsStrip.price}}</text>
+      </view>
+    </view>
+    <view class="my__pricing-cost">{{pricing.costLine}}</view>
+    <view class="my__service" bindtap="copyServiceWechat">
+      <t-icon name="service" size="32rpx" color="#07c160" />
+      <text class="my__service-text">客服微信 {{serviceWechat}}</text>
+      <text class="my__service-copy">复制</text>
+    </view>
+    <view class="my__redeem">
+      <input
+        class="my__redeem-native"
+        placeholder="兑换码"
+        maxlength="20"
+        value="{{redeemCode}}"
+        bindinput="onRedeemInput"
+      />
+      <t-button
+        theme="primary"
+        size="small"
+        content="兑换"
+        loading="{{redeeming}}"
+        disabled="{{redeeming}}"
+        bind:tap="onRedeem"
+      />
+    </view>
+  </view>
+
+  <t-cell-group theme="card" t-class="my-cell-group">
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="主题色"
+      note="{{themeName}}"
+      arrow
+      hover
+      bind:click="openThemePicker"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <view class="my__theme-dot" style="background: {{themeBrand}};" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="新合集提醒"
+      note="{{notifyHint}}"
+      hover
+      bind:click="onSubscribeNewPack"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="notification" size="40rpx" color="{{themeBrand}}" />
+      </view>
+    </t-cell>
+    <block wx:if="{{isAdmin}}">
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        title="上传合集"
+        arrow
+        hover
+        bind:click="goUpload"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <t-icon name="upload" size="40rpx" color="#2F80ED" />
         </view>
-        <t-icon slot="right-icon" name="edit" size="40rpx" color="#000000e6" bindtap="onNavigateTo" />
       </t-cell>
       <t-cell
-        wx:if="{{!isLoad}}"
-        title="请先登录/注册"
-        bordered="{{false}}"
-        t-class-title="cell-class-title"
-        t-class-center="cell-class-center"
-        bindtap="onLogin"
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        title="管理分类"
+        arrow
+        hover
+        bind:click="goCategories"
       >
-        <t-avatar slot="left-icon" icon="user" size="128rpx" />
+        <view slot="left-icon" class="my-menu-icon">
+          <t-icon name="view-list" size="40rpx" color="#9B51E0" />
+        </view>
       </t-cell>
-    </t-cell-group>
-    <t-divider t-class="divider-class" />
-    <t-grid t-class="grid-class">
-      <t-grid-item
-        wx:for="{{gridList}}"
-        wx:for-item="gridItem"
-        wx:key="type"
-        text="{{gridItem.name}}"
-        icon="{{gridItem.icon}}"
-        class="grid-item {{gridItem.type === 'all' ? 'split-line' : ''}}"
-        data-data="{{gridItem}}"
-        bindclick="onEleClick"
-      />
-    </t-grid>
-  </view>
-
-  <view class="my-service">
-    <view class="my-service--tips">推荐服务</view>
-    <t-grid column="{{4}}" class="my-service__list">
-      <t-grid-item
-        class="my-service__list-item"
-        wx:for="{{service}}"
-        wx:key="item"
-        text="{{item.name}}"
-        image="{{item.image}}"
-        url="{{item.url}}"
-        data-data="{{item}}"
-        bindclick="onEleClick"
-      />
-    </t-grid>
-  </view>
-
-  <t-cell-group theme="card">
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        title="兑换码"
+        arrow
+        hover
+        bind:click="goCodes"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <t-icon name="gift" size="40rpx" color="#F2994A" />
+        </view>
+      </t-cell>
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        title="用户权益"
+        arrow
+        hover
+        bind:click="goUsers"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <t-icon name="user-vip" size="40rpx" color="#EB5757" />
+        </view>
+      </t-cell>
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        t-class-note="my-menu-cell__note"
+        title="按作品 ID 查询"
+        note="看网盘链接"
+        arrow
+        hover
+        bind:click="openLookup"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <t-icon name="search" size="40rpx" color="#56CCF2" />
+        </view>
+      </t-cell>
+    </block>
     <t-cell
-      wx:for="{{settingList}}"
-      wx:for-item="item"
-      wx:key="type"
-      title="{{item.name}}"
-      url="{{item.url}}"
-      leftIcon="{{item.icon}}"
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="联系客服"
+      note="微信 {{serviceWechat}}"
       hover
+      bind:click="copyServiceWechat"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="service" size="40rpx" color="#07c160" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="如何添加表情"
+      note="保存到微信自定义表情"
       arrow
-      data-data="{{item}}"
-      bindclick="onEleClick"
-    />
+      hover
+      bind:click="openGuide"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="help-circle" size="40rpx" color="#27AE60" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="意见反馈"
+      note="建议 / 问题"
+      arrow
+      hover
+      bind:click="openFeedback"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="chat" size="40rpx" color="#0052D9" />
+      </view>
+    </t-cell>
+    <t-cell
+      wx:if="{{isAdmin}}"
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="反馈通知"
+      note="{{feedbackNotifyHint}}"
+      hover
+      bind:click="onSubscribeFeedbackNotify"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="mail" size="40rpx" color="#E34D59" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="关于趣集"
+      note="表情 / 壁纸合集"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="info-circle" size="40rpx" color="#828282" />
+      </view>
+    </t-cell>
+    <t-cell
+      wx:if="{{canBeAdmin}}"
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="{{previewAsUser ? '恢复管理员视图' : '预览普通用户'}}"
+      note="仅本地预览"
+      hover
+      bind:click="onTogglePreviewAsUser"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon
+          name="{{previewAsUser ? 'user-vip' : 'user'}}"
+          size="40rpx"
+          color="#BB6BD9"
+        />
+      </view>
+    </t-cell>
   </t-cell-group>
+</view>
+
+<t-dialog
+  visible="{{lookupVisible}}"
+  title="按作品 ID 查询"
+  confirm-btn="查询"
+  cancel-btn="取消"
+  bind:confirm="onLookupConfirm"
+  bind:cancel="onLookupCancel"
+>
+  <view slot="content" class="my__lookup">
+    <t-input
+      borderless
+      placeholder="粘贴作品 ID"
+      value="{{lookupId}}"
+      bind:change="onLookupIdChange"
+    />
+  </view>
+</t-dialog>
+
+<t-popup
+  visible="{{guideVisible}}"
+  placement="bottom"
+  bind:visible-change="onGuideVisibleChange"
+>
+  <view class="my__guide">
+    <view class="my__guide-head">
+      <view class="my__guide-title">如何把合集加到微信表情</view>
+      <t-button
+        t-class="my__guide-close-btn"
+        size="small"
+        variant="text"
+        theme="primary"
+        content="关闭"
+        bind:tap="closeGuide"
+      />
+    </view>
+    <scroll-view scroll-y class="my__guide-scroll" enhanced show-scrollbar="{{false}}">
+      <view class="my__guide-tip">
+        趣集负责把原图保存到相册；导入微信需在微信里完成下面几步（不同系统文案可能略有差异）。
+      </view>
+      <view
+        class="my__guide-step"
+        wx:for="{{guideSteps}}"
+        wx:key="title"
+      >
+        <view class="my__guide-index">{{index + 1}}</view>
+        <view class="my__guide-body">
+          <view class="my__guide-step-title">{{item.title}}</view>
+          <view class="my__guide-step-desc">{{item.desc}}</view>
+        </view>
+      </view>
+      <view class="my__guide-foot">
+        提示：动态原图请选 GIF；壁纸类合集一般保存到相册后，在系统「设置壁纸」里使用即可。
+      </view>
+    </scroll-view>
+  </view>
+</t-popup>
+
+<t-popup
+  visible="{{feedbackVisible}}"
+  placement="bottom"
+  bind:visible-change="onFeedbackVisibleChange"
+>
+  <view class="my__feedback">
+    <view class="my__feedback-head">
+      <view class="my__feedback-title">意见反馈</view>
+      <t-button
+        t-class="my__feedback-close"
+        size="small"
+        variant="text"
+        theme="primary"
+        content="关闭"
+        bind:tap="closeFeedback"
+      />
+    </view>
+    <view class="my__feedback-desc">我们会认真阅读每条建议，也可留下联系方式方便回访</view>
+    <t-textarea
+      t-class="my__feedback-textarea"
+      placeholder="说说你的建议或遇到的问题（2～500 字）"
+      value="{{feedbackContent}}"
+      maxlength="{{500}}"
+      indicator
+      disable-default-padding
+      bind:change="onFeedbackContentChange"
+    />
+    <t-input
+      t-class="my__feedback-contact"
+      placeholder="联系方式（选填，微信号 / 邮箱）"
+      value="{{feedbackContact}}"
+      maxlength="{{64}}"
+      bind:change="onFeedbackContactChange"
+    />
+    <t-button
+      theme="primary"
+      size="medium"
+      block
+      content="提交反馈"
+      loading="{{feedbackSubmitting}}"
+      disabled="{{feedbackSubmitting}}"
+      bind:tap="onSubmitFeedback"
+    />
+  </view>
+</t-popup>
+
+<t-popup
+  visible="{{pricingVisible}}"
+  placement="bottom"
+  bind:visible-change="onPricingVisibleChange"
+>
+  <view class="my__pricing-sheet">
+    <view class="my__pricing-sheet-head">
+      <view class="my__pricing-sheet-title">会员与积分</view>
+      <t-button
+        t-class="my__feedback-close"
+        size="small"
+        variant="text"
+        theme="primary"
+        content="关闭"
+        bind:tap="closePricing"
+      />
+    </view>
+    <!-- 真机上 view overflow 常滚不动，与引导弹层一样用 scroll-view -->
+    <scroll-view
+      scroll-y
+      class="my__pricing-sheet-scroll"
+      enhanced
+      show-scrollbar="{{false}}"
+    >
+      <view class="my__pricing-sheet-desc">{{pricing.costLine}}</view>
+      <view class="my__pricing-sheet-rule">{{pricing.ruleLine}}</view>
+
+      <view class="my__pricing-service" bindtap="copyServiceWechat">
+        <view class="my__pricing-service-icon">
+          <t-icon name="logo-wechat-stroke" size="40rpx" color="#07c160" />
+        </view>
+        <view class="my__pricing-service-main">
+          <text class="my__pricing-service-label">联系客服</text>
+          <text class="my__pricing-service-id">{{serviceWechat}}</text>
+        </view>
+        <t-button
+          t-class="my__pricing-service-btn"
+          size="small"
+          theme="light"
+          variant="base"
+          content="复制微信号"
+          catch:tap="copyServiceWechat"
+        />
+      </view>
+
+      <view class="my__pricing-section-title">
+        包月会员
+        <text wx:if="{{isAdmin}}" class="my__pricing-admin-tip">点档位生成兑换码并复制</text>
+      </view>
+      <view
+        class="my__pricing-card my__pricing-card--{{item.tone}}"
+        wx:for="{{pricing.vipPlans}}"
+        wx:key="key"
+      >
+        <view class="my__pricing-card-icon">
+          <image class="my__pricing-card-emoji" src="{{item.iconSrc}}" mode="aspectFit" />
+        </view>
+        <view class="my__pricing-card-main">
+          <view class="my__pricing-card-name-row">
+            <text class="my__pricing-card-title">{{item.title}}</text>
+            <text class="my__pricing-card-period">{{item.period}}</text>
+          </view>
+          <text class="my__pricing-card-desc">{{item.desc}}</text>
+        </view>
+        <view class="my__pricing-card-side">
+          <text class="my__pricing-card-price">{{item.price}}</text>
+          <t-button
+            wx:if="{{isAdmin}}"
+            t-class="my__pricing-card-btn"
+            size="extra-small"
+            theme="light"
+            variant="base"
+            shape="round"
+            loading="{{genCodeKey === item.key}}"
+            disabled="{{!!genCodeKey}}"
+            content="{{genCodeKey === item.key ? '生成中' : '生成兑换码'}}"
+            data-key="{{item.key}}"
+            data-kind="vip"
+            bind:tap="onAdminGenPlanCode"
+          />
+        </view>
+      </view>
+
+      <view class="my__pricing-section-title">
+        积分包
+        <text wx:if="{{isAdmin}}" class="my__pricing-admin-tip">含赠送积分，一键生成兑换码</text>
+      </view>
+      <view
+        class="my__pricing-card my__pricing-card--{{item.tone}}"
+        wx:for="{{pricing.pointPlans}}"
+        wx:key="key"
+      >
+        <view class="my__pricing-card-icon">
+          <image class="my__pricing-card-emoji" src="{{item.iconSrc}}" mode="aspectFit" />
+        </view>
+        <view class="my__pricing-card-main">
+          <view class="my__pricing-card-name-row">
+            <text class="my__pricing-card-title">{{item.title}}</text>
+            <text class="my__pricing-card-period">{{item.period}}</text>
+          </view>
+          <text class="my__pricing-card-desc">{{item.desc}}</text>
+        </view>
+        <view class="my__pricing-card-side">
+          <text class="my__pricing-card-price">{{item.price}}</text>
+          <t-button
+            wx:if="{{isAdmin}}"
+            t-class="my__pricing-card-btn"
+            size="extra-small"
+            theme="light"
+            variant="base"
+            shape="round"
+            loading="{{genCodeKey === item.key}}"
+            disabled="{{!!genCodeKey}}"
+            content="{{genCodeKey === item.key ? '生成中' : '生成兑换码'}}"
+            data-key="{{item.key}}"
+            data-kind="points"
+            bind:tap="onAdminGenPlanCode"
+          />
+        </view>
+      </view>
+
+      <view class="my__pricing-buy-tip">{{pricing.buyTip}}</view>
+    </scroll-view>
+  </view>
+</t-popup>
+
+<t-popup
+  visible="{{themePopupVisible}}"
+  placement="bottom"
+  bind:visible-change="onThemePopupChange"
+>
+  <view class="my__theme-sheet">
+    <view class="my__theme-sheet-title">选择主题色</view>
+    <view class="my__theme-sheet-desc">按钮、链接等会跟随；合集卡片标签会自动避开撞色</view>
+    <view class="my__theme-grid">
+      <view
+        class="my__theme-item {{themeId === item.id ? 'my__theme-item--active' : ''}}"
+        wx:for="{{themePresets}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onPickTheme"
+      >
+        <view class="my__theme-swatch" style="background: {{item.brand}};" />
+        <text class="my__theme-label">{{item.name}}</text>
+        <t-icon
+          wx:if="{{themeId === item.id}}"
+          name="check"
+          size="32rpx"
+          color="{{item.brand}}"
+        />
+      </view>
+    </view>
+  </view>
+</t-popup>
 </view>

@@ -1,0 +1,298 @@
+<view class="upload-page" style="{{themeStyle}}">
+  <view class="block">
+    <view class="block__label">标题</view>
+    <t-input
+      class="block__td-field"
+      borderless
+      placeholder="合集名称，如壁纸、表情"
+      value="{{title}}"
+      maxlength="{{40}}"
+      bind:change="onTitleChange"
+    />
+  </view>
+
+  <view class="block">
+    <view class="block__label">主题分类</view>
+    <view class="block__tip">可按角色、系列等分类，在「管理分类」中增删</view>
+    <view class="upload-page__cats" wx:if="{{!loadingCats}}">
+      <t-check-tag
+        wx:for="{{categories}}"
+        wx:key="id"
+        t-class="upload-page__cat"
+        size="small"
+        shape="round"
+        variant="light"
+        checked="{{categoryId === item.id}}"
+        content="{{item.name}}"
+        data-id="{{item.id}}"
+        bind:change="onCategoryTap"
+      />
+    </view>
+    <fun-loading wx:else size="small" variant="orbit" funTips="{{false}}" text="加载分类" />
+  </view>
+
+  <view class="block" wx:if="{{isEdit && packId}}">
+    <view class="block__head">
+      <view class="block__label block__label--inline">作品 ID</view>
+      <view class="block__copy">
+        <t-button
+          size="small"
+          variant="outline"
+          theme="primary"
+          content="复制"
+          bind:tap="onCopyPackId"
+        />
+      </view>
+    </view>
+    <view class="block__tip">{{packId}}</view>
+  </view>
+
+  <view class="block">
+    <view class="block__label">简介（可选，用户可见）</view>
+    <view class="block__tip">支持换行，详情页会按你写的格式展示</view>
+    <t-textarea
+      class="block__td-field"
+      placeholder="简单介绍一下，可换行"
+      value="{{description}}"
+      maxlength="{{800}}"
+      disable-default-padding
+      autosize="{{autosize}}"
+      bind:change="onDescChange"
+    />
+  </view>
+
+  <view class="block">
+    <view class="block__label">网盘链接（仅管理员可见）</view>
+    <view class="block__tip">静态、动态原图各填一条。复制作品 ID 可在「我的」按 ID 查回。</view>
+    <t-input
+      class="block__td-field"
+      borderless
+      placeholder="静态原图网盘链接"
+      value="{{staticDriveUrl}}"
+      maxlength="{{500}}"
+      bind:change="onStaticDriveChange"
+    />
+    <t-input
+      class="block__td-field"
+      borderless
+      placeholder="动态原图网盘链接（可选）"
+      value="{{animDriveUrl}}"
+      maxlength="{{500}}"
+      bind:change="onAnimDriveChange"
+    />
+  </view>
+
+  <view class="block">
+    <view class="block__label">封面（1 张，列表展示）</view>
+    <view class="block__tip">从相册选 1 张，用于列表展示</view>
+    <t-upload
+      media-type="{{['image']}}"
+      files="{{coverFiles}}"
+      gridConfig="{{gridConfig}}"
+      max="1"
+      bind:success="onCoverSuccess"
+      bind:remove="onCoverRemove"
+    />
+  </view>
+
+  <view class="block block--file">
+    <view class="block__head">
+      <view class="block__label block__label--inline">预览图</view>
+      <t-tag size="small" variant="light" theme="primary">用户可见</t-tag>
+    </view>
+    <view class="block__tip">相册多选；点图预览，长按拖到目标格松手排序。序号与原图同位置即配对。</view>
+    <t-button
+      t-class="pick-btn"
+      theme="primary"
+      variant="outline"
+      size="medium"
+      block
+      icon="browse"
+      content="从相册选择"
+      bind:tap="pickPreviewFromAlbum"
+    />
+    <view class="file-grid js-grid-previewFiles" wx:if="{{previewFiles.length}}">
+      <view
+        class="file-grid__item {{dragField === 'previewFiles' && dragFrom === index ? 'is-dragging' : ''}} {{dragField === 'previewFiles' && dragOver === index && dragFrom !== index ? 'is-over' : ''}}"
+        style="{{dragField === 'previewFiles' && dragFrom === index ? dragFloatStyle : ''}}"
+        wx:for="{{previewFiles}}"
+        wx:key="_uid"
+        data-field="previewFiles"
+        data-index="{{index}}"
+        bindlongpress="onGridLongPress"
+        catchtouchmove="onGridTouchMove"
+        bindtouchend="onGridTouchEnd"
+        bindtouchcancel="onGridTouchEnd"
+      >
+        <view
+          class="file-grid__thumb"
+          data-field="previewFiles"
+          data-index="{{index}}"
+          bindtap="onPreviewGridImage"
+        >
+          <t-image
+            t-class="file-grid__img"
+            t-class-image="file-grid__img-inner"
+            src="{{item.url || item.path}}"
+            mode="aspectFill"
+            shape="round"
+            width="100%"
+            height="100%"
+          />
+          <view class="file-grid__seq">{{item.seqLabel}}</view>
+          <view
+            class="file-grid__del"
+            data-index="{{index}}"
+            data-field="previewFiles"
+            catchtap="onRemoveNamedFile"
+          >
+            <t-icon name="close" size="28rpx" />
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="file-grid__empty" wx:else bindtap="pickPreviewFromAlbum">点击上方按钮选择预览图</view>
+  </view>
+
+  <view class="block block--file block--warn">
+    <view class="block__head">
+      <view class="block__label block__label--inline">静态原图</view>
+      <t-tag size="small" variant="light" theme="warning">必选 · 保存到相册</t-tag>
+    </view>
+    <view class="block__tip">相册多选；拖到与预览相同序号即可配对。</view>
+    <t-button
+      t-class="pick-btn"
+      theme="warning"
+      variant="outline"
+      size="medium"
+      block
+      icon="file-image"
+      content="从相册选择静态原图"
+      bind:tap="pickEmojiFromAlbum"
+    />
+    <view class="file-grid js-grid-emojiFiles" wx:if="{{emojiFiles.length}}">
+      <view
+        class="file-grid__item {{dragField === 'emojiFiles' && dragFrom === index ? 'is-dragging' : ''}} {{dragField === 'emojiFiles' && dragOver === index && dragFrom !== index ? 'is-over' : ''}}"
+        style="{{dragField === 'emojiFiles' && dragFrom === index ? dragFloatStyle : ''}}"
+        wx:for="{{emojiFiles}}"
+        wx:key="_uid"
+        data-field="emojiFiles"
+        data-index="{{index}}"
+        bindlongpress="onGridLongPress"
+        catchtouchmove="onGridTouchMove"
+        bindtouchend="onGridTouchEnd"
+        bindtouchcancel="onGridTouchEnd"
+      >
+        <view
+          class="file-grid__thumb"
+          data-field="emojiFiles"
+          data-index="{{index}}"
+          bindtap="onPreviewGridImage"
+        >
+          <t-image
+            t-class="file-grid__img"
+            t-class-image="file-grid__img-inner"
+            src="{{item.url || item.path}}"
+            mode="aspectFill"
+            shape="round"
+            width="100%"
+            height="100%"
+          />
+          <view class="file-grid__seq">{{item.seqLabel}}</view>
+          <view
+            class="file-grid__del"
+            data-index="{{index}}"
+            data-field="emojiFiles"
+            catchtap="onRemoveNamedFile"
+          >
+            <t-icon name="close" size="28rpx" />
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="file-grid__empty" wx:else bindtap="pickEmojiFromAlbum">点击上方按钮选择静态原图</view>
+  </view>
+
+  <view class="block block--file">
+    <view class="block__head">
+      <view class="block__label block__label--inline">动态原图</view>
+      <t-tag size="small" variant="light" theme="primary">可选 · GIF 等</t-tag>
+    </view>
+    <view class="block__tip">可不传。有则拖到与预览/静态相同序号；用户可在详情切换「静态/动态」批量保存该类。</view>
+    <t-button
+      t-class="pick-btn"
+      theme="primary"
+      variant="outline"
+      size="medium"
+      block
+      icon="gif"
+      content="从相册选择动态原图"
+      bind:tap="pickAnimFromAlbum"
+    />
+    <view class="file-grid js-grid-emojiAnimFiles" wx:if="{{emojiAnimFiles.length}}">
+      <view
+        class="file-grid__item {{dragField === 'emojiAnimFiles' && dragFrom === index ? 'is-dragging' : ''}} {{dragField === 'emojiAnimFiles' && dragOver === index && dragFrom !== index ? 'is-over' : ''}}"
+        style="{{dragField === 'emojiAnimFiles' && dragFrom === index ? dragFloatStyle : ''}}"
+        wx:for="{{emojiAnimFiles}}"
+        wx:key="_uid"
+        data-field="emojiAnimFiles"
+        data-index="{{index}}"
+        bindlongpress="onGridLongPress"
+        catchtouchmove="onGridTouchMove"
+        bindtouchend="onGridTouchEnd"
+        bindtouchcancel="onGridTouchEnd"
+      >
+        <view
+          class="file-grid__thumb"
+          data-field="emojiAnimFiles"
+          data-index="{{index}}"
+          bindtap="onPreviewGridImage"
+        >
+          <t-image
+            t-class="file-grid__img"
+            t-class-image="file-grid__img-inner"
+            src="{{item.url || item.path}}"
+            mode="aspectFill"
+            shape="round"
+            width="100%"
+            height="100%"
+          />
+          <view class="file-grid__seq">{{item.seqLabel}}</view>
+          <view
+            class="file-grid__del"
+            data-index="{{index}}"
+            data-field="emojiAnimFiles"
+            catchtap="onRemoveNamedFile"
+          >
+            <t-icon name="close" size="28rpx" />
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="file-grid__empty" wx:else bindtap="pickAnimFromAlbum">可选：点击选择动态原图</view>
+  </view>
+
+  <view class="upload-page__actions">
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      loading="{{submitting}}"
+      disabled="{{submitting || loadingPack}}"
+      bindtap="onSubmit"
+    >
+      {{isEdit ? '保存修改' : '发布合集'}}
+    </t-button>
+  </view>
+
+  <t-image-viewer
+    visible="{{viewerVisible}}"
+    images="{{viewerImages}}"
+    initial-index="{{viewerIndex}}"
+    show-index
+    close-btn
+    lazy
+    image-props="{{viewerImageProps}}"
+    bind:close="onViewerClose"
+  />
+</view>

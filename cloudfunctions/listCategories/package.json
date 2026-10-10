@@ -1,0 +1,9 @@
+{
+  "name": "listCategories",
+  "version": "1.0.0",
+  "description": "表情包角色分类列表",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

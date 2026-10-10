@@ -1,5 +1,59 @@
-<t-tab-bar value="{{ value }}" theme="tag" split="{{ false }}" bind:change="handleChange">
-  <t-tab-bar-item icon="home" value="home">首页</t-tab-bar-item>
-  <t-tab-bar-item icon="chat" value="message" badge-props="{{ { count: unreadNum } }}">消息</t-tab-bar-item>
-  <t-tab-bar-item icon="user" value="my">我的</t-tab-bar-item>
-</t-tab-bar>
+<!-- 悬浮胶囊底栏：首页 | 上传(+) | 我的；加号仅管理员；Twemoji CC-BY 4.0 -->
+<view class="page custom-tab-bar" style="{{themeStyle}}">
+  <view class="tab-float {{isAdmin ? 'tab-float--admin' : 'tab-float--user'}}">
+    <!-- 滑动指示条：对齐 Material / TDesign Tabs 的 transform 位移动画 -->
+    <view
+      class="tab-indicator {{value === 'my' ? 'tab-indicator--right' : ''}}"
+      aria-hidden="true"
+    >
+      <view
+        class="tab-indicator__thumb"
+        style="background: {{value === 'my' ? myColorActive : brand}};"
+      />
+    </view>
+
+    <view
+      class="tab-item tab-item--home {{value === 'home' ? 'tab-item--active' : ''}}"
+      hover-class="tab-item--press"
+      hover-stay-time="80"
+      bindtap="onTapHome"
+    >
+      <view class="tab-icon {{value === 'home' ? 'tab-icon--active' : ''}}" aria-hidden="true">
+        <image class="tab-icon__img tab-icon__img--idle" src="{{home.icon}}" mode="aspectFit" />
+        <image class="tab-icon__img tab-icon__img--active" src="{{home.iconActive}}" mode="aspectFit" />
+      </view>
+      <text class="tab-label" style="color: {{value === 'home' ? brand : colorIdle}};">首页</text>
+    </view>
+
+    <view
+      class="tab-item tab-item--my {{value === 'my' ? 'tab-item--active' : ''}}"
+      hover-class="tab-item--press"
+      hover-stay-time="80"
+      bindtap="onTapMy"
+    >
+      <view class="tab-icon {{value === 'my' ? 'tab-icon--active' : ''}}" aria-hidden="true">
+        <image class="tab-icon__img tab-icon__img--idle" src="{{my.icon}}" mode="aspectFit" />
+        <image class="tab-icon__img tab-icon__img--active" src="{{my.iconActive}}" mode="aspectFit" />
+      </view>
+      <text class="tab-label" style="color: {{value === 'my' ? myColorActive : colorIdle}};">我的</text>
+    </view>
+
+    <!-- 绝对定位到胶囊正中，圆略大于栏高，上下均匀超出 -->
+    <view
+      wx:if="{{isAdmin}}"
+      class="tab-center"
+      hover-class="tab-center--press"
+      hover-stay-time="80"
+      bindtap="onTapUpload"
+      aria-role="button"
+      aria-label="上传合集"
+    >
+      <view class="tab-center__btn" style="background: {{brand}};">
+        <view class="tab-center__cross" aria-hidden="true">
+          <view class="tab-center__bar tab-center__bar--h" />
+          <view class="tab-center__bar tab-center__bar--v" />
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

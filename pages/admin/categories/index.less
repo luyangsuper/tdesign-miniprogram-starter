@@ -1,0 +1,44 @@
+@import '/variable.less';
+
+.cat-page {
+  min-height: 100vh;
+  background: var(--td-bg-color-page);
+  padding: 16rpx 0 180rpx;
+  --td-cell-group-margin: 16rpx;
+
+  &__tip {
+    font-size: 24rpx;
+    color: var(--td-text-color-placeholder);
+    line-height: 1.5;
+    margin: 0 24rpx 16rpx;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+  }
+
+  &__state {
+    padding-top: 120rpx;
+    display: flex;
+    justify-content: center;
+  }
+
+  &__fab {
+    position: fixed;
+    left: 24rpx;
+    right: 24rpx;
+    bottom: 48rpx;
+  }
+}
+
+.cat-cell-group {
+  margin: 0 16rpx !important;
+}
+
+.cat-page__dialog-body {
+  --td-input-vertical-padding: 8rpx;
+  --td-input-border-left-space: 12rpx;
+  --td-input-border-right-space: 12rpx;
+}

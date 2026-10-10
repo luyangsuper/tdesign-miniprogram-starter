@@ -1,0 +1,28 @@
+<view class="fun-loading fun-loading--{{size}}">
+  <!-- bounce：三枚表情上下跳，灵感来自经典 bouncing dots -->
+  <view wx:if="{{resolvedVariant === 'bounce'}}" class="fun-loading__bounce" aria-hidden="true">
+    <text class="fun-loading__emoji" style="animation-delay: 0ms;">{{emoji0}}</text>
+    <text class="fun-loading__emoji" style="animation-delay: 120ms;">{{emoji1}}</text>
+    <text class="fun-loading__emoji" style="animation-delay: 240ms;">{{emoji2}}</text>
+  </view>
+
+  <!-- orbit：圆环绕转 -->
+  <view wx:elif="{{resolvedVariant === 'orbit'}}" class="fun-loading__orbit" aria-hidden="true">
+    <view class="fun-loading__orbit-ring" />
+    <text class="fun-loading__orbit-emoji">{{emoji0}}</text>
+  </view>
+
+  <!-- wave：品牌色波点 -->
+  <view wx:elif="{{resolvedVariant === 'wave'}}" class="fun-loading__wave" aria-hidden="true">
+    <view class="fun-loading__dot" style="animation-delay: 0ms;" />
+    <view class="fun-loading__dot" style="animation-delay: 140ms;" />
+    <view class="fun-loading__dot" style="animation-delay: 280ms;" />
+  </view>
+
+  <!-- jelly：单表情果冻弹 -->
+  <view wx:else class="fun-loading__jelly" aria-hidden="true">
+    <text class="fun-loading__jelly-emoji">{{emoji0}}</text>
+  </view>
+
+  <text class="fun-loading__text">{{displayText}}</text>
+</view>
