@@ -56,6 +56,7 @@ Page({
 
   onUnload() {
     this._clearTimer();
+    clearTimeout(this._drawingTimer);
   },
 
   _clearTimer() {
@@ -95,7 +96,7 @@ Page({
 
   maybeShowResultPopup(d) {
     if (this.data.lotteryResultVisible) return;
-    if (!d || d.status !== 'drawn' || !d.joined) return;
+    if (!d || d.status !== 'drawn') return;
     const lotteryId = this._id || this.data.id;
     if (!lotteryId) return;
 
@@ -108,8 +109,9 @@ Page({
       result = null;
     }
 
-    // 队列没有时（偶发写失败），参与者仍弹一次，避免蹲详情页无反馈
+    // 有队列优先；否则仅参与者本地兜底弹一次
     if (!result) {
+      if (!d.joined) return;
       if (this._localResultShown === lotteryId) return;
       this._localResultShown = lotteryId;
       result = {
@@ -192,13 +194,23 @@ Page({
         canJoin: d.status === 'open' && !d.joined && (d.drawAt || 0) > Date.now(),
       });
       if (d.status === 'open') {
+        this._drawingRetry = 0;
         this._tickCountdown(d.drawAt);
+      } else if (d.status === 'drawing') {
+        this._clearTimer();
+        this.setData({ countdown: '开奖中…' });
+        this._drawingRetry = (this._drawingRetry || 0) + 1;
+        if (this._drawingRetry <= 10) {
+          clearTimeout(this._drawingTimer);
+          this._drawingTimer = setTimeout(() => this.loadDetail(), 1200);
+        }
       } else {
+        this._drawingRetry = 0;
         this._clearTimer();
         this.setData({ countdown: '' });
       }
       // 开奖后立刻拉队列并弹结果（含倒计时归零触发的懒开奖）
-      if (isDrawn && d.joined) {
+      if (isDrawn) {
         await this.pullLotteryPending();
         this.maybeShowResultPopup(d);
       }

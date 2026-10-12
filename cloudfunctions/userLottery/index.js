@@ -63,6 +63,23 @@ exports.main = async (event = {}) => {
     await ensureCollection(db, 'lottery_entries');
 
     if (action === 'pending') {
+      // 拉队列前先扫到期开奖，避免首页只读 entitlement 时永远不开奖
+      try {
+        const due = await db
+          .collection('lotteries')
+          .where({ status: 'open', drawAt: _.lte(new Date()) })
+          .limit(5)
+          .get();
+        const rows = (due && due.data) || [];
+        // eslint-disable-next-line no-restricted-syntax
+        for (const row of rows) {
+          // eslint-disable-next-line no-await-in-loop
+          await runDraw(cloud, db, row._id);
+        }
+      } catch (e) {
+        /* ignore */
+      }
+
       let user = {};
       try {
         user = (await db.collection('users').doc(OPENID).get()).data || {};
@@ -138,7 +155,24 @@ exports.main = async (event = {}) => {
         list.push(mapLottery(row, OPENID, entry));
       }
 
-      return { ok: true, data: { list } };
+      let pendingLotteryInvites = [];
+      let pendingLotteryResults = [];
+      try {
+        const user = (await db.collection('users').doc(OPENID).get()).data || {};
+        pendingLotteryInvites = Array.isArray(user.pendingLotteryInvites)
+          ? user.pendingLotteryInvites.slice(0, 20)
+          : [];
+        pendingLotteryResults = Array.isArray(user.pendingLotteryResults)
+          ? user.pendingLotteryResults.slice(0, 20)
+          : [];
+      } catch (e) {
+        /* ignore */
+      }
+
+      return {
+        ok: true,
+        data: { list, pendingLotteryInvites, pendingLotteryResults },
+      };
     }
 
     if (action === 'get') {

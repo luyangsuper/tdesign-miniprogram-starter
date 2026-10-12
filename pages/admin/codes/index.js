@@ -26,6 +26,7 @@ Page({
     listHasMore: true,
     listPage: 1,
     disablingId: '',
+    purging: false,
     themeStyle: '',
   },
 
@@ -244,7 +245,9 @@ Page({
       wx.showModal({
         title: '作废兑换码',
         content: `确定作废 ${code}？作废后不可再兑换。`,
+        confirmText: '作废',
         success: (r) => resolve(!!r.confirm),
+        fail: () => resolve(false),
       });
     });
     if (!ok) return;
@@ -258,6 +261,42 @@ Page({
       wx.showToast({ title: err.message || '作废失败', icon: 'none' });
     } finally {
       this.setData({ disablingId: '' });
+    }
+  },
+
+  async onPurgeInactive() {
+    if (this.data.purging) return;
+    const ok = await new Promise((resolve) => {
+      wx.showModal({
+        title: '清理失效兑换码',
+        content: '将永久删除全部「已作废」和「已使用」兑换码，未使用的不受影响。此操作不可恢复。',
+        confirmText: '确认删除',
+        confirmColor: '#e34d59',
+        success: (r) => resolve(!!r.confirm),
+        fail: () => resolve(false),
+      });
+    });
+    if (!ok) return;
+
+    this.setData({ purging: true });
+    wx.showLoading({ title: '清理中', mask: true });
+    try {
+      const res = await callFunction('adminManageCodes', {
+        action: 'purgeInactive',
+        scope: 'inactive',
+      });
+      wx.hideLoading();
+      const n = (res && res.data && res.data.removed) || 0;
+      wx.showToast({
+        title: n > 0 ? `已删除 ${n} 条` : '没有可清理的',
+        icon: n > 0 ? 'success' : 'none',
+      });
+      this.loadList(true);
+    } catch (err) {
+      wx.hideLoading();
+      wx.showToast({ title: (err && err.message) || '清理失败', icon: 'none' });
+    } finally {
+      this.setData({ purging: false });
     }
   },
 });

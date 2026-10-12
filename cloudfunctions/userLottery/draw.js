@@ -137,7 +137,20 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
     return { ok: false, code: 'CANCELLED', message: '活动已取消' };
   }
   if (lot.status === 'drawing') {
-    return { ok: false, code: 'BUSY', message: '正在开奖' };
+    const drawingAt = toMs(lot.drawingAt || lot.updatedAt);
+    const stale = !drawingAt || Date.now() - drawingAt > 45 * 1000;
+    if (!stale) {
+      return { ok: false, code: 'BUSY', message: '正在开奖' };
+    }
+    // 卡住的 drawing 回收后再开
+    try {
+      await lotRef.update({
+        data: { status: 'open', updatedAt: db.serverDate() },
+      });
+      lot.status = 'open';
+    } catch (e) {
+      return { ok: false, code: 'BUSY', message: '正在开奖' };
+    }
   }
   if (lot.status !== 'open') {
     return { ok: false, code: 'BAD_STATUS', message: '活动状态不可开奖' };
@@ -214,30 +227,41 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
 
       const userRef = db.collection('users').doc(openid);
       try {
-        if (won && prizePoints > 0) {
-          // eslint-disable-next-line no-await-in-loop
-          await db.runTransaction(async (transaction) => {
-            const snap = await transaction.get(userRef);
-            const data = (snap && snap.data) || null;
-            if (!data) return;
-            if (data.lotteryCredits && data.lotteryCredits[id]) return;
-            transaction.update(userRef, {
-              data: {
-                points: _.inc(prizePoints),
-                [`lotteryCredits.${id}`]: true,
-                pendingLotteryResults: _.push({
-                  id: `result_${id}_${openid}`,
-                  lotteryId: id,
-                  title,
-                  won: true,
-                  prizePoints,
-                  drawAt: drawAtMs,
-                  at: Date.now(),
-                }),
-                updatedAt: db.serverDate(),
-              },
+        // 弹窗队列与发奖拆开：即使积分已幂等发过，也要能补写 pending
+        // eslint-disable-next-line no-await-in-loop
+        await db.runTransaction(async (transaction) => {
+          const snap = await transaction.get(userRef);
+          const data = (snap && snap.data) || null;
+          if (!data) return;
+          const alreadyPushed =
+            data.lotteryResultPushed && data.lotteryResultPushed[id];
+          const alreadyCredited =
+            data.lotteryCredits && data.lotteryCredits[id];
+          const patch = { updatedAt: db.serverDate() };
+          let needUpdate = false;
+          if (!alreadyPushed) {
+            patch.pendingLotteryResults = _.push({
+              id: `result_${id}_${openid}`,
+              lotteryId: id,
+              title,
+              won,
+              prizePoints,
+              drawAt: drawAtMs,
+              at: Date.now(),
             });
-          });
+            patch[`lotteryResultPushed.${id}`] = true;
+            needUpdate = true;
+          }
+          if (won && prizePoints > 0 && !alreadyCredited) {
+            patch.points = _.inc(prizePoints);
+            patch[`lotteryCredits.${id}`] = true;
+            needUpdate = true;
+          }
+          if (needUpdate) {
+            transaction.update(userRef, { data: patch });
+          }
+        });
+        if (won && prizePoints > 0) {
           try {
             // eslint-disable-next-line no-await-in-loop
             await sendLotteryWinNotice(cloud, db, {
@@ -249,22 +273,6 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
           } catch (e) {
             console.warn('[draw] win notify', openid, e.message || e);
           }
-        } else {
-          // eslint-disable-next-line no-await-in-loop
-          await userRef.update({
-            data: {
-              pendingLotteryResults: _.push({
-                id: `result_${id}_${openid}`,
-                lotteryId: id,
-                title,
-                won: false,
-                prizePoints: 0,
-                drawAt: drawAtMs,
-                at: Date.now(),
-              }),
-              updatedAt: db.serverDate(),
-            },
-          });
         }
       } catch (e) {
         console.warn('[draw] user result', openid, e.message || e);
@@ -309,7 +317,7 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
   }
 }
 
-/** 若已到期且仍 open，则开奖 */
+/** 若已到期则开奖；drawing 卡住会在 runDraw 内回收 */
 async function ensureDrawn(cloud, db, lotteryOrId) {
   let lot = lotteryOrId;
   let id = '';
@@ -324,8 +332,13 @@ async function ensureDrawn(cloud, db, lotteryOrId) {
     id = lot && (lot._id || lot.id);
   }
   if (!lot || !id) return lot;
-  if (lot.status === 'drawn' || lot.status === 'cancelled') return lot;
-  if (lot.status === 'open' && toMs(lot.drawAt) <= Date.now()) {
+  if (lot.status === 'drawn' || lot.status === 'cancelled') {
+    if (lot) lot._id = id;
+    return lot;
+  }
+  const due = toMs(lot.drawAt) <= Date.now();
+  const stuckDrawing = lot.status === 'drawing';
+  if (due || stuckDrawing) {
     await runDraw(cloud, db, id);
     try {
       lot = (await db.collection('lotteries').doc(id).get()).data;

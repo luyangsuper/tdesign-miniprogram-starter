@@ -56,18 +56,21 @@ Page({
     this.setData({ themeStyle: getThemeStyle() });
   },
 
-  onShow() {
+  async onShow() {
     applyThemeToPage(this);
-    this.loadList();
     this.refreshSubscribeHint();
-    this.pullAndShowPending();
+    // 先 list（内含懒开奖 + 返回 pending），再弹窗，避免竞态空队列
+    await this.loadList();
+    this.maybeShowLotteryResult();
+    this.maybeShowLotteryInvite();
   },
 
   async loadList() {
     this.setData({ loading: true });
     try {
       const res = await callFunction('userLottery', { action: 'list' });
-      const raw = (res && res.data && res.data.list) || [];
+      const data = (res && res.data) || {};
+      const raw = data.list || [];
       const list = raw.map((item) => {
         const meta = statusMeta(item);
         return {
@@ -76,6 +79,8 @@ Page({
           ...meta,
         };
       });
+      applyPendingLotteryInvites(data.pendingLotteryInvites);
+      applyPendingLotteryResults(data.pendingLotteryResults);
       this.setData({ list });
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' });

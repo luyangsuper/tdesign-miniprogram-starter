@@ -123,7 +123,19 @@
   </view>
 
   <view class="block">
-    <view class="block__label">兑换码列表</view>
+    <view class="block__label-row">
+      <view class="block__label">兑换码列表</view>
+      <t-button
+        class="block__purge"
+        size="extra-small"
+        theme="danger"
+        variant="text"
+        content="清理失效"
+        loading="{{purging}}"
+        disabled="{{purging}}"
+        bind:tap="onPurgeInactive"
+      />
+    </view>
     <view class="codes-page__tags">
       <t-check-tag
         size="small"

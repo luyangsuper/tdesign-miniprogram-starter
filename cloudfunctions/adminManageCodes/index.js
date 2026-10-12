@@ -129,6 +129,53 @@ exports.main = async (event = {}) => {
       };
     }
 
+    // 一键删除已作废 / 已使用（不影响未使用码）
+    if (action === 'purgeInactive') {
+      const scope = String(event.scope || 'inactive').trim();
+      const statuses =
+        scope === 'disabled'
+          ? ['disabled']
+          : scope === 'used'
+            ? ['used']
+            : ['disabled', 'used'];
+      let removed = 0;
+      const PAGE = 100;
+      // eslint-disable-next-line no-restricted-syntax
+      for (const status of statuses) {
+        let guard = 0;
+        while (guard < 50) {
+          guard += 1;
+          // eslint-disable-next-line no-await-in-loop
+          const res = await db
+            .collection('redeem_codes')
+            .where({ status })
+            .limit(PAGE)
+            .get();
+          const rows = (res && res.data) || [];
+          if (!rows.length) break;
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.all(
+            rows.map((row) =>
+              db
+                .collection('redeem_codes')
+                .doc(row._id)
+                .remove()
+                .then(() => {
+                  removed += 1;
+                })
+                .catch(() => {}),
+            ),
+          );
+          if (rows.length < PAGE) break;
+        }
+      }
+      return {
+        ok: true,
+        message: `已删除 ${removed} 条`,
+        data: { removed, scope },
+      };
+    }
+
     return { ok: false, code: 'BAD_ACTION', message: '未知操作' };
   } catch (e) {
     console.error(e);

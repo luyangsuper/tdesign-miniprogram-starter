@@ -184,18 +184,27 @@ Page({
     this.stopActivityGiftPoll();
   },
 
-  /** 拉取云端待弹活动积分（覆盖「正在用」的用户，不必冷启动） */
+  /** 拉取云端待弹活动积分 / 抽奖（覆盖「正在用」的用户，不必冷启动） */
   async pullPendingActivityGifts() {
     if (this._pullingActivityGifts || this._closingActivityGift) return;
     this._pullingActivityGifts = true;
     try {
-      const res = await callFunction('userEntitlement', { action: 'get' });
+      const [res, lotteryPending] = await Promise.all([
+        callFunction('userEntitlement', { action: 'get' }),
+        // pending 内会懒开奖，再返回最新队列
+        callFunction('userLottery', { action: 'pending' }).catch(() => null),
+      ]);
       if (res && res.entitlement) {
         setCachedEntitlement(res.entitlement);
       }
       applyPendingPointGifts(res && res.pendingPointGifts);
-      applyPendingLotteryInvites(res && res.pendingLotteryInvites);
-      applyPendingLotteryResults(res && res.pendingLotteryResults);
+      const lotData = (lotteryPending && lotteryPending.data) || {};
+      applyPendingLotteryInvites(
+        lotData.pendingLotteryInvites || (res && res.pendingLotteryInvites),
+      );
+      applyPendingLotteryResults(
+        lotData.pendingLotteryResults || (res && res.pendingLotteryResults),
+      );
       // 有弹窗占用时只合并队列，不抢焦点
       if (!this.data.activityGiftVisible) this.maybeShowActivityGift();
       if (!this.anyBlockingPopup()) {
