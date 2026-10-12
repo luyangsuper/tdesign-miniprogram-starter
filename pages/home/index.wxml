@@ -267,24 +267,8 @@
   </view>
 </t-popup>
 
-<!-- 抽奖邀请 -->
-<lottery-popup
-  visible="{{lotteryInviteVisible}}"
-  mode="invite"
-  invite="{{lotteryInvite}}"
-  bind:visible-change="onLotteryInviteVisibleChange"
-  bind:close="closeLotteryInvite"
-  bind:joined="onLotteryJoined"
-/>
-
-<!-- 抽奖开奖结果 -->
-<lottery-popup
-  visible="{{lotteryResultVisible}}"
-  mode="result"
-  result="{{lotteryResult}}"
-  bind:visible-change="onLotteryResultVisibleChange"
-  bind:close="closeLotteryResult"
-/>
+<!-- 全局抽奖邀请 / 开奖结果（任意前台页可弹） -->
+<lottery-host />
 
 <!-- 微信官方订阅弹窗须用户点击后才能调起；底部引导条承接「进首页提醒」体验 -->
 <t-popup

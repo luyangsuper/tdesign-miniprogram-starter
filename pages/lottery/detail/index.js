@@ -1,10 +1,8 @@
 import { callFunction } from '~/utils/cloud';
 import { formatDate } from '~/utils/time';
 import {
-  applyPendingLotteryInvites,
   applyPendingLotteryResults,
   formatCountdown,
-  markLotteryResultsAcked,
 } from '~/utils/lotteryHint';
 import {
   buildLotteryNotifyHint,
@@ -12,6 +10,10 @@ import {
   requestLotterySubscribe,
 } from '~/utils/subscribe';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 Page({
   data: {
@@ -34,8 +36,6 @@ Page({
     canJoin: false,
     isDrawn: false,
     lotteryNotifyHint: buildLotteryNotifyHint(0, 0),
-    lotteryResultVisible: false,
-    lotteryResult: null,
   },
 
   onLoad(query) {
@@ -46,17 +46,18 @@ Page({
 
   onShow() {
     applyThemeToPage(this);
-    this.loadDetail();
+    this.loadDetail({ silent: !!this.data.title });
     this.refreshSubscribeHint();
   },
 
   onHide() {
     this._clearTimer();
+    this._stopDrawPoll();
   },
 
   onUnload() {
     this._clearTimer();
-    clearTimeout(this._drawingTimer);
+    this._stopDrawPoll();
   },
 
   _clearTimer() {
@@ -64,6 +65,10 @@ Page({
       clearInterval(this._timer);
       this._timer = null;
     }
+  },
+
+  _stopDrawPoll() {
+    this._drawPolling = false;
   },
 
   _tickCountdown(drawAt) {
@@ -76,108 +81,55 @@ Page({
       });
       if (left <= 0 && this.data.status === 'open') {
         this._clearTimer();
-        this.loadDetail();
+        this.setData({ countdown: '开奖中…' });
+        this._pollUntilDrawn();
       }
     };
     tick();
     this._timer = setInterval(tick, 1000);
   },
 
-  async pullLotteryPending() {
+  async _pollUntilDrawn() {
+    if (this._drawPolling) return;
+    this._drawPolling = true;
     try {
-      const res = await callFunction('userLottery', { action: 'pending' });
-      const data = (res && res.data) || {};
-      applyPendingLotteryInvites(data.pendingLotteryInvites);
-      applyPendingLotteryResults(data.pendingLotteryResults);
-    } catch (e) {
-      /* ignore */
-    }
-  },
-
-  maybeShowResultPopup(d) {
-    if (this.data.lotteryResultVisible) return;
-    if (!d || d.status !== 'drawn') return;
-    const lotteryId = this._id || this.data.id;
-    if (!lotteryId) return;
-
-    let result = null;
-    try {
-      const app = getApp();
-      const list = (app.globalData && app.globalData.pendingLotteryResults) || [];
-      result = list.find((g) => g && g.lotteryId === lotteryId) || null;
-    } catch (e) {
-      result = null;
-    }
-
-    // 有队列优先；否则仅参与者本地兜底弹一次
-    if (!result) {
-      if (!d.joined) return;
-      if (this._localResultShown === lotteryId) return;
-      this._localResultShown = lotteryId;
-      result = {
-        id: `result_${lotteryId}_local`,
-        lotteryId,
-        title: d.title || this.data.title || '开奖结果',
-        won: !!d.won,
-        prizePoints: Number(d.prizePoints) || 0,
-      };
-    }
-
-    this.setData({
-      lotteryResultVisible: true,
-      lotteryResult: result,
-    });
-  },
-
-  async closeLotteryResult() {
-    if (this._closingLotteryResult) return;
-    this._closingLotteryResult = true;
-    const result = this.data.lotteryResult;
-    const resultId = result && result.id;
-    const lotteryId = result && result.lotteryId;
-    if (resultId) markLotteryResultsAcked([resultId]);
-    this.setData({ lotteryResultVisible: false, lotteryResult: null });
-    try {
-      const app = getApp();
-      if (app.globalData) {
-        app.globalData.pendingLotteryResults = (
-          app.globalData.pendingLotteryResults || []
-        ).filter((g) => g && g.id !== resultId);
+      for (let i = 0; i < 30 && this._drawPolling; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await this.loadDetail({ silent: true });
+        if (this.data.status === 'drawn' || this.data.status === 'cancelled') break;
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(800);
       }
-    } catch (e) {
-      /* ignore */
-    }
-    if (resultId && !String(resultId).endsWith('_local')) {
-      try {
-        await callFunction('userLottery', {
-          action: 'ackResult',
-          resultId,
-          lotteryId,
-        });
-      } catch (e) {
-        /* ignore */
-      }
-    }
-    this._closingLotteryResult = false;
-  },
-
-  onLotteryResultVisibleChange(e) {
-    if (!(e.detail && e.detail.visible)) {
-      this.closeLotteryResult();
+    } finally {
+      this._drawPolling = false;
     }
   },
 
-  async loadDetail() {
+  async loadDetail(opts = {}) {
+    const silent = !!opts.silent;
     const id = this._id || this.data.id;
     if (!id) {
       this.setData({ loading: false });
       return;
     }
-    this.setData({ loading: true });
+    if (this._loadingDetail) {
+      this._loadDetailQueued = { silent };
+      return;
+    }
+    this._loadingDetail = true;
+    if (!silent) this.setData({ loading: true });
     try {
-      const res = await callFunction('userLottery', { action: 'get', lotteryId: id });
+      const res = await callFunction('userLottery', {
+        action: 'get',
+        lotteryId: id,
+      });
       const d = (res && res.data) || {};
       const isDrawn = d.status === 'drawn';
+
+      if (Array.isArray(d.pendingLotteryResults) && d.pendingLotteryResults.length) {
+        applyPendingLotteryResults(d.pendingLotteryResults);
+      }
+
       this.setData({
         title: d.title || '',
         poolPoints: d.poolPoints || 0,
@@ -192,32 +144,35 @@ Page({
         winners: Array.isArray(d.winners) ? d.winners : [],
         isDrawn,
         canJoin: d.status === 'open' && !d.joined && (d.drawAt || 0) > Date.now(),
+        loading: false,
       });
+
       if (d.status === 'open') {
-        this._drawingRetry = 0;
-        this._tickCountdown(d.drawAt);
+        const left = (d.drawAt || 0) - Date.now();
+        if (left <= 0) {
+          this.setData({ countdown: '开奖中…' });
+          if (!this._drawPolling) this._pollUntilDrawn();
+        } else {
+          this._tickCountdown(d.drawAt);
+        }
       } else if (d.status === 'drawing') {
         this._clearTimer();
         this.setData({ countdown: '开奖中…' });
-        this._drawingRetry = (this._drawingRetry || 0) + 1;
-        if (this._drawingRetry <= 10) {
-          clearTimeout(this._drawingTimer);
-          this._drawingTimer = setTimeout(() => this.loadDetail(), 1200);
-        }
+        if (!this._drawPolling) this._pollUntilDrawn();
       } else {
-        this._drawingRetry = 0;
         this._clearTimer();
-        this.setData({ countdown: '' });
-      }
-      // 开奖后立刻拉队列并弹结果（含倒计时归零触发的懒开奖）
-      if (isDrawn) {
-        await this.pullLotteryPending();
-        this.maybeShowResultPopup(d);
+        if (isDrawn) this.setData({ countdown: '' });
       }
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' });
-    } finally {
+      if (!silent) {
+        wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' });
+      }
       this.setData({ loading: false });
+    } finally {
+      this._loadingDetail = false;
+      const queued = this._loadDetailQueued;
+      this._loadDetailQueued = null;
+      if (queued) this.loadDetail(queued);
     }
   },
 
@@ -235,7 +190,7 @@ Page({
         lotteryId: this._id || this.data.id,
       });
       wx.showToast({ title: '已参与', icon: 'success' });
-      this.loadDetail();
+      this.loadDetail({ silent: true });
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '参与失败', icon: 'none' });
     } finally {

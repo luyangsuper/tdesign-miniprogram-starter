@@ -1,0 +1,15 @@
+<lottery-popup
+  visible="{{resultVisible}}"
+  mode="result"
+  result="{{result}}"
+  bind:visible-change="onResultVisibleChange"
+  bind:close="closeResult"
+/>
+<lottery-popup
+  visible="{{inviteVisible}}"
+  mode="invite"
+  invite="{{invite}}"
+  bind:visible-change="onInviteVisibleChange"
+  bind:close="closeInvite"
+  bind:joined="onJoined"
+/>

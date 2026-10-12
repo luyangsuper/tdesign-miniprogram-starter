@@ -116,6 +116,8 @@ Page({
     feedbackVisible: false,
     feedbackContent: '',
     feedbackContact: '',
+    feedbackFiles: [],
+    feedbackGridConfig: { column: 4, width: 160, height: 160 },
     feedbackSubmitting: false,
     checkinVisible: false,
     guideVisible: false,
@@ -166,6 +168,26 @@ Page({
 
   onLoad() {
     this.syncThemeUi();
+    this._onEntitlementChange = () => this.refreshIdentity();
+    try {
+      const app = getApp();
+      if (app && app.eventBus) {
+        app.eventBus.on('entitlementChange', this._onEntitlementChange);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  },
+
+  onUnload() {
+    try {
+      const app = getApp();
+      if (app && app.eventBus && this._onEntitlementChange) {
+        app.eventBus.off('entitlementChange', this._onEntitlementChange);
+      }
+    } catch (e) {
+      /* ignore */
+    }
   },
 
   maybeOpenCheckinPopup() {
@@ -318,6 +340,57 @@ Page({
     this.setData({ feedbackContact: String(v) });
   },
 
+  onFeedbackUploadSuccess(e) {
+    const files = (e.detail && e.detail.files) || [];
+    this.setData({ feedbackFiles: files.slice(0, 3) });
+  },
+
+  onFeedbackUploadRemove(e) {
+    const index = e.detail && e.detail.index;
+    const files = (this.data.feedbackFiles || []).slice();
+    if (typeof index === 'number' && index >= 0 && index < files.length) {
+      files.splice(index, 1);
+      this.setData({ feedbackFiles: files });
+    }
+  },
+
+  pickFeedbackLocalPath(file) {
+    return (file && (file.url || file.path || file.tempFilePath)) || '';
+  },
+
+  async uploadFeedbackImages(files) {
+    const list = (files || []).slice(0, 3);
+    if (!list.length) return [];
+    const openid = getOpenId() || 'anon';
+    const stamp = Date.now();
+    const ids = [];
+    for (let i = 0; i < list.length; i += 1) {
+      const file = list[i];
+      if (file.fileID && String(file.fileID).startsWith('cloud://')) {
+        ids.push(file.fileID);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const local = this.pickFeedbackLocalPath(file);
+      if (!local) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      if (String(local).startsWith('cloud://')) {
+        ids.push(local);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const name = String(file.name || local).split(/[/\\]/).pop() || `img_${i}.jpg`;
+      const ext = (name.split('.').pop() || 'jpg').split('?')[0].toLowerCase() || 'jpg';
+      const cloudPath = `feedback/${openid}/${stamp}_${i}.${ext}`;
+      // eslint-disable-next-line no-await-in-loop
+      const fileID = await uploadFile(cloudPath, local);
+      ids.push(fileID);
+    }
+    return ids;
+  },
+
   async onSubmitFeedback() {
     if (this.data.feedbackSubmitting) return;
     const content = String(this.data.feedbackContent || '').trim();
@@ -327,14 +400,17 @@ Page({
     }
     this.setData({ feedbackSubmitting: true });
     try {
+      const images = await this.uploadFeedbackImages(this.data.feedbackFiles);
       await callFunction('submitFeedback', {
         content,
         contact: String(this.data.feedbackContact || '').trim(),
+        images,
       });
       this.setData({
         feedbackVisible: false,
         feedbackContent: '',
         feedbackContact: '',
+        feedbackFiles: [],
         feedbackSubmitting: false,
       });
       wx.showToast({ title: '已收到，谢谢', icon: 'success' });
@@ -430,7 +506,10 @@ Page({
         this.refreshIdentity();
       }
       applyPendingPointGifts(res && res.pendingPointGifts);
-      applyPendingLotteryInvites(res && res.pendingLotteryInvites);
+      applyPendingLotteryInvites(res && res.pendingLotteryInvites, {
+        replace: true,
+      });
+      // entitlement 不再下发开奖结果，勿 replace 清空
       applyPendingLotteryResults(res && res.pendingLotteryResults);
     } catch (e) {
       /* ignore */
@@ -443,7 +522,7 @@ Page({
       if (!res.openid) return;
       applyLoginResult(res);
       applyPendingPointGifts(res.pendingPointGifts);
-      applyPendingLotteryInvites(res.pendingLotteryInvites);
+      applyPendingLotteryInvites(res.pendingLotteryInvites, { replace: true });
       applyPendingLotteryResults(res.pendingLotteryResults);
       const profile = getUserProfile() || {};
       // 云函数已换链则直接用；否则 / 链不新鲜时客户端再换一次

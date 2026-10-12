@@ -112,4 +112,5 @@
       <t-empty description="暂无抽奖活动" />
     </view>
   </block>
+  <lottery-host />
 </view>

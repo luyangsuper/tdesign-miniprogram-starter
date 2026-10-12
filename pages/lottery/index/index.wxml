@@ -40,19 +40,5 @@
     <t-empty description="暂无抽奖活动" />
   </view>
 
-  <lottery-popup
-    visible="{{lotteryResultVisible}}"
-    mode="result"
-    result="{{lotteryResult}}"
-    bind:visible-change="onLotteryResultVisibleChange"
-    bind:close="closeLotteryResult"
-  />
-  <lottery-popup
-    visible="{{lotteryInviteVisible}}"
-    mode="invite"
-    invite="{{lotteryInvite}}"
-    bind:visible-change="onLotteryInviteVisibleChange"
-    bind:close="closeLotteryInvite"
-    bind:joined="onLotteryJoined"
-  />
+  <lottery-host />
 </view>

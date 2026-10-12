@@ -82,31 +82,241 @@ async function ensureCollection(db, name) {
 
 async function loadAllEntries(db, lotteryId) {
   const PAGE = 100;
-  let lastId = '';
-  const list = [];
   const _ = db.command;
-  while (true) {
-    let query = db
+  // 优先带 orderBy 分页；无复合索引时降级为 where+limit，避免开奖整段失败
+  try {
+    let lastId = '';
+    const list = [];
+    while (true) {
+      let query = db
+        .collection('lottery_entries')
+        .where({ lotteryId })
+        .orderBy('_id', 'asc')
+        .limit(PAGE);
+      if (lastId) {
+        query = db
+          .collection('lottery_entries')
+          .where({ lotteryId, _id: _.gt(lastId) })
+          .orderBy('_id', 'asc')
+          .limit(PAGE);
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const res = await query.get();
+      const rows = (res && res.data) || [];
+      if (!rows.length) break;
+      list.push(...rows);
+      lastId = String(rows[rows.length - 1]._id || '');
+      if (!lastId || rows.length < PAGE) break;
+    }
+    return list;
+  } catch (e) {
+    console.warn('[draw] loadAllEntries fallback', e.message || e);
+    const res = await db
       .collection('lottery_entries')
       .where({ lotteryId })
-      .orderBy('_id', 'asc')
-      .limit(PAGE);
+      .limit(PAGE)
+      .get();
+    return (res && res.data) || [];
+  }
+}
+
+/**
+ * 开奖后清掉全员邀请队列，避免未参与者继续弹「参与抽奖」
+ */
+async function clearInvitesForLottery(db, _, lotteryId) {
+  const id = String(lotteryId || '').trim();
+  if (!id) return;
+  const PAGE = 20;
+  let lastId = '';
+  while (true) {
+    let query = db.collection('users').orderBy('_id', 'asc').limit(PAGE);
     if (lastId) {
       query = db
-        .collection('lottery_entries')
-        .where({ lotteryId, _id: _.gt(lastId) })
+        .collection('users')
+        .where({ _id: _.gt(lastId) })
         .orderBy('_id', 'asc')
         .limit(PAGE);
     }
     // eslint-disable-next-line no-await-in-loop
     const res = await query.get();
-    const rows = (res && res.data) || [];
-    if (!rows.length) break;
-    list.push(...rows);
-    lastId = String(rows[rows.length - 1]._id || '');
-    if (!lastId || rows.length < PAGE) break;
+    const list = (res && res.data) || [];
+    if (!list.length) break;
+
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all(
+      list.map(async (row) => {
+        const uid = row._id || row.openid;
+        if (!uid) return;
+        try {
+          await db
+            .collection('users')
+            .doc(uid)
+            .update({
+              data: {
+                pendingLotteryInvites: _.pull({ lotteryId: id }),
+                updatedAt: db.serverDate(),
+              },
+            });
+        } catch (e) {
+          /* ignore */
+        }
+      }),
+    );
+
+    lastId = String(list[list.length - 1]._id || '');
+    if (!lastId || list.length < PAGE) break;
   }
-  return list;
+}
+
+/**
+ * 幂等发积分 + 写入开奖弹窗队列（仅参与者；两步分离，互不影响）
+ */
+async function creditAndPushResult(db, _, {
+  openid,
+  lotteryId,
+  title,
+  won,
+  prizePoints,
+  drawAtMs,
+}) {
+  if (!openid || !lotteryId) return;
+  const userRef = db.collection('users').doc(openid);
+  const pts = Math.max(0, Math.floor(Number(prizePoints) || 0));
+
+  // 1) 先发积分（幂等）
+  if (won && pts > 0) {
+    try {
+      await db.runTransaction(async (transaction) => {
+        const snap = await transaction.get(userRef);
+        const data = (snap && snap.data) || null;
+        if (!data) return;
+        if (data.lotteryCredits && data.lotteryCredits[lotteryId]) return;
+        transaction.update(userRef, {
+          data: {
+            points: _.inc(pts),
+            [`lotteryCredits.${lotteryId}`]: true,
+            updatedAt: db.serverDate(),
+          },
+        });
+      });
+    } catch (e) {
+      console.warn('[draw] credit tx', openid, e.message || e);
+      try {
+        const data = (await userRef.get()).data;
+        if (data && !(data.lotteryCredits && data.lotteryCredits[lotteryId])) {
+          await userRef.update({
+            data: {
+              points: _.inc(pts),
+              [`lotteryCredits.${lotteryId}`]: true,
+              updatedAt: db.serverDate(),
+            },
+          });
+        }
+      } catch (e2) {
+        console.error('[draw] credit fallback', openid, e2.message || e2);
+      }
+    }
+  }
+
+  // 2) 再写弹窗队列（幂等）
+  try {
+    const data = (await userRef.get()).data;
+    if (!data) return;
+    if (data.lotteryResultPushed && data.lotteryResultPushed[lotteryId]) return;
+    await userRef.update({
+      data: {
+        pendingLotteryResults: _.push({
+          id: `result_${lotteryId}_${openid}`,
+          lotteryId,
+          title,
+          won: !!won,
+          prizePoints: pts,
+          drawAt: drawAtMs || 0,
+          at: Date.now(),
+        }),
+        [`lotteryResultPushed.${lotteryId}`]: true,
+        updatedAt: db.serverDate(),
+      },
+    });
+  } catch (e) {
+    console.warn('[draw] push result', openid, e.message || e);
+  }
+}
+
+/**
+ * 补发：用户已中奖但积分未到账 / 弹窗队列缺失时修复
+ */
+async function repairMyLotteryCredits(db, _, openid) {
+  if (!openid) return { repaired: 0 };
+  let entries = [];
+  try {
+    const res = await db
+      .collection('lottery_entries')
+      .where({ openid, won: true })
+      .limit(50)
+      .get();
+    entries = (res && res.data) || [];
+  } catch (e) {
+    try {
+      const res = await db
+        .collection('lottery_entries')
+        .where({ openid })
+        .limit(50)
+        .get();
+      entries = ((res && res.data) || []).filter((r) => r && r.won);
+    } catch (e2) {
+      return { repaired: 0 };
+    }
+  }
+  if (!entries.length) return { repaired: 0 };
+
+  let user;
+  try {
+    user = (await db.collection('users').doc(openid).get()).data;
+  } catch (e) {
+    return { repaired: 0 };
+  }
+  if (!user) return { repaired: 0 };
+
+  let repaired = 0;
+  // eslint-disable-next-line no-restricted-syntax
+  for (const entry of entries) {
+    const lotteryId = String(entry.lotteryId || '').trim();
+    const pts = Math.max(0, Math.floor(Number(entry.prizePoints) || 0));
+    if (!lotteryId || pts <= 0) continue;
+    const credited = user.lotteryCredits && user.lotteryCredits[lotteryId];
+    const pushed = user.lotteryResultPushed && user.lotteryResultPushed[lotteryId];
+    if (credited && pushed) continue;
+
+    let title = '抽奖活动';
+    let drawAtMs = 0;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const lot = (await db.collection('lotteries').doc(lotteryId).get()).data;
+      if (lot) {
+        title = String(lot.title || title);
+        drawAtMs = toMs(lot.drawAt || lot.drawnAt);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    await creditAndPushResult(db, _, {
+      openid,
+      lotteryId,
+      title,
+      won: true,
+      prizePoints: pts,
+      drawAtMs,
+    });
+    repaired += 1;
+    user.lotteryCredits = user.lotteryCredits || {};
+    user.lotteryCredits[lotteryId] = true;
+    user.lotteryResultPushed = user.lotteryResultPushed || {};
+    user.lotteryResultPushed[lotteryId] = true;
+  }
+  return { repaired };
 }
 
 /**
@@ -203,7 +413,7 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
 
     const winMap = new Map(winners.map((w) => [w.openid, w]));
 
-    // 发奖 + 写 entry + 推结果
+    // 发奖 + 写 entry + 推结果（积分与弹窗队列分开写，避免同事务 _.inc+_.push 整段失败）
     // eslint-disable-next-line no-restricted-syntax
     for (const entry of entries) {
       const openid = entry.openid;
@@ -225,57 +435,28 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
         console.warn('[draw] entry update', entryId, e.message || e);
       }
 
-      const userRef = db.collection('users').doc(openid);
-      try {
-        // 弹窗队列与发奖拆开：即使积分已幂等发过，也要能补写 pending
-        // eslint-disable-next-line no-await-in-loop
-        await db.runTransaction(async (transaction) => {
-          const snap = await transaction.get(userRef);
-          const data = (snap && snap.data) || null;
-          if (!data) return;
-          const alreadyPushed =
-            data.lotteryResultPushed && data.lotteryResultPushed[id];
-          const alreadyCredited =
-            data.lotteryCredits && data.lotteryCredits[id];
-          const patch = { updatedAt: db.serverDate() };
-          let needUpdate = false;
-          if (!alreadyPushed) {
-            patch.pendingLotteryResults = _.push({
-              id: `result_${id}_${openid}`,
-              lotteryId: id,
-              title,
-              won,
-              prizePoints,
-              drawAt: drawAtMs,
-              at: Date.now(),
-            });
-            patch[`lotteryResultPushed.${id}`] = true;
-            needUpdate = true;
-          }
-          if (won && prizePoints > 0 && !alreadyCredited) {
-            patch.points = _.inc(prizePoints);
-            patch[`lotteryCredits.${id}`] = true;
-            needUpdate = true;
-          }
-          if (needUpdate) {
-            transaction.update(userRef, { data: patch });
-          }
-        });
-        if (won && prizePoints > 0) {
-          try {
-            // eslint-disable-next-line no-await-in-loop
-            await sendLotteryWinNotice(cloud, db, {
-              openid,
-              title,
-              prizePoints,
-              lotteryId: id,
-            });
-          } catch (e) {
-            console.warn('[draw] win notify', openid, e.message || e);
-          }
+      // eslint-disable-next-line no-await-in-loop
+      await creditAndPushResult(db, _, {
+        openid,
+        lotteryId: id,
+        title,
+        won,
+        prizePoints,
+        drawAtMs,
+      });
+
+      if (won && prizePoints > 0) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await sendLotteryWinNotice(cloud, db, {
+            openid,
+            title,
+            prizePoints,
+            lotteryId: id,
+          });
+        } catch (e) {
+          console.warn('[draw] win notify', openid, e.message || e);
         }
-      } catch (e) {
-        console.warn('[draw] user result', openid, e.message || e);
       }
     }
 
@@ -288,6 +469,13 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
         updatedAt: db.serverDate(),
       },
     });
+
+    // 未参与者不应再看到邀请弹窗 / 误以为开奖提醒
+    try {
+      await clearInvitesForLottery(db, _, id);
+    } catch (e) {
+      console.warn('[draw] clear invites', e.message || e);
+    }
 
     return {
       ok: true,
@@ -380,4 +568,7 @@ module.exports = {
   scanAndDrawDue,
   ensureCollection,
   loadAllEntries,
+  creditAndPushResult,
+  repairMyLotteryCredits,
+  clearInvitesForLottery,
 };

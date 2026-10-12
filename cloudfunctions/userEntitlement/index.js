@@ -87,19 +87,25 @@ exports.main = async (event = {}) => {
       const pendingPointGifts = Array.isArray(synced.pendingPointGifts)
         ? synced.pendingPointGifts.slice(0, 50)
         : [];
-      const pendingLotteryInvites = Array.isArray(synced.pendingLotteryInvites)
-        ? synced.pendingLotteryInvites.slice(0, 20)
-        : [];
-      const pendingLotteryResults = Array.isArray(synced.pendingLotteryResults)
-        ? synced.pendingLotteryResults.slice(0, 20)
-        : [];
+      const now = Date.now();
+      const pendingLotteryInvites = (
+        Array.isArray(synced.pendingLotteryInvites)
+          ? synced.pendingLotteryInvites
+          : []
+      )
+        .filter((g) => {
+          if (!g || !g.lotteryId) return false;
+          const drawAt = Number(g.drawAt) || 0;
+          return !(drawAt > 0 && drawAt <= now);
+        })
+        .slice(0, 20);
       return {
         ok: true,
         openid: OPENID,
         entitlement: buildEntitlement(synced),
         pendingPointGifts,
         pendingLotteryInvites,
-        pendingLotteryResults,
+        // 开奖结果只走 userLottery.pending（校验已参与）
       };
     }
 

@@ -67,7 +67,8 @@ App({
           }
         }
         applyPendingPointGifts(res.pendingPointGifts);
-        applyPendingLotteryInvites(res.pendingLotteryInvites);
+        applyPendingLotteryInvites(res.pendingLotteryInvites, { replace: true });
+        // login 不下发开奖结果，避免 replace 清空
         applyPendingLotteryResults(res.pendingLotteryResults);
         console.log('[login] openid ok, isAdmin =', res.isAdmin, 'nick =', res.nickName || '');
       }
@@ -83,6 +84,44 @@ App({
           showCancel: false,
         });
       }
+    }
+  },
+
+  onShow() {
+    this.startLotteryPoll();
+    this.pullLotteryPending();
+  },
+
+  onHide() {
+    this.stopLotteryPoll();
+  },
+
+  startLotteryPoll() {
+    this.stopLotteryPoll();
+    this._lotteryPollTimer = setInterval(() => {
+      this.pullLotteryPending();
+    }, 5000);
+  },
+
+  stopLotteryPoll() {
+    if (this._lotteryPollTimer) {
+      clearInterval(this._lotteryPollTimer);
+      this._lotteryPollTimer = null;
+    }
+  },
+
+  async pullLotteryPending() {
+    if (this._pullingLottery || !this.globalData.openid) return;
+    this._pullingLottery = true;
+    try {
+      const res = await callFunction('userLottery', { action: 'pending' });
+      const data = (res && res.data) || {};
+      applyPendingLotteryInvites(data.pendingLotteryInvites, { replace: true });
+      applyPendingLotteryResults(data.pendingLotteryResults, { replace: true });
+    } catch (e) {
+      /* ignore */
+    } finally {
+      this._pullingLottery = false;
     }
   },
 
@@ -108,6 +147,8 @@ App({
     pendingLotteryResults: [],
     ackedLotteryInviteIds: [],
     ackedLotteryResultIds: [],
+    /** 当前前台页 lottery-host 令牌，避免栈内多实例叠弹 */
+    lotteryHostToken: 0,
   },
 
   eventBus: createBus(),

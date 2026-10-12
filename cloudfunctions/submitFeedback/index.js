@@ -8,6 +8,20 @@ const _ = db.command;
 const COLLECTION = 'feedback';
 const MAX_LEN = 500;
 const MIN_LEN = 2;
+const MAX_IMAGES = 3;
+
+/** 仅接受云存储 fileID，最多 3 张 */
+function normalizeImages(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (let i = 0; i < raw.length && out.length < MAX_IMAGES; i += 1) {
+    const id = String(raw[i] || '').trim();
+    if (id.startsWith('cloud://') && out.indexOf(id) < 0) {
+      out.push(id);
+    }
+  }
+  return out;
+}
 
 const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
 
@@ -155,12 +169,16 @@ exports.main = async (event) => {
     .replace(/\s+/g, ' ')
     .trim();
   const contact = String((event && event.contact) || '').trim().slice(0, 64);
+  const images = normalizeImages(event && event.images);
 
   if (content.length < MIN_LEN) {
     return { ok: false, code: 'TOO_SHORT', message: '请多写一点建议' };
   }
   if (content.length > MAX_LEN) {
     return { ok: false, code: 'TOO_LONG', message: `建议请控制在 ${MAX_LEN} 字以内` };
+  }
+  if (Array.isArray(event && event.images) && (event.images || []).length > MAX_IMAGES) {
+    return { ok: false, code: 'TOO_MANY_IMAGES', message: `最多上传 ${MAX_IMAGES} 张图片` };
   }
 
   // 简单防刷：同一用户 30 秒内只能提交一次
@@ -187,6 +205,7 @@ exports.main = async (event) => {
     openid,
     content,
     contact,
+    images,
     status: 'new',
     createdAt: now,
     updatedAt: now,

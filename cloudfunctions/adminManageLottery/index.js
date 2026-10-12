@@ -109,6 +109,49 @@ async function pushInvites({ lotteryId, title, drawAtMs, poolPoints, winnerCount
   return { notified, failed };
 }
 
+/** 取消/开奖后清掉全员邀请，避免未参与者继续弹窗 */
+async function clearInvitesForLottery(lotteryId) {
+  const id = String(lotteryId || '').trim();
+  if (!id) return;
+  let lastId = '';
+  while (true) {
+    let query = db.collection('users').orderBy('_id', 'asc').limit(PAGE_SIZE);
+    if (lastId) {
+      query = db
+        .collection('users')
+        .where({ _id: _.gt(lastId) })
+        .orderBy('_id', 'asc')
+        .limit(PAGE_SIZE);
+    }
+    // eslint-disable-next-line no-await-in-loop
+    const res = await query.get();
+    const list = (res && res.data) || [];
+    if (!list.length) break;
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all(
+      list.map(async (row) => {
+        const uid = row._id || row.openid;
+        if (!uid) return;
+        try {
+          await db
+            .collection('users')
+            .doc(uid)
+            .update({
+              data: {
+                pendingLotteryInvites: _.pull({ lotteryId: id }),
+                updatedAt: db.serverDate(),
+              },
+            });
+        } catch (e) {
+          /* ignore */
+        }
+      }),
+    );
+    lastId = String(list[list.length - 1]._id || '');
+    if (!lastId || list.length < PAGE_SIZE) break;
+  }
+}
+
 function mapLottery(row) {
   return {
     id: row._id,
@@ -277,6 +320,11 @@ exports.main = async (event = {}) => {
             updatedAt: db.serverDate(),
           },
         });
+      try {
+        await clearInvitesForLottery(lotteryId);
+      } catch (e) {
+        console.warn('[cancel] clear invites', e.message || e);
+      }
       return { ok: true, message: '已取消' };
     }
 

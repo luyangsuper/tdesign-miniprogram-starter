@@ -76,4 +76,5 @@
     bind:confirm="onConfirmDelete"
     bind:cancel="onCancelDelete"
   />
+  <lottery-host />
 </view>

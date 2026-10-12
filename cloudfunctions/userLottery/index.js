@@ -1,5 +1,11 @@
 const cloud = require('wx-server-sdk');
-const { toMs, runDraw, ensureDrawn, ensureCollection } = require('./draw');
+const {
+  toMs,
+  runDraw,
+  ensureDrawn,
+  ensureCollection,
+  repairMyLotteryCredits,
+} = require('./draw');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -20,7 +26,7 @@ function mapLottery(row, openid, entry) {
     drawAtText: '',
     status: row.status || 'open',
     participantCount: Number(row.participantCount) || 0,
-    joined: !!(entry && entry.openid),
+    joined: !!(entry || myWin),
     won: entry ? !!entry.won : !!myWin,
     prizePoints: entry
       ? Number(entry.prizePoints) || 0
@@ -48,6 +54,100 @@ async function getEntry(lotteryId, openid) {
   } catch (e) {
     return null;
   }
+}
+
+/**
+ * 清洗待办：
+ * - 邀请：仅保留仍报名中且未到开奖时间的活动（已开奖/取消/过期一律丢掉）
+ * - 结果：仅保留本人已参与的活动（未参与绝不弹开奖结果）
+ */
+async function sanitizeUserLotteryPending(openid, user) {
+  const rawInvites = Array.isArray(user.pendingLotteryInvites)
+    ? user.pendingLotteryInvites
+    : [];
+  const rawResults = Array.isArray(user.pendingLotteryResults)
+    ? user.pendingLotteryResults
+    : [];
+
+  const keepInvites = [];
+  const dropInviteLotteryIds = new Set();
+  // eslint-disable-next-line no-restricted-syntax
+  for (const inv of rawInvites) {
+    if (!inv || !inv.lotteryId || !inv.id) continue;
+    const lotteryId = String(inv.lotteryId);
+    let lot = null;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      lot = (await db.collection('lotteries').doc(lotteryId).get()).data;
+    } catch (e) {
+      lot = null;
+    }
+    const drawAt = toMs(inv.drawAt || (lot && lot.drawAt));
+    const status = (lot && lot.status) || '';
+    const stillOpen =
+      lot && status === 'open' && drawAt > Date.now();
+    if (!stillOpen) {
+      dropInviteLotteryIds.add(lotteryId);
+      continue;
+    }
+    keepInvites.push(inv);
+  }
+
+  const keepResults = [];
+  const dropResultIds = [];
+  // eslint-disable-next-line no-restricted-syntax
+  for (const r of rawResults) {
+    if (!r || !r.lotteryId || !r.id) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const entry = await getEntry(r.lotteryId, openid);
+    if (!entry) {
+      dropResultIds.push(r.id);
+      continue;
+    }
+    keepResults.push(r);
+  }
+
+  if (dropInviteLotteryIds.size || dropResultIds.length) {
+    // eslint-disable-next-line no-restricted-syntax
+    for (const lid of dropInviteLotteryIds) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await db
+          .collection('users')
+          .doc(openid)
+          .update({
+            data: {
+              pendingLotteryInvites: _.pull({ lotteryId: lid }),
+              updatedAt: db.serverDate(),
+            },
+          });
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    // eslint-disable-next-line no-restricted-syntax
+    for (const rid of dropResultIds) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await db
+          .collection('users')
+          .doc(openid)
+          .update({
+            data: {
+              pendingLotteryResults: _.pull({ id: rid }),
+              updatedAt: db.serverDate(),
+            },
+          });
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }
+
+  return {
+    pendingLotteryInvites: keepInvites.slice(0, 20),
+    pendingLotteryResults: keepResults.slice(0, 20),
+  };
 }
 
 exports.main = async (event = {}) => {
@@ -80,21 +180,25 @@ exports.main = async (event = {}) => {
         /* ignore */
       }
 
+      // 历史中奖未到账 / 未入弹窗队列时补发
+      try {
+        await repairMyLotteryCredits(db, _, OPENID);
+      } catch (e) {
+        /* ignore */
+      }
+
       let user = {};
       try {
         user = (await db.collection('users').doc(OPENID).get()).data || {};
       } catch (e) {
         user = {};
       }
+      const pending = await sanitizeUserLotteryPending(OPENID, user);
       return {
         ok: true,
         data: {
-          pendingLotteryInvites: Array.isArray(user.pendingLotteryInvites)
-            ? user.pendingLotteryInvites.slice(0, 20)
-            : [],
-          pendingLotteryResults: Array.isArray(user.pendingLotteryResults)
-            ? user.pendingLotteryResults.slice(0, 20)
-            : [],
+          ...pending,
+          points: Math.max(0, Number(user.points) || 0),
         },
       };
     }
@@ -113,6 +217,12 @@ exports.main = async (event = {}) => {
           // eslint-disable-next-line no-await-in-loop
           await runDraw(cloud, db, row._id);
         }
+      } catch (e) {
+        /* ignore */
+      }
+
+      try {
+        await repairMyLotteryCredits(db, _, OPENID);
       } catch (e) {
         /* ignore */
       }
@@ -159,12 +269,9 @@ exports.main = async (event = {}) => {
       let pendingLotteryResults = [];
       try {
         const user = (await db.collection('users').doc(OPENID).get()).data || {};
-        pendingLotteryInvites = Array.isArray(user.pendingLotteryInvites)
-          ? user.pendingLotteryInvites.slice(0, 20)
-          : [];
-        pendingLotteryResults = Array.isArray(user.pendingLotteryResults)
-          ? user.pendingLotteryResults.slice(0, 20)
-          : [];
+        const pending = await sanitizeUserLotteryPending(OPENID, user);
+        pendingLotteryInvites = pending.pendingLotteryInvites;
+        pendingLotteryResults = pending.pendingLotteryResults;
       } catch (e) {
         /* ignore */
       }
@@ -188,8 +295,36 @@ exports.main = async (event = {}) => {
         return { ok: false, code: 'NOT_FOUND', message: '活动不存在' };
       }
       lot = await ensureDrawn(cloud, db, lot);
+      try {
+        await repairMyLotteryCredits(db, _, OPENID);
+      } catch (e) {
+        /* ignore */
+      }
       const entry = await getEntry(lotteryId, OPENID);
-      return { ok: true, data: mapLottery(lot, OPENID, entry) };
+      const mapped = mapLottery(lot, OPENID, entry);
+      let pendingLotteryResults = [];
+      // 仅参与者才带回开奖结果待办，未参与不弹窗
+      if (entry) {
+        try {
+          const user = (await db.collection('users').doc(OPENID).get()).data || {};
+          pendingLotteryResults = (
+            Array.isArray(user.pendingLotteryResults)
+              ? user.pendingLotteryResults
+              : []
+          )
+            .filter((g) => g && g.lotteryId === lotteryId)
+            .slice(0, 5);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+      return {
+        ok: true,
+        data: {
+          ...mapped,
+          pendingLotteryResults,
+        },
+      };
     }
 
     if (action === 'join') {

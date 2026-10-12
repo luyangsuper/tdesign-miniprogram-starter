@@ -110,4 +110,5 @@
       </view>
     </view>
   </block>
+  <lottery-host />
 </view>

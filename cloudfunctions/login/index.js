@@ -168,13 +168,17 @@ exports.main = async (event = {}) => {
   const pendingPointGifts = Array.isArray(user.pendingPointGifts)
     ? user.pendingPointGifts.slice(0, 50)
     : [];
-  const pendingLotteryInvites = Array.isArray(user.pendingLotteryInvites)
-    ? user.pendingLotteryInvites.slice(0, 20)
-    : [];
-  const pendingLotteryResults = Array.isArray(user.pendingLotteryResults)
-    ? user.pendingLotteryResults.slice(0, 20)
-    : [];
-
+  const now = Date.now();
+  // 已过开奖点的邀请不再下发（未参与者开奖后不应再弹）
+  const pendingLotteryInvites = (
+    Array.isArray(user.pendingLotteryInvites) ? user.pendingLotteryInvites : []
+  )
+    .filter((g) => {
+      if (!g || !g.lotteryId) return false;
+      const drawAt = Number(g.drawAt) || 0;
+      return !(drawAt > 0 && drawAt <= now);
+    })
+    .slice(0, 20);
   return {
     ok: true,
     openid: OPENID,
@@ -186,6 +190,6 @@ exports.main = async (event = {}) => {
     welcomeGift,
     pendingPointGifts,
     pendingLotteryInvites,
-    pendingLotteryResults,
+    // 开奖结果不在此返回：只走 userLottery.pending（校验已参与）
   };
 };

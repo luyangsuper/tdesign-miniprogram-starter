@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "lottery-popup": "/components/lottery-popup/index"
+  }
+}

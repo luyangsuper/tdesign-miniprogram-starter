@@ -219,4 +219,5 @@
       <t-empty description="暂无兑换码" />
     </view>
   </view>
+  <lottery-host />
 </view>

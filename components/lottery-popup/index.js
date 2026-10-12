@@ -10,7 +10,6 @@ Component({
     mode: { type: String, value: 'invite' }, // invite | result
     invite: { type: Object, value: null },
     result: { type: Object, value: null },
-    /** 结果态是否显示「查看名单」（详情页本身可关） */
     showDetailLink: { type: Boolean, value: true },
   },
 
@@ -82,8 +81,8 @@ Component({
 
     onVisibleChange(e) {
       const visible = !!(e.detail && e.detail.visible);
+      // 只转发，不在这里自动 close（避免初始化时 visible=false 误关）
       this.triggerEvent('visible-change', { visible });
-      if (!visible) this.triggerEvent('close');
     },
 
     onClose() {
@@ -97,7 +96,6 @@ Component({
       if (!lotteryId) return;
       this.setData({ joining: true });
       try {
-        // 参与前拉起订阅（中奖 / 下次抽奖机会）；拒绝不影响参与
         try {
           await requestLotterySubscribe();
         } catch (e) {
@@ -118,10 +116,10 @@ Component({
       const result = this.data.result || this.properties.result;
       const lotteryId =
         (invite && invite.lotteryId) || (result && result.lotteryId) || '';
+      this.triggerEvent('close');
       if (lotteryId) {
         wx.navigateTo({ url: `/pages/lottery/detail/index?id=${lotteryId}` });
       }
-      this.triggerEvent('close');
     },
 
     onConfirmResult() {

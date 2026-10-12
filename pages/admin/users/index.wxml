@@ -162,4 +162,5 @@
     bind:confirm="onConfirm"
     bind:cancel="closeConfirm"
   />
+  <lottery-host />
 </view>

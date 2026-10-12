@@ -20,8 +20,6 @@ import {
 import {
   applyPendingLotteryInvites,
   applyPendingLotteryResults,
-  markLotteryInvitesAcked,
-  markLotteryResultsAcked,
 } from '~/utils/lotteryHint';
 import { downloadCost } from '~/utils/pricing';
 import {
@@ -140,10 +138,6 @@ Page({
     activityGiftPoints: 0,
     activityGiftAffordLine: '',
     activityGiftTip: '感谢参与趣集活动',
-    lotteryInviteVisible: false,
-    lotteryInvite: null,
-    lotteryResultVisible: false,
-    lotteryResult: null,
   },
 
   _listSeq: 0,
@@ -162,8 +156,6 @@ Page({
     this.refreshAdmin();
     this.maybeShowWelcomeGift();
     this.maybeShowActivityGift();
-    this.maybeShowLotteryResult();
-    this.maybeShowLotteryInvite();
     this.pullPendingActivityGifts();
     this.startActivityGiftPoll();
     this.maybeShowSubscribeGuide();
@@ -201,16 +193,16 @@ Page({
       const lotData = (lotteryPending && lotteryPending.data) || {};
       applyPendingLotteryInvites(
         lotData.pendingLotteryInvites || (res && res.pendingLotteryInvites),
+        { replace: true },
       );
-      applyPendingLotteryResults(
-        lotData.pendingLotteryResults || (res && res.pendingLotteryResults),
-      );
-      // 有弹窗占用时只合并队列，不抢焦点
-      if (!this.data.activityGiftVisible) this.maybeShowActivityGift();
-      if (!this.anyBlockingPopup()) {
-        this.maybeShowLotteryResult();
-        this.maybeShowLotteryInvite();
+      // 结果只信 userLottery.pending（已校验参与）；entitlement 不再带结果
+      if (Array.isArray(lotData.pendingLotteryResults)) {
+        applyPendingLotteryResults(lotData.pendingLotteryResults, {
+          replace: true,
+        });
       }
+      // 有弹窗占用时只合并队列，不抢焦点；抽奖弹窗由 lottery-host 负责
+      if (!this.data.activityGiftVisible) this.maybeShowActivityGift();
     } catch (e) {
       /* ignore */
     } finally {
@@ -262,8 +254,6 @@ Page({
     }
     this.setData({ giftVisible: false });
     this.maybeShowActivityGift();
-    this.maybeShowLotteryResult();
-    this.maybeShowLotteryInvite();
   },
 
   onGiftVisibleChange(e) {
@@ -288,8 +278,6 @@ Page({
       if (
         this.data.giftVisible ||
         this.data.activityGiftVisible ||
-        this.data.lotteryInviteVisible ||
-        this.data.lotteryResultVisible ||
         this.data.subscribeGuideVisible
       ) {
         return;
@@ -349,149 +337,11 @@ Page({
     this._closingActivityGift = false;
     // 关闭后若队列里还有（弹窗期间新发的），再合并弹一次
     this.maybeShowActivityGift();
-    this.maybeShowLotteryResult();
-    this.maybeShowLotteryInvite();
   },
 
   onActivityGiftVisibleChange(e) {
     if (!(e.detail && e.detail.visible)) {
       this.closeActivityGift();
-    }
-  },
-
-  anyBlockingPopup() {
-    return (
-      this.data.giftVisible ||
-      this.data.activityGiftVisible ||
-      this.data.lotteryInviteVisible ||
-      this.data.lotteryResultVisible ||
-      this.data.subscribeGuideVisible
-    );
-  },
-
-  maybeShowLotteryResult() {
-    try {
-      if (this.anyBlockingPopup()) return;
-      const app = getApp();
-      const list = (app.globalData && app.globalData.pendingLotteryResults) || [];
-      const item = list.find((g) => g && g.id && g.lotteryId);
-      if (!item) return;
-      this.setData({
-        lotteryResultVisible: true,
-        lotteryResult: item,
-      });
-    } catch (e) {
-      /* ignore */
-    }
-  },
-
-  maybeShowLotteryInvite() {
-    try {
-      if (this.anyBlockingPopup()) return;
-      const app = getApp();
-      const list = (app.globalData && app.globalData.pendingLotteryInvites) || [];
-      const item = list.find((g) => g && g.id && g.lotteryId);
-      if (!item) return;
-      this.setData({
-        lotteryInviteVisible: true,
-        lotteryInvite: item,
-      });
-    } catch (e) {
-      /* ignore */
-    }
-  },
-
-  async closeLotteryInvite() {
-    if (this._closingLotteryInvite) return;
-    this._closingLotteryInvite = true;
-    const invite = this.data.lotteryInvite;
-    const inviteId = invite && invite.id;
-    const lotteryId = invite && invite.lotteryId;
-    if (inviteId) markLotteryInvitesAcked([inviteId]);
-    this.setData({ lotteryInviteVisible: false, lotteryInvite: null });
-    try {
-      const app = getApp();
-      if (app.globalData) {
-        app.globalData.pendingLotteryInvites = (
-          app.globalData.pendingLotteryInvites || []
-        ).filter((g) => g && g.id !== inviteId);
-      }
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      await callFunction('userLottery', {
-        action: 'ackInvite',
-        inviteId,
-        lotteryId,
-      });
-    } catch (e) {
-      /* ignore */
-    }
-    this._closingLotteryInvite = false;
-    this.maybeShowLotteryResult();
-    this.maybeShowLotteryInvite();
-  },
-
-  onLotteryInviteVisibleChange(e) {
-    if (!(e.detail && e.detail.visible)) {
-      this.closeLotteryInvite();
-    }
-  },
-
-  async onLotteryJoined(e) {
-    const detail = (e && e.detail) || {};
-    const inviteId = detail.inviteId || (this.data.lotteryInvite && this.data.lotteryInvite.id);
-    if (inviteId) markLotteryInvitesAcked([inviteId]);
-    try {
-      const app = getApp();
-      if (app.globalData) {
-        app.globalData.pendingLotteryInvites = (
-          app.globalData.pendingLotteryInvites || []
-        ).filter((g) => g && g.id !== inviteId);
-      }
-    } catch (err) {
-      /* ignore */
-    }
-    this.setData({ lotteryInviteVisible: false, lotteryInvite: null });
-    this.maybeShowLotteryInvite();
-  },
-
-  async closeLotteryResult() {
-    if (this._closingLotteryResult) return;
-    this._closingLotteryResult = true;
-    const result = this.data.lotteryResult;
-    const resultId = result && result.id;
-    const lotteryId = result && result.lotteryId;
-    if (resultId) markLotteryResultsAcked([resultId]);
-    this.setData({ lotteryResultVisible: false, lotteryResult: null });
-    try {
-      const app = getApp();
-      if (app.globalData) {
-        app.globalData.pendingLotteryResults = (
-          app.globalData.pendingLotteryResults || []
-        ).filter((g) => g && g.id !== resultId);
-      }
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      await callFunction('userLottery', {
-        action: 'ackResult',
-        resultId,
-        lotteryId,
-      });
-    } catch (e) {
-      /* ignore */
-    }
-    this._closingLotteryResult = false;
-    this.maybeShowLotteryResult();
-    this.maybeShowLotteryInvite();
-  },
-
-  onLotteryResultVisibleChange(e) {
-    if (!(e.detail && e.detail.visible)) {
-      this.closeLotteryResult();
     }
   },
 
@@ -502,16 +352,12 @@ Page({
     this._onThemeChange = () => applyThemeToPage(this);
     this._onWelcomeGift = () => this.maybeShowWelcomeGift();
     this._onActivityGift = () => this.maybeShowActivityGift();
-    this._onLotteryInvite = () => this.maybeShowLotteryInvite();
-    this._onLotteryResult = () => this.maybeShowLotteryResult();
     try {
       const app = getApp();
       if (app && app.eventBus) {
         app.eventBus.on('themeChange', this._onThemeChange);
         app.eventBus.on('welcomeGift', this._onWelcomeGift);
         app.eventBus.on('activityGift', this._onActivityGift);
-        app.eventBus.on('lotteryInvite', this._onLotteryInvite);
-        app.eventBus.on('lotteryResult', this._onLotteryResult);
       }
     } catch (e) {
       /* ignore */
@@ -542,8 +388,6 @@ Page({
         if (this._onThemeChange) app.eventBus.off('themeChange', this._onThemeChange);
         if (this._onWelcomeGift) app.eventBus.off('welcomeGift', this._onWelcomeGift);
         if (this._onActivityGift) app.eventBus.off('activityGift', this._onActivityGift);
-        if (this._onLotteryInvite) app.eventBus.off('lotteryInvite', this._onLotteryInvite);
-        if (this._onLotteryResult) app.eventBus.off('lotteryResult', this._onLotteryResult);
       }
     } catch (e) {
       /* ignore */
@@ -564,16 +408,13 @@ Page({
       if (
         this.data.subscribeGuideVisible ||
         this.data.giftVisible ||
-        this.data.activityGiftVisible ||
-        this.data.lotteryInviteVisible ||
-        this.data.lotteryResultVisible
+        this.data.activityGiftVisible
       ) {
         return;
       }
       setTimeout(() => {
         if (this._subscribeGuideDismissedSession || this.data.giftVisible) return;
         if (this.data.activityGiftVisible) return;
-        if (this.data.lotteryInviteVisible || this.data.lotteryResultVisible) return;
         try {
           const app = getApp();
           if (app.globalData && app.globalData.pendingWelcomeGift) return;

@@ -4,8 +4,6 @@ import {
   applyPendingLotteryInvites,
   applyPendingLotteryResults,
   formatCountdown,
-  markLotteryInvitesAcked,
-  markLotteryResultsAcked,
 } from '~/utils/lotteryHint';
 import {
   buildLotteryNotifyHint,
@@ -40,16 +38,20 @@ function statusMeta(item) {
   return { statusLabel: status, statusTheme: 'default', sub: '' };
 }
 
+function mapList(raw) {
+  return (raw || []).map((item) => ({
+    ...item,
+    drawAtText: formatDate(item.drawAt, 'YYYY-MM-DD HH:mm'),
+    ...statusMeta(item),
+  }));
+}
+
 Page({
   data: {
     themeStyle: '',
     loading: true,
     list: [],
     lotteryNotifyHint: buildLotteryNotifyHint(0, 0),
-    lotteryResultVisible: false,
-    lotteryResult: null,
-    lotteryInviteVisible: false,
-    lotteryInvite: null,
   },
 
   onLoad() {
@@ -59,33 +61,62 @@ Page({
   async onShow() {
     applyThemeToPage(this);
     this.refreshSubscribeHint();
-    // 先 list（内含懒开奖 + 返回 pending），再弹窗，避免竞态空队列
-    await this.loadList();
-    this.maybeShowLotteryResult();
-    this.maybeShowLotteryInvite();
+    await this.refreshList({ showLoading: true });
+    this.startWatchPoll();
   },
 
-  async loadList() {
-    this.setData({ loading: true });
+  onHide() {
+    this.stopWatchPoll();
+  },
+
+  onUnload() {
+    this.stopWatchPoll();
+  },
+
+  startWatchPoll() {
+    this.stopWatchPoll();
+    this._watchTimer = setInterval(() => {
+      this.tickWatch();
+    }, 3000);
+  },
+
+  stopWatchPoll() {
+    if (this._watchTimer) {
+      clearInterval(this._watchTimer);
+      this._watchTimer = null;
+    }
+  },
+
+  async tickWatch() {
+    if (this._ticking) return;
+    this._ticking = true;
+    try {
+      await this.refreshList({ showLoading: false });
+    } catch (e) {
+      /* ignore */
+    } finally {
+      this._ticking = false;
+    }
+  },
+
+  async refreshList({ showLoading = false } = {}) {
+    if (this._refreshing) return;
+    this._refreshing = true;
+    if (showLoading) this.setData({ loading: true });
     try {
       const res = await callFunction('userLottery', { action: 'list' });
       const data = (res && res.data) || {};
-      const raw = data.list || [];
-      const list = raw.map((item) => {
-        const meta = statusMeta(item);
-        return {
-          ...item,
-          drawAtText: formatDate(item.drawAt, 'YYYY-MM-DD HH:mm'),
-          ...meta,
-        };
-      });
-      applyPendingLotteryInvites(data.pendingLotteryInvites);
-      applyPendingLotteryResults(data.pendingLotteryResults);
-      this.setData({ list });
+      const list = mapList(data.list || []);
+      applyPendingLotteryInvites(data.pendingLotteryInvites, { replace: true });
+      applyPendingLotteryResults(data.pendingLotteryResults, { replace: true });
+      this.setData({ list, loading: false });
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' });
-    } finally {
+      if (showLoading) {
+        wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' });
+      }
       this.setData({ loading: false });
+    } finally {
+      this._refreshing = false;
     }
   },
 
@@ -93,157 +124,6 @@ Page({
     const id = e.currentTarget.dataset.id;
     if (!id) return;
     wx.navigateTo({ url: `/pages/lottery/detail/index?id=${id}` });
-  },
-
-  async pullAndShowPending() {
-    try {
-      const res = await callFunction('userLottery', { action: 'pending' });
-      const data = (res && res.data) || {};
-      applyPendingLotteryInvites(data.pendingLotteryInvites);
-      applyPendingLotteryResults(data.pendingLotteryResults);
-    } catch (e) {
-      /* ignore */
-    }
-    this.maybeShowLotteryResult();
-    this.maybeShowLotteryInvite();
-  },
-
-  maybeShowLotteryResult() {
-    if (
-      this.data.lotteryResultVisible ||
-      this.data.lotteryInviteVisible
-    ) {
-      return;
-    }
-    try {
-      const app = getApp();
-      const list = (app.globalData && app.globalData.pendingLotteryResults) || [];
-      const item = list.find((g) => g && g.id && g.lotteryId);
-      if (!item) return;
-      this.setData({
-        lotteryResultVisible: true,
-        lotteryResult: item,
-      });
-    } catch (e) {
-      /* ignore */
-    }
-  },
-
-  maybeShowLotteryInvite() {
-    if (
-      this.data.lotteryResultVisible ||
-      this.data.lotteryInviteVisible
-    ) {
-      return;
-    }
-    try {
-      const app = getApp();
-      const list = (app.globalData && app.globalData.pendingLotteryInvites) || [];
-      const item = list.find((g) => g && g.id && g.lotteryId);
-      if (!item) return;
-      this.setData({
-        lotteryInviteVisible: true,
-        lotteryInvite: item,
-      });
-    } catch (e) {
-      /* ignore */
-    }
-  },
-
-  async closeLotteryResult() {
-    if (this._closingLotteryResult) return;
-    this._closingLotteryResult = true;
-    const result = this.data.lotteryResult;
-    const resultId = result && result.id;
-    const lotteryId = result && result.lotteryId;
-    if (resultId) markLotteryResultsAcked([resultId]);
-    this.setData({ lotteryResultVisible: false, lotteryResult: null });
-    try {
-      const app = getApp();
-      if (app.globalData) {
-        app.globalData.pendingLotteryResults = (
-          app.globalData.pendingLotteryResults || []
-        ).filter((g) => g && g.id !== resultId);
-      }
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      await callFunction('userLottery', {
-        action: 'ackResult',
-        resultId,
-        lotteryId,
-      });
-    } catch (e) {
-      /* ignore */
-    }
-    this._closingLotteryResult = false;
-    this.maybeShowLotteryResult();
-    this.maybeShowLotteryInvite();
-  },
-
-  onLotteryResultVisibleChange(e) {
-    if (!(e.detail && e.detail.visible)) {
-      this.closeLotteryResult();
-    }
-  },
-
-  async closeLotteryInvite() {
-    if (this._closingLotteryInvite) return;
-    this._closingLotteryInvite = true;
-    const invite = this.data.lotteryInvite;
-    const inviteId = invite && invite.id;
-    const lotteryId = invite && invite.lotteryId;
-    if (inviteId) markLotteryInvitesAcked([inviteId]);
-    this.setData({ lotteryInviteVisible: false, lotteryInvite: null });
-    try {
-      const app = getApp();
-      if (app.globalData) {
-        app.globalData.pendingLotteryInvites = (
-          app.globalData.pendingLotteryInvites || []
-        ).filter((g) => g && g.id !== inviteId);
-      }
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      await callFunction('userLottery', {
-        action: 'ackInvite',
-        inviteId,
-        lotteryId,
-      });
-    } catch (e) {
-      /* ignore */
-    }
-    this._closingLotteryInvite = false;
-    this.maybeShowLotteryResult();
-    this.maybeShowLotteryInvite();
-  },
-
-  onLotteryInviteVisibleChange(e) {
-    if (!(e.detail && e.detail.visible)) {
-      this.closeLotteryInvite();
-    }
-  },
-
-  async onLotteryJoined(e) {
-    const detail = (e && e.detail) || {};
-    const inviteId =
-      detail.inviteId || (this.data.lotteryInvite && this.data.lotteryInvite.id);
-    if (inviteId) markLotteryInvitesAcked([inviteId]);
-    try {
-      const app = getApp();
-      if (app.globalData) {
-        app.globalData.pendingLotteryInvites = (
-          app.globalData.pendingLotteryInvites || []
-        ).filter((g) => g && g.id !== inviteId);
-      }
-    } catch (err) {
-      /* ignore */
-    }
-    this.setData({ lotteryInviteVisible: false, lotteryInvite: null });
-    this.loadList();
-    this.maybeShowLotteryInvite();
   },
 
   async refreshSubscribeHint() {

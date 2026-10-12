@@ -383,4 +383,5 @@
       </block>
     </view>
   </t-dialog>
+  <lottery-host />
 </view>

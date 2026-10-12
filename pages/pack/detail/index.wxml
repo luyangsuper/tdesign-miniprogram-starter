@@ -258,4 +258,6 @@
       <text class="detail__confirm-text">{{confirmContent}}</text>
     </view>
   </t-dialog>
+
+  <lottery-host />
 </view>

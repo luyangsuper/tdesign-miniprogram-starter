@@ -487,7 +487,7 @@
       />
     </view>
     <image class="my__feedback-art" src="/static/emoji/feedback.png" mode="aspectFit" />
-    <view class="my__feedback-desc">我们会认真阅读每条建议，也可留下联系方式方便回访</view>
+    <view class="my__feedback-desc">我们会认真阅读每条建议，也可附上截图并留下联系方式方便回访</view>
     <t-textarea
       t-class="my__feedback-textarea"
       placeholder="说说你的建议或遇到的问题（2～500 字）"
@@ -496,6 +496,16 @@
       indicator
       disable-default-padding
       bind:change="onFeedbackContentChange"
+    />
+    <view class="my__feedback-upload-label">截图（选填，最多 3 张）</view>
+    <t-upload
+      t-class="my__feedback-upload"
+      media-type="{{['image']}}"
+      files="{{feedbackFiles}}"
+      gridConfig="{{feedbackGridConfig}}"
+      max="3"
+      bind:success="onFeedbackUploadSuccess"
+      bind:remove="onFeedbackUploadRemove"
     />
     <t-input
       t-class="my__feedback-contact"
@@ -709,4 +719,6 @@
   bind:close="onCheckinClose"
   bind:success="onCheckinSuccess"
 />
+
+<lottery-host />
 </view>

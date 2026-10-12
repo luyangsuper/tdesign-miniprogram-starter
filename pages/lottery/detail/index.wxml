@@ -4,7 +4,6 @@
   </view>
 
   <block wx:else>
-    <!-- 揭晓动画插槽：二期可接 @lucky-canvas/mini -->
     <view class="lottery-detail__reveal-slot" />
 
     <view class="lottery-detail__hero">
@@ -12,8 +11,11 @@
       <view class="lottery-detail__pool">奖池 {{poolPoints}} 积分</view>
       <view class="lottery-detail__meta">{{winnerCount}} 人中奖 · 已参与 {{participantCount}} 人</view>
       <view class="lottery-detail__meta">开奖时间 {{drawAtText || '—'}}</view>
-      <view wx:if="{{status === 'open' && countdown}}" class="lottery-detail__countdown">
-        距开奖 {{countdown}}
+      <view
+        wx:if="{{countdown && (status === 'open' || status === 'drawing')}}"
+        class="lottery-detail__countdown"
+      >
+        {{status === 'drawing' || countdown === '开奖中…' ? countdown : ('距开奖 ' + countdown)}}
       </view>
       <view wx:if="{{joined && status === 'open'}}" class="lottery-detail__joined">
         你已参与，坐等开奖
@@ -66,12 +68,5 @@
     <view wx:else class="lottery-detail__hint">开奖后在此展示名单</view>
   </block>
 
-  <lottery-popup
-    visible="{{lotteryResultVisible}}"
-    mode="result"
-    result="{{lotteryResult}}"
-    showDetailLink="{{false}}"
-    bind:visible-change="onLotteryResultVisibleChange"
-    bind:close="closeLotteryResult"
-  />
+  <lottery-host />
 </view>

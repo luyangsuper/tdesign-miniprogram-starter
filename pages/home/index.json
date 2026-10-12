@@ -12,7 +12,6 @@
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
     "t-popup": "tdesign-miniprogram/popup/popup",
     "t-button": "tdesign-miniprogram/button/button",
-    "pack-card": "/components/pack-card/index",
-    "lottery-popup": "/components/lottery-popup/index"
+    "pack-card": "/components/pack-card/index"
   }
 }
