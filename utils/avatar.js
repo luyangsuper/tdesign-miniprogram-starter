@@ -85,10 +85,6 @@ function isLocalTempPath(url) {
   );
 }
 
-function isLegacyDicebear(url) {
-  return /dicebear\.com/i.test(String(url || ''));
-}
-
 /** 由 seed 得到固定的 pixabot id + hue */
 export function resolvePixabotParams(seed = '') {
   const s = String(seed || 'guest').trim() || 'guest';
@@ -110,23 +106,52 @@ export function getDefaultAvatarUrl(seed = '') {
   return `https://pixabots.com/api/pixabot/${id}?size=${size}&hue=${hue}&saturate=${sat}&bg=${bg}`;
 }
 
+/** 云临时链保守可用时长（微信常见约 2h，留余量） */
+const AVATAR_URL_TTL_MS = 90 * 60 * 1000;
+
+function isDisplayableAvatarUrl(url) {
+  const u = String(url || '');
+  if (!u || /^cloud:\/\//i.test(u)) return false;
+  if (isLocalTempPath(u)) return true;
+  if (/pixabots\.com\/api\/pixabot\//i.test(u)) return true;
+  return /^https?:\/\//i.test(u);
+}
+
 /**
- * 展示用头像：有自定义（微信头像云文件）用自定义；否则按 openid 固定 Pixabot
+ * 展示用头像：有可展示的 https/本地临时路径用自定义；否则按 openid 固定 Pixabot。
+ * cloud:// 或过期空链不直接塞进 image（会显示 X）。
  */
 export function resolveDisplayAvatarUrl({
   avatarFileID = '',
   avatarUrl = '',
+  avatarUrlAt = 0,
   openid = '',
 } = {}) {
-  if (avatarFileID) {
-    if (avatarUrl && !isLegacyDicebear(avatarUrl)) return avatarUrl;
-    return getDefaultAvatarUrl(openid);
+  let url = avatarUrl;
+  // 有云文件时：超时的临时 https 宁可先用默认图，等换链，也不要显示裂图 X
+  if (
+    avatarFileID &&
+    url &&
+    /^https?:\/\//i.test(url) &&
+    !isLocalTempPath(url) &&
+    !/pixabots\.com\//i.test(url)
+  ) {
+    const at = Number(avatarUrlAt) || 0;
+    if (!at || Date.now() - at > AVATAR_URL_TTL_MS) {
+      url = '';
+    }
   }
-  if (avatarUrl && isLocalTempPath(avatarUrl)) return avatarUrl;
-  if (avatarUrl && /pixabots\.com\/api\/pixabot\//i.test(avatarUrl)) return avatarUrl;
-  // 云临时 https（非 DiceBear）
-  if (avatarUrl && /^https?:\/\//i.test(avatarUrl) && !isLegacyDicebear(avatarUrl)) {
-    return avatarUrl;
-  }
+  if (isDisplayableAvatarUrl(url)) return url;
   return getDefaultAvatarUrl(openid);
+}
+
+/** 是否已有云端头像文件（需换临时链再展示） */
+export function hasCloudAvatar(avatarFileID = '') {
+  return !!String(avatarFileID || '').trim();
+}
+
+/** 本地缓存的临时链是否仍可信 */
+export function isAvatarTempUrlFresh(avatarUrlAt = 0) {
+  const at = Number(avatarUrlAt) || 0;
+  return !!at && Date.now() - at <= AVATAR_URL_TTL_MS;
 }

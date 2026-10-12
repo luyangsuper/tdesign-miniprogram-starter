@@ -1,7 +1,11 @@
 import { callFunction } from '~/utils/cloud';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 import { getPricingPlans } from '~/utils/pricing';
-import { createAndCopyCode } from '~/utils/redeemCode';
+import {
+  benefitLabel,
+  createAndCopyCode,
+  formatRedeemShareText,
+} from '~/utils/redeemCode';
 
 Page({
   data: {
@@ -9,11 +13,12 @@ Page({
     type: 'vip_days',
     value: '30',
     count: '1',
-    note: '',
     activePlanKey: 'month',
     submitting: false,
     genPlanKey: '',
     resultLabel: '',
+    resultType: '',
+    resultValue: 0,
     codes: [],
     filterStatus: 'all',
     list: [],
@@ -33,7 +38,6 @@ Page({
       activePlanKey: first ? first.key : '',
       type: first ? first.type : 'vip_days',
       value: first ? String(first.value) : '30',
-      note: first ? first.note : '',
     });
   },
 
@@ -49,7 +53,6 @@ Page({
       activePlanKey: plan.key,
       type: plan.type,
       value: String(plan.value),
-      note: plan.note || plan.title || '',
     });
   },
 
@@ -70,8 +73,10 @@ Page({
       this.setData({
         codes: result.codes,
         resultLabel: result.label,
+        resultType: plan.type,
+        resultValue: Number(plan.value) || 0,
       });
-      wx.showToast({ title: '已生成并复制', icon: 'success' });
+      wx.showToast({ title: '已生成并复制文案', icon: 'success' });
       this.loadList(true);
     } catch (err) {
       wx.showToast({ title: (err && err.message) || '生成失败', icon: 'none' });
@@ -88,7 +93,6 @@ Page({
       type,
       value: type === 'vip_days' ? '30' : '20',
       activePlanKey: '',
-      note: '',
     });
   },
 
@@ -107,10 +111,6 @@ Page({
     this.setData({ count: e.detail.value });
   },
 
-  onNoteChange(e) {
-    this.setData({ note: e.detail.value });
-  },
-
   async onSubmit() {
     if (this.data.submitting || this.data.genPlanKey) return;
     const value = Number(this.data.value);
@@ -127,22 +127,30 @@ Page({
     this.setData({ submitting: true });
     wx.showLoading({ title: '生成中', mask: true });
     try {
+      const type = this.data.type;
       const res = await callFunction('adminCreateCodes', {
-        type: this.data.type,
+        type,
         value,
         count,
-        note: this.data.note,
       });
       const data = res.data || {};
       const codes = data.codes || [];
+      const label = data.label || benefitLabel(type, value);
       this.setData({
         codes,
-        resultLabel: data.label || '',
+        resultLabel: label,
+        resultType: type,
+        resultValue: value,
       });
-      if (codes.length === 1) {
+      const shareText = formatRedeemShareText({ type, value, label, codes });
+      if (shareText) {
         wx.setClipboardData({
-          data: codes[0],
-          success: () => wx.showToast({ title: '已生成并复制', icon: 'success' }),
+          data: shareText,
+          success: () =>
+            wx.showToast({
+              title: codes.length === 1 ? '已生成并复制文案' : `已生成 ${codes.length} 个并复制`,
+              icon: 'success',
+            }),
         });
       } else {
         wx.showToast({ title: `已生成 ${data.count || 0} 个`, icon: 'success' });
@@ -189,21 +197,35 @@ Page({
     this.loadList(false);
   },
 
+  copyShareText(codes, meta = {}) {
+    const list = Array.isArray(codes) ? codes : [codes];
+    const text = formatRedeemShareText({
+      type: meta.type || this.data.resultType,
+      value: meta.value != null ? meta.value : this.data.resultValue,
+      label: meta.label || this.data.resultLabel,
+      codes: list,
+    });
+    if (!text) return;
+    wx.setClipboardData({
+      data: text,
+      success: () => wx.showToast({ title: '已复制文案', icon: 'success' }),
+    });
+  },
+
   copyAll() {
     const { codes } = this.data;
     if (!codes.length) return;
-    wx.setClipboardData({
-      data: codes.join('\n'),
-      success: () => wx.showToast({ title: '已复制全部', icon: 'success' }),
-    });
+    this.copyShareText(codes);
   },
 
   copyOne(e) {
     const code = e.currentTarget.dataset.code;
     if (!code) return;
-    wx.setClipboardData({
-      data: code,
-      success: () => wx.showToast({ title: '已复制', icon: 'success' }),
+    const fromList = (this.data.list || []).find((item) => item.code === code);
+    this.copyShareText([code], {
+      type: fromList && fromList.type,
+      value: fromList && fromList.value,
+      label: (fromList && fromList.label) || this.data.resultLabel,
     });
   },
 

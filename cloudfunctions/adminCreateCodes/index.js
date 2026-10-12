@@ -92,7 +92,7 @@ exports.main = async (event = {}) => {
       value,
       count: codes.length,
       codes,
-      label: type === 'vip_days' ? `包月 ${value} 天` : `积分 ${value}`,
+      label: type === 'vip_days' ? `包月会员 ${value} 天` : `积分 ${value}`,
     },
   };
 };

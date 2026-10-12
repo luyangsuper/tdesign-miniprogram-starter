@@ -1,3 +1,5 @@
+@import '/variable.less';
+
 .detail {
   min-height: 100vh;
   background: var(--td-bg-color-page);
@@ -14,6 +16,20 @@
     --td-swiper-nav-btn-color: #fff;
     --td-swiper-nav-btn-bg-color: rgba(0, 0, 0, 0.45);
     --td-swiper-nav-btn-size: 56rpx;
+    /* fraction 默认只有 height、无垂直居中，显得偏高/字不居中 */
+    --td-swiper-nav-fraction-height: 40rpx;
+    --td-swiper-nav-fraction-font: 22rpx;
+
+    .t-swiper-nav__fraction {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      height: var(--td-swiper-nav-fraction-height, 40rpx);
+      line-height: 1;
+      padding: 0 16rpx;
+      font-size: var(--td-swiper-nav-fraction-font, 22rpx);
+    }
   }
 
   &__body {
@@ -311,6 +327,8 @@
     height: 280rpx;
     border-radius: 12rpx;
     overflow: hidden;
+    /* aspectFit 原图四周留白底 */
+    background: var(--td-bg-color-secondarycontainer);
     animation: detail-fade-in 0.28s ease 0.04s both;
   }
 
@@ -388,14 +406,12 @@
   }
 
   &__redeem-body {
+    .form-input-tokens();
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 16rpx;
     padding: 4rpx 0 0;
-    --td-input-vertical-padding: 8rpx;
-    --td-input-border-left-space: 12rpx;
-    --td-input-border-right-space: 12rpx;
   }
 
   &__redeem-art {

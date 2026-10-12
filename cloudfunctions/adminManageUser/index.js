@@ -112,7 +112,7 @@ exports.main = async (event = {}) => {
       let where = {};
       if (filter === 'vip') {
         where = { vipExpireAt: _.gt(new Date()) };
-      } else if (filter === 'points' || filter === 'quota') {
+      } else if (filter === 'points') {
         where = { points: _.gt(0) };
       }
 

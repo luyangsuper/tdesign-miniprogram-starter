@@ -1,7 +1,6 @@
 @import '/variable.less';
 
-@tab-float-h: 100rpx;
-@tab-plus-size: 112rpx;
+@tab-bar-h: 100rpx;
 
 .custom-tab-bar {
   position: fixed;
@@ -9,154 +8,54 @@
   right: 0;
   bottom: 0;
   z-index: 500;
-  padding: 24rpx 96rpx calc(14rpx + env(safe-area-inset-bottom));
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box;
-  background: transparent;
-  pointer-events: none;
-  overflow: visible;
+  background: var(--td-bg-color-container);
+  overflow: hidden;
 }
 
-.tab-float {
-  position: relative;
-  pointer-events: auto;
+.tab-bar {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   align-items: center;
-  height: @tab-float-h;
-  padding: 0 20rpx;
-  border-radius: 999px;
-  background: var(--td-bg-color-container);
-  box-shadow:
-    0 8rpx 28rpx rgba(0, 0, 0, 0.06),
-    0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  height: @tab-bar-h;
   box-sizing: border-box;
-  overflow: visible;
+
+  &--user {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  &--admin {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
 
   &--cold {
     .tab-icon__img,
-    .tab-label,
-    .tab-item__bar {
+    .tab-label {
       transition: none !important;
-    }
-  }
-
-  /* 整块 stack 一起让开加号，横条跟着图标文字走 */
-  &--admin {
-    .tab-item--home .tab-item__stack {
-      transform: translateX(-18rpx);
-    }
-
-    .tab-item--my .tab-item__stack {
-      transform: translateX(18rpx);
     }
   }
 }
 
 .tab-item {
-  position: relative;
-  z-index: 2;
-  grid-row: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  justify-self: stretch;
-  min-width: 0;
   height: 100%;
+  min-width: 0;
   box-sizing: border-box;
-
-  &--home {
-    grid-column: 1;
-  }
-
-  &--my {
-    grid-column: 2;
-  }
 
   &--press {
     opacity: 0.78;
   }
 
   &__stack {
-    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 6rpx;
-    padding: 8rpx 0 16rpx;
-    box-sizing: border-box;
   }
-
-  /* 相对 stack 居中，与图标、文字同一中轴线 */
-  &__bar {
-    position: absolute;
-    left: 50%;
-    bottom: 6rpx;
-    width: 28rpx;
-    height: 6rpx;
-    margin-left: -14rpx;
-    border-radius: 999px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.18s ease;
-  }
-
-  &--active &__bar {
-    opacity: 1;
-  }
-}
-
-.tab-center {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 2;
-  width: @tab-plus-size;
-  height: @tab-plus-size;
-  margin: 0;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &--press .tab-center__btn {
-    transform: scale(0.94);
-  }
-}
-
-.tab-center__btn {
-  width: @tab-plus-size;
-  height: @tab-plus-size;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.14);
-  transition: transform 0.16s ease;
-}
-
-.tab-center__cross {
-  position: relative;
-  width: 44rpx;
-  height: 44rpx;
-}
-
-.tab-center__bar {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  background: #fff;
-  border-radius: 999px;
-  transform: translate(-50%, -50%);
-}
-
-.tab-center__bar--h {
-  width: 40rpx;
-  height: 5rpx;
-}
-
-.tab-center__bar--v {
-  width: 5rpx;
-  height: 40rpx;
 }
 
 .tab-icon {

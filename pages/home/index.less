@@ -5,6 +5,29 @@
   background: var(--td-bg-color-page);
   box-sizing: border-box;
 
+  &--select &__body {
+    padding-bottom: calc(
+      @tab-bar-height + 168rpx + env(safe-area-inset-bottom)
+    );
+  }
+
+  &__nav-action {
+    position: fixed;
+    z-index: 510;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12rpx;
+    font-size: 28rpx;
+    color: var(--td-brand-color);
+    font-weight: 500;
+    box-sizing: border-box;
+
+    &--press {
+      opacity: 0.7;
+    }
+  }
+
   &__fixed {
     position: fixed;
     left: 0;
@@ -219,7 +242,7 @@
 
   &__body {
     /* 左右边距由 inline padding 与卡片 gap 统一，避免 CSS rpx 与 JS 计算叠宽 */
-    padding: 0 0 160rpx;
+    padding: 0 0 calc(@tab-bar-height + env(safe-area-inset-bottom));
     box-sizing: border-box;
   }
 
@@ -248,10 +271,11 @@
     text-align: center;
     color: var(--td-text-color-placeholder);
     font-size: 24rpx;
-    padding: 16rpx 0 48rpx;
+    padding: 24rpx 0 64rpx;
+    min-height: 80rpx;
     display: flex;
+    align-items: center;
     justify-content: center;
-    animation: home-fade-in 0.22s ease both;
   }
 
   &__state {
@@ -272,6 +296,66 @@
     height: 180rpx !important;
   }
 
+  &__gift {
+    width: 560rpx;
+    margin: 0 40rpx;
+    padding: 40rpx 36rpx 28rpx;
+    border-radius: 28rpx;
+    background: var(--td-bg-color-container);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  &__gift-icon {
+    width: 140rpx;
+    height: 140rpx;
+    margin-bottom: 12rpx;
+    animation: home-gift-pop 0.55s ease-out;
+  }
+
+  &__gift-title {
+    font-size: 36rpx;
+    font-weight: 700;
+    color: var(--td-text-color-primary);
+  }
+
+  &__gift-points {
+    margin-top: 12rpx;
+    font-size: 48rpx;
+    font-weight: 800;
+    color: #10b981;
+    letter-spacing: 1rpx;
+  }
+
+  &__gift-desc {
+    margin-top: 12rpx;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4rpx;
+    font-size: 26rpx;
+    line-height: 1.4;
+    color: var(--td-text-color-secondary);
+  }
+
+  &__gift-desc-line {
+    display: block;
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    word-break: keep-all;
+  }
+
+  &__gift-tip {
+    margin: 10rpx 0 28rpx;
+    font-size: 24rpx;
+    color: var(--td-text-color-placeholder);
+  }
+
   &__subscribe {
     padding: 40rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
     background: var(--td-bg-color-container);
@@ -289,6 +373,87 @@
     font-size: 26rpx;
     line-height: 1.5;
     color: var(--td-text-color-secondary);
+  }
+
+  &__batch {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(@tab-bar-height + env(safe-area-inset-bottom));
+    z-index: 400;
+    padding: 16rpx 24rpx 18rpx;
+    background: var(--td-bg-color-container);
+    box-sizing: border-box;
+  }
+
+  &__batch-meta {
+    font-size: 24rpx;
+    color: var(--td-text-color-secondary);
+    margin-bottom: 14rpx;
+  }
+
+  &__batch-row {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+  }
+
+  &__batch-variants {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    /* 与右侧下载按钮同高 */
+    --td-tag-medium-height: 64rpx;
+    --td-tag-medium-padding: 0 28rpx;
+    --td-tag-medium-font-size: 26rpx;
+  }
+
+  &__batch-btn {
+    flex-shrink: 0;
+    min-width: 168rpx !important;
+    height: 64rpx !important;
+    line-height: 64rpx !important;
+    font-size: 26rpx !important;
+    padding: 0 32rpx !important;
+    --td-button-small-height: 64rpx;
+    --td-button-small-font-size: 26rpx;
+    --td-button-small-padding-horizontal: 32rpx;
+  }
+
+  &__confirm {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16rpx;
+    padding: 8rpx 0 4rpx;
+  }
+
+  &__confirm-icon {
+    width: 120rpx;
+    height: 120rpx;
+  }
+
+  &__confirm-text {
+    font-size: 28rpx;
+    line-height: 1.5;
+    color: var(--td-text-color-secondary);
+    text-align: center;
+  }
+}
+
+@keyframes home-gift-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
   }
 }
 

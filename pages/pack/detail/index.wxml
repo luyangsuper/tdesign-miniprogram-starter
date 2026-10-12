@@ -152,12 +152,12 @@
         >
           <view class="detail__slot-cover-wrap">
             <t-image
-              wx:if="{{item.previewUrl}}"
+              wx:if="{{item.displayUrl}}"
               t-class="detail__slot-cover"
               t-class-image="detail__slot-img"
               t-class-load="detail__slot-load"
-              src="{{item.previewUrl}}"
-              mode="aspectFill"
+              src="{{item.displayUrl}}"
+              mode="aspectFit"
               shape="round"
               lazy
               loading="slot"
@@ -166,7 +166,9 @@
             >
               <view slot="loading" class="detail__slot-skeleton" aria-hidden="true" />
             </t-image>
-            <view wx:else class="detail__slot-cover detail__slot-cover--empty">无预览</view>
+            <view wx:else class="detail__slot-cover detail__slot-cover--empty">
+              {{downloadVariant === 'anim' ? '无动态' : '暂无原图'}}
+            </view>
             <view
               wx:if="{{item.selected}}"
               class="detail__slot-mask"

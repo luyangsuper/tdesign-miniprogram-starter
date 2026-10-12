@@ -1,5 +1,13 @@
-<view class="home" style="{{themeStyle}}">
-  <t-navbar title="趣集" t-class="home__navbar" />
+<view class="home {{selectMode ? 'home--select' : ''}}" style="{{themeStyle}}">
+  <t-navbar title="趣集" placeholder="{{true}}" z-index="{{500}}" t-class="home__navbar" />
+  <!-- 本版 t-navbar 无 right 插槽，贴胶囊左侧放多选/取消 -->
+  <view
+    class="home__nav-action"
+    style="top: {{menuButton.top}}px; height: {{menuButton.height}}px; right: {{menuButton.gap}}px;"
+    hover-class="home__nav-action--press"
+    hover-stay-time="60"
+    bindtap="onToggleSelectMode"
+  >{{selectMode ? '取消' : '多选'}}</view>
 
   <!-- 搜索放进分类同一滚动行，避免与 scroll-view 兄弟节点垂直错位 -->
   <view class="home__fixed" style="top: {{navHeight}}px;">
@@ -75,7 +83,9 @@
   >
     <t-pull-down-refresh
       value="{{enable}}"
+      lower-threshold="{{160}}"
       bind:refresh="onRefresh"
+      bind:scrolltolower="onScrollToLower"
       loadingTexts="{{['下拉刷新', '松手刷新', '正在刷新', '刷新完成']}}"
     >
       <block wx:if="{{!loading && list.length}}">
@@ -100,6 +110,9 @@
                 coverRatio="{{item.coverRatio}}"
                 cardWidth="{{cardWidth}}"
                 showAdmin="{{isAdmin}}"
+                selectMode="{{selectMode}}"
+                selected="{{selectedMap[item._id] ? true : false}}"
+                bind:toggle="onTogglePack"
                 bind:edit="onEditPack"
                 bind:delete="onDeletePack"
               />
@@ -126,6 +139,45 @@
       </view>
     </t-pull-down-refresh>
   </view>
+
+  <!-- 多选下载底栏：叠在自定义 tabBar 上方 -->
+  <view class="home__batch" wx:if="{{selectMode}}">
+    <view class="home__batch-meta">
+      已选 {{selectedCount}} 个合集 · 约 {{approxCount}} 张 · {{approxCost}} 积分
+    </view>
+    <view class="home__batch-row">
+      <view class="home__batch-variants">
+        <t-check-tag
+          size="medium"
+          shape="round"
+          variant="light"
+          content="静态"
+          checked="{{batchVariant === 'static'}}"
+          data-value="static"
+          bind:change="onBatchVariantTap"
+        />
+        <t-check-tag
+          size="medium"
+          shape="round"
+          variant="light"
+          content="动态"
+          checked="{{batchVariant === 'anim'}}"
+          data-value="anim"
+          bind:change="onBatchVariantTap"
+        />
+      </view>
+      <t-button
+        t-class="home__batch-btn"
+        size="small"
+        theme="primary"
+        shape="round"
+        disabled="{{!selectedCount || batchSaving}}"
+        loading="{{batchSaving}}"
+        content="{{selectedCount ? '下载' : '请先选择'}}"
+        bind:tap="onBatchDownload"
+      />
+    </view>
+  </view>
 </view>
 
 <t-dialog
@@ -136,6 +188,102 @@
   cancel-btn="取消"
   bind:confirm="onConfirmDelete"
   bind:cancel="onCancelDelete"
+/>
+
+<t-dialog
+  visible="{{confirmVisible}}"
+  title="{{confirmTitle}}"
+  confirm-btn="{{confirmOkText}}"
+  cancel-btn="取消"
+  bind:confirm="onConfirmOk"
+  bind:cancel="onConfirmCancel"
+>
+  <view slot="content" class="home__confirm">
+    <image
+      wx:if="{{confirmIcon}}"
+      class="home__confirm-icon"
+      src="{{confirmIcon}}"
+      mode="aspectFit"
+    />
+    <text class="home__confirm-text">{{confirmContent}}</text>
+  </view>
+</t-dialog>
+
+<!-- 新用户见面礼 -->
+<t-popup
+  visible="{{giftVisible}}"
+  placement="center"
+  bind:visible-change="onGiftVisibleChange"
+>
+  <view class="home__gift">
+    <image class="home__gift-icon" src="/static/emoji/gift.png" mode="aspectFit" />
+    <view class="home__gift-title">见面就送好礼！</view>
+    <view class="home__gift-points">+{{giftPoints}} 积分</view>
+    <view class="home__gift-desc">
+      <text class="home__gift-desc-line">已放进你的账户</text>
+      <text class="home__gift-desc-line">{{giftAffordLine}}</text>
+    </view>
+    <view class="home__gift-tip">每天还能签到领积分哦</view>
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      content="去签到看看"
+      bind:tap="goCheckinFromGift"
+    />
+    <t-button
+      theme="default"
+      variant="text"
+      size="medium"
+      block
+      content="先去逛逛"
+      bind:tap="closeWelcomeGift"
+    />
+  </view>
+</t-popup>
+
+<!-- 活动发积分到账 -->
+<t-popup
+  visible="{{activityGiftVisible}}"
+  placement="center"
+  bind:visible-change="onActivityGiftVisibleChange"
+>
+  <view class="home__gift">
+    <image class="home__gift-icon" src="/static/emoji/gift.png" mode="aspectFit" />
+    <view class="home__gift-title">{{activityGiftTitle}}</view>
+    <view class="home__gift-points">+{{activityGiftPoints}} 积分</view>
+    <view class="home__gift-desc">
+      <text class="home__gift-desc-line">已放进你的账户</text>
+      <text class="home__gift-desc-line">{{activityGiftAffordLine}}</text>
+    </view>
+    <view class="home__gift-tip">{{activityGiftTip}}</view>
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      content="太棒了"
+      bind:tap="closeActivityGift"
+    />
+  </view>
+</t-popup>
+
+<!-- 抽奖邀请 -->
+<lottery-popup
+  visible="{{lotteryInviteVisible}}"
+  mode="invite"
+  invite="{{lotteryInvite}}"
+  bind:visible-change="onLotteryInviteVisibleChange"
+  bind:close="closeLotteryInvite"
+  bind:joined="onLotteryJoined"
+/>
+
+<!-- 抽奖开奖结果 -->
+<lottery-popup
+  visible="{{lotteryResultVisible}}"
+  mode="result"
+  result="{{lotteryResult}}"
+  bind:visible-change="onLotteryResultVisibleChange"
+  bind:close="closeLotteryResult"
 />
 
 <!-- 微信官方订阅弹窗须用户点击后才能调起；底部引导条承接「进首页提醒」体验 -->

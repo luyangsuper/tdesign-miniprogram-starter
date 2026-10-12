@@ -1,0 +1,129 @@
+@import '/variable.less';
+
+.admin-lottery {
+  min-height: 100vh;
+  background: var(--td-bg-color-page);
+  padding: 16rpx 0 80rpx;
+  box-sizing: border-box;
+  color: var(--td-text-color-primary);
+
+  &__tip {
+    margin: 0 24rpx 16rpx;
+    font-size: 24rpx;
+    line-height: 1.5;
+    color: var(--td-text-color-placeholder);
+  }
+
+  &__loading {
+    padding: 80rpx 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  &__section {
+    margin: 24rpx 24rpx 12rpx;
+    font-size: 26rpx;
+    font-weight: 600;
+  }
+
+  &__card {
+    .form-card();
+    margin-left: 16rpx;
+    margin-right: 16rpx;
+  }
+
+  &__field-block {
+    & + .admin-lottery__row,
+    & + .admin-lottery__field-block {
+      margin-top: @form-stack-gap;
+    }
+  }
+
+  &__row {
+    .form-row();
+
+    & + .admin-lottery__row,
+    & + .admin-lottery__field-block {
+      margin-top: @form-stack-gap;
+    }
+  }
+
+  &__meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__label {
+    .form-label();
+  }
+
+  &__hint {
+    .form-hint();
+  }
+
+  &__field {
+    .form-input-field();
+
+    &--num {
+      .form-input-field-num();
+    }
+  }
+
+  &__picker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12rpx;
+    min-height: 72rpx;
+    padding: @form-input-v-padding @form-input-h-space;
+    box-sizing: border-box;
+    color: var(--td-text-color-primary);
+  }
+
+  &__picker-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 28rpx;
+    line-height: 1.4;
+  }
+
+  &__actions {
+    margin: 16rpx 24rpx 28rpx;
+  }
+
+  &__history {
+    .form-card();
+    margin-left: 16rpx;
+    margin-right: 16rpx;
+  }
+
+  &__history-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12rpx;
+  }
+
+  &__history-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 28rpx;
+    font-weight: 600;
+  }
+
+  &__history-meta {
+    margin-top: @form-hint-gap;
+    font-size: 22rpx;
+    color: var(--td-text-color-placeholder);
+  }
+
+  &__history-actions {
+    margin-top: 12rpx;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  &__empty {
+    padding: 48rpx 0;
+  }
+}

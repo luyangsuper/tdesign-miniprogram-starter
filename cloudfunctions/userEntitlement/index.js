@@ -15,8 +15,10 @@ const _ = db.command;
  * - users.vipQuotaPeriod  额度所属月份 YYYY-MM
  *
  * action:
- * - get | redeem
+ * - get | redeem | ackPointGift | ackPointGifts
  * redeem: { code }
+ * ackPointGift: { giftId }  关闭单笔
+ * ackPointGifts: { giftIds: string[] }  合并弹窗一次确认多笔
  */
 
 async function ensureUser(openid) {
@@ -57,7 +59,7 @@ async function applyGrant(ref, user, type, value) {
     });
     return { grantType: 'vip_days', days, vipExpireAt: next.getTime() };
   }
-  if (type === 'points' || type === 'quota') {
+  if (type === 'points') {
     const add = Math.max(1, Number(value) || 1);
     await ref.update({
       data: {
@@ -82,7 +84,72 @@ exports.main = async (event = {}) => {
     if (action === 'get') {
       const { ref, data } = await ensureUser(OPENID);
       const synced = await syncVipMonthQuota(ref, data, db.serverDate());
-      return { ok: true, openid: OPENID, entitlement: buildEntitlement(synced) };
+      const pendingPointGifts = Array.isArray(synced.pendingPointGifts)
+        ? synced.pendingPointGifts.slice(0, 50)
+        : [];
+      const pendingLotteryInvites = Array.isArray(synced.pendingLotteryInvites)
+        ? synced.pendingLotteryInvites.slice(0, 20)
+        : [];
+      const pendingLotteryResults = Array.isArray(synced.pendingLotteryResults)
+        ? synced.pendingLotteryResults.slice(0, 20)
+        : [];
+      return {
+        ok: true,
+        openid: OPENID,
+        entitlement: buildEntitlement(synced),
+        pendingPointGifts,
+        pendingLotteryInvites,
+        pendingLotteryResults,
+      };
+    }
+
+    if (action === 'ackPointGift') {
+      const giftId = String(event.giftId || '').trim();
+      if (!giftId) {
+        return { ok: false, code: 'BAD_PARAM', message: '缺少礼物 ID' };
+      }
+      const { ref } = await ensureUser(OPENID);
+      try {
+        await ref.update({
+          data: {
+            pendingPointGifts: _.pull({ id: giftId }),
+            updatedAt: db.serverDate(),
+          },
+        });
+      } catch (e) {
+        /* 没有该字段时忽略 */
+      }
+      return { ok: true };
+    }
+
+    if (action === 'ackPointGifts') {
+      const ids = [
+        ...new Set(
+          (Array.isArray(event.giftIds) ? event.giftIds : [])
+            .map((id) => String(id || '').trim())
+            .filter(Boolean),
+        ),
+      ];
+      if (!ids.length) {
+        return { ok: false, code: 'BAD_PARAM', message: '缺少礼物 ID' };
+      }
+      const { ref } = await ensureUser(OPENID);
+      // 逐条 _.pull，避免整数组覆盖导致并发发放的新礼被抹掉
+      // eslint-disable-next-line no-restricted-syntax
+      for (const giftId of ids) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await ref.update({
+            data: {
+              pendingPointGifts: _.pull({ id: giftId }),
+              updatedAt: db.serverDate(),
+            },
+          });
+        } catch (e) {
+          /* 无该字段或已不存在：忽略 */
+        }
+      }
+      return { ok: true };
     }
 
     if (action === 'redeem') {

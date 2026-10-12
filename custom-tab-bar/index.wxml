@@ -1,8 +1,8 @@
-<!-- 悬浮胶囊底栏：首页 | 上传(+) | 我的；加号仅管理员 -->
+<!-- 固定底栏：首页 | 发布 | 我的；发布仅管理员 -->
 <view class="page custom-tab-bar" style="{{themeStyle}}">
-  <view class="tab-float {{isAdmin ? 'tab-float--admin' : 'tab-float--user'}} {{cold ? 'tab-float--cold' : ''}}">
+  <view class="tab-bar {{isAdmin ? 'tab-bar--admin' : 'tab-bar--user'}} {{cold ? 'tab-bar--cold' : ''}}">
     <view
-      class="tab-item tab-item--home {{value === 'home' ? 'tab-item--active' : ''}}"
+      class="tab-item {{value === 'home' ? 'tab-item--active' : ''}}"
       hover-class="tab-item--press"
       hover-stay-time="60"
       bindtap="onTapHome"
@@ -13,16 +13,27 @@
           <image class="tab-icon__img tab-icon__img--active" src="{{home.iconActive}}" mode="aspectFit" />
         </view>
         <text class="tab-label" style="color: {{value === 'home' ? brand : colorIdle}};">首页</text>
-        <view
-          class="tab-item__bar"
-          style="background: {{brand}};"
-          aria-hidden="true"
-        />
       </view>
     </view>
 
     <view
-      class="tab-item tab-item--my {{value === 'my' ? 'tab-item--active' : ''}}"
+      wx:if="{{isAdmin}}"
+      class="tab-item {{value === 'publish' ? 'tab-item--active' : ''}}"
+      hover-class="tab-item--press"
+      hover-stay-time="60"
+      bindtap="onTapPublish"
+    >
+      <view class="tab-item__stack">
+        <view class="tab-icon {{value === 'publish' ? 'tab-icon--active' : ''}}" aria-hidden="true">
+          <image class="tab-icon__img tab-icon__img--idle" src="{{publish.icon}}" mode="aspectFit" />
+          <image class="tab-icon__img tab-icon__img--active" src="{{publish.iconActive}}" mode="aspectFit" />
+        </view>
+        <text class="tab-label" style="color: {{value === 'publish' ? brand : colorIdle}};">发布</text>
+      </view>
+    </view>
+
+    <view
+      class="tab-item {{value === 'my' ? 'tab-item--active' : ''}}"
       hover-class="tab-item--press"
       hover-stay-time="60"
       bindtap="onTapMy"
@@ -33,28 +44,6 @@
           <image class="tab-icon__img tab-icon__img--active" src="{{my.iconActive}}" mode="aspectFit" />
         </view>
         <text class="tab-label" style="color: {{value === 'my' ? myColorActive : colorIdle}};">我的</text>
-        <view
-          class="tab-item__bar"
-          style="background: {{myColorActive}};"
-          aria-hidden="true"
-        />
-      </view>
-    </view>
-
-    <view
-      wx:if="{{isAdmin}}"
-      class="tab-center"
-      hover-class="tab-center--press"
-      hover-stay-time="60"
-      bindtap="onTapUpload"
-      aria-role="button"
-      aria-label="上传合集"
-    >
-      <view class="tab-center__btn" style="background: {{brand}};">
-        <view class="tab-center__cross" aria-hidden="true">
-          <view class="tab-center__bar tab-center__bar--h" />
-          <view class="tab-center__bar tab-center__bar--v" />
-        </view>
       </view>
     </view>
   </view>

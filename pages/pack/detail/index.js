@@ -1,5 +1,9 @@
 import { callFunction } from '~/utils/cloud';
-import { ensureAlbumAuth, saveRemoteImageToAlbum } from '~/utils/download';
+import {
+  downloadOne as downloadOneShared,
+  formatBatchResultTip,
+  runBatchDownload,
+} from '~/utils/batchDownload';
 import {
   canAttemptDownload,
   estimateBatchAffordable,
@@ -36,6 +40,15 @@ function isSlotSelectable(slot, downloadReady, variant) {
   return true;
 }
 
+/** 保存区展示：按当前静/动选择对应原图，不再用预览拼图 */
+function slotDisplayUrl(slot, variant) {
+  if (!slot) return '';
+  if (variant === 'anim') {
+    return slot.animUrl || '';
+  }
+  return slot.staticUrl || '';
+}
+
 function decorateSlots(slots, downloadReady, variant, hasAnimAny, canSaveStatic) {
   return (slots || []).map((s) => {
     const selectable = isSlotSelectable(s, downloadReady, variant);
@@ -44,6 +57,7 @@ function decorateSlots(slots, downloadReady, variant, hasAnimAny, canSaveStatic)
       hasAnim: !!s.hasAnim,
       selectable,
       selected: selectable && !!s.selected,
+      displayUrl: slotDisplayUrl(s, variant),
       saveLabel: buildSaveLabel(s, downloadReady, variant, hasAnimAny, canSaveStatic),
     };
   });
@@ -250,6 +264,8 @@ Page({
               index: i,
               label: `原图 ${i + 1}`,
               previewUrl: (pack.previewUrls || [])[i] || '',
+              staticUrl: '',
+              animUrl: '',
               pairKey: '',
               hasAnim: false,
             }));
@@ -320,10 +336,11 @@ Page({
     const value = (e.currentTarget && e.currentTarget.dataset.value) || 'static';
     const downloadVariant = value === 'anim' ? 'anim' : 'static';
     if (downloadVariant === this.data.downloadVariant) return;
-    // 切换静/动时清空多选，避免误扣
+    // 切换静/动时清空多选，并刷新展示图
     const cleared = (this.data.emojiSlots || []).map((s) => ({
       ...s,
       selected: false,
+      displayUrl: slotDisplayUrl(s, downloadVariant),
     }));
     this.setData({ downloadVariant, emojiSlots: cleared }, () =>
       this.refreshEntitlementUi(),
@@ -441,15 +458,17 @@ Page({
   },
 
   onPreviewTap(e) {
-    const { pack, emojiSlots } = this.data;
+    const { emojiSlots, downloadVariant } = this.data;
+    const variant = downloadVariant === 'anim' ? 'anim' : 'static';
     const urls = (emojiSlots || [])
-      .map((s) => s.previewUrl)
-      .filter(Boolean)
-      .concat((pack && pack.previewUrls) || []);
-    const uniq = Array.from(new Set(urls.filter(Boolean)));
+      .map((s) => slotDisplayUrl(s, variant))
+      .filter(Boolean);
+    const uniq = Array.from(new Set(urls));
     if (!uniq.length) return;
-    const index = Number(e.currentTarget.dataset.index) || 0;
-    this.openViewer(uniq, uniq[index] || uniq[0]);
+    const slotIndex = Number(e.currentTarget.dataset.index);
+    const slot = (emojiSlots || []).find((s) => s.index === slotIndex);
+    const current = slotDisplayUrl(slot, variant) || uniq[0];
+    this.openViewer(uniq, current);
   },
 
   goRedeem() {
@@ -522,72 +541,18 @@ Page({
   async downloadOne(index, opts = {}) {
     const { packId, downloadVariant } = this.data;
     const variant = downloadVariant === 'anim' ? 'anim' : 'static';
-
-    if (!opts.skipAuth) {
-      await ensureAlbumAuth();
-    }
-
-    const res = await callFunction('getEmojiDownload', {
+    return downloadOneShared({
       packId,
       index,
       variant,
+      skipAuth: !!opts.skipAuth,
+      onEntitlement: () => this.refreshEntitlementUi(),
+      onDownloadCount: (next) => {
+        if (typeof next === 'number' && this.data.pack) {
+          this.setData({ 'pack.downloadCount': next });
+        }
+      },
     });
-
-    const url = res.data && res.data.url;
-    const fromVip = Number((res.data && res.data.fromVip) || 0);
-    const fromPoints = Number((res.data && res.data.fromPoints) || 0);
-    if (!url) throw new Error('未获取到下载链接');
-
-    if (res.data.entitlement) {
-      setCachedEntitlement(res.data.entitlement);
-      this.refreshEntitlementUi();
-    }
-
-    try {
-      await saveRemoteImageToAlbum(url);
-    } catch (saveErr) {
-      await this.refundDownloadCharge(fromVip, fromPoints);
-      throw saveErr;
-    }
-
-    try {
-      const report = await callFunction('reportDownload', {
-        packId,
-        index,
-        grantType: (res.data && res.data.grantType) || '',
-      });
-      const next = report.data && report.data.downloadCount;
-      if (typeof next === 'number' && this.data.pack) {
-        this.setData({ 'pack.downloadCount': next });
-      }
-    } catch (reportErr) {
-      console.warn('[reportDownload]', reportErr.message || reportErr);
-    }
-
-    return {
-      cost: Number((res.data && res.data.cost) || 0),
-      fromVip,
-      fromPoints,
-      grantType: (res.data && res.data.grantType) || '',
-      variant,
-    };
-  },
-
-  async refundDownloadCharge(fromVip, fromPoints) {
-    if (!fromVip && !fromPoints) return;
-    try {
-      const refund = await callFunction('getEmojiDownload', {
-        action: 'refund',
-        fromVip,
-        fromPoints,
-      });
-      if (refund.entitlement) {
-        setCachedEntitlement(refund.entitlement);
-        this.refreshEntitlementUi();
-      }
-    } catch (refundErr) {
-      console.warn('[refundDownload]', refundErr.message || refundErr);
-    }
   },
 
   formatSaveTip(stat) {
@@ -702,43 +667,24 @@ Page({
     if (!confirmed) return;
 
     this.setData({ saving: true });
-    let okCount = 0;
-    let failCount = 0;
-    let vipSpent = 0;
-    let pointsSpent = 0;
-    let stoppedByBalance = false;
-
+    let result;
     try {
-      await ensureAlbumAuth();
-
-      for (let i = 0; i < indexes.length; i += 1) {
-        const index = indexes[i];
-        // 每张前再校验，避免上一张扣完后仍继续请求
-        if (!canAttemptDownload(getCachedEntitlement(), variant)) {
-          stoppedByBalance = true;
-          break;
-        }
-
-        wx.showLoading({
-          title: `保存中 ${i + 1}/${indexes.length}`,
-          mask: true,
-        });
-
-        try {
-          const stat = await this.downloadOne(index, { skipAuth: true });
-          okCount += 1;
-          vipSpent += stat.fromVip || 0;
-          pointsSpent += stat.fromPoints || 0;
-        } catch (err) {
-          console.error('[batchSave]', index, err);
-          failCount += 1;
-          const msg = err.message || '';
-          if (/不足|积分|额度|兑换|权益|NO_QUOTA|NO_POINTS/i.test(msg)) {
-            stoppedByBalance = true;
-            break;
+      result = await runBatchDownload({
+        jobs: [{ packId: this.data.packId, indexes }],
+        variant,
+        onEntitlement: () => this.refreshEntitlementUi(),
+        onDownloadCount: (next) => {
+          if (typeof next === 'number' && this.data.pack) {
+            this.setData({ 'pack.downloadCount': next });
           }
-        }
-      }
+        },
+        onProgress: ({ current, total }) => {
+          wx.showLoading({
+            title: `保存中 ${current}/${total}`,
+            mask: true,
+          });
+        },
+      });
     } catch (err) {
       wx.showToast({ title: err.message || '保存失败', icon: 'none' });
       this.setData({ saving: false });
@@ -757,25 +703,13 @@ Page({
     wx.hideLoading();
     this.setData({ saving: false });
 
-    const parts = [`成功 ${okCount} 张`];
-    if (failCount) parts.push(`失败 ${failCount}`);
-    if (stoppedByBalance && okCount < indexes.length) {
-      parts.push('余额不足已停止');
-    }
-    if (vipSpent || pointsSpent) {
-      const spend = [];
-      if (vipSpent) spend.push(`额度 -${vipSpent} 积分`);
-      if (pointsSpent) spend.push(`购买积分 -${pointsSpent}`);
-      parts.push(spend.join(' · '));
-    }
-
     wx.showToast({
-      title: parts.join('，'),
-      icon: okCount ? 'success' : 'none',
+      title: formatBatchResultTip(result),
+      icon: result.okCount ? 'success' : 'none',
       duration: 2500,
     });
 
-    if (stoppedByBalance && !okCount) {
+    if (result.stoppedByBalance && !result.okCount) {
       this.goRedeem();
     }
   },

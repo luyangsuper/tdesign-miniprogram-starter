@@ -12,6 +12,7 @@
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
     "t-input": "tdesign-miniprogram/input/input",
     "t-textarea": "tdesign-miniprogram/textarea/textarea",
-    "t-popup": "tdesign-miniprogram/popup/popup"
+    "t-popup": "tdesign-miniprogram/popup/popup",
+    "checkin-popup": "/components/checkin-popup/index"
   }
 }

@@ -1,0 +1,9 @@
+{
+  "name": "adminManagePoints",
+  "version": "1.0.0",
+  "description": "管理员配置见面礼 / 签到积分",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

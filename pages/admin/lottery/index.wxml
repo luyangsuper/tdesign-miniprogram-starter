@@ -1,0 +1,115 @@
+<view class="admin-lottery" style="{{themeStyle}}">
+  <view class="admin-lottery__tip">
+    创建后向已注册用户推邀请弹窗；用户主动参与后入池。到点自动开奖：随机抽出中奖人数，总奖池随机拆成有大有小的积分份额。
+  </view>
+
+  <view wx:if="{{loading}}" class="admin-lottery__loading">
+    <t-loading theme="circular" size="40rpx" text="加载中" />
+  </view>
+
+  <block wx:else>
+    <view class="admin-lottery__section">新建抽奖</view>
+    <view class="admin-lottery__card">
+      <view class="admin-lottery__field-block">
+        <view class="admin-lottery__label">活动标题</view>
+        <t-input
+          class="admin-lottery__field"
+          borderless
+          maxlength="{{40}}"
+          placeholder="如「周末幸运抽」"
+          value="{{title}}"
+          bind:change="onTitleChange"
+        />
+      </view>
+      <view class="admin-lottery__row">
+        <view class="admin-lottery__meta">
+          <view class="admin-lottery__label">总奖池</view>
+          <view class="admin-lottery__hint">开奖后随机拆分给中奖者</view>
+        </view>
+        <t-input
+          class="admin-lottery__field admin-lottery__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{poolPoints}}"
+          bind:change="onPoolChange"
+        />
+      </view>
+      <view class="admin-lottery__row">
+        <view class="admin-lottery__meta">
+          <view class="admin-lottery__label">中奖人数</view>
+          <view class="admin-lottery__hint">从参与者中随机抽取</view>
+        </view>
+        <t-input
+          class="admin-lottery__field admin-lottery__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="人"
+          value="{{winnerCount}}"
+          bind:change="onWinnerCountChange"
+        />
+      </view>
+      <view class="admin-lottery__field-block">
+        <view class="admin-lottery__label">开奖时间</view>
+        <view class="admin-lottery__hint">至少晚于现在 1 分钟 · 约 {{userCount}} 人可邀</view>
+        <view class="admin-lottery__field admin-lottery__picker" bind:tap="onOpenDrawAtPicker">
+          <text class="admin-lottery__picker-text">{{drawAtText || '请选择开奖时间'}}</text>
+          <t-icon name="chevron-right" size="36rpx" />
+        </view>
+      </view>
+    </view>
+    <t-date-time-picker
+      title="选择开奖时间"
+      visible="{{drawAtPickerVisible}}"
+      mode="minute"
+      format="YYYY-MM-DD HH:mm"
+      value="{{drawAtText}}"
+      start="{{drawAtStart}}"
+      end="{{drawAtEnd}}"
+      auto-close
+      bind:change="onDrawAtConfirm"
+      bind:cancel="onCloseDrawAtPicker"
+      bind:close="onCloseDrawAtPicker"
+    />
+    <view class="admin-lottery__actions">
+      <t-button
+        theme="primary"
+        size="large"
+        block
+        loading="{{creating}}"
+        disabled="{{creating}}"
+        content="创建并通知用户"
+        bind:tap="onCreate"
+      />
+    </view>
+
+    <view class="admin-lottery__section">活动列表</view>
+    <block wx:if="{{list.length}}">
+      <view wx:for="{{list}}" wx:key="id" class="admin-lottery__history">
+        <view class="admin-lottery__history-top">
+          <text class="admin-lottery__history-title">{{item.title}}</text>
+          <t-tag size="small" variant="light" theme="{{item.statusTheme}}">{{item.statusLabel}}</t-tag>
+        </view>
+        <view class="admin-lottery__history-meta">
+          奖池 {{item.poolPoints}} · {{item.winnerCount}} 人中奖 · 参与 {{item.participantCount}}
+        </view>
+        <view class="admin-lottery__history-meta">开奖 {{item.drawAtText || '—'}}</view>
+        <view wx:if="{{item.status === 'open'}}" class="admin-lottery__history-actions">
+          <t-button
+            size="extra-small"
+            theme="danger"
+            variant="outline"
+            content="取消"
+            data-id="{{item.id}}"
+            bind:tap="onCancel"
+          />
+        </view>
+      </view>
+    </block>
+    <view wx:else class="admin-lottery__empty">
+      <t-empty description="暂无抽奖活动" />
+    </view>
+  </block>
+</view>

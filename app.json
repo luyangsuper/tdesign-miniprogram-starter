@@ -7,9 +7,21 @@
       "pages": ["detail/index"]
     },
     {
+      "root": "pages/lottery",
+      "name": "lottery",
+      "pages": ["index/index", "detail/index"]
+    },
+    {
       "root": "pages/admin",
       "name": "admin",
-      "pages": ["upload/index", "categories/index", "codes/index", "users/index"]
+      "pages": [
+        "upload/index",
+        "categories/index",
+        "codes/index",
+        "users/index",
+        "points/index",
+        "lottery/index"
+      ]
     }
   ],
   "darkmode": true,

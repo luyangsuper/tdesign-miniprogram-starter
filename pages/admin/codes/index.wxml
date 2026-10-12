@@ -1,5 +1,5 @@
 <view class="codes-page" style="{{themeStyle}}">
-  <view class="codes-page__tip">点选定价档位可一键生成 1 个兑换码并复制；也可下方自定义批量生成。</view>
+  <view class="codes-page__tip">点选档位或批量生成后，会复制一段含权益说明的文案，发给用户即可；用户打开「我的」页可自动识别兑换。</view>
 
   <view class="block">
     <view class="block__label">包月档位 · 点按生成并复制</view>
@@ -85,18 +85,6 @@
     />
   </view>
 
-  <view class="block">
-    <view class="block__label">备注（可选）</view>
-    <t-textarea
-      class="block__td-field"
-      placeholder="如：活动赠送"
-      value="{{note}}"
-      maxlength="{{80}}"
-      disable-default-padding
-      bind:change="onNoteChange"
-    />
-  </view>
-
   <view class="codes-page__submit">
     <t-button
       theme="primary"
@@ -112,7 +100,14 @@
   <view class="block" wx:if="{{codes.length}}">
     <view class="block__label-row">
       <view class="block__label">刚生成 · {{resultLabel}} · {{codes.length}} 个</view>
-      <t-button size="extra-small" variant="outline" theme="primary" content="复制全部" bind:tap="copyAll" />
+      <t-button
+        class="block__copy-all"
+        size="extra-small"
+        variant="outline"
+        theme="primary"
+        content="复制全部"
+        bind:tap="copyAll"
+      />
     </view>
     <view class="codes-page__gen-list">
       <view
@@ -181,7 +176,6 @@
           </t-tag>
         </view>
         <view class="codes-page__card-meta">{{item.label}} · {{item.createdAtText || '—'}}</view>
-        <view class="codes-page__card-meta" wx:if="{{item.note}}">备注：{{item.note}}</view>
         <view class="codes-page__card-meta" wx:if="{{item.usedBy}}">使用者：{{item.usedBy}}</view>
         <view class="codes-page__card-actions">
           <t-button

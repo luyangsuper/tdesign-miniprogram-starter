@@ -1,0 +1,113 @@
+<view class="admin-points" style="{{themeStyle}}">
+  <view class="admin-points__tip">
+    见面礼 / 签到改完立即生效。活动发积分只发给云库里已有账号的用户，从未登录的人不会预建、也不会发到。
+  </view>
+
+  <view wx:if="{{loading}}" class="admin-points__loading">
+    <t-loading theme="circular" size="40rpx" text="加载配置" />
+  </view>
+
+  <block wx:else>
+    <view class="admin-points__section">日常规则</view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">新用户见面礼</view>
+          <view class="admin-points__hint">首次登录自动到账</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{welcomeGiftPoints}}"
+          bind:change="onWelcomeChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">每日签到</view>
+          <view class="admin-points__hint">每天 1 次 · 补签日 1 / 月 3</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{checkinPoints}}"
+          bind:change="onCheckinChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__actions">
+      <t-button
+        theme="primary"
+        size="large"
+        block
+        loading="{{saving}}"
+        disabled="{{saving || granting}}"
+        content="保存规则"
+        bind:tap="onSave"
+      />
+    </view>
+
+    <view class="admin-points__section">活动发积分</view>
+    <view class="admin-points__card">
+      <view class="admin-points__label">活动标题</view>
+      <view class="admin-points__hint">用户弹窗会看到这个标题，如「周末惊喜」</view>
+      <t-input
+        class="admin-points__field"
+        borderless
+        maxlength="{{40}}"
+        placeholder="输入活动名称"
+        value="{{campaignTitle}}"
+        bind:change="onCampaignTitleChange"
+      />
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">每人发放</view>
+          <view class="admin-points__hint">当前已注册约 {{userCount}} 人</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{campaignPoints}}"
+          bind:change="onCampaignPointsChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__actions">
+      <t-button
+        theme="warning"
+        size="large"
+        block
+        loading="{{granting}}"
+        disabled="{{saving || granting}}"
+        content="发给全部已注册用户"
+        bind:tap="onGrant"
+      />
+    </view>
+
+    <view wx:if="{{campaigns.length}}" class="admin-points__section">最近发放</view>
+    <view
+      wx:for="{{campaigns}}"
+      wx:key="id"
+      class="admin-points__history"
+    >
+      <view class="admin-points__history-title">{{item.title}}</view>
+      <view class="admin-points__history-meta">
+        +{{item.points}} 积分 · 成功 {{item.granted}} 人
+        <text wx:if="{{item.failed}}"> · 失败 {{item.failed}}</text>
+      </view>
+    </view>
+  </block>
+</view>

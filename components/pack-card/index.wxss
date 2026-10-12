@@ -1,0 +1,102 @@
+.pack-card {
+  display: inline-flex;
+  flex-direction: column;
+  border-radius: 9px;
+  background: var(--td-bg-color-container);
+  overflow: hidden;
+  box-sizing: border-box;
+  break-inside: avoid;
+  margin-bottom: 0;
+  transition: transform 0.16s ease, opacity 0.16s ease;
+  will-change: transform;
+}
+.pack-card--press {
+  transform: scale(0.98);
+  opacity: 0.96;
+}
+.pack-card__media {
+  width: 100%;
+  background: var(--td-bg-color-secondarycontainer);
+  overflow: hidden;
+  position: relative;
+}
+.pack-card__image,
+.pack-card__t-image {
+  display: block !important;
+  width: 100%;
+  height: 100%;
+}
+.pack-card__img {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.pack-card__img--ready {
+  opacity: 1;
+}
+.pack-card__load {
+  width: 100%;
+  height: 100%;
+}
+.pack-card__skeleton {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(110deg, var(--td-bg-color-secondarycontainer) 30%, rgba(0, 0, 0, 0.04) 45%, var(--td-bg-color-secondarycontainer) 60%);
+  background-size: 200% 100%;
+  animation: pack-card-shimmer 1.2s ease-in-out infinite;
+}
+.pack-card__info {
+  padding: 12rpx 12rpx 14rpx;
+}
+.pack-card__title {
+  display: block;
+  overflow: hidden;
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--td-text-color-primary);
+  line-height: 1.35;
+  max-height: 2.7em;
+}
+.pack-card__tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-top: 8rpx;
+}
+.pack-card__admin {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  margin-top: 10rpx;
+  padding: 2rpx 4rpx;
+  border-radius: 10rpx;
+  background: var(--td-bg-color-secondarycontainer);
+  --td-button-extra-small-height: 44rpx;
+  --td-button-extra-small-font-size: 22rpx;
+  --td-button-extra-small-icon-font-size: 28rpx;
+  --td-button-extra-small-padding-horizontal: 8rpx;
+}
+.pack-card__admin-split {
+  width: 1rpx;
+  height: 22rpx;
+  background: var(--td-component-border, var(--td-component-stroke));
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.pack-card__admin-btn {
+  flex: 1;
+  margin: 0 !important;
+  font-weight: 400 !important;
+}
+.pack-card__admin-btn--danger {
+  --td-button-danger-text-color: var(--td-error-color-6, #d54941);
+}
+@keyframes pack-card-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}

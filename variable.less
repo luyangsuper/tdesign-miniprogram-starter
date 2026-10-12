@@ -1,8 +1,8 @@
 // 布局尺寸（与主题无关）
 @navbar-padding-top: 20px;
 @nav-bar-height: 60px;
-/* 悬浮胶囊 + 中间凸起加号，页面底部需多留空 */
-@tab-bar-height: 128rpx;
+/* 固定底栏内容区高度（不含安全区）；页面底部需留 @tab-bar-height + safe-area */
+@tab-bar-height: 100rpx;
 
 // font-size
 @font-size-default: 16px;
@@ -12,6 +12,68 @@
 @headline-medium: 28px;
 @body-large: 16px;
 @body-small: 12px;
+
+// 表单密度（管理端 / 弹窗 t-input 统一；改这里即可全局生效）
+@form-card-padding: 20rpx 28rpx;
+@form-card-radius: 16rpx;
+@form-card-gap: 12rpx;
+@form-stack-gap: 20rpx; // 同一卡片内字段块间距
+@form-label-field-gap: 10rpx; // 标签到输入框
+@form-hint-gap: 6rpx;
+@form-input-v-padding: 8rpx;
+@form-input-h-space: 20rpx; // t-input 用 padding 简写，左右含 suffix「积分」到灰底边
+@form-input-radius: 12rpx;
+@form-num-width: 180rpx;
+
+// 仅注入 t-input 内边距 token（透明底 / dialog 等）
+// 注意：TDesign 的 --td-input-vertical-padding 是整圈 padding，不是只有上下
+.form-input-tokens() {
+  --td-input-vertical-padding: @form-input-v-padding @form-input-h-space;
+}
+
+// 灰底圆角 t-input（管理表单默认）
+.form-input-field() {
+  .form-input-tokens();
+  margin-top: @form-label-field-gap;
+  border-radius: @form-input-radius;
+  overflow: hidden;
+  background: var(--td-bg-color-secondarycontainer, var(--td-bg-color-page));
+  --td-input-bg-color: var(--td-bg-color-secondarycontainer, var(--td-bg-color-page));
+}
+
+.form-input-field-num() {
+  flex: 0 0 @form-num-width;
+  width: @form-num-width;
+  margin-top: 0;
+}
+
+.form-card() {
+  background: var(--td-bg-color-container);
+  border-radius: @form-card-radius;
+  padding: @form-card-padding;
+  margin-bottom: @form-card-gap;
+}
+
+.form-label() {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+  line-height: 1.3;
+}
+
+.form-hint() {
+  margin-top: @form-hint-gap;
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: var(--td-text-color-placeholder);
+}
+
+.form-row() {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
 
 // 颜色请用 CSS 变量（随深浅色切换），例如：
 // var(--td-bg-color-page)

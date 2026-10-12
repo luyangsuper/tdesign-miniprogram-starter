@@ -14,7 +14,7 @@ exports.main = async (event) => {
   const packId = event.packId;
   const index = Number(event.index);
   const grantRaw = String(event.grantType || '').trim().toLowerCase();
-  const grantType = ['vip', 'points', 'mixed', 'quota', 'ad'].includes(grantRaw)
+  const grantType = ['vip', 'points', 'mixed', 'ad'].includes(grantRaw)
     ? grantRaw
     : '';
 

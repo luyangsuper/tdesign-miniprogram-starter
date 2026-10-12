@@ -9,7 +9,9 @@
   box-sizing: border-box;
   break-inside: avoid;
   margin-bottom: 0;
-  transition: transform 0.16s ease, opacity 0.16s ease;
+  transition:
+    transform 0.16s ease,
+    opacity 0.16s ease;
   will-change: transform;
 
   &--press {
@@ -22,6 +24,30 @@
     background: var(--td-bg-color-secondarycontainer);
     overflow: hidden;
     position: relative;
+  }
+
+  &__check {
+    position: absolute;
+    top: 12rpx;
+    right: 12rpx;
+    z-index: 2;
+    width: 44rpx;
+    height: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    /* 浅色底，避免实心勾图标透出发黑阴影 */
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+    pointer-events: none;
+    transition:
+      transform 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  &--selected &__check {
+    transform: scale(1.06);
   }
 
   &__image,
@@ -79,6 +105,24 @@
     flex-wrap: wrap;
     gap: 8rpx;
     margin-top: 8rpx;
+  }
+
+  /* 选中底栏横条：主题色，从中心展开 */
+  &__bar {
+    height: 6rpx;
+    width: 100%;
+    background: var(--td-brand-color);
+    transform: scaleX(0);
+    transform-origin: center;
+    opacity: 0;
+    transition:
+      transform 0.22s ease,
+      opacity 0.18s ease;
+  }
+
+  &__bar--on {
+    transform: scaleX(1);
+    opacity: 1;
   }
 
   &__admin {

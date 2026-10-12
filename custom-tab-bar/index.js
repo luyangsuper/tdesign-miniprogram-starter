@@ -5,6 +5,7 @@ function routeToValue(route) {
   if (!route) return '';
   if (route.indexOf('pages/home/') === 0) return 'home';
   if (route.indexOf('pages/my/') === 0) return 'my';
+  if (route.indexOf('pages/admin/upload/') === 0) return 'publish';
   return '';
 }
 
@@ -21,6 +22,10 @@ Component({
     home: {
       icon: '/static/tab/home.png',
       iconActive: '/static/tab/home-active.png',
+    },
+    publish: {
+      icon: '/static/tab/publish.png',
+      iconActive: '/static/tab/publish-active.png',
     },
     my: {
       icon: '/static/tab/my.png',
@@ -101,8 +106,9 @@ Component({
       this.setData({ value: 'my' });
       wx.switchTab({ url: '/pages/my/index' });
     },
-    onTapUpload() {
+    onTapPublish() {
       if (!resolveIsAdmin()) return;
+      this.setData({ value: 'publish' });
       wx.navigateTo({ url: '/pages/admin/upload/index' });
     },
   },

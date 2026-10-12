@@ -1,0 +1,61 @@
+<t-popup
+  visible="{{visible}}"
+  placement="center"
+  bind:visible-change="onVisibleChange"
+>
+  <view class="ltp" style="{{themeStyle}}">
+    <!-- 揭晓动画插槽（二期可接 lucky-canvas） -->
+    <view class="ltp__reveal-slot" />
+    <view class="ltp__icon-wrap">
+      <t-icon name="star" size="64rpx" color="#F2C94C" />
+    </view>
+    <view class="ltp__title">{{title}}</view>
+
+    <block wx:if="{{mode === 'invite'}}">
+      <view class="ltp__meta">{{metaLine}}</view>
+      <view class="ltp__countdown" wx:if="{{countdown}}">距开奖 {{countdown}}</view>
+      <view class="ltp__tip">{{tip}}</view>
+      <t-button
+        theme="primary"
+        size="large"
+        block
+        loading="{{joining}}"
+        disabled="{{joining}}"
+        content="参与抽奖"
+        bind:tap="onJoin"
+      />
+      <t-button
+        theme="default"
+        variant="text"
+        size="medium"
+        block
+        content="先逛逛"
+        bind:tap="onClose"
+      />
+    </block>
+
+    <block wx:else>
+      <view class="ltp__points {{won ? 'is-win' : ''}}">
+        {{won ? '+' + prizePoints + ' 积分' : '未中奖'}}
+      </view>
+      <view class="ltp__meta">{{metaLine}}</view>
+      <view class="ltp__tip">{{tip}}</view>
+      <t-button
+        theme="primary"
+        size="large"
+        block
+        content="{{won ? '太棒了' : '知道了'}}"
+        bind:tap="onConfirmResult"
+      />
+      <t-button
+        wx:if="{{showDetailLink}}"
+        theme="default"
+        variant="text"
+        size="medium"
+        block
+        content="查看名单"
+        bind:tap="onViewDetail"
+      />
+    </block>
+  </view>
+</t-popup>

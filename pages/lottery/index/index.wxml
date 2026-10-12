@@ -1,0 +1,58 @@
+<view class="lottery-list" style="{{themeStyle}}">
+  <view class="lottery-list__subscribe">
+    <t-button
+      theme="primary"
+      variant="outline"
+      size="medium"
+      block
+      content="开启抽奖提醒"
+      bind:tap="onSubscribe"
+    />
+    <view class="lottery-list__subscribe-hint">{{lotteryNotifyHint}}</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="lottery-list__loading">
+    <t-loading theme="circular" size="40rpx" text="加载中" />
+  </view>
+
+  <block wx:elif="{{list.length}}">
+    <view
+      wx:for="{{list}}"
+      wx:key="id"
+      class="lottery-list__card"
+      data-id="{{item.id}}"
+      bindtap="goDetail"
+    >
+      <view class="lottery-list__top">
+        <text class="lottery-list__title">{{item.title}}</text>
+        <t-tag size="small" variant="light" theme="{{item.statusTheme}}">{{item.statusLabel}}</t-tag>
+      </view>
+      <view class="lottery-list__meta">
+        奖池 {{item.poolPoints}} 积分 · {{item.winnerCount}} 人中奖 · 参与 {{item.participantCount}}
+      </view>
+      <view class="lottery-list__meta">开奖 {{item.drawAtText || '—'}}</view>
+      <view wx:if="{{item.joined && item.status === 'open'}}" class="lottery-list__sub">已参与，等待开奖</view>
+      <view wx:elif="{{item.sub}}" class="lottery-list__sub">{{item.sub}}</view>
+    </view>
+  </block>
+
+  <view wx:else class="lottery-list__empty">
+    <t-empty description="暂无抽奖活动" />
+  </view>
+
+  <lottery-popup
+    visible="{{lotteryResultVisible}}"
+    mode="result"
+    result="{{lotteryResult}}"
+    bind:visible-change="onLotteryResultVisibleChange"
+    bind:close="closeLotteryResult"
+  />
+  <lottery-popup
+    visible="{{lotteryInviteVisible}}"
+    mode="invite"
+    invite="{{lotteryInvite}}"
+    bind:visible-change="onLotteryInviteVisibleChange"
+    bind:close="closeLotteryInvite"
+    bind:joined="onLotteryJoined"
+  />
+</view>

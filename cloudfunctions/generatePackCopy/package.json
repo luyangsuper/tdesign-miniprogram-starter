@@ -1,0 +1,9 @@
+{
+  "name": "generatePackCopy",
+  "version": "1.1.0",
+  "description": "根据封面图用 DeepSeek 识图生成合集标题与公众号文案",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

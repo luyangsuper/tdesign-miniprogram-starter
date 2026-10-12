@@ -1,16 +1,23 @@
 <view class="my-page" style="{{themeStyle}}">
-<t-navbar title="我的" />
+<t-navbar title="我的" placeholder="{{true}}" z-index="{{500}}" />
 <view class="my">
   <view class="my__profile">
-    <button class="my__avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
-      <t-avatar
-        t-class="my__avatar"
-        image="{{avatarUrl}}"
-        icon="user"
-        size="88rpx"
-        shape="circle"
-      />
-    </button>
+    <view class="my__avatar-wrap">
+      <button class="my__avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+        <t-avatar
+          t-class="my__avatar"
+          image="{{avatarUrl}}"
+          icon="user"
+          size="88rpx"
+          shape="circle"
+          bind:error="onAvatarError"
+        />
+      </button>
+      <view wx:if="{{avatarBadge}}" class="my__avatar-badge my__avatar-badge--{{avatarBadge.tone}}">
+        <t-icon name="{{avatarBadge.icon}}" size="20rpx" color="#ffffff" />
+        <text wx:if="{{avatarBadge.text}}" class="my__avatar-badge-text">{{avatarBadge.text}}</text>
+      </view>
+    </view>
     <view class="my__info">
       <input
         class="my__name-input"
@@ -22,7 +29,7 @@
         bindchange="onNickChange"
       />
       <view class="my__meta">
-        <t-tag size="small" variant="light" theme="{{isAdmin ? 'danger' : isVip ? 'warning' : 'default'}}">
+        <t-tag size="small" variant="light" theme="{{roleTagTheme}}">
           {{roleLabel}}
         </t-tag>
         <text class="my__id" bindtap="copyOpenId">{{shortId}}</text>
@@ -31,10 +38,44 @@
   </view>
 
   <view class="my__benefit">
-    <view class="my__benefit-row">
-      <text class="my__benefit-hint">{{entitlementHint}}</text>
-      <text class="my__pricing-link" bindtap="openPricing">看定价</text>
-    </view>
+    <block wx:if="{{benefit.empty}}">
+      <view class="my__benefit-top">
+        <text class="my__benefit-empty">{{benefit.emptyText}}</text>
+        <text class="my__pricing-link" bindtap="openPricing">看定价</text>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="my__benefit-top">
+        <view class="my__benefit-sum">
+          <text class="my__benefit-sum-num">{{benefit.totalValueText}}</text>
+          <view class="my__benefit-sum-meta">
+            <text class="my__benefit-sum-title">可用积分</text>
+            <text class="my__benefit-sum-sub">{{benefit.affordLine}}</text>
+          </view>
+        </view>
+        <text class="my__pricing-link" bindtap="openPricing">看定价</text>
+      </view>
+
+      <view wx:if="{{benefit.showMonth}}" class="my__benefit-row">
+        <text class="my__benefit-k">本月额度</text>
+        <text class="my__benefit-v">{{benefit.monthLeftText}} / {{benefit.monthTotalText}}</text>
+      </view>
+      <view wx:if="{{benefit.showMonth}}" class="my__benefit-bar">
+        <view class="my__benefit-bar-track">
+          <view
+            class="my__benefit-bar-fill"
+            style="width: {{benefit.monthPercent}}%; background: {{benefit.monthBarColor}};"
+          />
+        </view>
+      </view>
+
+      <view wx:if="{{benefit.showBoughtPoints}}" class="my__benefit-row">
+        <text class="my__benefit-k">已购积分</text>
+        <text class="my__benefit-v">{{benefit.pointsText}}</text>
+      </view>
+
+      <text class="my__benefit-foot">{{benefit.footLine}}</text>
+    </block>
     <view class="my__pricing-strip" bindtap="openPricing">
       <view
         class="my__pricing-chip my__pricing-chip--{{item.tone}}"
@@ -61,12 +102,21 @@
     <view class="my__redeem">
       <input
         class="my__redeem-native"
-        placeholder="兑换码"
-        maxlength="20"
+        placeholder="输入或点粘贴识别"
+        maxlength="64"
         value="{{redeemCode}}"
         bindinput="onRedeemInput"
       />
       <t-button
+        t-class="my__redeem-btn my__redeem-btn--paste"
+        theme="light"
+        size="small"
+        content="粘贴"
+        disabled="{{redeeming}}"
+        bind:tap="onPasteRedeem"
+      />
+      <t-button
+        t-class="my__redeem-btn"
         theme="primary"
         size="small"
         content="兑换"
@@ -93,6 +143,39 @@
     >
       <view slot="left-icon" class="my-menu-icon">
         <view class="my__theme-dot" style="background: {{themeBrand}};" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="每日签到"
+      note="弹窗签到 · 每日领积分"
+      hover
+      bind:click="goCheckin"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <image class="my-menu-icon__img" src="/static/emoji/checkin.png" mode="aspectFit" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="抽奖活动"
+      note="参与抽奖 · 看开奖名单"
+      arrow
+      hover
+      bind:click="goLottery"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="star" size="40rpx" color="#F2C94C" />
       </view>
     </t-cell>
     <t-cell
@@ -170,6 +253,38 @@
       >
         <view slot="left-icon" class="my-menu-icon">
           <t-icon name="user-vip" size="40rpx" color="#EB5757" />
+        </view>
+      </t-cell>
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        title="积分与活动"
+        note="规则 / 活动发积分"
+        arrow
+        hover
+        bind:click="goPointsSettings"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <image class="my-menu-icon__img" src="/static/emoji/gift.png" mode="aspectFit" />
+        </view>
+      </t-cell>
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        title="抽奖活动"
+        note="创建 / 开奖管理"
+        arrow
+        hover
+        bind:click="goAdminLottery"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <t-icon name="star" size="40rpx" color="#F2C94C" />
         </view>
       </t-cell>
       <t-cell
@@ -587,4 +702,11 @@
     </view>
   </view>
 </t-popup>
+
+<checkin-popup
+  visible="{{checkinVisible}}"
+  bind:visible-change="onCheckinVisibleChange"
+  bind:close="onCheckinClose"
+  bind:success="onCheckinSuccess"
+/>
 </view>

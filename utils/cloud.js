@@ -13,6 +13,18 @@ function friendlyCloudError(err, name) {
     e.code = 'INVALID_ENV';
     return e;
   }
+  if (
+    code === -504003 ||
+    /FUNCTIONS_TIME_LIMIT_EXCEEDED|timed out after/i.test(msg)
+  ) {
+    const e = new Error(
+      name === 'generatePackCopy'
+        ? 'AI 生成超时：请把云函数 generatePackCopy 超时改为 60 秒后重试'
+        : `云函数「${name}」执行超时，请在云开发控制台调高超时时间`,
+    );
+    e.code = 'FUNCTIONS_TIME_LIMIT_EXCEEDED';
+    return e;
+  }
   const e = new Error((err && err.message) || msg || '请求失败');
   e.code = code;
   return e;

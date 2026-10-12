@@ -90,15 +90,14 @@
   }
 
   &__input {
+    .form-input-tokens();
     flex: 1;
     min-width: 0;
-    --td-input-vertical-padding: 8rpx;
-    --td-input-border-left-space: 12rpx;
-    --td-input-border-right-space: 12rpx;
+    margin-top: 0;
+    border-radius: @form-input-radius;
+    overflow: hidden;
     --td-input-bg-color: transparent;
     background: var(--td-bg-color-container);
-    border-radius: 12rpx;
-    overflow: hidden;
   }
 
   &__cancel {

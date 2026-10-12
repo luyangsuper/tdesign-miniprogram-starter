@@ -18,3 +18,5 @@
 | empty.png | Inbox | 空态备用 |
 | guide.png | GuideBoard | 使用引导 |
 | feedback.png | Mail | 意见反馈 |
+| gift.png | Gift | 见面礼弹窗 |
+| checkin.png | Calendar | 每日签到 |

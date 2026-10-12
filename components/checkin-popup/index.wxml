@@ -1,0 +1,99 @@
+<t-popup
+  visible="{{visible}}"
+  placement="center"
+  bind:visible-change="onVisibleChange"
+>
+  <view class="ckp" style="{{themeStyle}}">
+    <view class="ckp__corner">
+      <t-button
+        t-class="ckp__makeup-btn"
+        size="extra-small"
+        theme="warning"
+        variant="outline"
+        shape="round"
+        loading="{{checking}}"
+        disabled="{{checking || loading || !canMakeupNow}}"
+        content="补签"
+        bind:tap="onMakeup"
+      />
+      <view class="ckp__close" bind:tap="onClose">
+        <t-icon name="close" size="36rpx" color="#999999" />
+      </view>
+    </view>
+
+    <view class="ckp__hero">
+      <image class="ckp__hero-icon" src="/static/emoji/checkin.png" mode="aspectFit" />
+      <view class="ckp__hero-main">
+        <text class="ckp__hero-title">每日签到</text>
+        <text class="ckp__hero-sub">每天 +{{checkinPoints}} 积分 · 余额 {{points}}</text>
+      </view>
+    </view>
+
+    <view class="ckp__month-bar">
+      <t-button
+        size="extra-small"
+        variant="text"
+        theme="default"
+        icon="chevron-left"
+        disabled="{{loading || !canPrev}}"
+        bind:tap="onPrevMonth"
+      />
+      <text class="ckp__month-title">{{monthTitle}}</text>
+      <t-button
+        size="extra-small"
+        variant="text"
+        theme="default"
+        icon="chevron-right"
+        disabled="{{loading || !canNext}}"
+        bind:tap="onNextMonth"
+      />
+    </view>
+
+    <view class="ckp__week-head">
+      <text wx:for="{{weekLabels}}" wx:key="*this" class="ckp__week-label">{{item}}</text>
+    </view>
+
+    <view class="ckp__cal">
+      <view wx:if="{{loading}}" class="ckp__loading-mask">
+        <t-loading theme="circular" size="36rpx" text="加载中" />
+      </view>
+      <view class="ckp__grid {{loading ? 'is-dim' : ''}}">
+        <view wx:for="{{weeks}}" wx:for-item="week" wx:for-index="wi" wx:key="wi" class="ckp__week">
+          <view
+            wx:for="{{week}}"
+            wx:for-item="cell"
+            wx:key="dateKey"
+            class="ckp__cell ckp__cell--{{cell.type}} {{cell.checked ? 'is-checked' : ''}} {{cell.isMakeup ? 'is-makeup' : ''}} {{cell.isToday ? 'is-today' : ''}} {{cell.isFuture ? 'is-future' : ''}} {{cell.isNextMakeup ? 'is-next-makeup' : ''}}"
+          >
+            <text wx:if="{{cell.type === 'day'}}" class="ckp__day">{{cell.day}}</text>
+            <view wx:if="{{cell.checked}}" class="ckp__dot {{cell.isMakeup ? 'is-makeup' : ''}}" />
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="ckp__stats">
+      <t-tag size="small" variant="light" theme="primary">本月 {{checkedCount}} 天</t-tag>
+      <t-tag wx:if="{{checkedToday}}" size="small" variant="light" theme="success">今日已签</t-tag>
+      <t-tag wx:elif="{{isCurrentMonth}}" size="small" variant="light" theme="warning">今日未签</t-tag>
+      <t-tag wx:else size="small" variant="light" theme="default">非本月</t-tag>
+      <t-tag size="small" variant="light" theme="default">
+        补签余 {{makeupLeftToday}}/{{makeupMaxPerDay}} · {{makeupLeftMonth}}/{{makeupMaxPerMonth}}
+      </t-tag>
+    </view>
+
+    <view class="ckp__actions">
+      <t-button
+        theme="primary"
+        size="medium"
+        block
+        loading="{{checking}}"
+        disabled="{{checking || loading || !canCheckinNow}}"
+        content="{{checkinBtnText}}"
+        bind:tap="onCheckin"
+      />
+    </view>
+  </view>
+</t-popup>
+
+<confetti-burst id="confetti" />

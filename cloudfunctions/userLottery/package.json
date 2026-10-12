@@ -1,0 +1,9 @@
+{
+  "name": "userLottery",
+  "version": "1.0.0",
+  "description": "用户抽奖：参与、详情、待办 ack、懒开奖",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

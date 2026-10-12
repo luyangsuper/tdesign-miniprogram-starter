@@ -1,4 +1,5 @@
 import { categoryTagStyle, metaTagStyle } from '~/utils/categories';
+import { getThemeBrand } from '~/utils/theme';
 
 Component({
   options: {
@@ -37,12 +38,22 @@ Component({
       type: Number,
       value: 1,
     },
+    /** 首页多选模式：点击切换选中，不进详情 */
+    selectMode: {
+      type: Boolean,
+      value: false,
+    },
+    selected: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {
     tags: [],
     mediaHeight: 0,
     coverReady: false,
+    brandColor: '#07C160',
   },
 
   observers: {
@@ -52,16 +63,30 @@ Component({
     'cardWidth, coverRatio': function () {
       this.updateMediaHeight();
     },
-    coverUrl() {
-      this.setData({ coverReady: false });
+    coverUrl(url) {
+      // 仅 URL 真变时处理；同地址不重置，避免 lazy 不触发 load → 封面空白
+      const next = url || '';
+      if (next === this._coverUrl) return;
+      this._coverUrl = next;
+      // 有地址直接可见（骨架可由 t-image loading slot 短暂盖住）
+      this.setData({ coverReady: !!next });
     },
   },
 
   lifetimes: {
     attached() {
+      this._coverUrl = this.data.coverUrl || '';
       this.refreshTags();
       this.updateMediaHeight();
-      this._onThemeChange = () => this.refreshTags();
+      this.setData({
+        brandColor: getThemeBrand(),
+        // 有封面则直接可见，避免瀑布流重排后一直透明
+        coverReady: !!this.data.coverUrl,
+      });
+      this._onThemeChange = () => {
+        this.refreshTags();
+        this.setData({ brandColor: getThemeBrand() });
+      };
       try {
         const app = getApp();
         if (app && app.eventBus) app.eventBus.on('themeChange', this._onThemeChange);
@@ -138,8 +163,12 @@ Component({
     },
 
     onTap() {
-      const { packId } = this.data;
+      const { packId, selectMode } = this.data;
       if (!packId) return;
+      if (selectMode) {
+        this.triggerEvent('toggle', { packId });
+        return;
+      }
       wx.navigateTo({
         url: `/pages/pack/detail/index?id=${packId}`,
       });

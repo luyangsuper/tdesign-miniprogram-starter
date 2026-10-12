@@ -1,0 +1,78 @@
+@import '/variable.less';
+
+.admin-points {
+  min-height: 100vh;
+  padding: 24rpx 24rpx calc(48rpx + env(safe-area-inset-bottom));
+  background: var(--td-bg-color-page);
+  box-sizing: border-box;
+
+  &__tip {
+    margin-bottom: 20rpx;
+    padding: 16rpx 20rpx;
+    border-radius: @form-card-radius;
+    background: var(--td-bg-color-container);
+    font-size: 24rpx;
+    line-height: 1.5;
+    color: var(--td-text-color-secondary);
+  }
+
+  &__loading {
+    display: flex;
+    justify-content: center;
+    padding: 80rpx 0;
+  }
+
+  &__section {
+    margin: 24rpx 8rpx 10rpx;
+    font-size: 26rpx;
+    font-weight: 600;
+    color: var(--td-text-color-primary);
+  }
+
+  &__card {
+    .form-card();
+  }
+
+  &__row {
+    .form-row();
+  }
+
+  &__meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__label {
+    .form-label();
+  }
+
+  &__hint {
+    .form-hint();
+  }
+
+  &__field {
+    .form-input-field();
+
+    &--num {
+      .form-input-field-num();
+    }
+  }
+
+  &__actions {
+    margin-top: 4rpx;
+    margin-bottom: 4rpx;
+  }
+
+  &__history {
+    .form-card();
+  }
+
+  &__history-title {
+    .form-label();
+  }
+
+  &__history-meta {
+    .form-hint();
+    color: var(--td-text-color-secondary);
+  }
+}

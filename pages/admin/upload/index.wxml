@@ -84,7 +84,7 @@
 
   <view class="block">
     <view class="block__label">封面（1 张，列表展示）</view>
-    <view class="block__tip">从相册选 1 张，用于列表展示</view>
+    <view class="block__tip">从相册选 1 张，用于列表展示。上传后可用 AI 根据「主题分类 + 封面」生成标题与简介；需要时再开公众号文案。</view>
     <t-upload
       media-type="{{['image']}}"
       files="{{coverFiles}}"
@@ -92,6 +92,41 @@
       max="1"
       bind:success="onCoverSuccess"
       bind:remove="onCoverRemove"
+    />
+    <view wx:if="{{coverFiles.length}}" class="upload-page__notify-row upload-page__ai-opt">
+      <view class="upload-page__notify-text">
+        <text class="upload-page__notify-label">同时生成公众号文案</text>
+        <text class="upload-page__ai-opt-tip">关闭可省 token，默认只出标题与简介</text>
+      </view>
+      <t-switch
+        value="{{aiIncludeArticle}}"
+        disabled="{{generatingCopy || submitting || loadingPack}}"
+        bind:change="onAiIncludeArticleChange"
+      />
+    </view>
+    <t-button
+      wx:if="{{coverFiles.length}}"
+      t-class="upload-page__ai-btn"
+      theme="light"
+      variant="base"
+      size="medium"
+      block
+      icon="{{generatingCopy ? '' : 'tips'}}"
+      loading="{{generatingCopy}}"
+      disabled="{{generatingCopy || submitting || loadingPack}}"
+      content="{{generatingCopy ? 'AI 生成中…' : (aiIncludeArticle ? '生成标题/简介/公众号文案' : '生成标题与简介')}}"
+      bind:tap="onGenerateCopy"
+    />
+    <t-button
+      t-class="upload-page__ai-btn"
+      theme="default"
+      variant="outline"
+      size="small"
+      block
+      loading="{{pingingProxy}}"
+      disabled="{{pingingProxy || generatingCopy}}"
+      content="检测 AI 连通性"
+      bind:tap="onPingAiProxy"
     />
   </view>
 
@@ -314,4 +349,38 @@
     image-props="{{viewerImageProps}}"
     bind:close="onViewerClose"
   />
+
+  <t-dialog
+    visible="{{aiDialogVisible}}"
+    title="AI 文案已生成"
+    confirm-btn="填入标题与简介"
+    cancel-btn="关闭"
+    bind:confirm="onApplyAiCopy"
+    bind:cancel="onCloseAiDialog"
+  >
+    <view slot="content" class="upload-page__ai-dialog">
+      <view class="upload-page__ai-label">标题</view>
+      <text class="upload-page__ai-title" user-select>{{aiTitle}}</text>
+      <view class="upload-page__ai-label">简介</view>
+      <text class="upload-page__ai-desc" user-select>{{aiDescription}}</text>
+      <block wx:if="{{aiArticle}}">
+        <view class="upload-page__ai-label-row">
+          <text class="upload-page__ai-label upload-page__ai-label--row">公众号文案</text>
+          <t-button
+            t-class="upload-page__ai-copy-btn"
+            size="extra-small"
+            theme="primary"
+            variant="text"
+            content="复制全文"
+            bind:tap="onCopyAiArticle"
+          />
+        </view>
+        <scroll-view scroll-y enhanced show-scrollbar class="upload-page__ai-article-scroll">
+          <view class="upload-page__ai-article-inner">
+            <text class="upload-page__ai-article" user-select>{{aiArticle}}</text>
+          </view>
+        </scroll-view>
+      </block>
+    </view>
+  </t-dialog>
 </view>

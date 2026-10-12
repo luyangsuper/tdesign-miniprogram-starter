@@ -120,7 +120,6 @@ function buildKeyMap(files) {
 
 /**
  * 预览 + 静态必配；动态可选挂到已有静态槽。
- * 兼容旧调用：第三参可省略。
  */
 export function pairPreviewStaticAnim(
   previewFiles = [],
@@ -188,17 +187,10 @@ export function pairPreviewStaticAnim(
     pairs,
     unmatchedPreview,
     unmatchedStatic,
-    unmatchedEmoji: unmatchedStatic,
     unmatchedAnim,
     orderedPreviews: pairs.map((p) => p.preview),
-    orderedEmojis: pairs.map((p) => p.static),
     orderedStatics: pairs.map((p) => p.static),
     orderedAnims: pairs.map((p) => p.anim || null),
     pairKeys: pairs.map((p) => formatPairLabel(p.key)),
   };
-}
-
-/** @deprecated 使用 pairPreviewStaticAnim；保留别名兼容 */
-export function pairPreviewAndEmoji(previewFiles = [], emojiFiles = []) {
-  return pairPreviewStaticAnim(previewFiles, emojiFiles, []);
 }

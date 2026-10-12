@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { code2Session, saveSessionKey } = require('./session');
+const { getPointsSettings } = require('./pointsSettings');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -29,6 +30,9 @@ async function resolveAvatarUrl(fileID) {
   }
 }
 
+/**
+ * @returns {{ user: object, welcomeGift: null|{ points: number } }}
+ */
 async function getOrCreateUser(openid, isAdmin) {
   const ref = db.collection('users').doc(openid);
   try {
@@ -40,26 +44,45 @@ async function getOrCreateUser(openid, isAdmin) {
     };
     if (typeof data.points !== 'number') patch.points = 0;
     await ref.update({ data: patch });
-    return syncVipMonthQuota(ref, { ...data, ...patch }, db.serverDate());
+    const synced = await syncVipMonthQuota(ref, { ...data, ...patch }, db.serverDate());
+    return { user: synced, welcomeGift: null };
   } catch (e) {
+    const settings = await getPointsSettings(db);
+    const giftPoints = Math.max(0, Number(settings.welcomeGiftPoints) || 0);
     const blank = {
       openid,
       isAdmin,
       nickName: '',
       avatarFileID: '',
-      points: 0,
+      points: giftPoints,
       vipMonthQuota: 0,
       vipQuotaPeriod: '',
       vipExpireAt: null,
       lastLoginAt: db.serverDate(),
       createdAt: db.serverDate(),
     };
+    if (giftPoints > 0) {
+      blank.welcomeGiftAt = db.serverDate();
+      blank.welcomeGiftPoints = giftPoints;
+    }
     try {
       await ref.set({ data: blank });
     } catch (err) {
       console.warn('users create skip', err.message);
+      // 并发建档：当作老用户
+      try {
+        const snap = await ref.get();
+        const data = snap.data || {};
+        const synced = await syncVipMonthQuota(ref, data, db.serverDate());
+        return { user: synced, welcomeGift: null };
+      } catch (err2) {
+        return { user: blank, welcomeGift: null };
+      }
     }
-    return blank;
+    return {
+      user: blank,
+      welcomeGift: giftPoints > 0 ? { points: giftPoints } : null,
+    };
   }
 }
 
@@ -122,8 +145,11 @@ exports.main = async (event = {}) => {
 
   // 静默登录：拿 openid + 已存资料 + 权益
   let user = {};
+  let welcomeGift = null;
   try {
-    user = await getOrCreateUser(OPENID, isAdmin);
+    const created = await getOrCreateUser(OPENID, isAdmin);
+    user = created.user || {};
+    welcomeGift = created.welcomeGift || null;
   } catch (e) {
     console.warn('users upsert skip', e.message);
   }
@@ -139,6 +165,15 @@ exports.main = async (event = {}) => {
   }
 
   const avatarUrl = await resolveAvatarUrl(user.avatarFileID || '');
+  const pendingPointGifts = Array.isArray(user.pendingPointGifts)
+    ? user.pendingPointGifts.slice(0, 50)
+    : [];
+  const pendingLotteryInvites = Array.isArray(user.pendingLotteryInvites)
+    ? user.pendingLotteryInvites.slice(0, 20)
+    : [];
+  const pendingLotteryResults = Array.isArray(user.pendingLotteryResults)
+    ? user.pendingLotteryResults.slice(0, 20)
+    : [];
 
   return {
     ok: true,
@@ -148,5 +183,9 @@ exports.main = async (event = {}) => {
     avatarFileID: user.avatarFileID || '',
     avatarUrl,
     entitlement: buildEntitlement(user),
+    welcomeGift,
+    pendingPointGifts,
+    pendingLotteryInvites,
+    pendingLotteryResults,
   };
 };

@@ -23,6 +23,13 @@ export default {
    */
   monthlyQuota: 36,
   /**
+   * 积分活动默认值（真正生效以云库 app_config/points 为准，可在管理端修改）
+   * - welcomeGiftPoints：新用户首次登录见面礼
+   * - checkinPoints：每日签到
+   */
+  welcomeGiftPoints: 18,
+  checkinPoints: 1,
+  /**
    * 售价（与 MP 虚拟支付道具一致；单位元）
    */
   membershipPricing: {
@@ -65,4 +72,14 @@ export default {
    * 云函数可用环境变量 SUBSCRIBE_FEEDBACK_TMPL_ID 覆盖
    */
   subscribeFeedbackTmplId: 'jYzc2X5SfzI89vwnNVGU00v3x4poeZhl9KIkiOaBvm4',
+  /**
+   * 订阅消息：获得抽奖机会
+   * number1 待抽奖次数 / thing3 温馨提示
+   */
+  subscribeLotteryInviteTmplId: 'qVZWH6E_XuOXoh7Zob5gc5yTPWX48KwPq1UaBlo_iyc',
+  /**
+   * 订阅消息：中奖结果通知
+   * thing1 奖品名称 / number2 奖品数量 / time3 中奖时间 / thing4 温馨提示 / thing5 活动名称
+   */
+  subscribeLotteryWinTmplId: '4YaXF8Jp4lZGNUOmVyF5gvSO8EVMMv1IoYKUmiF9Gk8',
 };

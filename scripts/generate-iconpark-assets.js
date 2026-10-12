@@ -1,5 +1,5 @@
 /**
- * 用 IconPark 多色图标生成 static/emoji、static/pricing PNG
+ * 用 IconPark 生成 static/emoji、static/pricing、static/tab PNG
  * 运行：node scripts/generate-iconpark-assets.js
  */
 const fs = require('fs');
@@ -9,6 +9,7 @@ const icons = require('@icon-park/svg');
 
 const ROOT = path.join(__dirname, '..');
 const SIZE = 512;
+const TAB_SIZE = 96;
 
 /** @type {Record<string, [string, string, string, string]>} */
 const PALETTE = {
@@ -44,6 +45,8 @@ const ASSETS = [
   { dir: 'static/emoji', file: 'empty.png', icon: 'Inbox', palette: 'soft', note: '空态备用' },
   { dir: 'static/emoji', file: 'guide.png', icon: 'GuideBoard', palette: 'guide', note: '使用引导' },
   { dir: 'static/emoji', file: 'feedback.png', icon: 'Mail', palette: 'mail', note: '意见反馈' },
+  { dir: 'static/emoji', file: 'gift.png', icon: 'Gift', palette: 'points', note: '见面礼弹窗' },
+  { dir: 'static/emoji', file: 'checkin.png', icon: 'Calendar', palette: 'month', note: '每日签到' },
   // pricing 套餐图
   { dir: 'static/pricing', file: 'month.png', icon: 'CalendarThirty', palette: 'month', note: '包月' },
   { dir: 'static/pricing', file: 'quarter.png', icon: 'Schedule', palette: 'quarter', note: '季卡' },
@@ -51,6 +54,16 @@ const ASSETS = [
   { dir: 'static/pricing', file: 'points.png', icon: 'Gift', palette: 'points', note: '积分包1' },
   { dir: 'static/pricing', file: 'points2.png', icon: 'Diamond', palette: 'points2', note: '积分包2' },
   { dir: 'static/pricing', file: 'points3.png', icon: 'Star', palette: 'points3', note: '积分包3' },
+];
+
+/** 底栏：未选中 outline / 选中 filled（实心） */
+const TAB_ASSETS = [
+  { file: 'home.png', icon: 'Home', theme: 'outline', color: '#C8C3BD', note: '首页·未选中' },
+  { file: 'home-active.png', icon: 'Home', theme: 'filled', color: '#07C160', note: '首页·选中' },
+  { file: 'publish.png', icon: 'UploadOne', theme: 'outline', color: '#C8C3BD', note: '发布·未选中' },
+  { file: 'publish-active.png', icon: 'UploadOne', theme: 'filled', color: '#07C160', note: '发布·选中' },
+  { file: 'my.png', icon: 'Me', theme: 'outline', color: '#C8C3BD', note: '我的·未选中' },
+  { file: 'my-active.png', icon: 'Me', theme: 'filled', color: '#FA9D3B', note: '我的·选中' },
 ];
 
 function renderSvg(iconName, fill) {
@@ -69,18 +82,45 @@ function renderSvg(iconName, fill) {
   });
 }
 
+function renderTabSvg(iconName, theme, color) {
+  const fn = icons[iconName];
+  if (typeof fn !== 'function') {
+    throw new Error(`IconPark 无图标: ${iconName}`);
+  }
+  return fn({
+    theme,
+    size: TAB_SIZE,
+    fill: color,
+    strokeWidth: theme === 'outline' ? 4 : 3,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+  });
+}
+
+async function writePng(outPath, svg) {
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(outPath);
+  return fs.statSync(outPath);
+}
+
 async function main() {
   const rows = [];
   for (const item of ASSETS) {
     const fill = PALETTE[item.palette];
     const svg = renderSvg(item.icon, fill);
-    const outDir = path.join(ROOT, item.dir);
-    fs.mkdirSync(outDir, { recursive: true });
-    const outPath = path.join(outDir, item.file);
-    await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(outPath);
-    const stat = fs.statSync(outPath);
+    const outPath = path.join(ROOT, item.dir, item.file);
+    const stat = await writePng(outPath, svg);
     console.log('OK', item.file, '←', item.icon, `${stat.size}B`);
     rows.push(`| ${item.file} | ${item.icon} | ${item.note} |`);
+  }
+
+  const tabRows = [];
+  for (const item of TAB_ASSETS) {
+    const svg = renderTabSvg(item.icon, item.theme, item.color);
+    const outPath = path.join(ROOT, 'static/tab', item.file);
+    const stat = await writePng(outPath, svg);
+    console.log('OK', item.file, '←', item.icon, item.theme, `${stat.size}B`);
+    tabRows.push(`| ${item.file} | ${item.icon} | ${item.theme} | ${item.note} |`);
   }
 
   const emojiReadme = `# IconPark 插图
@@ -107,8 +147,22 @@ Graphics from [IconPark](https://iconpark.oceanengine.com/) two-tone PNG.
 ${rows.filter((_, i) => ASSETS[i].dir.includes('pricing')).join('\n')}
 `;
 
+  const tabReadme = `# Tab bar icons
+
+Icons from [IconPark](https://iconpark.oceanengine.com/) (\`@icon-park/svg\`).
+
+- License: **Apache-2.0**
+- Regenerate: \`npm run icons:gen\`
+- Idle: \`outline\` · Active: \`filled\`
+
+| File | IconPark | Theme | Use |
+|------|----------|-------|-----|
+${tabRows.join('\n')}
+`;
+
   fs.writeFileSync(path.join(ROOT, 'static/emoji/README.md'), emojiReadme, 'utf8');
   fs.writeFileSync(path.join(ROOT, 'static/pricing/README.md'), pricingReadme, 'utf8');
+  fs.writeFileSync(path.join(ROOT, 'static/tab/README.md'), tabReadme, 'utf8');
   console.log('READMEs updated');
 }
 

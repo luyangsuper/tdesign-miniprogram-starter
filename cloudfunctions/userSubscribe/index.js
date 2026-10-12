@@ -20,8 +20,7 @@ function isAdmin(openid) {
 
 /**
  * type → 用户文档字段
- * newPack: 新品上线提醒（所有用户）
- * feedback: 反馈通知（仅管理员可攒额度）
+ * newPack | feedback | lotteryInvite | lotteryWin
  */
 function creditFields(type) {
   if (type === 'feedback') {
@@ -30,16 +29,34 @@ function creditFields(type) {
       atKey: 'feedbackNotifyAt',
     };
   }
+  if (type === 'lotteryInvite') {
+    return {
+      creditsKey: 'lotteryInviteNotifyCredits',
+      atKey: 'lotteryInviteNotifyAt',
+    };
+  }
+  if (type === 'lotteryWin') {
+    return {
+      creditsKey: 'lotteryWinNotifyCredits',
+      atKey: 'lotteryWinNotifyAt',
+    };
+  }
   return {
     creditsKey: 'newPackNotifyCredits',
     atKey: 'newPackNotifyAt',
   };
 }
 
+function normalizeType(raw) {
+  const t = String(raw || 'newPack');
+  if (t === 'feedback' || t === 'lotteryInvite' || t === 'lotteryWin') return t;
+  return 'newPack';
+}
+
 /**
  * 一次性模板每同意一次 +1 次发送额度
  * action: record | status
- * type: newPack | feedback（默认 newPack）
+ * type: newPack | feedback | lotteryInvite | lotteryWin
  */
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
@@ -48,7 +65,7 @@ exports.main = async (event) => {
   }
 
   const action = event.action || 'status';
-  const type = event.type === 'feedback' ? 'feedback' : 'newPack';
+  const type = normalizeType(event.type);
   const { creditsKey, atKey } = creditFields(type);
   const ref = db.collection('users').doc(OPENID);
 

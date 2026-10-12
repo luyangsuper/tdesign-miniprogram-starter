@@ -1,5 +1,5 @@
 <view
-  class="pack-card"
+  class="pack-card {{selectMode && selected ? 'pack-card--selected' : ''}}"
   style="width: {{cardWidth}}px;"
   hover-class="pack-card--press"
   hover-start-time="20"
@@ -24,6 +24,13 @@
     >
       <view slot="loading" class="pack-card__skeleton" aria-hidden="true" />
     </t-image>
+    <view wx:if="{{selectMode}}" class="pack-card__check" aria-hidden="true">
+      <t-icon
+        name="{{selected ? 'check-circle-filled' : 'circle'}}"
+        size="40rpx"
+        color="{{selected ? brandColor : 'rgba(255,255,255,0.92)'}}"
+      />
+    </view>
   </view>
 
   <view class="pack-card__info">
@@ -40,7 +47,7 @@
         {{item.text}}
       </t-tag>
     </view>
-    <view class="pack-card__admin" wx:if="{{showAdmin}}" catchtap="noop">
+    <view class="pack-card__admin" wx:if="{{showAdmin && !selectMode}}" catchtap="noop">
       <t-button
         t-class="pack-card__admin-btn"
         size="extra-small"
@@ -62,4 +69,9 @@
       />
     </view>
   </view>
+  <view
+    wx:if="{{selectMode}}"
+    class="pack-card__bar {{selected ? 'pack-card__bar--on' : ''}}"
+    aria-hidden="true"
+  />
 </view>

@@ -62,20 +62,32 @@ export function applyLoginResult(res = {}) {
   }
 
   const prev = (app && app.globalData && app.globalData.userInfo) || getUserProfile() || {};
-  const nextFileID = res.avatarFileID || '';
-  const prevFileID = prev.avatarFileID || '';
-  // 同一文件每次 getTempFileURL 会换域名/签名，强制换 src 会闪；fileID 不变则沿用旧 URL
-  let avatarUrl = res.avatarUrl || '';
-  if (nextFileID && nextFileID === prevFileID && prev.avatarUrl) {
-    avatarUrl = prev.avatarUrl;
-  } else if (!avatarUrl && prev.avatarUrl && nextFileID === prevFileID) {
-    avatarUrl = prev.avatarUrl;
+  const nextFileID = res.avatarFileID || prev.avatarFileID || '';
+  // 云临时链约 2 小时过期：绝不能优先用本地旧 https，否则头像变 X
+  // 只接受本次下发的可展示地址；缺省留给客户端按 fileID 重新换链
+  let avatarUrl = String(res.avatarUrl || '');
+  if (/^cloud:\/\//i.test(avatarUrl)) {
+    avatarUrl = '';
+  }
+  // 仅本地临时路径（刚选完头像尚未换链）可短暂沿用
+  if (!avatarUrl) {
+    const prevUrl = String(prev.avatarUrl || '');
+    if (
+      nextFileID === (prev.avatarFileID || '') &&
+      (prevUrl.startsWith('wxfile://') ||
+        prevUrl.startsWith('http://tmp') ||
+        prevUrl.startsWith('http://usr'))
+    ) {
+      avatarUrl = prevUrl;
+    }
   }
 
   const profile = {
     nickName: res.nickName != null ? res.nickName : prev.nickName || '',
     avatarUrl,
-    avatarFileID: nextFileID || prevFileID || '',
+    avatarFileID: nextFileID,
+    // 用于判断云临时链是否可能过期（约 2h），过期则不再直接展示
+    avatarUrlAt: avatarUrl ? Date.now() : 0,
   };
   setUserProfile(profile);
   if (app) app.globalData.userInfo = profile;

@@ -21,9 +21,4 @@ export function formatDate(msOrDate, fmt = 'YYYY-MM-DD HH:mm') {
   return d.format(fmt);
 }
 
-/** 兼容旧 util.formatTime：YYYY/MM/DD HH:mm:ss */
-export function formatTime(date) {
-  return formatDate(date || new Date(), 'YYYY/MM/DD HH:mm:ss');
-}
-
 export { dayjs };

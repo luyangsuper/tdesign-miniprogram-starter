@@ -169,7 +169,7 @@ async function applyGrant(ref, user, type, value, command, serverDate, toMsFn) {
     });
     return { grantType: 'vip_days', days, vipExpireAt: next.getTime() };
   }
-  if (type === 'points' || type === 'quota') {
+  if (type === 'points') {
     const add = Math.max(1, Number(value) || 1);
     await ref.update({
       data: {

@@ -1,4 +1,4 @@
-import { callFunction, uploadFile } from '~/utils/cloud';
+import { callFunction, getTempFileURLs, uploadFile } from '~/utils/cloud';
 import {
   getOpenId,
   resolveIsAdmin,
@@ -9,14 +9,27 @@ import {
   applyLoginResult,
 } from '~/utils/auth';
 import {
-  formatEntitlementHint,
+  formatBenefitCard,
   getCachedEntitlement,
   setCachedEntitlement,
 } from '~/utils/entitlement';
 import { getPricingPlans } from '~/utils/pricing';
 import { buyPlan } from '~/utils/virtualPay';
-import { createAndCopyCode } from '~/utils/redeemCode';
-import { resolveDisplayAvatarUrl } from '~/utils/avatar';
+import {
+  createAndCopyCode,
+  extractRedeemCode,
+  readClipboardRedeemCode,
+} from '~/utils/redeemCode';
+import {
+  hasCloudAvatar,
+  isAvatarTempUrlFresh,
+  resolveDisplayAvatarUrl,
+} from '~/utils/avatar';
+import { applyPendingPointGifts } from '~/utils/giftHint';
+import {
+  applyPendingLotteryInvites,
+  applyPendingLotteryResults,
+} from '~/utils/lotteryHint';
 import config from '~/config';
 import {
   fetchFeedbackNotifyStatus,
@@ -33,14 +46,39 @@ import {
   setThemeId,
 } from '~/utils/theme';
 
+/**
+ * 预览普通用户：只隐藏管理员身份，仍按真实权益显示 VIP / 积分
+ * （方便管理员自充会员后测「有会员的普通用户」）
+ */
 function buildRoleLabel({ isAdmin, isVip, points, vipMonthQuota, previewAsUser }) {
-  if (previewAsUser) return '预览·普通用户';
-  if (isAdmin) return '管理员';
-  if (isVip) return '包月会员';
-  if ((points || 0) + (vipMonthQuota || 0) > 0) {
-    return `积分 ${(points || 0) + (vipMonthQuota || 0)}`;
+  if (!previewAsUser && isAdmin) return '管理员';
+  let base = '普通用户';
+  if (isVip) base = '包月会员';
+  else if ((points || 0) + (vipMonthQuota || 0) > 0) {
+    base = `积分 ${(points || 0) + (vipMonthQuota || 0)}`;
   }
-  return '普通用户';
+  return previewAsUser ? `预览·${base}` : base;
+}
+
+/** 头像角标：VIP 红色 user-vip；积分礼盒；管理员「管」（预览时不显示管） */
+function buildAvatarBadge({ isAdmin, isVip, points, vipMonthQuota, previewAsUser }) {
+  if (!previewAsUser && isAdmin) {
+    return { tone: 'admin', icon: 'user-vip', text: '管' };
+  }
+  if (isVip) {
+    return { tone: 'vip', icon: 'user-vip', text: 'VIP' };
+  }
+  if ((points || 0) + (vipMonthQuota || 0) > 0) {
+    return { tone: 'points', icon: 'gift', text: '' };
+  }
+  return null;
+}
+
+function buildRoleTagTheme({ isAdmin, isVip, points, vipMonthQuota, previewAsUser }) {
+  if (!previewAsUser && isAdmin) return 'danger';
+  if (isVip) return 'danger';
+  if ((points || 0) + (vipMonthQuota || 0) > 0) return 'success';
+  return 'default';
 }
 
 Page({
@@ -52,10 +90,12 @@ Page({
     isVip: false,
     shortId: '',
     roleLabel: '普通用户',
+    roleTagTheme: 'default',
+    avatarBadge: null,
     nickName: '',
     avatarUrl: '',
     savingProfile: false,
-    entitlementHint: '',
+    benefit: formatBenefitCard(),
     pricing: getPricingPlans(),
     pricingVisible: false,
     serviceWechat: config.serviceWechat || 'Shine_Luyang',
@@ -77,6 +117,7 @@ Page({
     feedbackContent: '',
     feedbackContact: '',
     feedbackSubmitting: false,
+    checkinVisible: false,
     guideVisible: false,
     guideSteps: [
       {
@@ -120,10 +161,23 @@ Page({
     this.syncEntitlement();
     this.refreshNotifyStatus();
     this.refreshFeedbackNotifyStatus();
+    this.maybeOpenCheckinPopup();
   },
 
   onLoad() {
     this.syncThemeUi();
+  },
+
+  maybeOpenCheckinPopup() {
+    try {
+      const app = getApp();
+      if (app.globalData && app.globalData.openCheckinPopup) {
+        app.globalData.openCheckinPopup = false;
+        this.setData({ checkinVisible: true });
+      }
+    } catch (e) {
+      /* ignore */
+    }
   },
 
   syncThemeUi() {
@@ -323,6 +377,13 @@ Page({
     const cached = app.globalData.userInfo || getUserProfile() || {};
     const pricing = getPricingPlans();
 
+    const roleOpts = {
+      isAdmin,
+      isVip,
+      points: entitlement.points,
+      vipMonthQuota: entitlement.vipMonthQuota,
+      previewAsUser,
+    };
     const patch = {
       openid,
       isAdmin,
@@ -331,27 +392,21 @@ Page({
       isVip,
       shortId: openid ? `${openid.slice(0, 6)}…${openid.slice(-4)}` : '未登录',
       nickName: cached.nickName || '',
-      entitlementHint: formatEntitlementHint(entitlement),
-      roleLabel: buildRoleLabel({
-        isAdmin,
-        isVip,
-        points: entitlement.points,
-        vipMonthQuota: entitlement.vipMonthQuota,
-        previewAsUser,
-      }),
+      benefit: formatBenefitCard(entitlement),
+      roleLabel: buildRoleLabel(roleOpts),
+      roleTagTheme: buildRoleTagTheme(roleOpts),
+      avatarBadge: buildAvatarBadge(roleOpts),
       pricing,
       serviceWechat: pricing.serviceWechat || config.serviceWechat || 'Shine_Luyang',
     };
 
-    // 无微信头像时用 Pixabot（openid 固定外形+色相）
-    const nextAvatar = resolveDisplayAvatarUrl({
+    // 无可用头像链时用 Pixabot；有云文件则等 ensureCloudAvatarUrl 换链
+    patch.avatarUrl = resolveDisplayAvatarUrl({
       avatarFileID: cached.avatarFileID || '',
       avatarUrl: cached.avatarUrl || '',
+      avatarUrlAt: cached.avatarUrlAt || 0,
       openid,
     });
-    if (nextAvatar !== this.data.avatarUrl) {
-      patch.avatarUrl = nextAvatar;
-    }
 
     this.setData(patch);
   },
@@ -374,6 +429,9 @@ Page({
         setCachedEntitlement(res.entitlement);
         this.refreshIdentity();
       }
+      applyPendingPointGifts(res && res.pendingPointGifts);
+      applyPendingLotteryInvites(res && res.pendingLotteryInvites);
+      applyPendingLotteryResults(res && res.pendingLotteryResults);
     } catch (e) {
       /* ignore */
     }
@@ -384,10 +442,61 @@ Page({
       const res = await callFunction('login');
       if (!res.openid) return;
       applyLoginResult(res);
+      applyPendingPointGifts(res.pendingPointGifts);
+      applyPendingLotteryInvites(res.pendingLotteryInvites);
+      applyPendingLotteryResults(res.pendingLotteryResults);
+      const profile = getUserProfile() || {};
+      // 云函数已换链则直接用；否则 / 链不新鲜时客户端再换一次
+      if (
+        hasCloudAvatar(profile.avatarFileID) &&
+        (!profile.avatarUrl || !isAvatarTempUrlFresh(profile.avatarUrlAt))
+      ) {
+        await this.ensureCloudAvatarUrl(true);
+      }
       this.refreshIdentity();
     } catch (e) {
       /* ignore */
     }
+  },
+
+  /** 按 fileID 换临时 https，避免缓存过期链导致头像 X */
+  async ensureCloudAvatarUrl() {
+    const profile = getUserProfile() || {};
+    const fileID = profile.avatarFileID || '';
+    if (!hasCloudAvatar(fileID)) return;
+    if (this._avatarRefreshing) return;
+    this._avatarRefreshing = true;
+    try {
+      const urls = await getTempFileURLs([fileID]);
+      const url = (urls && urls[0]) || '';
+      if (!url) return;
+      applyLoginResult({
+        avatarFileID: fileID,
+        avatarUrl: url,
+        nickName: profile.nickName,
+      });
+    } catch (e) {
+      /* ignore */
+    } finally {
+      this._avatarRefreshing = false;
+    }
+  },
+
+  async onAvatarError() {
+    if (this._avatarErrorHandled) return;
+    this._avatarErrorHandled = true;
+    const profile = getUserProfile() || {};
+    if (!hasCloudAvatar(profile.avatarFileID)) return;
+    applyLoginResult({
+      avatarFileID: profile.avatarFileID,
+      avatarUrl: '',
+      nickName: profile.nickName,
+    });
+    await this.ensureCloudAvatarUrl();
+    this.refreshIdentity();
+    setTimeout(() => {
+      this._avatarErrorHandled = false;
+    }, 3000);
   },
 
   async saveProfile(patch) {
@@ -506,12 +615,36 @@ Page({
   },
 
   onRedeemInput(e) {
-    this.setData({ redeemCode: (e.detail && e.detail.value) || '' });
+    const raw = (e.detail && e.detail.value) || '';
+    // 粘贴整段权益文案时自动提取码
+    const extracted = extractRedeemCode(raw);
+    this.setData({ redeemCode: extracted || raw });
+  },
+
+  /** 用户主动点「粘贴」才读剪贴板，避免每次进页被微信提示「读取了剪贴板」 */
+  async onPasteRedeem() {
+    if (this.data.redeeming) return;
+    const code = await readClipboardRedeemCode();
+    if (!code) {
+      wx.showToast({ title: '剪贴板里没有兑换码', icon: 'none' });
+      return;
+    }
+    this.setData({ redeemCode: code });
+    wx.showModal({
+      title: '识别到兑换码',
+      content: `兑换码 ${code}，是否立即兑换？`,
+      confirmText: '立即兑换',
+      cancelText: '先填入',
+      success: (r) => {
+        if (r.confirm) this.onRedeem();
+      },
+    });
   },
 
   async onRedeem() {
     if (this.data.redeeming) return;
-    const code = (this.data.redeemCode || '').trim();
+    const raw = (this.data.redeemCode || '').trim();
+    const code = extractRedeemCode(raw) || raw;
     if (!code) {
       wx.showToast({ title: '请输入兑换码', icon: 'none' });
       return;
@@ -546,6 +679,36 @@ Page({
 
   goUsers() {
     wx.navigateTo({ url: '/pages/admin/users/index' });
+  },
+
+  goCheckin() {
+    this.setData({ checkinVisible: true });
+  },
+
+  onCheckinVisibleChange(e) {
+    const visible = !!(e.detail && e.detail.visible);
+    this.setData({ checkinVisible: visible });
+  },
+
+  onCheckinClose() {
+    this.setData({ checkinVisible: false });
+  },
+
+  onCheckinSuccess() {
+    this.syncEntitlement();
+    this.refreshIdentity();
+  },
+
+  goPointsSettings() {
+    wx.navigateTo({ url: '/pages/admin/points/index' });
+  },
+
+  goAdminLottery() {
+    wx.navigateTo({ url: '/pages/admin/lottery/index' });
+  },
+
+  goLottery() {
+    wx.navigateTo({ url: '/pages/lottery/index/index' });
   },
 
   openGuide() {

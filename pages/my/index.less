@@ -13,7 +13,7 @@
   flex: 1;
   box-sizing: border-box;
   background: var(--td-bg-color-page);
-  padding: 12rpx 0 calc(160rpx + env(safe-area-inset-bottom));
+  padding: 12rpx 0 calc(@tab-bar-height + env(safe-area-inset-bottom));
   --td-cell-group-margin: 12rpx;
   --td-cell-vertical-padding: 24rpx;
   /* 行高与左侧图标同为 40rpx，避免图标偏上、文字偏下 */
@@ -32,6 +32,13 @@
     padding: 20rpx 24rpx;
     margin: 0 12rpx 12rpx;
     animation: my-fade-up 0.28s ease both;
+  }
+
+  &__avatar-wrap {
+    position: relative;
+    width: 88rpx;
+    height: 88rpx;
+    flex-shrink: 0;
   }
 
   &__avatar-btn {
@@ -64,6 +71,45 @@
       image-rendering: pixelated;
       image-rendering: -moz-crisp-edges;
     }
+  }
+
+  /* 角标露在头像外缘，红色 VIP 一眼能认 */
+  &__avatar-badge {
+    position: absolute;
+    right: -6rpx;
+    bottom: -4rpx;
+    z-index: 2;
+    min-width: 36rpx;
+    height: 32rpx;
+    padding: 0 8rpx;
+    border-radius: 999rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rpx;
+    box-sizing: border-box;
+    border: 3rpx solid var(--td-bg-color-container);
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.12);
+    pointer-events: none;
+  }
+
+  &__avatar-badge--vip,
+  &__avatar-badge--admin {
+    background: #eb5757;
+  }
+
+  &__avatar-badge--points {
+    background: #27ae60;
+    min-width: 32rpx;
+    padding: 0 6rpx;
+  }
+
+  &__avatar-badge-text {
+    font-size: 16rpx;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    letter-spacing: 0.02em;
   }
 
   &__info {
@@ -100,34 +146,119 @@
   &__benefit {
     background: var(--td-bg-color-container);
     border-radius: 16rpx;
-    padding: 16rpx 20rpx;
+    padding: 16rpx 18rpx 12rpx;
     margin: 0 12rpx 12rpx;
     animation: my-fade-up 0.28s ease 0.04s both;
+  }
+
+  &__benefit-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16rpx;
+    margin-bottom: 14rpx;
+  }
+
+  &__benefit-empty {
+    flex: 1;
+    min-width: 0;
+    font-size: 22rpx;
+    line-height: 1.4;
+    color: var(--td-text-color-secondary);
+  }
+
+  &__benefit-sum {
+    display: flex;
+    align-items: center;
+    gap: 14rpx;
+    min-width: 0;
+  }
+
+  &__benefit-sum-num {
+    font-size: 48rpx;
+    font-weight: 700;
+    color: var(--td-brand-color);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__benefit-sum-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2rpx;
+    min-width: 0;
+  }
+
+  &__benefit-sum-title {
+    font-size: 24rpx;
+    font-weight: 600;
+    color: var(--td-text-color-secondary);
+    line-height: 1.2;
+  }
+
+  &__benefit-sum-sub {
+    font-size: 20rpx;
+    color: var(--td-text-color-placeholder);
+    line-height: 1.3;
   }
 
   &__benefit-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8rpx;
-    margin-bottom: 12rpx;
+    gap: 12rpx;
+    margin-bottom: 6rpx;
   }
 
-  &__benefit-hint {
-    flex: 1;
-    min-width: 0;
-    font-size: 24rpx;
+  &__benefit-k {
+    font-size: 22rpx;
+    color: var(--td-text-color-secondary);
+    line-height: 1.3;
+  }
+
+  &__benefit-v {
+    font-size: 22rpx;
+    font-weight: 600;
     color: var(--td-brand-color);
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__benefit-bar {
+    width: 100%;
+    margin: 0 0 10rpx;
+  }
+
+  &__benefit-bar-track {
+    width: 100%;
+    height: 12rpx;
+    border-radius: 999rpx;
+    background: #e8f8ef;
+    overflow: hidden;
+  }
+
+  &__benefit-bar-fill {
+    height: 100%;
+    border-radius: 999rpx;
+    min-width: 0;
+    transition: width 0.25s ease;
+  }
+
+  &__benefit-foot {
+    display: block;
+    font-size: 18rpx;
     line-height: 1.35;
-    transition: opacity 0.2s ease;
+    color: var(--td-text-color-placeholder);
+    margin: 2rpx 0 10rpx;
   }
 
   &__pricing-link {
     flex-shrink: 0;
-    font-size: 22rpx;
-    line-height: 1.2;
+    align-self: flex-start;
+    margin-top: 6rpx;
+    font-size: 20rpx;
+    line-height: 1.3;
     color: var(--td-text-color-placeholder);
-    padding: 4rpx 0 4rpx 8rpx;
   }
 
   &__pricing-strip {
@@ -232,11 +363,45 @@
   &__redeem-native {
     flex: 1;
     min-width: 0;
-    height: 52rpx;
-    line-height: 52rpx;
+    height: 56rpx;
+    line-height: 56rpx;
     font-size: 26rpx;
     color: var(--td-text-color-primary);
   }
+}
+
+/* 粘贴 / 兑换：同为实心小按钮，强制同宽同高（outline 描边会看起来矮一截） */
+.my__redeem-btn {
+  flex-shrink: 0 !important;
+  width: 112rpx !important;
+  min-width: 112rpx !important;
+  max-width: 112rpx !important;
+  height: 56rpx !important;
+  min-height: 56rpx !important;
+  max-height: 56rpx !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  font-size: 24rpx !important;
+  font-weight: 600 !important;
+  line-height: 56rpx !important;
+  --td-button-small-height: 56rpx !important;
+  --td-button-small-font-size: 24rpx !important;
+  --td-button-small-padding-horizontal: 0 !important;
+  --td-button-border-width: 0 !important;
+  border-width: 0 !important;
+
+  &::after {
+    border: none !important;
+    border-width: 0 !important;
+  }
+}
+
+.my__redeem-btn--paste {
+  --td-button-light-bg-color: #ffffff !important;
+  --td-button-light-color: var(--td-text-color-primary) !important;
+  --td-button-light-active-bg-color: rgba(0, 0, 0, 0.04) !important;
+  --td-button-light-border-color: transparent !important;
 }
 
 .my__pricing-sheet {
@@ -628,6 +793,12 @@
   flex-shrink: 0;
   line-height: 1;
   overflow: hidden;
+
+  &__img {
+    width: 40rpx;
+    height: 40rpx;
+    display: block;
+  }
 }
 
 .my__theme-dot {
@@ -757,14 +928,12 @@
 }
 
 .my__lookup {
+  .form-input-tokens();
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 16rpx;
   padding: 4rpx 0 0;
-  --td-input-vertical-padding: 8rpx;
-  --td-input-border-left-space: 12rpx;
-  --td-input-border-right-space: 12rpx;
 }
 
 .my__lookup-art {

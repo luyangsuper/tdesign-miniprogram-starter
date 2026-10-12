@@ -22,9 +22,8 @@ function assertAdmin(openid) {
 }
 
 function labelOf(type, value) {
-  if (type === 'vip_days') return `包月 ${value} 天`;
+  if (type === 'vip_days') return `包月会员 ${value} 天`;
   if (type === 'points') return `积分 ${value}`;
-  if (type === 'quota') return `积分 ${value}（旧次数码）`;
   return `${type} ${value}`;
 }
 

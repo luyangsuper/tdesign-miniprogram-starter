@@ -18,8 +18,21 @@ function isAdminOpenid(openid) {
   return !!openid && getAdminList().includes(openid);
 }
 
+/** 云存储临时链批量转换（单次最多 50） */
+async function fillTempUrlMap(fileIds, urlMap) {
+  const ids = (fileIds || []).filter(Boolean);
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    // eslint-disable-next-line no-await-in-loop
+    const temp = await cloud.getTempFileURL({ fileList: chunk });
+    (temp.fileList || []).forEach((item) => {
+      if (item && item.fileID) urlMap[item.fileID] = item.tempFileURL || '';
+    });
+  }
+}
+
 /**
- * 详情：返回封面 + 预览图，以及原图数量/占位（不返回原图 fileID）
+ * 详情：封面 + 预览图 + 静/动原图临时链（供保存区展示；扣费仍走 getEmojiDownload）
  * 网盘链接仅管理员可见
  */
 exports.main = async (event) => {
@@ -36,27 +49,29 @@ exports.main = async (event) => {
       return { ok: false, code: 'NOT_FOUND', message: '合集不存在' };
     }
 
-    const emojiCount = (pack.emojiFileIDs || []).length;
+    const emojiFileIDs = pack.emojiFileIDs || [];
+    const emojiCount = emojiFileIDs.length;
     const previewFileIDs = pack.previewFileIDs || [];
     const emojiAnimFileIDs = pack.emojiAnimFileIDs || [];
     const pairKeys = Array.isArray(pack.pairKeys) ? pack.pairKeys : [];
-    const fileIds = [pack.coverFileID, ...previewFileIDs].filter(Boolean);
 
-    let urlMap = {};
-    if (fileIds.length) {
-      const temp = await cloud.getTempFileURL({ fileList: fileIds });
-      (temp.fileList || []).forEach((item) => {
-        urlMap[item.fileID] = item.tempFileURL;
-      });
-    }
+    const urlMap = {};
+    await fillTempUrlMap(
+      [pack.coverFileID, ...previewFileIDs, ...emojiFileIDs, ...emojiAnimFileIDs],
+      urlMap,
+    );
 
     const previewUrls = previewFileIDs.map((id) => urlMap[id] || '');
     const slots = Array.from({ length: emojiCount }, (_, i) => {
-      const hasAnim = !!(emojiAnimFileIDs[i] && String(emojiAnimFileIDs[i]).trim());
+      const staticId = emojiFileIDs[i] || '';
+      const animId = emojiAnimFileIDs[i] || '';
+      const hasAnim = !!(animId && String(animId).trim());
       return {
         index: i,
         pairKey: pairKeys[i] || '',
         previewUrl: previewUrls[i] || '',
+        staticUrl: (staticId && urlMap[staticId]) || '',
+        animUrl: hasAnim ? urlMap[animId] || '' : '',
         hasAnim,
         label: pairKeys[i] ? `#${pairKeys[i]}` : `原图 ${i + 1}`,
       };

@@ -59,6 +59,8 @@
 | `orders` | 虚拟支付订单（`outTradeNo` / `productId` / `status` / `wxOrderId`） |
 | `download_logs` | 下载记录（含 `grantType`: vip / points） |
 | `feedback` | 用户意见反馈（`content` / `contact` / `status`） |
+| `lotteries` | 抽奖活动（`title` / `poolPoints` / `winnerCount` / `drawAt` / `status` / `winners`） |
+| `lottery_entries` | 抽奖参与记录（文档 id：`{lotteryId}_{openid}`） |
 
 建议索引：
 
@@ -67,6 +69,8 @@
 - `download_logs`：`createdAt`（降序）
 - `users`：`vipExpireAt`；`lastLoginAt`（降序，openid 片段搜索）
 - `orders`：`outTradeNo`（唯一）；`openid` + `createdAt`；`wxOrderId`
+- `lotteries`：`status` + `drawAt`；`createdAt`（降序）；`status` + `drawnAt`（降序）
+- `lottery_entries`：`lotteryId` + `_id`
 
 **权限建议：** 集合对客户端「所有用户不可读写」，只走云函数。
 
@@ -87,6 +91,33 @@
 | `userSubscribe` | 记录订阅消息发送额度（新合集 / 反馈） |
 | `submitFeedback` | 写入反馈；向有额度的管理员推订阅消息 |
 | `notifyNewPack` | 管理员在上传页勾选「保存后通知」时推送；写入 `packs.notifiedAt` |
+| `adminManageLottery` | 创建 / 列表 / 取消抽奖，并向已注册用户推邀请 |
+| `userLottery` | 用户参与、详情、名单、邀请/结果 ack；含懒开奖 |
+| `lotteryDraw` | 定时扫到期活动并开奖（奖池随机拆分） |
+| `adminManagePoints` | 见面礼 / 签到规则 / 活动发积分 |
+| `userCheckin` | 每日签到 / 补签 |
+
+### 3.1 抽奖定时触发器
+
+`lotteryDraw/config.json` 已带定时触发器（每分钟：`0 * * * * * *`）。上传该云函数后，在云开发控制台确认触发器已启用。
+
+流程简述：
+
+1. 管理员在「我的 → 抽奖活动」创建：标题、总奖池 T、中奖人数 N、开奖时间  
+2. 已注册用户首页弹邀请 → 点「参与抽奖」入池  
+3. 到点由 `lotteryDraw`（或用户打开详情时的懒开奖）抽 N 人，把 T **随机拆成**有大有小的积分份额并发放  
+4. 参与者收到结果弹窗；详情页可看中奖名单  
+
+揭晓动画一期预留插槽（`components/lottery-popup`、`pages/lottery/detail` 的 `reveal-slot`），二期可接 [lucky-canvas](https://github.com/buuing/lucky-canvas) / `@lucky-canvas/mini`。
+
+**抽奖订阅消息**（`config.js`）：
+
+| 模板 | ID | 字段 |
+|------|-----|------|
+| 获得抽奖机会 | `subscribeLotteryInviteTmplId` | number1 次数 / thing3 提示 |
+| 中奖结果通知 | `subscribeLotteryWinTmplId` | thing1 奖品名 / number2 数量 / time3 时间 / thing4 提示 / thing5 活动名 |
+
+用户在抽奖详情点「开启抽奖提醒」或点「参与抽奖」时授权（攒发送额度）。创建活动时给有额度用户推「获得抽奖机会」；开奖中奖时推「中奖结果」。云函数可用环境变量 `SUBSCRIBE_LOTTERY_INVITE_TMPL_ID` / `SUBSCRIBE_LOTTERY_WIN_TMPL_ID` 覆盖。需部署并勾选 `subscribeMessage.send`：`adminManageLottery`、`userLottery`、`lotteryDraw`、`userSubscribe`。
 
 ### 4. 配置管理员
 
@@ -142,6 +173,8 @@
 | 上传合集 / 管理分类 | 内容管理 |
 | 兑换码 | 生成、列表、作废未用码 |
 | 用户权益 | 按 openid 取消包月、开通/续期、调整积分 |
+| 积分与活动 | 见面礼 / 签到 / 全员发积分 |
+| 抽奖活动 | 创建定时抽奖、取消未开奖活动 |
 
 ## 目录要点
 
@@ -154,5 +187,7 @@ pages/admin/upload/      上传合集
 pages/admin/categories/  管理分类
 pages/admin/codes/       兑换码管理
 pages/admin/users/       用户权益
+pages/admin/lottery/     抽奖管理
+pages/lottery/           用户抽奖列表 / 详情
 config.js                环境 ID / 广告位 / 管理员
 ```

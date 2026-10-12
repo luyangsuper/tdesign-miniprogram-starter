@@ -197,7 +197,7 @@ function computeGrantPatch(user, type, value) {
       userPatch: { vipExpireAt: next },
     };
   }
-  if (type === 'points' || type === 'quota') {
+  if (type === 'points') {
     const add = Math.max(1, Number(value) || 1);
     return {
       grant: { grantType: 'points', add, stacked: true },

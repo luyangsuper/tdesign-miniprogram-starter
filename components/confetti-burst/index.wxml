@@ -1,0 +1,8 @@
+<view wx:if="{{active}}" class="confetti" catchtouchmove="noop">
+  <view
+    wx:for="{{pieces}}"
+    wx:key="id"
+    class="confetti__piece confetti__piece--{{item.shape}}"
+    style="{{item.style}}"
+  />
+</view>

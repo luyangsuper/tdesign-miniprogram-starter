@@ -2,6 +2,11 @@ import config from './config';
 import createBus from './utils/eventBus';
 import { callFunction } from './utils/cloud';
 import { applyLoginResult } from './utils/auth';
+import { applyPendingPointGifts } from './utils/giftHint';
+import {
+  applyPendingLotteryInvites,
+  applyPendingLotteryResults,
+} from './utils/lotteryHint';
 import { initTheme } from './utils/theme';
 
 App({
@@ -47,6 +52,23 @@ App({
       const res = await callFunction('login', code ? { code } : {});
       if (res.openid) {
         applyLoginResult(res);
+        const gift = res.welcomeGift;
+        if (gift && Number(gift.points) > 0) {
+          const shownKey = `welcome_gift_shown_${res.openid}`;
+          if (!wx.getStorageSync(shownKey)) {
+            this.globalData.pendingWelcomeGift = {
+              points: Math.max(0, Number(gift.points) || 0),
+            };
+            try {
+              this.eventBus.emit('welcomeGift');
+            } catch (e) {
+              /* ignore */
+            }
+          }
+        }
+        applyPendingPointGifts(res.pendingPointGifts);
+        applyPendingLotteryInvites(res.pendingLotteryInvites);
+        applyPendingLotteryResults(res.pendingLotteryResults);
         console.log('[login] openid ok, isAdmin =', res.isAdmin, 'nick =', res.nickName || '');
       }
     } catch (e) {
@@ -74,6 +96,18 @@ App({
     themeId: 'wechat',
     themeStyle: '',
     themeBrand: '#07c160',
+    /** 新用户见面礼，首页弹窗消费后清空 */
+    pendingWelcomeGift: null,
+    /** 切到「我的」后打开签到弹窗 */
+    openCheckinPopup: false,
+    /** 活动发积分待展示队列 */
+    pendingActivityGifts: [],
+    /** 本会话已确认的活动礼 id，防 ack 竞态重复弹窗 */
+    ackedActivityGiftIds: [],
+    pendingLotteryInvites: [],
+    pendingLotteryResults: [],
+    ackedLotteryInviteIds: [],
+    ackedLotteryResultIds: [],
   },
 
   eventBus: createBus(),

@@ -1,0 +1,59 @@
+.confetti {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12000;
+  pointer-events: none;
+  overflow: hidden;
+
+  &__piece {
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    background: var(--c);
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: confetti-burst 1s cubic-bezier(0.12, 0.72, 0.28, 1) forwards;
+    animation-delay: var(--d);
+
+    &--rect {
+      width: 14rpx;
+      height: 22rpx;
+      border-radius: 3rpx;
+      margin-left: -7rpx;
+      margin-top: -11rpx;
+    }
+
+    &--circle {
+      width: 16rpx;
+      height: 16rpx;
+      border-radius: 50%;
+      margin-left: -8rpx;
+      margin-top: -8rpx;
+    }
+
+    &--strip {
+      width: 8rpx;
+      height: 28rpx;
+      border-radius: 8rpx;
+      margin-left: -4rpx;
+      margin-top: -14rpx;
+    }
+  }
+}
+
+@keyframes confetti-burst {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(var(--s));
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--r)) scale(0.25);
+    opacity: 0;
+  }
+}

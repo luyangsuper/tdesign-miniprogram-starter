@@ -1,0 +1,77 @@
+<view class="lottery-detail" style="{{themeStyle}}">
+  <view wx:if="{{loading}}" class="lottery-detail__loading">
+    <t-loading theme="circular" size="40rpx" text="加载中" />
+  </view>
+
+  <block wx:else>
+    <!-- 揭晓动画插槽：二期可接 @lucky-canvas/mini -->
+    <view class="lottery-detail__reveal-slot" />
+
+    <view class="lottery-detail__hero">
+      <view class="lottery-detail__title">{{title}}</view>
+      <view class="lottery-detail__pool">奖池 {{poolPoints}} 积分</view>
+      <view class="lottery-detail__meta">{{winnerCount}} 人中奖 · 已参与 {{participantCount}} 人</view>
+      <view class="lottery-detail__meta">开奖时间 {{drawAtText || '—'}}</view>
+      <view wx:if="{{status === 'open' && countdown}}" class="lottery-detail__countdown">
+        距开奖 {{countdown}}
+      </view>
+      <view wx:if="{{joined && status === 'open'}}" class="lottery-detail__joined">
+        你已参与，坐等开奖
+      </view>
+      <view wx:if="{{isDrawn}}" class="lottery-detail__result {{won ? 'is-win' : ''}}">
+        {{won ? '恭喜中奖 +' + prizePoints + ' 积分' : (joined ? '很遗憾，未中奖' : '你未参与本次抽奖')}}
+      </view>
+    </view>
+
+    <view wx:if="{{canJoin}}" class="lottery-detail__actions">
+      <t-button
+        theme="primary"
+        size="large"
+        block
+        loading="{{joining}}"
+        disabled="{{joining}}"
+        content="参与抽奖"
+        bind:tap="onJoin"
+      />
+    </view>
+
+    <view class="lottery-detail__actions">
+      <t-button
+        theme="default"
+        variant="outline"
+        size="medium"
+        block
+        content="开启抽奖提醒"
+        bind:tap="onSubscribe"
+      />
+      <view class="lottery-detail__hint">{{lotteryNotifyHint}}</view>
+    </view>
+
+    <view class="lottery-detail__section">中奖名单</view>
+    <block wx:if="{{isDrawn && winners.length}}">
+      <t-cell-group>
+        <t-cell
+          wx:for="{{winners}}"
+          wx:key="openid"
+          title="{{item.nickName}}{{item.isMe ? '（我）' : ''}}"
+          note="+{{item.points}} 积分"
+          description="第 {{item.rank}} 名"
+          arrow="{{false}}"
+        />
+      </t-cell-group>
+    </block>
+    <view wx:elif="{{isDrawn}}" class="lottery-detail__empty">
+      <t-empty description="暂无中奖者" />
+    </view>
+    <view wx:else class="lottery-detail__hint">开奖后在此展示名单</view>
+  </block>
+
+  <lottery-popup
+    visible="{{lotteryResultVisible}}"
+    mode="result"
+    result="{{lotteryResult}}"
+    showDetailLink="{{false}}"
+    bind:visible-change="onLotteryResultVisibleChange"
+    bind:close="closeLotteryResult"
+  />
+</view>

@@ -42,6 +42,14 @@ Page({
     notifySubscribers: false,
     packNotifiedAt: 0,
     notifyHint: '排好序、内容定稿后再开；关闭则只上架不推送',
+    generatingCopy: false,
+    pingingProxy: false,
+    /** 默认关：不生成公众号长文，省 token */
+    aiIncludeArticle: false,
+    aiDialogVisible: false,
+    aiTitle: '',
+    aiDescription: '',
+    aiArticle: '',
   },
 
   onLoad(options) {
@@ -125,6 +133,11 @@ Page({
     this.setData({ notifySubscribers: on });
   },
 
+  onAiIncludeArticleChange(e) {
+    const on = !!(e.detail && e.detail.value);
+    this.setData({ aiIncludeArticle: on });
+  },
+
   onTitleChange(e) {
     this.setData({ title: (e.detail && e.detail.value) || '' });
   },
@@ -175,6 +188,133 @@ Page({
   },
   onCoverRemove() {
     this.setData({ coverFiles: [], coverWidth: 0, coverHeight: 0 });
+  },
+
+  /** 封面上传到云存储（已有 cloud:// / fileID 则复用） */
+  async ensureCoverFileID() {
+    const file = (this.data.coverFiles || [])[0];
+    if (!file) return '';
+    if (file.fileID && String(file.fileID).startsWith('cloud://')) {
+      return file.fileID;
+    }
+    const local = this.pickLocalPath(file);
+    if (String(local).startsWith('cloud://')) return local;
+    if (!local) return '';
+    const name = getFileName(file);
+    const ext = (name.split('.').pop() || local.split('.').pop() || 'jpg')
+      .split('?')[0]
+      .toLowerCase();
+    const cloudPath = `packs/cover_ai/${Date.now()}.${ext || 'jpg'}`;
+    const fileID = await uploadFile(cloudPath, local);
+    // 回写，避免重复上传
+    const coverFiles = [{ ...file, fileID, url: fileID }];
+    this.setData({ coverFiles });
+    return fileID;
+  },
+
+  async onPingAiProxy() {
+    if (this.data.pingingProxy || this.data.generatingCopy) return;
+    this.setData({ pingingProxy: true });
+    wx.showLoading({ title: '检测中', mask: true });
+    try {
+      const res = await callFunction('generatePackCopy', { action: 'ping' });
+      const data = (res && res.data) || {};
+      const ok = !!(data.apiOk || data.proxyOk);
+      const tip = data.tip || (ok ? 'DeepSeek 正常' : 'DeepSeek 异常');
+      wx.showModal({
+        title: ok ? 'AI 连通正常' : 'AI 未就绪',
+        content: `${tip}\n\nBASE: ${data.base || '-'}\nKeys: ${data.keyCount || 0}\n模型: ${(data.models || []).join(', ') || '-'}`,
+        showCancel: false,
+      });
+    } catch (e) {
+      wx.showModal({
+        title: '检测失败',
+        content: (e && e.message) || '无法检测',
+        showCancel: false,
+      });
+    } finally {
+      wx.hideLoading();
+      this.setData({ pingingProxy: false });
+    }
+  },
+
+  async onGenerateCopy() {
+    if (this.data.generatingCopy || this.data.submitting) return;
+    const { categoryId, categories } = this.data;
+    const cat = (categories || []).find((c) => c.id === categoryId);
+    const categoryName = (cat && cat.name) || '';
+    if (!categoryName) {
+      wx.showToast({ title: '请先选择主题分类', icon: 'none' });
+      return;
+    }
+    if (!(this.data.coverFiles || []).length) {
+      wx.showToast({ title: '请先上传封面', icon: 'none' });
+      return;
+    }
+    this.setData({ generatingCopy: true });
+    wx.showLoading({ title: 'AI 生成中', mask: true });
+    try {
+      const coverFileID = await this.ensureCoverFileID();
+      if (!coverFileID) {
+        throw new Error('封面无效，请重新选择');
+      }
+      const includeArticle = !!this.data.aiIncludeArticle;
+      const res = await callFunction('generatePackCopy', {
+        coverFileID,
+        categoryName,
+        categoryId: categoryId || '',
+        includeArticle,
+      });
+      const data = (res && res.data) || {};
+      const aiTitle = String(data.title || '').trim();
+      const aiDescription = String(data.description || '').trim();
+      const aiArticle = includeArticle ? String(data.article || '').trim() : '';
+      if (!aiTitle && !aiDescription) {
+        throw new Error('未生成有效文案');
+      }
+      this.setData({
+        aiDialogVisible: true,
+        aiTitle,
+        aiDescription,
+        aiArticle,
+      });
+    } catch (e) {
+      const msg = (e && e.message) || '生成失败';
+      wx.showModal({
+        title: '生成失败',
+        content: msg,
+        showCancel: false,
+      });
+      console.warn('[generatePackCopy]', msg);
+    } finally {
+      wx.hideLoading();
+      this.setData({ generatingCopy: false });
+    }
+  },
+
+  onApplyAiCopy() {
+    const { aiTitle, aiDescription } = this.data;
+    const patch = { aiDialogVisible: false };
+    if (aiTitle) patch.title = aiTitle.slice(0, 40);
+    if (aiDescription) patch.description = aiDescription.slice(0, 800);
+    this.setData(patch);
+    wx.showToast({ title: '已填入标题与简介', icon: 'success' });
+  },
+
+  onCloseAiDialog() {
+    this.setData({ aiDialogVisible: false });
+  },
+
+  onCopyAiArticle() {
+    const text = this.data.aiArticle || '';
+    if (!text) {
+      wx.showToast({ title: '暂无文案', icon: 'none' });
+      return;
+    }
+    wx.setClipboardData({
+      data: text,
+      success: () => wx.showToast({ title: '已复制公众号文案', icon: 'success' }),
+    });
   },
 
   nextFileUid() {
@@ -651,7 +791,7 @@ Page({
         await Promise.all([
           this.resolveFileIds(coverFiles, 'cover'),
           this.resolveFileIds(paired.orderedPreviews, 'preview'),
-          this.resolveFileIds(paired.orderedStatics || paired.orderedEmojis, 'emoji'),
+          this.resolveFileIds(paired.orderedStatics, 'emoji'),
           this.resolveFileIds(animFilesToUpload, 'emoji-anim'),
         ]);
 

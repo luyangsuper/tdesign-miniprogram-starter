@@ -1,6 +1,15 @@
 import { formatDate } from '~/utils/time';
 import { downloadCost } from '~/utils/pricing';
 
+function affordHint(totalPoints) {
+  const n = Math.max(0, Number(totalPoints) || 0);
+  const staticCost = downloadCost('static');
+  const animCost = downloadCost('anim');
+  const staticN = staticCost > 0 ? Math.floor(n / staticCost) : 0;
+  const animN = animCost > 0 ? Math.floor(n / animCost) : 0;
+  return `约 ${staticN} 张静态 / ${animN} 张动态`;
+}
+
 const ENTITLEMENT_KEY = 'user_entitlement';
 
 export function getCachedEntitlement() {
@@ -83,14 +92,62 @@ export function estimateBatchAffordable(entitlement, variant = 'static', count =
   };
 }
 
-export function formatEntitlementHint(entitlement) {
+/**
+ * 「我的」权益卡片：合计可用 + 分项 + 大约能下几张（按积分，不是按次）
+ */
+export function formatBenefitCard(entitlement) {
   const e = entitlement || getCachedEntitlement();
-  const parts = [];
-  if (e.isVip) {
-    parts.push(`包月至 ${e.vipExpireText || '有效期内'}`);
-    parts.push(`本月剩余 ${e.vipMonthQuota || 0}`);
+  const points = Math.max(0, Number(e.points) || 0);
+  const monthLeft = Math.max(0, Number(e.vipMonthQuota) || 0);
+  const monthTotal = Math.max(1, Number(e.monthlyQuota) || 36);
+  const total = monthLeft + points;
+  const isVip = !!e.isVip;
+  const empty = !isVip && total <= 0;
+  const monthPercent = isVip
+    ? Math.min(100, Math.max(0, Math.round((monthLeft / monthTotal) * 100)))
+    : 0;
+  let monthBarColor = '#07c160';
+  if (isVip) {
+    if (monthLeft <= 0) monthBarColor = '#d54941';
+    else if (monthPercent <= 25) monthBarColor = '#e37318';
   }
-  if (e.points > 0) parts.push(`积分 ${e.points}`);
-  if (parts.length) return `${parts.join(' · ')}（静态 1 积分 / 动态 2 积分）`;
-  return '暂无下载权益，可兑换包月会员或积分';
+
+  const staticCost = downloadCost('static');
+  const animCost = downloadCost('anim');
+
+  // 到期只留日期，省高度
+  const expireDate = String(e.vipExpireText || '').split(' ')[0] || '有效期内';
+
+  return {
+    empty,
+    emptyText: '暂无下载权益，可兑换包月或购买积分',
+    isVip,
+    total,
+    totalValueText: String(total),
+    affordLine: empty ? '' : affordHint(total),
+    showMonth: isVip,
+    monthLeft,
+    monthTotal,
+    monthPercent,
+    monthBarColor,
+    monthLeftText: String(monthLeft),
+    monthTotalText: String(monthTotal),
+    points,
+    showBoughtPoints: points > 0,
+    pointsText: String(points),
+    footLine: isVip
+      ? `包月至 ${expireDate} · 静${staticCost}/动${animCost} · 先扣本月额度`
+      : `静${staticCost}/动${animCost} 积分/张 · 已购积分可累计`,
+  };
+}
+
+/**
+ * 单行摘要（合集详情等窄位）
+ */
+export function formatEntitlementHint(entitlement) {
+  const card = formatBenefitCard(entitlement);
+  if (card.empty) return card.emptyText;
+  const parts = [`可用 ${card.total} 积分`];
+  if (card.affordLine) parts.push(card.affordLine);
+  return parts.join(' · ');
 }

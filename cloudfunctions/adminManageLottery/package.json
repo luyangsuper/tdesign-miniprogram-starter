@@ -1,0 +1,9 @@
+{
+  "name": "adminManageLottery",
+  "version": "1.0.0",
+  "description": "管理员创建/取消抽奖活动",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
