@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk');
 const { dayjs, toMs } = require('./time');
 const { MONTHLY_QUOTA, buildEntitlement, syncVipMonthQuota } = require('./membership');
+const { getPointsSettings } = require('./pointsSettings');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -15,11 +16,28 @@ const _ = db.command;
  * - users.vipQuotaPeriod  额度所属月份 YYYY-MM
  *
  * action:
- * - get | redeem | ackPointGift | ackPointGifts
+ * - get | redeem | ackPointGift | ackPointGifts | claimOaBonus
  * redeem: { code }
  * ackPointGift: { giftId }  关闭单笔
  * ackPointGifts: { giftIds: string[] }  合并弹窗一次确认多笔
+ * claimOaBonus: { oaId }  公众号动态入口礼，每用户每 oaId 一次
  */
+
+/** 公众号动态入口 id：字母数字 _ -，1～64 */
+function normalizeOaId(raw) {
+  const id = String(raw || '').trim();
+  if (!id || id.length > 64) return '';
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) return '';
+  return id;
+}
+
+async function ensureCollection(name) {
+  try {
+    await db.createCollection(name);
+  } catch (e) {
+    /* 已存在则忽略 */
+  }
+}
 
 async function ensureUser(openid) {
   const ref = db.collection('users').doc(openid);
@@ -156,6 +174,136 @@ exports.main = async (event = {}) => {
         }
       }
       return { ok: true };
+    }
+
+    if (action === 'claimOaBonus') {
+      const oaId = normalizeOaId(event.oaId);
+      if (!oaId) {
+        return { ok: false, code: 'BAD_PARAM', message: '无效的动态标识' };
+      }
+
+      const settings = await getPointsSettings(db);
+      const points = Math.max(0, Number(settings.oaBonusPoints) || 0);
+      if (points <= 0) {
+        return {
+          ok: true,
+          skipped: true,
+          reason: 'DISABLED',
+          message: '公众号入口礼已关闭',
+          pendingPointGifts: [],
+        };
+      }
+
+      await ensureUser(OPENID);
+      const userRef = db.collection('users').doc(OPENID);
+      const giftId = `oa_${oaId}_${OPENID}`;
+      // 独立领取记录 + 用户标志双写幂等（兼容无 create/事务 API 的旧 SDK）
+      await ensureCollection('oa_article_claims');
+      const claimRef = db.collection('oa_article_claims').doc(`${OPENID}_${oaId}`);
+
+      const respondSkip = async (reason) => {
+        const freshSkip = (await userRef.get()).data || {};
+        const syncedSkip = await syncVipMonthQuota(
+          userRef,
+          freshSkip,
+          db.serverDate(),
+        );
+        return {
+          ok: true,
+          skipped: true,
+          reason,
+          message: reason === 'ALREADY' ? '该动态奖励已领取' : '领取失败',
+          entitlement: buildEntitlement(syncedSkip),
+          pendingPointGifts: Array.isArray(syncedSkip.pendingPointGifts)
+            ? syncedSkip.pendingPointGifts.slice(0, 50)
+            : [],
+        };
+      };
+
+      let userData = null;
+      try {
+        userData = (await userRef.get()).data || null;
+      } catch (e) {
+        userData = null;
+      }
+      if (!userData) {
+        return respondSkip('NO_USER');
+      }
+      if (userData.oaArticleCredits && userData.oaArticleCredits[oaId]) {
+        return respondSkip('ALREADY');
+      }
+
+      let claimExists = false;
+      try {
+        const claimSnap = await claimRef.get();
+        claimExists = !!(claimSnap && claimSnap.data);
+      } catch (e) {
+        claimExists = false;
+      }
+      if (claimExists) {
+        try {
+          await userRef.update({
+            data: {
+              [`oaArticleCredits.${oaId}`]: true,
+              updatedAt: db.serverDate(),
+            },
+          });
+        } catch (e2) {
+          /* ignore */
+        }
+        return respondSkip('ALREADY');
+      }
+
+      await claimRef.set({
+        data: {
+          openid: OPENID,
+          oaId,
+          points,
+          giftId,
+          createdAt: db.serverDate(),
+        },
+      });
+
+      try {
+        await userRef.update({
+          data: {
+            points: _.inc(points),
+            pendingPointGifts: _.push({
+              id: giftId,
+              title: '公众号动态礼',
+              points,
+              source: 'oa',
+              oaId,
+              at: Date.now(),
+            }),
+            [`oaArticleCredits.${oaId}`]: true,
+            updatedAt: db.serverDate(),
+          },
+        });
+      } catch (e) {
+        try {
+          await claimRef.remove();
+        } catch (e2) {
+          /* ignore */
+        }
+        throw e;
+      }
+
+      const fresh = (await userRef.get()).data || {};
+      const synced = await syncVipMonthQuota(userRef, fresh, db.serverDate());
+      const pendingPointGifts = Array.isArray(synced.pendingPointGifts)
+        ? synced.pendingPointGifts.slice(0, 50)
+        : [];
+      return {
+        ok: true,
+        claimed: true,
+        points,
+        giftId,
+        oaId,
+        entitlement: buildEntitlement(synced),
+        pendingPointGifts,
+        message: `已到账 ${points} 积分`,
+      };
     }
 
     if (action === 'redeem') {

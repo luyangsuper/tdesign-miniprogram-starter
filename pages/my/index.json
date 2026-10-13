@@ -14,6 +14,7 @@
     "t-textarea": "tdesign-miniprogram/textarea/textarea",
     "t-upload": "tdesign-miniprogram/upload/upload",
     "t-popup": "tdesign-miniprogram/popup/popup",
-    "checkin-popup": "/components/checkin-popup/index"
+    "checkin-popup": "/components/checkin-popup/index",
+    "lottery-host": "/components/lottery-host/index"
   }
 }

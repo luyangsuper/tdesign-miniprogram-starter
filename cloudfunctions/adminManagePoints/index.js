@@ -170,6 +170,7 @@ exports.main = async (event = {}) => {
         {
           welcomeGiftPoints: event.welcomeGiftPoints,
           checkinPoints: event.checkinPoints,
+          oaBonusPoints: event.oaBonusPoints,
         },
         { openid: OPENID },
       );

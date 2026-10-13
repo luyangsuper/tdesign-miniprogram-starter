@@ -95,9 +95,16 @@ async function sanitizeUserLotteryPending(openid, user) {
 
   const keepResults = [];
   const dropResultIds = [];
+  const ackedMap = (user && user.lotteryResultsAcked) || {};
   // eslint-disable-next-line no-restricted-syntax
   for (const r of rawResults) {
     if (!r || !r.lotteryId || !r.id) continue;
+    const lid = String(r.lotteryId);
+    // 用户已点过「好的」确认：不再下发，并清队列
+    if (ackedMap[lid] || ackedMap[String(r.id)]) {
+      dropResultIds.push(r.id);
+      continue;
+    }
     // eslint-disable-next-line no-await-in-loop
     const entry = await getEntry(r.lotteryId, openid);
     if (!entry) {
@@ -461,26 +468,21 @@ exports.main = async (event = {}) => {
       const resultId = String(event.resultId || '').trim();
       const lotteryId = String(event.lotteryId || '').trim();
       try {
+        const patch = {
+          updatedAt: db.serverDate(),
+        };
         if (resultId) {
-          await db
-            .collection('users')
-            .doc(OPENID)
-            .update({
-              data: {
-                pendingLotteryResults: _.pull({ id: resultId }),
-                updatedAt: db.serverDate(),
-              },
-            });
-        } else if (lotteryId) {
-          await db
-            .collection('users')
-            .doc(OPENID)
-            .update({
-              data: {
-                pendingLotteryResults: _.pull({ lotteryId }),
-                updatedAt: db.serverDate(),
-              },
-            });
+          patch.pendingLotteryResults = _.pull({ id: resultId });
+          patch[`lotteryResultsAcked.${resultId}`] = true;
+        }
+        if (lotteryId) {
+          if (!resultId) {
+            patch.pendingLotteryResults = _.pull({ lotteryId });
+          }
+          patch[`lotteryResultsAcked.${lotteryId}`] = true;
+        }
+        if (resultId || lotteryId) {
+          await db.collection('users').doc(OPENID).update({ data: patch });
         }
       } catch (e) {
         /* ignore */

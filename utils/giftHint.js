@@ -19,6 +19,10 @@ export function defaultCheckinPoints() {
   return Math.max(0, Number(config.checkinPoints) || 1);
 }
 
+export function defaultOaBonusPoints() {
+  return Math.max(0, Number(config.oaBonusPoints) || 1);
+}
+
 /**
  * 多笔待弹活动礼合并为一次展示文案（避免连环弹窗）。
  * @param {Array<{ id?: string, title?: string, points?: number }>} list

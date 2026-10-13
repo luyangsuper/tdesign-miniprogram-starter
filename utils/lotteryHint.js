@@ -1,13 +1,54 @@
 /**
  * 抽奖邀请 / 结果待办队列（与活动积分礼类似）
+ * 已确认 id 同时写入内存 + 本地 storage，避免清编译缓存后会话内重弹；
+ * 真正防重仍依赖云端 ackResult / lotteryResultsAcked。
  */
+
+const STORAGE_INVITE_ACK = 'lottery_acked_invite_ids';
+const STORAGE_RESULT_ACK = 'lottery_acked_result_ids';
+
+function readStorageAckIds(storageKey) {
+  try {
+    const raw = wx.getStorageSync(storageKey);
+    if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+    if (typeof raw === 'string' && raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  return [];
+}
+
+function writeStorageAckIds(storageKey, ids) {
+  try {
+    wx.setStorageSync(storageKey, Array.from(ids).slice(-200));
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+function storageKeyForAck(globalKey) {
+  if (globalKey === 'ackedLotteryInviteIds') return STORAGE_INVITE_ACK;
+  if (globalKey === 'ackedLotteryResultIds') return STORAGE_RESULT_ACK;
+  return '';
+}
 
 function getAckedSet(key) {
   try {
     const app = getApp();
     if (!app.globalData) return new Set();
-    if (!app.globalData[key]) app.globalData[key] = [];
-    return new Set(app.globalData[key]);
+    const storageKey = storageKeyForAck(key);
+    const fromStore = storageKey ? readStorageAckIds(storageKey) : [];
+    const fromMem = Array.isArray(app.globalData[key]) ? app.globalData[key] : [];
+    const set = new Set([...fromMem, ...fromStore].map(String).filter(Boolean));
+    app.globalData[key] = Array.from(set).slice(-200);
+    return set;
   } catch (e) {
     return new Set();
   }
@@ -18,11 +59,14 @@ function markAcked(key, ids) {
     const app = getApp();
     if (!app || !app.globalData) return;
     const prev = Array.isArray(app.globalData[key]) ? app.globalData[key] : [];
-    const set = new Set(prev);
+    const set = new Set(prev.map(String).filter(Boolean));
     (ids || []).forEach((id) => {
       if (id) set.add(String(id));
     });
-    app.globalData[key] = Array.from(set).slice(-200);
+    const list = Array.from(set).slice(-200);
+    app.globalData[key] = list;
+    const storageKey = storageKeyForAck(key);
+    if (storageKey) writeStorageAckIds(storageKey, list);
   } catch (e) {
     /* ignore */
   }

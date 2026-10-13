@@ -1,6 +1,7 @@
 const DEFAULTS = {
   welcomeGiftPoints: 18,
   checkinPoints: 1,
+  oaBonusPoints: 1,
 };
 
 function clampPoints(n, fallback) {
@@ -13,6 +14,7 @@ function normalizeSettings(raw = {}) {
   return {
     welcomeGiftPoints: clampPoints(raw.welcomeGiftPoints, DEFAULTS.welcomeGiftPoints),
     checkinPoints: clampPoints(raw.checkinPoints, DEFAULTS.checkinPoints),
+    oaBonusPoints: clampPoints(raw.oaBonusPoints, DEFAULTS.oaBonusPoints),
   };
 }
 
@@ -44,6 +46,10 @@ async function savePointsSettings(db, patch, meta = {}) {
       patch.checkinPoints !== undefined && patch.checkinPoints !== null
         ? patch.checkinPoints
         : prev.checkinPoints,
+    oaBonusPoints:
+      patch.oaBonusPoints !== undefined && patch.oaBonusPoints !== null
+        ? patch.oaBonusPoints
+        : prev.oaBonusPoints,
   });
   await ensureAppConfigCollection(db);
   try {

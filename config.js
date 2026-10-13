@@ -26,9 +26,11 @@ export default {
    * 积分活动默认值（真正生效以云库 app_config/points 为准，可在管理端修改）
    * - welcomeGiftPoints：新用户首次登录见面礼
    * - checkinPoints：每日签到
+   * - oaBonusPoints：公众号动态入口（带 oaId），每用户每动态一次；0 关闭
    */
   welcomeGiftPoints: 18,
   checkinPoints: 1,
+  oaBonusPoints: 1,
   /**
    * 售价（与 MP 虚拟支付道具一致；单位元）
    */

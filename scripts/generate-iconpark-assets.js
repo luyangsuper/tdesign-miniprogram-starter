@@ -8,8 +8,9 @@ const sharp = require('sharp');
 const icons = require('@icon-park/svg');
 
 const ROOT = path.join(__dirname, '..');
-const SIZE = 512;
-const TAB_SIZE = 96;
+/** 弹窗/卡片装饰图；256 足够清晰且可把整包图片总量压到 200KB 内 */
+const SIZE = 256;
+const TAB_SIZE = 81;
 
 /** @type {Record<string, [string, string, string, string]>} */
 const PALETTE = {
@@ -42,11 +43,13 @@ const ASSETS = [
   { dir: 'static/emoji', file: 'ok.png', icon: 'CheckOne', palette: 'brand', note: '成功' },
   { dir: 'static/emoji', file: 'ticket.png', icon: 'Ticket', palette: 'warn', note: '兑换码' },
   { dir: 'static/emoji', file: 'search.png', icon: 'Search', palette: 'soft', note: '按 ID 查询' },
-  { dir: 'static/emoji', file: 'empty.png', icon: 'Inbox', palette: 'soft', note: '空态备用' },
   { dir: 'static/emoji', file: 'guide.png', icon: 'GuideBoard', palette: 'guide', note: '使用引导' },
   { dir: 'static/emoji', file: 'feedback.png', icon: 'Mail', palette: 'mail', note: '意见反馈' },
   { dir: 'static/emoji', file: 'gift.png', icon: 'Gift', palette: 'points', note: '见面礼弹窗' },
   { dir: 'static/emoji', file: 'checkin.png', icon: 'Calendar', palette: 'month', note: '每日签到' },
+  { dir: 'static/emoji', file: 'swipe-prev.png', icon: 'LeftC', palette: 'preview', note: '滑向上一分类' },
+  { dir: 'static/emoji', file: 'swipe-next.png', icon: 'RightC', palette: 'brand', note: '滑向下一分类' },
+  { dir: 'static/emoji', file: 'swipe-end.png', icon: 'SmilingFace', palette: 'warn', note: '分类滑到头' },
   // pricing 套餐图
   { dir: 'static/pricing', file: 'month.png', icon: 'CalendarThirty', palette: 'month', note: '包月' },
   { dir: 'static/pricing', file: 'quarter.png', icon: 'Schedule', palette: 'quarter', note: '季卡' },

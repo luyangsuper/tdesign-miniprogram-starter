@@ -6,6 +6,7 @@
     "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
     "t-loading": "tdesign-miniprogram/loading/loading",
     "t-empty": "tdesign-miniprogram/empty/empty",
-    "t-tag": "tdesign-miniprogram/tag/tag"
+    "t-tag": "tdesign-miniprogram/tag/tag",
+    "lottery-host": "/components/lottery-host/index"
   }
 }

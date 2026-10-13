@@ -17,6 +17,8 @@
       enhanced
       show-scrollbar="{{false}}"
       enable-flex
+      scroll-with-animation
+      scroll-left="{{catScrollLeft}}"
     >
       <view class="home__toolbar-inner">
         <view class="home__search {{searchExpanded ? 'home__search--open' : ''}}">
@@ -54,90 +56,153 @@
             />
           </view>
         </view>
-        <t-check-tag
+        <view
           wx:for="{{filters}}"
           wx:key="id"
-          t-class="home__cat"
-          size="medium"
-          shape="round"
-          variant="light"
-          content=""
-          checked="{{item.id === categoryId}}"
-          data-id="{{item.id}}"
-          bind:change="onCategoryTap"
+          id="cat-{{item.id}}"
+          class="home__cat-wrap"
         >
-          <view class="home__cat-inner">
-            <text class="home__cat-name">{{item.name}}</text>
-            <text
-              class="home__cat-count {{item.id === categoryId ? 'home__cat-count--show' : ''}}"
-            >{{item.id === categoryId ? listTotal : item.count}}</text>
-          </view>
-        </t-check-tag>
+          <t-check-tag
+            t-class="home__cat"
+            size="medium"
+            shape="round"
+            variant="light"
+            content=""
+            checked="{{item.id === categoryId}}"
+            data-id="{{item.id}}"
+            bind:change="onCategoryTap"
+          >
+            <view class="home__cat-inner">
+              <text class="home__cat-name">{{item.name}}</text>
+              <text
+                class="home__cat-count {{item.id === categoryId ? 'home__cat-count--show' : ''}}"
+              >{{item.id === categoryId ? listTotal : item.count}}</text>
+            </view>
+          </t-check-tag>
+        </view>
       </view>
     </scroll-view>
   </view>
 
   <view
     class="home__body"
-    style="padding-top: {{fixedOffset}}px; padding-left: {{listGap}}px; padding-right: {{listGap}}px;"
+    style="padding-top: {{fixedOffset}}px;"
+    bindtouchstart="onBodyTouchStart"
+    bindtouchmove="onBodyTouchMove"
+    bindtouchend="onBodyTouchEnd"
+    bindtouchcancel="onBodyTouchEnd"
   >
-    <t-pull-down-refresh
-      value="{{enable}}"
-      lower-threshold="{{160}}"
-      bind:refresh="onRefresh"
-      bind:scrolltolower="onScrollToLower"
-      loadingTexts="{{['下拉刷新', '松手刷新', '正在刷新', '刷新完成']}}"
-    >
-      <block wx:if="{{!loading && list.length}}">
-        <view class="home__list" style="gap: {{listGap}}px;">
-          <view
-            class="home__col"
-            wx:for="{{columns}}"
-            wx:for-item="col"
-            wx:for-index="colIndex"
-            wx:key="colIndex"
-            style="width: {{cardWidth}}px; gap: {{rowGap}}px;"
+    <view class="home__swipe-stage">
+      <!-- 露白提示：hidden 代替 wx:if，避免跟手时反复挂载 -->
+      <view
+        class="home__swipe-hint home__swipe-hint--left"
+        hidden="{{!swipeHintLeft.show}}"
+        style="width: {{swipeHintLeft.revealWidth}}px; top: {{navHeight + fixedOffset}}px; opacity: {{swipeHintLeft.opacity}};"
+      >
+        <image class="home__swipe-hint-icon" src="{{swipeHintLeft.icon}}" mode="aspectFit" />
+        <text class="home__swipe-hint-title">{{swipeHintLeft.title}}</text>
+        <text class="home__swipe-hint-name">{{swipeHintLeft.name}}</text>
+      </view>
+      <view
+        class="home__swipe-hint home__swipe-hint--right"
+        hidden="{{!swipeHintRight.show}}"
+        style="width: {{swipeHintRight.revealWidth}}px; top: {{navHeight + fixedOffset}}px; opacity: {{swipeHintRight.opacity}};"
+      >
+        <image class="home__swipe-hint-icon" src="{{swipeHintRight.icon}}" mode="aspectFit" />
+        <text class="home__swipe-hint-title">{{swipeHintRight.title}}</text>
+        <text class="home__swipe-hint-name">{{swipeHintRight.name}}</text>
+      </view>
+
+      <view
+        class="home__pane {{swipeDragging ? 'home__pane--dragging' : ''}} {{swipeX ? 'home__pane--away' : ''}}"
+        style="transform: translate3d({{swipeX}}px, 0, 0); padding-left: {{listGap}}px; padding-right: {{listGap}}px;"
+      >
+        <view class="home__pane-inner home__pane-inner--{{pageAnim}}">
+          <!--
+            用原生 scroll-view：TDesign pull-down-refresh 无法动态关 scroll-y，
+            左右滑切分类时必须禁止纵向滚动，否则和跟手 transform 抢主线程会卡顿。
+          -->
+          <scroll-view
+            class="home__scroller"
+            style="height: {{scrollerHeight}}px;"
+            scroll-y="{{!swipeScrollLock}}"
+            enhanced
+            show-scrollbar="{{false}}"
+            bounces="{{false}}"
+            refresher-enabled="{{!swipeScrollLock}}"
+            refresher-threshold="{{80}}"
+            refresher-default-style="none"
+            refresher-triggered="{{enable}}"
+            lower-threshold="{{160}}"
+            bindrefresherpulling="onRefresherPulling"
+            bindrefresherrefresh="onRefresh"
+            bindrefresherrestore="onRefresherRestore"
+            bindrefresherabort="onRefresherAbort"
+            bindscrolltolower="onScrollToLower"
+            bindscroll="onListScroll"
           >
-            <view class="home__item" wx:for="{{col}}" wx:for-item="item" wx:key="_id">
-              <pack-card
-                packId="{{item._id}}"
-                title="{{item.title}}"
-                coverUrl="{{item.coverUrl}}"
-                emojiCount="{{item.emojiCount}}"
-                downloadCount="{{item.downloadCount}}"
-                categoryId="{{item.categoryId}}"
-                categoryName="{{item.categoryName}}"
-                coverRatio="{{item.coverRatio}}"
-                cardWidth="{{cardWidth}}"
-                showAdmin="{{isAdmin}}"
-                selectMode="{{selectMode}}"
-                selected="{{selectedMap[item._id] ? true : false}}"
-                bind:toggle="onTogglePack"
-                bind:edit="onEditPack"
-                bind:delete="onDeletePack"
+            <!-- 与上拉「加载更多」同一套 fun-loading -->
+            <view slot="refresher" class="home__refresher">
+              <fun-loading
+                size="small"
+                variant="wave"
+                funTips="{{false}}"
+                text="{{refresherText}}"
               />
             </view>
-          </view>
-        </view>
-        <view class="home__footer" wx:if="{{loadingMore}}">
-          <fun-loading size="small" variant="wave" funTips="{{false}}" text="加载更多" />
-        </view>
-        <view class="home__footer" wx:elif="{{!hasMore}}">共 {{listTotal}} 个合集</view>
-      </block>
+            <block wx:if="{{!loading && list.length}}">
+              <view class="home__list" style="gap: {{listGap}}px;">
+                <view
+                  class="home__col"
+                  wx:for="{{columns}}"
+                  wx:for-item="col"
+                  wx:for-index="colIndex"
+                  wx:key="colIndex"
+                  style="width: {{cardWidth}}px; gap: {{rowGap}}px;"
+                >
+                  <view class="home__item" wx:for="{{col}}" wx:for-item="item" wx:key="_id">
+                    <pack-card
+                      packId="{{item._id}}"
+                      title="{{item.title}}"
+                      coverUrl="{{item.coverUrl}}"
+                      emojiCount="{{item.emojiCount}}"
+                      downloadCount="{{item.downloadCount}}"
+                      categoryId="{{item.categoryId}}"
+                      categoryName="{{item.categoryName}}"
+                      coverRatio="{{item.coverRatio}}"
+                      cardWidth="{{cardWidth}}"
+                      showAdmin="{{isAdmin}}"
+                      selectMode="{{selectMode}}"
+                      selected="{{selectedMap[item._id] ? true : false}}"
+                      bind:toggle="onTogglePack"
+                      bind:edit="onEditPack"
+                      bind:delete="onDeletePack"
+                    />
+                  </view>
+                </view>
+              </view>
+              <view class="home__footer" wx:if="{{loadingMore}}">
+                <fun-loading size="small" variant="wave" funTips="{{false}}" text="加载更多" />
+              </view>
+              <view class="home__footer" wx:elif="{{!hasMore}}">共 {{listTotal}} 个合集</view>
+            </block>
 
-      <view class="home__state" wx:elif="{{loading}}">
-        <fun-loading />
-      </view>
+            <view class="home__state" wx:elif="{{loading}}">
+              <fun-loading />
+            </view>
 
-      <view class="home__state" wx:else>
-        <t-empty
-          t-class="home__empty"
-          t-class-image="home__empty-img"
-          image="/static/emoji/search.png"
-          description="没有找到合集，试试换个关键词或分类"
-        />
+            <view class="home__state" wx:else>
+              <t-empty
+                t-class="home__empty"
+                t-class-image="home__empty-img"
+                image="/static/emoji/search.png"
+                description="没有找到合集，试试换个关键词或分类"
+              />
+            </view>
+          </scroll-view>
+        </view>
       </view>
-    </t-pull-down-refresh>
+    </view>
   </view>
 
   <!-- 多选下载底栏：叠在自定义 tabBar 上方 -->

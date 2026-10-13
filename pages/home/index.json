@@ -6,12 +6,12 @@
     "t-search": "tdesign-miniprogram/search/search",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
-    "t-pull-down-refresh": "tdesign-miniprogram/pull-down-refresh/pull-down-refresh",
     "t-empty": "tdesign-miniprogram/empty/empty",
     "fun-loading": "/components/fun-loading/index",
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
     "t-popup": "tdesign-miniprogram/popup/popup",
     "t-button": "tdesign-miniprogram/button/button",
-    "pack-card": "/components/pack-card/index"
+    "pack-card": "/components/pack-card/index",
+    "lottery-host": "/components/lottery-host/index"
   }
 }

@@ -14,10 +14,11 @@ import {
 import { downloadCost } from '~/utils/pricing';
 import { resolveIsAdmin } from '~/utils/auth';
 import { applyThemeToPage, getThemeBrand, getThemeStyle } from '~/utils/theme';
+import { getWindowInfoSafe } from '~/utils/systemInfo';
 
 function calcSwiperHeight() {
   try {
-    const { windowWidth } = wx.getSystemInfoSync();
+    const { windowWidth } = getWindowInfoSafe();
     return Math.max(240, Math.round(windowWidth));
   } catch (e) {
     return 375;

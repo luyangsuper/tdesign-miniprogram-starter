@@ -1,5 +1,6 @@
 import { callFunction } from '~/utils/cloud';
 import { setCachedEntitlement } from '~/utils/entitlement';
+import { getAppBaseInfoSafe, getDeviceInfoSafe } from '~/utils/systemInfo';
 
 function compareVersion(v1, v2) {
   const a = String(v1 || '')
@@ -20,8 +21,8 @@ function compareVersion(v1, v2) {
 
 function canUseVirtualPay() {
   try {
-    const sys = wx.getSystemInfoSync();
-    if (compareVersion(sys.SDKVersion, '2.19.2') >= 0) return true;
+    const info = getAppBaseInfoSafe();
+    if (compareVersion(info.SDKVersion, '2.19.2') >= 0) return true;
   } catch (e) {
     /* ignore */
   }
@@ -30,15 +31,16 @@ function canUseVirtualPay() {
 
 function checkIosWechatVersion() {
   try {
-    const sys = wx.getSystemInfoSync();
-    if (sys.platform !== 'ios') return true;
-    const cur = String(sys.version || '')
+    const device = getDeviceInfoSafe();
+    const info = getAppBaseInfoSafe();
+    if (device.platform !== 'ios') return true;
+    const cur = String(info.version || '')
       .split('.')
       .map((n) => parseInt(n, 10) || 0);
-    const base = [8, 0, 68];
+    const minVer = [8, 0, 68];
     for (let i = 0; i < 3; i += 1) {
-      if ((cur[i] || 0) > base[i]) return true;
-      if ((cur[i] || 0) < base[i]) {
+      if ((cur[i] || 0) > minVer[i]) return true;
+      if ((cur[i] || 0) < minVer[i]) {
         wx.showModal({
           title: '提示',
           content: '请将微信更新至 8.0.68 及以上后再支付',

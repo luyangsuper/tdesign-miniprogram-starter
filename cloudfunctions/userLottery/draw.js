@@ -218,15 +218,18 @@ async function creditAndPushResult(db, _, {
     }
   }
 
-  // 2) 再写弹窗队列（幂等）
+  // 2) 再写弹窗队列（幂等）；用户已确认过的不再重推
   try {
     const data = (await userRef.get()).data;
     if (!data) return;
     if (data.lotteryResultPushed && data.lotteryResultPushed[lotteryId]) return;
+    if (data.lotteryResultsAcked && data.lotteryResultsAcked[lotteryId]) return;
+    const resultId = `result_${lotteryId}_${openid}`;
+    if (data.lotteryResultsAcked && data.lotteryResultsAcked[resultId]) return;
     await userRef.update({
       data: {
         pendingLotteryResults: _.push({
-          id: `result_${lotteryId}_${openid}`,
+          id: resultId,
           lotteryId,
           title,
           won: !!won,
@@ -286,7 +289,12 @@ async function repairMyLotteryCredits(db, _, openid) {
     if (!lotteryId || pts <= 0) continue;
     const credited = user.lotteryCredits && user.lotteryCredits[lotteryId];
     const pushed = user.lotteryResultPushed && user.lotteryResultPushed[lotteryId];
-    if (credited && pushed) continue;
+    const acked =
+      (user.lotteryResultsAcked && user.lotteryResultsAcked[lotteryId]) ||
+      (user.lotteryResultsAcked &&
+        user.lotteryResultsAcked[`result_${lotteryId}_${openid}`]);
+    // 积分已到且（已推送或已确认弹窗）→ 无需再修
+    if (credited && (pushed || acked)) continue;
 
     let title = '抽奖活动';
     let drawAtMs = 0;

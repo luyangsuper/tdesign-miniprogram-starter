@@ -22,6 +22,7 @@ import {
   applyPendingLotteryResults,
 } from '~/utils/lotteryHint';
 import { downloadCost } from '~/utils/pricing';
+import { getWindowInfoSafe } from '~/utils/systemInfo';
 import {
   requestNewPackSubscribe,
   shouldShowNewPackGuide,
@@ -86,6 +87,8 @@ function listCacheKey(categoryId, keyword) {
 Page({
   data: {
     enable: false,
+    /** 下拉刷新文案，与上拉 fun-loading 同款 */
+    refresherText: '下拉刷新',
     loading: true,
     list: [],
     columns: [[], []],
@@ -138,11 +141,49 @@ Page({
     activityGiftPoints: 0,
     activityGiftAffordLine: '',
     activityGiftTip: '感谢参与趣集活动',
+    /** 列表翻页动画：enter-left / enter-right / 空 */
+    pageAnim: '',
+    /** 跟手位移（px），横滑时内容跟着走 */
+    swipeX: 0,
+    /** 是否正在跟手拖拽（关 transition） */
+    swipeDragging: false,
+    /** 横滑时锁住瀑布流纵向滚动，避免双轴抢主线程卡顿 */
+    swipeScrollLock: false,
+    /** scroll-view 明确高度（px） */
+    scrollerHeight: 500,
+    /** 分类条横向滚动位置（手动算，留给左侧边距） */
+    catScrollLeft: 0,
+    /** 滑动露白提示 */
+    swipeHintLeft: {
+      show: false,
+      opacity: 0,
+      revealWidth: 0,
+      icon: '/static/emoji/swipe-prev.png',
+      title: '',
+      name: '',
+    },
+    swipeHintRight: {
+      show: false,
+      opacity: 0,
+      revealWidth: 0,
+      icon: '/static/emoji/swipe-next.png',
+      title: '',
+      name: '',
+    },
   },
 
   _listSeq: 0,
   _listCache: null,
   _confirmResolve: null,
+  /** 列表区左右滑切分类 */
+  _touchStartX: 0,
+  _touchStartY: 0,
+  _touchTracking: false,
+  _touchLocked: '', // '' | 'h' | 'v' — 锁定手势轴，避免斜滑误切
+  _swipeSwitching: false,
+  _lastSwipeSetAt: 0,
+  _listScrollTop: 0,
+  _hintMeta: null,
 
   onShow() {
     applyThemeToPage(this);
@@ -345,7 +386,7 @@ Page({
     }
   },
 
-  onLoad() {
+  onLoad(options) {
     this._listCache = Object.create(null);
     this._listSeq = 0;
     this.setData({ themeStyle: getThemeStyle() });
@@ -354,6 +395,12 @@ Page({
     this._onActivityGift = () => this.maybeShowActivityGift();
     try {
       const app = getApp();
+      if (app && typeof app.captureOaEntry === 'function') {
+        app.captureOaEntry(options || {});
+        if (typeof app.claimPendingOaBonus === 'function') {
+          app.claimPendingOaBonus();
+        }
+      }
       if (app && app.eventBus) {
         app.eventBus.on('themeChange', this._onThemeChange);
         app.eventBus.on('welcomeGift', this._onWelcomeGift);
@@ -364,6 +411,7 @@ Page({
     }
     this.updateNavHeight();
     this.updateLayout();
+    this.updateScrollerHeight();
     this.refreshAdmin();
     this.loadCategories();
     this.loadList(true);
@@ -446,12 +494,14 @@ Page({
     this.setData({ subscribeGuideVisible: visible });
     if (!visible) {
       this._subscribeGuideDismissedSession = true;
+      this.maybeShowActivityGift();
     }
   },
 
   onSubscribeGuideLater() {
     this._subscribeGuideDismissedSession = true;
     this.setData({ subscribeGuideVisible: false });
+    this.maybeShowActivityGift();
   },
 
   async onSubscribeGuideConfirm() {
@@ -466,9 +516,11 @@ Page({
         this._subscribeGuideDismissedSession = true;
         wx.showToast({ title: '未开启提醒', icon: 'none' });
       }
+      this.maybeShowActivityGift();
     } catch (e) {
       const msg = (e && (e.errMsg || e.message)) || '订阅失败';
       wx.showToast({ title: msg.slice(0, 40), icon: 'none' });
+      this.maybeShowActivityGift();
     }
   },
 
@@ -476,16 +528,17 @@ Page({
     this.updateNavHeight();
     this.updateLayout();
     setTimeout(() => this.measureFixedBar(), 50);
+    this.updateScrollerHeight();
   },
 
   /** 自定义导航栏高度（状态栏 + 标题栏）+ 胶囊旁多选按钮位置 */
   updateNavHeight() {
     try {
-      const sys = wx.getSystemInfoSync();
+      const win = getWindowInfoSafe();
       const menu = wx.getMenuButtonBoundingClientRect();
-      const gap = menu.top - sys.statusBarHeight;
-      const navHeight = sys.statusBarHeight + gap * 2 + menu.height;
-      const menuGap = Math.max(8, Math.round(sys.windowWidth - menu.left + 8));
+      const gap = menu.top - win.statusBarHeight;
+      const navHeight = win.statusBarHeight + gap * 2 + menu.height;
+      const menuGap = Math.max(8, Math.round(win.windowWidth - menu.left + 8));
       this.setData({
         navHeight,
         menuButton: {
@@ -509,10 +562,32 @@ Page({
       const rect = res && res[0];
       if (!rect || !rect.height) return;
       // t-navbar（fixed + placeholder）已占位，这里只需给「吸顶搜索+分类」留高
-      this.setData({
-        fixedOffset: Math.ceil(rect.height) + 8,
-      });
+      const fixedOffset = Math.ceil(rect.height) + 8;
+      this.setData({ fixedOffset }, () => this.updateScrollerHeight());
     });
+  },
+
+  /** 瀑布流 scroll-view 需要明确高度 */
+  updateScrollerHeight() {
+    try {
+      const win = getWindowInfoSafe();
+      const w = win.windowWidth || 375;
+      const tabBarPx = Math.round((100 / 750) * w);
+      const safeBottom =
+        win.safeArea && win.screenHeight
+          ? Math.max(0, win.screenHeight - win.safeArea.bottom)
+          : 0;
+      const nav = this.data.navHeight || 64;
+      const fixed = this.data.fixedOffset || 80;
+      const h =
+        (win.windowHeight || 667) - nav - fixed - tabBarPx - safeBottom;
+      const scrollerHeight = Math.max(240, Math.floor(h));
+      if (scrollerHeight !== this.data.scrollerHeight) {
+        this.setData({ scrollerHeight });
+      }
+    } catch (e) {
+      /* ignore */
+    }
   },
 
   refreshAdmin() {
@@ -520,7 +595,7 @@ Page({
   },
 
   updateLayout() {
-    const { windowWidth } = wx.getSystemInfoSync();
+    const { windowWidth } = getWindowInfoSafe();
     let columnCount = 2;
     if (windowWidth >= 560) columnCount = 3;
     if (windowWidth >= 840) columnCount = 4;
@@ -602,7 +677,9 @@ Page({
         if (hit) patch.listTotal = hit.count || 0;
       }
       this.setData(patch, () => {
+        this.refreshHintMeta();
         setTimeout(() => this.measureFixedBar(), 50);
+        this.scrollCategoryIntoView(patch.categoryId || this.data.categoryId);
       });
     } catch (e) {
       console.warn('[categories]', e.message || e);
@@ -649,15 +726,376 @@ Page({
     const id =
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
       (e.target && e.target.dataset && e.target.dataset.id);
+    this.switchCategory(id);
+  },
+
+  /**
+   * 切换分类。
+   * dir: -1 左滑进下一项（内容从右入），1 右滑进上一项（内容从左入），0 无方向动画。
+   * options.keepSwipe: 保留当前 swipeX（连续翻页用，避免中途归零跳变）。
+   */
+  switchCategory(id, dir = 0, options = {}) {
     if (id === undefined || id === null || id === '' || id === this.data.categoryId) {
+      return false;
+    }
+    const filters = this.data.filters || [];
+    if (!filters.some((f) => f.id === id)) return false;
+
+    const keepSwipe = !!(options && options.keepSwipe);
+    const listTotal = this.filterCount(id);
+    const pageAnim = dir < 0 ? 'enter-right' : dir > 0 ? 'enter-left' : '';
+    this.clearPackSelection();
+
+    const apply = () => {
+      const patch = {
+        categoryId: id,
+        listTotal,
+        pageAnim,
+      };
+      if (!keepSwipe) {
+        patch.swipeX = 0;
+        patch.swipeDragging = false;
+        Object.assign(patch, this.buildSwipeHintPatch(0));
+      }
+      this.setData(patch, () => {
+        this.scrollCategoryIntoView(id);
+        setTimeout(() => this.measureFixedBar(), 30);
+        if (pageAnim) {
+          setTimeout(() => {
+            if (this.data.pageAnim === pageAnim) {
+              this.setData({ pageAnim: '' });
+            }
+          }, 360);
+        }
+      });
+      this.loadList(true);
+    };
+
+    // 先清动画 class，再挂上，保证同方向连续滑也能重播
+    if (pageAnim && this.data.pageAnim) {
+      this.setData({ pageAnim: '' }, apply);
+    } else {
+      apply();
+    }
+    return true;
+  },
+
+  categoryIndex(id) {
+    const filters = this.data.filters || [];
+    return filters.findIndex((f) => f.id === (id || this.data.categoryId));
+  },
+
+  /**
+   * 把当前分类滚进可视区，左侧留 margin，避免贴边裁切。
+   */
+  scrollCategoryIntoView(id) {
+    const targetId = id || this.data.categoryId;
+    if (!targetId) return;
+    // rpx→px：约 24rpx 左边距
+    const { windowWidth } = getWindowInfoSafe();
+    const marginPx = Math.max(10, Math.round(((windowWidth || 375) / 750) * 24));
+
+    const run = () => {
+      const q = wx.createSelectorQuery();
+      q.select('.home__toolbar').boundingClientRect();
+      q.select('.home__toolbar').scrollOffset();
+      q.select(`#cat-${targetId}`).boundingClientRect();
+      q.exec((res) => {
+        const bar = res && res[0];
+        const off = res && res[1];
+        const cat = res && res[2];
+        if (!bar || !off || !cat || !cat.width) return;
+        const delta = cat.left - bar.left - marginPx;
+        let next = Math.max(0, off.scrollLeft + delta);
+        // 同值时微调，强制 scroll-view 响应
+        if (Math.abs(next - (this.data.catScrollLeft || 0)) < 0.5) {
+          next = next < 1 ? next + 0.5 : next - 0.5;
+        }
+        this.setData({ catScrollLeft: next });
+      });
+    };
+
+    setTimeout(run, 40);
+  },
+
+  /** 缓存相邻分类文案，跟手时只改数字字段 */
+  refreshHintMeta() {
+    const filters = this.data.filters || [];
+    const idx = this.categoryIndex();
+    const prev = idx > 0 ? filters[idx - 1] : null;
+    const next =
+      idx >= 0 && idx < filters.length - 1 ? filters[idx + 1] : null;
+    this._hintMeta = {
+      prevIcon: prev
+        ? '/static/emoji/swipe-prev.png'
+        : '/static/emoji/swipe-end.png',
+      prevTitle: prev ? '上一站' : '到头啦～',
+      prevName: prev ? prev.name : '已经是第一个分类',
+      nextIcon: next
+        ? '/static/emoji/swipe-next.png'
+        : '/static/emoji/swipe-end.png',
+      nextTitle: next ? '下一站' : '到头啦～',
+      nextName: next ? next.name : '滑回去看看别的吧',
+    };
+  },
+
+  /** 根据 swipeX 生成露白区提示（上一站 / 下一站 / 到头） */
+  buildSwipeHintPatch(swipeX) {
+    if (!this._hintMeta) this.refreshHintMeta();
+    const meta = this._hintMeta;
+    const abs = Math.abs(swipeX || 0);
+    const opacity = Math.min(1, abs / 56);
+    const revealWidth = Math.round(abs);
+
+    if (swipeX > 8) {
+      return {
+        swipeHintLeft: {
+          show: true,
+          opacity,
+          revealWidth,
+          icon: meta.prevIcon,
+          title: meta.prevTitle,
+          name: meta.prevName,
+        },
+        swipeHintRight: {
+          show: false,
+          opacity: 0,
+          revealWidth: 0,
+          icon: meta.nextIcon,
+          title: '',
+          name: '',
+        },
+      };
+    }
+    if (swipeX < -8) {
+      return {
+        swipeHintLeft: {
+          show: false,
+          opacity: 0,
+          revealWidth: 0,
+          icon: meta.prevIcon,
+          title: '',
+          name: '',
+        },
+        swipeHintRight: {
+          show: true,
+          opacity,
+          revealWidth,
+          icon: meta.nextIcon,
+          title: meta.nextTitle,
+          name: meta.nextName,
+        },
+      };
+    }
+    return {
+      swipeHintLeft: {
+        show: false,
+        opacity: 0,
+        revealWidth: 0,
+        icon: meta.prevIcon,
+        title: '',
+        name: '',
+      },
+      swipeHintRight: {
+        show: false,
+        opacity: 0,
+        revealWidth: 0,
+        icon: meta.nextIcon,
+        title: '',
+        name: '',
+      },
+    };
+  },
+
+  /** 跟手帧：锁滚动 + 更新位移/提示 */
+  buildSwipeMovePatch(swipeX) {
+    return {
+      swipeX,
+      swipeDragging: true,
+      swipeScrollLock: true,
+      pageAnim: '',
+      ...this.buildSwipeHintPatch(swipeX),
+    };
+  },
+
+  setSwipeScrollLock(locked) {
+    if (!!this.data.swipeScrollLock === !!locked) return;
+    this.setData({ swipeScrollLock: !!locked });
+  },
+
+  resetSwipePane(animated) {
+    const clearHints = this.buildSwipeHintPatch(0);
+    if (!this.data.swipeX && !this.data.swipeDragging && !this.data.swipeScrollLock) {
+      if (this.data.swipeHintLeft.show || this.data.swipeHintRight.show) {
+        this.setData(clearHints);
+      }
       return;
     }
-    const listTotal = this.filterCount(id);
-    this.clearPackSelection();
-    this.setData({ categoryId: id, listTotal }, () => {
-      setTimeout(() => this.measureFixedBar(), 30);
+    this.setData({
+      swipeX: 0,
+      swipeDragging: !animated,
+      swipeScrollLock: false,
+      ...clearHints,
     });
-    this.loadList(true);
+    if (animated) {
+      setTimeout(() => {
+        if (!this.data.swipeX) this.setData({ swipeDragging: false });
+      }, 280);
+    }
+  },
+
+  /** 跟手位移：边界带阻尼 */
+  calcSwipeX(dx) {
+    const { windowWidth } = getWindowInfoSafe();
+    const w = windowWidth || 375;
+    const filters = this.data.filters || [];
+    const idx = this.categoryIndex();
+    const atStart = idx <= 0;
+    const atEnd = idx < 0 || idx >= filters.length - 1;
+    if ((atStart && dx > 0) || (atEnd && dx < 0)) {
+      return Math.round(dx * 0.22);
+    }
+    const max = w * 0.55;
+    return Math.round(Math.max(-max, Math.min(max, dx)));
+  },
+
+  /** 按偏移切换相邻分类；dx<0 下一分类，dx>0 上一分类。连续甩出→对侧滑入，避免跳变 */
+  switchCategoryBySwipe(dx) {
+    if (this._swipeSwitching) return false;
+    const filters = this.data.filters || [];
+    if (filters.length < 2) return false;
+    const idx = this.categoryIndex();
+    if (idx < 0) return false;
+    const nextIdx = dx < 0 ? idx + 1 : idx - 1;
+    if (nextIdx < 0 || nextIdx >= filters.length) return false;
+
+    const { windowWidth } = getWindowInfoSafe();
+    const w = windowWidth || 375;
+    const outX = dx < 0 ? -w : w;
+    const inFrom = dx < 0 ? w : -w;
+    const nextId = filters[nextIdx].id;
+
+    this._swipeSwitching = true;
+    // 1) 当前页继续滑出屏幕（期间保持锁滚动）
+    this.setData({
+      swipeX: outX,
+      swipeDragging: false,
+      swipeScrollLock: true,
+      pageAnim: '',
+      ...this.buildSwipeHintPatch(outX),
+    });
+
+    setTimeout(() => {
+      // 2) 瞬移到对侧（无 transition），换分类数据
+      this.setData(
+        {
+          swipeX: inFrom,
+          swipeDragging: true,
+          swipeScrollLock: true,
+          pageAnim: '',
+          ...this.buildSwipeHintPatch(0),
+        },
+        () => {
+          this.switchCategory(nextId, 0, { keepSwipe: true });
+          this.refreshHintMeta();
+          // 3) 等无 transition 的帧落地后，再滑入（过短会吃掉位移）
+          setTimeout(() => {
+            this.setData({
+              swipeX: 0,
+              swipeDragging: false,
+              swipeScrollLock: false,
+            });
+            setTimeout(() => {
+              this._swipeSwitching = false;
+            }, 360);
+          }, 48);
+        },
+      );
+    }, 260);
+    return true;
+  },
+
+  onBodyTouchStart(e) {
+    if (this._swipeSwitching) return;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    this._touchStartX = t.clientX;
+    this._touchStartY = t.clientY;
+    this._touchTracking = true;
+    this._touchLocked = '';
+    this._lastSwipeSetAt = 0;
+    this.refreshHintMeta();
+  },
+
+  onBodyTouchMove(e) {
+    if (!this._touchTracking || this._swipeSwitching) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - this._touchStartX;
+    const dy = t.clientY - this._touchStartY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (!this._touchLocked) {
+      // 走出死区后再锁轴：横滑切分类，竖滑交给列表
+      if (absX < 12 && absY < 12) return;
+      this._touchLocked = absX > absY * 1.15 ? 'h' : 'v';
+      if (this._touchLocked === 'h') {
+        // 立刻关掉 scroll-y，避免横滑时瀑布流还在滚
+        this.setSwipeScrollLock(true);
+      }
+      if (this._touchLocked === 'v') return;
+    }
+
+    if (this._touchLocked !== 'h') return;
+
+    const swipeX = this.calcSwipeX(dx);
+    const now = Date.now();
+    // 约 30fps 节流：跟手够用，且少打 setData
+    if (now - this._lastSwipeSetAt < 32 && Math.abs(swipeX - this.data.swipeX) < 4) {
+      return;
+    }
+    this._lastSwipeSetAt = now;
+    this.setData(this.buildSwipeMovePatch(swipeX));
+  },
+
+  onBodyTouchEnd(e) {
+    if (!this._touchTracking) return;
+    const locked = this._touchLocked;
+    this._touchTracking = false;
+    this._touchLocked = '';
+
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) {
+      this.resetSwipePane(true);
+      return;
+    }
+    const dx = t.clientX - this._touchStartX;
+    const dy = t.clientY - this._touchStartY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    // 竖滑或未形成横滑：回弹（若有跟手位移）
+    if (locked === 'v' || (locked !== 'h' && absX <= absY * 1.2)) {
+      this.resetSwipePane(true);
+      return;
+    }
+
+    const { windowWidth } = getWindowInfoSafe();
+    const threshold = Math.max(56, Math.round((windowWidth || 375) * 0.18));
+    if (absX < threshold || absX < absY * 1.2) {
+      this.resetSwipePane(true);
+      return;
+    }
+
+    if (!this.switchCategoryBySwipe(dx)) {
+      this.resetSwipePane(true);
+    }
+  },
+
+  onListScroll(e) {
+    const top = e && e.detail && e.detail.scrollTop;
+    if (typeof top === 'number') this._listScrollTop = top;
   },
 
   clearPackSelection() {
@@ -1066,17 +1504,43 @@ Page({
     }
   },
 
+  onRefresherPulling(e) {
+    if (this.data.enable) return;
+    const dy = (e.detail && e.detail.dy) || 0;
+    const refresherText = dy >= 80 ? '松手刷新' : '下拉刷新';
+    if (refresherText !== this.data.refresherText) {
+      this.setData({ refresherText });
+    }
+  },
+
+  onRefresherRestore() {
+    if (!this.data.enable) {
+      this.setData({ refresherText: '下拉刷新' });
+    }
+  },
+
+  onRefresherAbort() {
+    this.setData({ enable: false, refresherText: '下拉刷新' });
+  },
+
   onRefresh() {
-    this.setData({ enable: true });
+    if (this.data.swipeScrollLock) {
+      this.setData({ enable: false, refresherText: '下拉刷新' });
+      return;
+    }
+    this.setData({ enable: true, refresherText: '正在刷新' });
     this.clearPackSelection();
     this.updateLayout();
     this.clearListCache();
     this.loadCategories();
-    this.loadList(true, { force: true });
+    Promise.resolve(this.loadList(true, { force: true })).finally(() => {
+      this.setData({ enable: false, refresherText: '下拉刷新' });
+    });
   },
 
-  /** t-pull-down-refresh 内嵌 scroll-view，页级 onReachBottom 往往不触发 */
+  /** scroll-view 触底加载；页级 onReachBottom 在自定义滚动里往往不触发 */
   onScrollToLower() {
+    if (this.data.swipeScrollLock) return;
     this.loadList(false);
   },
 

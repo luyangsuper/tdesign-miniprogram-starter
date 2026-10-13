@@ -261,7 +261,11 @@ exports.main = async (event = {}) => {
 
       let subscribeSent = 0;
       try {
-        const sub = await sendLotteryInviteNotices(cloud, db, { lotteryId, title });
+        const sub = await sendLotteryInviteNotices(cloud, db, {
+          lotteryId,
+          title,
+          miniprogramState: event.miniprogramState,
+        });
         subscribeSent = (sub && sub.sent) || 0;
       } catch (e) {
         console.warn('[create] subscribe invite', e.message || e);

@@ -1,8 +1,6 @@
 {
   "navigationBarTitleText": "合集详情",
   "styleIsolation": "shared",
-  "enableShareAppMessage": true,
-  "enableShareTimeline": true,
   "usingComponents": {
     "fun-loading": "/components/fun-loading/index",
     "t-button": "tdesign-miniprogram/button/button",
@@ -11,6 +9,7 @@
     "t-image": "tdesign-miniprogram/image/image",
     "t-image-viewer": "tdesign-miniprogram/image-viewer/image-viewer",
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
-    "t-input": "tdesign-miniprogram/input/input"
+    "t-input": "tdesign-miniprogram/input/input",
+    "lottery-host": "/components/lottery-host/index"
   }
 }

@@ -15,8 +15,10 @@
 | ok.png | CheckOne | 成功 |
 | ticket.png | Ticket | 兑换码 |
 | search.png | Search | 按 ID 查询 |
-| empty.png | Inbox | 空态备用 |
 | guide.png | GuideBoard | 使用引导 |
 | feedback.png | Mail | 意见反馈 |
 | gift.png | Gift | 见面礼弹窗 |
 | checkin.png | Calendar | 每日签到 |
+| swipe-prev.png | HandLeft | 滑向上一分类 |
+| swipe-next.png | HandRight | 滑向下一分类 |
+| swipe-end.png | SmilingFace | 分类滑到头 |

@@ -30,17 +30,18 @@ exports.main = async () => {
       ...categories.map((c) => countWhere({ status: 'published', categoryId: c.id })),
     ]);
 
-    const withCounts = categories.map((c, i) => {
-      const count = catCounts[i] || 0;
-      return {
-        ...c,
-        count,
-        label: c.name,
-      };
-    });
+    const withCounts = categories
+      .map((c, i) => {
+        const count = catCounts[i] || 0;
+        return {
+          ...c,
+          count,
+          label: c.name,
+        };
+      })
+      .sort((a, b) => (b.count || 0) - (a.count || 0) || (a.sort || 0) - (b.sort || 0));
 
-    const filters = [
-      { id: 'all', name: '全部', count: allCount, label: '全部' },
+    const others = [
       ...withCounts,
       {
         id: 'uncategorized',
@@ -48,6 +49,11 @@ exports.main = async () => {
         count: uncategorizedCount,
         label: '未分类',
       },
+    ].sort((a, b) => (b.count || 0) - (a.count || 0));
+
+    const filters = [
+      { id: 'all', name: '全部', count: allCount, label: '全部' },
+      ...others,
     ];
 
     return {

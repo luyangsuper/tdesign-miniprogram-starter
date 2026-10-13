@@ -1,5 +1,6 @@
 import { callFunction, uploadFile } from '~/utils/cloud';
-import { getFileName, pairPreviewStaticAnim } from '~/utils/pairFiles';
+import { getSubscribeMpState } from '~/utils/subscribe';
+import { getFileName, pairByIndex } from '../utils/pairFiles';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 
 const gridConfig = { column: 4, width: 160, height: 160 };
@@ -322,35 +323,23 @@ Page({
     return `f_${Date.now()}_${this._fileUid}`;
   },
 
-  /** 从左到右自动标 1、2、3…；相册图不展示无用文件名 */
+  /** 从左到右标 1、2、3…，与同下标静态/动态对齐 */
   withAutoSeq(list = []) {
-    return (list || []).map((f, i) => {
-      const name = f.name || '';
-      const usefulName =
-        !f.byAlbum &&
-        /(?:preview|video|emoji|real|resource|origin|wallpaper|static|anim|dynamic)[_-]\d/i.test(
-          name,
-        );
-      return {
-        ...f,
-        _uid: f._uid || this.nextFileUid(),
-        manualSeq: String(i + 1),
-        seqLabel: String(i + 1),
-        showName: usefulName,
-      };
-    });
+    return (list || []).map((f, i) => ({
+      ...f,
+      _uid: f._uid || this.nextFileUid(),
+      seqLabel: String(i + 1),
+    }));
   },
 
   /** 编辑回填：保留服务端槽位序号（动态可能稀疏） */
   withPreservedSeq(list = []) {
     return (list || []).map((f, i) => {
-      const seq = String(f.manualSeq || f.seqLabel || i + 1);
+      const seq = String(f.seqLabel || f.manualSeq || i + 1);
       return {
         ...f,
         _uid: f._uid || this.nextFileUid(),
-        manualSeq: seq,
         seqLabel: seq,
-        showName: false,
       };
     });
   },
@@ -442,7 +431,7 @@ Page({
     });
   },
 
-  /** 相册/本地：适合小 GIF；靠拖动排序自动对应序号 */
+  /** 相册多选；靠拖动调整顺序后按下标对齐 */
   pickFilesByAlbum(maxCount, field) {
     const remain = Math.max(0, maxCount - (this.data[field] || []).length);
     if (!remain) {
@@ -500,7 +489,7 @@ Page({
     this.setFileList(field, list);
   },
 
-  /** 点击缩略图预览大图，便于核对配对 */
+  /** 点击缩略图预览大图 */
   onPreviewGridImage(e) {
     if (this._drag && this._drag.field) return;
     const { field, index } = e.currentTarget.dataset;
@@ -694,33 +683,25 @@ Page({
       return;
     }
 
-    const paired = pairPreviewStaticAnim(previewFiles, emojiFiles, emojiAnimFiles);
-    if (!paired.pairs.length) {
-      wx.showToast({ title: '未能配对预览与静态原图，请检查序号', icon: 'none' });
+    if (previewFiles.length !== emojiFiles.length) {
+      wx.showToast({
+        title: `预览 ${previewFiles.length} 张、静态 ${emojiFiles.length} 张，数量需一致`,
+        icon: 'none',
+      });
       return;
     }
 
-    const hardWarn =
-      paired.unmatchedPreview.length + paired.unmatchedStatic.length;
-    const animWarn = paired.unmatchedAnim.length;
+    const paired = pairByIndex(previewFiles, emojiFiles, emojiAnimFiles);
+    if (!paired.pairs.length) {
+      wx.showToast({ title: '请上传预览图与静态原图', icon: 'none' });
+      return;
+    }
 
-    if (hardWarn || animWarn) {
-      const parts = [];
-      if (hardWarn) {
-        parts.push(
-          `已配对 ${paired.pairs.length} 组预览+静态，还有 ${hardWarn} 个无法对应`,
-        );
-      } else {
-        parts.push(`已配对 ${paired.pairs.length} 组预览+静态`);
-      }
-      if (animWarn) {
-        parts.push(`${animWarn} 张动态未挂上（可忽略）`);
-      }
-      parts.push('是否只发布已配对的？');
+    if (emojiAnimFiles.length && emojiAnimFiles.length !== previewFiles.length) {
       wx.showModal({
-        title: '配对不完整',
-        content: parts.join('。\n'),
-        confirmText: '只发已配对',
+        title: '动态数量不一致',
+        content: `动态 ${emojiAnimFiles.length} 张，预览/静态 ${previewFiles.length} 张。多出的动态会忽略，缺少的槽位为空。是否继续？`,
+        confirmText: '继续',
         cancelText: '去修改',
         success: (res) => {
           if (res.confirm) this.doSubmit(paired);
@@ -740,15 +721,24 @@ Page({
       categoryName: (cat && cat.name) || '',
       description: payload.description,
       emojiCount: (payload.emojiFileIDs || []).length,
+      miniprogramState: getSubscribeMpState(),
     });
     const sent = Number((notify.data && notify.data.sent) || 0);
-    const now = Date.now();
-    this.setData({
-      notifySubscribers: false,
-      packNotifiedAt: now,
-      notifyHint: this.buildNotifyHint(now),
-    });
-    return { sent, skipped };
+    const skipped = Number((notify.data && notify.data.skipped) || 0);
+    const total = Number((notify.data && notify.data.total) || 0);
+    const lastError = (notify.data && notify.data.lastError) || '';
+    // 仅真正送达后更新「已通知」标记，与云端 notifiedAt 一致
+    if (sent > 0) {
+      const now = Date.now();
+      this.setData({
+        notifySubscribers: false,
+        packNotifiedAt: now,
+        notifyHint: this.buildNotifyHint(now),
+      });
+    } else {
+      this.setData({ notifySubscribers: false });
+    }
+    return { sent, skipped, total, lastError };
   },
 
   async doSubmit(paired) {
@@ -856,12 +846,24 @@ Page({
       if (shouldNotify && savedPackId) {
         try {
           wx.showLoading({ title: '通知中...', mask: true });
-          const { sent } = await this.sendNewPackNotify(
+          const { sent, skipped, total, lastError } = await this.sendNewPackNotify(
             savedPackId,
             payload,
             categoryId,
           );
-          notifyTip = sent > 0 ? `，已通知 ${sent} 人` : '，暂无订阅用户';
+          if (sent > 0) {
+            notifyTip = `，已通知 ${sent} 人`;
+          } else if (!total) {
+            notifyTip = '，暂无订阅用户';
+          } else if (String(lastError) === '43101') {
+            console.warn('[notifyNewPack] all failed', { skipped, total, lastError });
+            notifyTip = '，订阅已失效，请用户重新开启提醒';
+          } else {
+            console.warn('[notifyNewPack] all failed', { skipped, total, lastError });
+            notifyTip = lastError
+              ? `，通知未送达（${lastError}）`
+              : `，通知未送达（${skipped} 人失败）`;
+          }
         } catch (notifyErr) {
           console.warn('[notifyNewPack]', notifyErr.message || notifyErr);
           notifyTip = '，通知失败可稍后重试';

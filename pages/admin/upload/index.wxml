@@ -135,7 +135,7 @@
       <view class="block__label block__label--inline">预览图</view>
       <t-tag size="small" variant="light" theme="primary">用户可见</t-tag>
     </view>
-    <view class="block__tip">相册多选；点图预览，长按拖到目标格松手排序。序号与原图同位置即配对。</view>
+    <view class="block__tip">相册多选；点图预览，长按拖排序。与静态/动态同序号对齐。</view>
     <t-button
       t-class="pick-btn"
       theme="primary"
@@ -196,7 +196,7 @@
       <view class="block__label block__label--inline">静态原图</view>
       <t-tag size="small" variant="light" theme="warning">必选 · 保存到相册</t-tag>
     </view>
-    <view class="block__tip">相册多选；拖到与预览相同序号即可配对。</view>
+    <view class="block__tip">相册多选；拖排序后与预览同序号对齐，数量需一致。</view>
     <t-button
       t-class="pick-btn"
       theme="primary"
@@ -257,7 +257,7 @@
       <view class="block__label block__label--inline">动态原图</view>
       <t-tag size="small" variant="light" theme="primary">可选 · GIF 等</t-tag>
     </view>
-    <view class="block__tip">可不传。有则拖到与预览/静态相同序号；用户可在详情切换「静态/动态」批量保存该类。</view>
+    <view class="block__tip">可不传。有则拖到与预览/静态同序号；用户可在详情切换「静态/动态」批量保存。</view>
     <t-button
       t-class="pick-btn"
       theme="primary"

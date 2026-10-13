@@ -15,24 +15,63 @@ function clipThing(s, fallback = '-') {
   return t.length > 20 ? `${t.slice(0, 19)}…` : t;
 }
 
+/** 订阅消息 time：上海时区「YYYY年MM月DD日 HH:mm」 */
 function formatNotifyTime(ms) {
-  const d = new Date(ms || Date.now());
+  const raw = Number(ms) || Date.now();
+  const d = new Date(raw + 8 * 3600 * 1000);
   if (Number.isNaN(d.getTime())) return '刚刚';
   const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}年${pad(d.getMonth() + 1)}月${pad(d.getDate())}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getUTCFullYear()}年${pad(d.getUTCMonth() + 1)}月${pad(d.getUTCDate())}日 ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
+/** developer | trial | formal */
+function resolveMpState(explicit) {
+  const fromArg = String(explicit || '').trim();
+  if (
+    fromArg === 'developer' ||
+    fromArg === 'trial' ||
+    fromArg === 'formal'
+  ) {
+    return fromArg;
+  }
+  const fromEnv = String(process.env.SUBSCRIBE_MP_STATE || '').trim();
+  if (fromEnv === 'developer' || fromEnv === 'trial' || fromEnv === 'formal') {
+    return fromEnv;
+  }
+  return 'formal';
+}
+
+async function clearCredit(db, openid, field) {
+  try {
+    await db.collection('users').doc(openid).update({
+      data: {
+        [field]: 0,
+        updatedAt: db.serverDate(),
+      },
+    });
+  } catch (e) {
+    /* ignore */
+  }
 }
 
 /**
  * 给有额度的用户发「获得抽奖机会」
+ * @param {object} [opts.miniprogramState]
  */
-async function sendLotteryInviteNotices(cloud, db, { lotteryId, title }) {
+async function sendLotteryInviteNotices(
+  cloud,
+  db,
+  { lotteryId, title, miniprogramState },
+) {
   const _ = db.command;
+  const mpState = resolveMpState(miniprogramState);
   let sent = 0;
   let skipped = 0;
   let lastId = '';
   const PAGE = 100;
 
   while (true) {
+    let usedFallback = false;
     let query = db
       .collection('users')
       .where({ lotteryInviteNotifyCredits: _.gt(0) })
@@ -54,7 +93,8 @@ async function sendLotteryInviteNotices(cloud, db, { lotteryId, title }) {
       const res = await query.get();
       rows = (res && res.data) || [];
     } catch (e) {
-      // 无索引时降级：扫少量用户
+      // 无索引时降级：扫少量用户，只跑一轮
+      usedFallback = true;
       try {
         // eslint-disable-next-line no-await-in-loop
         const res = await db.collection('users').limit(PAGE).get();
@@ -64,7 +104,6 @@ async function sendLotteryInviteNotices(cloud, db, { lotteryId, title }) {
       } catch (err) {
         break;
       }
-      lastId = '';
     }
     if (!rows.length) break;
 
@@ -89,10 +128,12 @@ async function sendLotteryInviteNotices(cloud, db, { lotteryId, title }) {
           templateId: INVITE_TMPL,
           page: `pages/lottery/detail/index?id=${lotteryId}`,
           lang: 'zh_CN',
-          miniprogramState: 'formal',
+          miniprogramState: mpState,
           data: {
             number1: { value: 1 },
-            thing3: { value: clipThing(`「${title}」可参与抽奖`, '打开趣集参与抽奖') },
+            thing3: {
+              value: clipThing(`「${title}」可参与抽奖`, '打开趣集参与抽奖'),
+            },
           },
         });
         // eslint-disable-next-line no-await-in-loop
@@ -108,14 +149,22 @@ async function sendLotteryInviteNotices(cloud, db, { lotteryId, title }) {
         sent += 1;
       } catch (err) {
         skipped += 1;
-        console.warn('[lotteryInvite] send fail', openid, err.errCode || err.message);
+        const code = err.errCode || err.code || '';
+        console.warn(
+          '[lotteryInvite] send fail',
+          openid,
+          code || err.message,
+          'mpState=',
+          mpState,
+        );
+        if (String(code) === '43101') {
+          // eslint-disable-next-line no-await-in-loop
+          await clearCredit(db, openid, 'lotteryInviteNotifyCredits');
+        }
       }
     }
 
-    if (!lastId && rows.length) {
-      // 降级路径只跑一轮
-      break;
-    }
+    if (usedFallback) break;
     lastId = String(rows[rows.length - 1]._id || '');
     if (!lastId || rows.length < PAGE) break;
   }
@@ -126,7 +175,11 @@ async function sendLotteryInviteNotices(cloud, db, { lotteryId, title }) {
 /**
  * 给中奖用户发「中奖结果通知」（需有额度）
  */
-async function sendLotteryWinNotice(cloud, db, { openid, title, prizePoints, lotteryId }) {
+async function sendLotteryWinNotice(
+  cloud,
+  db,
+  { openid, title, prizePoints, lotteryId, miniprogramState },
+) {
   if (!openid || !(prizePoints > 0)) return false;
   let user = {};
   try {
@@ -137,6 +190,7 @@ async function sendLotteryWinNotice(cloud, db, { openid, title, prizePoints, lot
   const credits = Math.max(0, Number(user.lotteryWinNotifyCredits) || 0);
   if (credits <= 0) return false;
 
+  const mpState = resolveMpState(miniprogramState);
   const pts = Math.max(1, Math.floor(Number(prizePoints) || 0));
   try {
     await cloud.openapi.subscribeMessage.send({
@@ -144,7 +198,7 @@ async function sendLotteryWinNotice(cloud, db, { openid, title, prizePoints, lot
       templateId: WIN_TMPL,
       page: `pages/lottery/detail/index?id=${lotteryId}`,
       lang: 'zh_CN',
-      miniprogramState: 'formal',
+      miniprogramState: mpState,
       data: {
         thing1: { value: clipThing(`${pts}积分`, '趣集积分') },
         number2: { value: pts },
@@ -164,7 +218,17 @@ async function sendLotteryWinNotice(cloud, db, { openid, title, prizePoints, lot
       });
     return true;
   } catch (err) {
-    console.warn('[lotteryWin] send fail', openid, err.errCode || err.message);
+    const code = err.errCode || err.code || '';
+    console.warn(
+      '[lotteryWin] send fail',
+      openid,
+      code || err.message,
+      'mpState=',
+      mpState,
+    );
+    if (String(code) === '43101') {
+      await clearCredit(db, openid, 'lotteryWinNotifyCredits');
+    }
     return false;
   }
 }
@@ -174,4 +238,5 @@ module.exports = {
   sendLotteryWinNotice,
   clipThing,
   formatNotifyTime,
+  resolveMpState,
 };

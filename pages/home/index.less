@@ -162,6 +162,13 @@
     min-width: 0;
   }
 
+  &__cat-wrap {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    height: @toolbar-h;
+  }
+
   &__cat {
     flex-shrink: 0;
     height: @toolbar-h !important;
@@ -241,9 +248,121 @@
   }
 
   &__body {
-    /* 左右边距由 inline padding 与卡片 gap 统一，避免 CSS rpx 与 JS 计算叠宽 */
+    position: relative;
     padding: 0 0 calc(@tab-bar-height + env(safe-area-inset-bottom));
     box-sizing: border-box;
+    overflow: hidden;
+    background: var(--td-bg-color-page);
+  }
+
+  &__swipe-stage {
+    position: relative;
+    width: 100%;
+    min-height: 50vh;
+    overflow: hidden;
+    background: var(--td-bg-color-page);
+  }
+
+  &__scroller {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  &__refresher {
+    width: 100%;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 12rpx 0 8rpx;
+  }
+
+  /* 露白条：fixed 对齐屏幕可视区，宽=跟手位移，条内水平垂直居中 */
+  &__swipe-hint {
+    position: fixed;
+    bottom: calc(@tab-bar-height + env(safe-area-inset-bottom));
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8rpx;
+    box-sizing: border-box;
+    padding: 0 8rpx;
+    pointer-events: none;
+    overflow: hidden;
+    background: var(--td-bg-color-page);
+  }
+
+  &__swipe-hint--left {
+    left: 0;
+  }
+
+  &__swipe-hint--right {
+    right: 0;
+  }
+
+  &__swipe-hint-icon {
+    width: 80rpx;
+    height: 80rpx;
+    max-width: 72%;
+    flex-shrink: 0;
+    animation: home-swipe-bob 1.2s ease-in-out infinite;
+  }
+
+  &__swipe-hint-title {
+    font-size: 22rpx;
+    line-height: 1.2;
+    color: var(--td-text-color-placeholder);
+    text-align: center;
+  }
+
+  &__swipe-hint-name {
+    max-width: 100%;
+    font-size: 26rpx;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--td-brand-color);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 外层跟手位移；翻页只靠 swipeX 连续过渡，更接近原生切页 */
+  &__pane {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    min-height: 50vh;
+    box-sizing: border-box;
+    will-change: transform;
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    background: var(--td-bg-color-page);
+    box-shadow: none;
+
+    &--away {
+      box-shadow: 0 8rpx 40rpx rgba(0, 0, 0, 0.1);
+    }
+
+    &--dragging {
+      transition: none;
+    }
+  }
+
+  &__pane-inner {
+    width: 100%;
+    min-height: 40vh;
+    will-change: transform, opacity;
+
+    &--enter-right {
+      animation: home-page-from-right 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
+    }
+
+    &--enter-left {
+      animation: home-page-from-left 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
+    }
   }
 
   &__list {
@@ -254,7 +373,6 @@
     align-items: flex-start;
     justify-content: flex-start;
     box-sizing: border-box;
-    animation: home-fade-up 0.28s ease both;
   }
 
   &__col {
@@ -479,13 +597,34 @@
   }
 }
 
-@keyframes home-fade-up {
+@keyframes home-page-from-right {
   from {
-    opacity: 0;
-    transform: translateY(12rpx);
+    opacity: 0.55;
+    transform: translateX(18%);
   }
   to {
     opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes home-page-from-left {
+  from {
+    opacity: 0.55;
+    transform: translateX(-18%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes home-swipe-bob {
+  0%,
+  100% {
     transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8rpx);
   }
 }

@@ -2,6 +2,22 @@ import config from '~/config';
 import { callFunction } from '~/utils/cloud';
 
 /**
+ * 订阅消息发送时的小程序版本。
+ * 开发版/体验版里授权的订阅，必须用 developer/trial 下发，否则会 43101。
+ */
+export function getSubscribeMpState() {
+  try {
+    const info = wx.getAccountInfoSync();
+    const v = (info && info.miniProgram && info.miniProgram.envVersion) || '';
+    if (v === 'develop') return 'developer';
+    if (v === 'trial') return 'trial';
+  } catch (e) {
+    /* ignore */
+  }
+  return 'formal';
+}
+
+/**
  * 是否应弹出底部引导：发送额度用完（或从未订阅）时弹出
  * 微信官方订阅弹窗必须由用户点击触发，所以先出底部栏再点「开启」
  */

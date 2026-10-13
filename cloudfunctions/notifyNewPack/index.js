@@ -1,5 +1,5 @@
 const cloud = require('wx-server-sdk');
-const { formatDateTime } = require('./time');
+const { formatDateTimeCn } = require('./time');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
@@ -32,6 +32,23 @@ function clipThing(s, fallback = '新合集') {
   return t.length > 20 ? `${t.slice(0, 19)}…` : t;
 }
 
+/** developer | trial | formal；与用户授权时所在版本一致，否则 43101 */
+function resolveMpState(event) {
+  const fromEvent = String((event && event.miniprogramState) || '').trim();
+  if (
+    fromEvent === 'developer' ||
+    fromEvent === 'trial' ||
+    fromEvent === 'formal'
+  ) {
+    return fromEvent;
+  }
+  const fromEnv = String(process.env.SUBSCRIBE_MP_STATE || '').trim();
+  if (fromEnv === 'developer' || fromEnv === 'trial' || fromEnv === 'formal') {
+    return fromEnv;
+  }
+  return 'formal';
+}
+
 /**
  * 新合集发布后推送订阅消息
  * event: { packId } 或 { title, categoryName, description, packId }
@@ -49,6 +66,7 @@ exports.main = async (event) => {
   let categoryName = String(event.categoryName || '').trim();
   let description = String(event.description || '').trim();
   const packId = event.packId || event.id || '';
+  const mpState = resolveMpState(event);
 
   try {
     if (packId && (!title || !categoryName)) {
@@ -73,10 +91,11 @@ exports.main = async (event) => {
       description ||
       (event.emojiCount ? `共 ${event.emojiCount} 张` : '新合集已上线，快来看看');
 
+    // time 类型须用「2019年10月1日 15:01」，YYYY-MM-DD 会被微信拒收（47003）
     const data = {
       thing1: { value: clipThing(title, '新合集') },
       thing2: { value: clipThing(categoryName, '合集') },
-      time3: { value: formatDateTime() },
+      time3: { value: formatDateTimeCn() },
       thing4: { value: clipThing(intro, '新合集已上线') },
     };
 
@@ -93,6 +112,7 @@ exports.main = async (event) => {
 
     let sent = 0;
     let skipped = 0;
+    let lastError = '';
 
     for (let i = 0; i < users.length; i += 1) {
       const user = users[i];
@@ -109,7 +129,7 @@ exports.main = async (event) => {
           templateId: TEMPLATE_ID,
           page,
           lang: 'zh_CN',
-          miniprogramState: 'formal',
+          miniprogramState: mpState,
           data,
         });
         const credits = Math.max(0, Number(user.newPackNotifyCredits) || 0);
@@ -126,11 +146,28 @@ exports.main = async (event) => {
         sent += 1;
       } catch (err) {
         skipped += 1;
-        console.warn('[notifyNewPack] send fail', openid, err.errCode || err.message);
+        const code = err.errCode || err.code || '';
+        lastError = String(code || err.message || 'send fail');
+        console.warn('[notifyNewPack] send fail', openid, lastError, 'mpState=', mpState);
+        // 43101：微信侧已无订阅，清掉本地虚额度，避免反复误报
+        if (String(code) === '43101') {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await db.collection('users').doc(openid).update({
+              data: {
+                newPackNotifyCredits: 0,
+                updatedAt: db.serverDate(),
+              },
+            });
+          } catch (clearErr) {
+            /* ignore */
+          }
+        }
       }
     }
 
-    if (packId) {
+    // 至少送达一人再记 notifiedAt，避免全失败却提示「已通知过」
+    if (packId && sent > 0) {
       try {
         await db.collection('packs').doc(packId).update({
           data: {
@@ -143,7 +180,10 @@ exports.main = async (event) => {
       }
     }
 
-    return { ok: true, data: { sent, skipped, total: users.length } };
+    return {
+      ok: true,
+      data: { sent, skipped, total: users.length, lastError },
+    };
   } catch (e) {
     console.error(e);
     return { ok: false, code: 'NOTIFY_FAIL', message: e.message || '通知失败' };

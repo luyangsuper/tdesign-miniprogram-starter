@@ -13,6 +13,7 @@
     "t-image-viewer": "tdesign-miniprogram/image-viewer/image-viewer",
     "t-switch": "tdesign-miniprogram/switch/switch",
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
-    "fun-loading": "/components/fun-loading/index"
+    "fun-loading": "/components/fun-loading/index",
+    "lottery-host": "/components/lottery-host/index"
   }
 }

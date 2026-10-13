@@ -1,6 +1,6 @@
 <view class="admin-points" style="{{themeStyle}}">
   <view class="admin-points__tip">
-    见面礼 / 签到改完立即生效。活动发积分只发给云库里已有账号的用户，从未登录的人不会预建、也不会发到。
+    见面礼 / 签到 / 公众号入口改完立即生效。活动发积分只发给云库里已有账号的用户，从未登录的人不会预建、也不会发到。公众号路径示例：pages/home/index?oaId=文章ID
   </view>
 
   <view wx:if="{{loading}}" class="admin-points__loading">
@@ -40,6 +40,23 @@
           suffix="积分"
           value="{{checkinPoints}}"
           bind:change="onCheckinChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">公众号动态入口</view>
+          <view class="admin-points__hint">带 oaId 进入可领 · 每用户每动态一次 · 0 关闭</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{oaBonusPoints}}"
+          bind:change="onOaBonusChange"
         />
       </view>
     </view>

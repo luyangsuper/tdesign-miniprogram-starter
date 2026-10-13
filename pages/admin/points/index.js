@@ -1,6 +1,10 @@
 import { callFunction } from '~/utils/cloud';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
-import { defaultCheckinPoints, defaultWelcomeGiftPoints } from '~/utils/giftHint';
+import {
+  defaultCheckinPoints,
+  defaultOaBonusPoints,
+  defaultWelcomeGiftPoints,
+} from '~/utils/giftHint';
 
 Page({
   data: {
@@ -10,6 +14,7 @@ Page({
     granting: false,
     welcomeGiftPoints: String(defaultWelcomeGiftPoints()),
     checkinPoints: String(defaultCheckinPoints()),
+    oaBonusPoints: String(defaultOaBonusPoints()),
     userCount: 0,
     campaignTitle: '',
     campaignPoints: '10',
@@ -39,6 +44,9 @@ Page({
         checkinPoints: String(
           data.checkinPoints != null ? data.checkinPoints : defaultCheckinPoints(),
         ),
+        oaBonusPoints: String(
+          data.oaBonusPoints != null ? data.oaBonusPoints : defaultOaBonusPoints(),
+        ),
         userCount: Number(data.userCount) || 0,
         campaigns: Array.isArray(data.campaigns) ? data.campaigns : [],
       });
@@ -57,6 +65,10 @@ Page({
     this.setData({ checkinPoints: (e.detail && e.detail.value) || '' });
   },
 
+  onOaBonusChange(e) {
+    this.setData({ oaBonusPoints: (e.detail && e.detail.value) || '' });
+  },
+
   onCampaignTitleChange(e) {
     this.setData({ campaignTitle: (e.detail && e.detail.value) || '' });
   },
@@ -69,11 +81,14 @@ Page({
     if (this.data.saving || this.data.granting) return;
     const welcomeGiftPoints = Number(this.data.welcomeGiftPoints);
     const checkinPoints = Number(this.data.checkinPoints);
+    const oaBonusPoints = Number(this.data.oaBonusPoints);
     if (
       Number.isNaN(welcomeGiftPoints) ||
       welcomeGiftPoints < 0 ||
       Number.isNaN(checkinPoints) ||
-      checkinPoints < 0
+      checkinPoints < 0 ||
+      Number.isNaN(oaBonusPoints) ||
+      oaBonusPoints < 0
     ) {
       wx.showToast({ title: '请填写有效非负整数', icon: 'none' });
       return;
@@ -84,11 +99,13 @@ Page({
         action: 'set',
         welcomeGiftPoints,
         checkinPoints,
+        oaBonusPoints,
       });
       const data = (res && res.data) || {};
       this.setData({
         welcomeGiftPoints: String(data.welcomeGiftPoints ?? welcomeGiftPoints),
         checkinPoints: String(data.checkinPoints ?? checkinPoints),
+        oaBonusPoints: String(data.oaBonusPoints ?? oaBonusPoints),
       });
       wx.showToast({ title: res.message || '已保存', icon: 'success' });
     } catch (e) {

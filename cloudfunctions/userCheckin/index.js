@@ -6,6 +6,8 @@ const { getPointsSettings } = require('./pointsSettings');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
+/** 事务内 doc.get 找不到记录时不抛错（官方推荐）；ensureUser 等仍用默认 db */
+const dbTx = cloud.database({ throwOnNotFound: false });
 const _ = db.command;
 
 /** 每天最多补签次数、每月最多补签次数（固定规则） */
@@ -409,7 +411,6 @@ exports.main = async (event = {}) => {
       }
 
       const docId = `${OPENID}_${requestDate}`;
-      const checkRef = db.collection('user_checkins').doc(docId);
       const { ref: userRef, user: ensuredUser } = await ensureUser(OPENID);
       const add = settings.checkinPoints;
 
@@ -449,16 +450,20 @@ exports.main = async (event = {}) => {
         createdAt: db.serverDate(),
       };
 
-      // 事务：签到文档创建 + 积分 inc（及补签计数）同提交，防并发双发 / 写签到后积分失败
+      // 事务：签到文档 create + 积分 inc（及补签计数）同提交，防并发双发 / 写签到后积分失败
+      // 微信云库事务用 transaction.collection().doc()，不是 Firestore 的 transaction.get(ref)
       let txResult;
       try {
-        txResult = await db.runTransaction(async (transaction) => {
-          const checkSnap = await transaction.get(checkRef);
-          if (checkSnap && checkSnap.data) {
+        txResult = await dbTx.runTransaction(async (transaction) => {
+          const checkSnap = await transaction
+            .collection('user_checkins')
+            .doc(docId)
+            .get();
+          if (checkSnap && checkSnap.data && checkSnap.data.openid) {
             return { already: true };
           }
 
-          const userSnap = await transaction.get(userRef);
+          const userSnap = await transaction.collection('users').doc(OPENID).get();
           const user = (userSnap && userSnap.data) || null;
           if (!user) {
             const err = new Error('请先登录后再签到');
@@ -501,8 +506,12 @@ exports.main = async (event = {}) => {
             userPatch.makeupMonthCount = monthCount + 1;
           }
 
-          transaction.set(checkRef, { data: payload });
-          transaction.update(userRef, { data: userPatch });
+          await transaction.collection('user_checkins').doc(docId).set({
+            data: payload,
+          });
+          await transaction.collection('users').doc(OPENID).update({
+            data: userPatch,
+          });
           return {
             already: false,
             pointsAfter: Math.max(0, Number(user.points) || 0) + add,

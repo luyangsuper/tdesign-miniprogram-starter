@@ -1,4 +1,5 @@
 import { callFunction } from '~/utils/cloud';
+import { getSubscribeMpState } from '~/utils/subscribe';
 import { formatDate } from '~/utils/time';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 
@@ -182,6 +183,7 @@ Page({
         poolPoints,
         winnerCount,
         drawAt,
+        miniprogramState: getSubscribeMpState(),
       });
       wx.hideLoading();
       wx.showModal({

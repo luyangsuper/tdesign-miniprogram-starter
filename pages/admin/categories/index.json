@@ -8,6 +8,7 @@
     "t-input": "tdesign-miniprogram/input/input",
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
     "t-loading": "tdesign-miniprogram/loading/loading",
-    "t-empty": "tdesign-miniprogram/empty/empty"
+    "t-empty": "tdesign-miniprogram/empty/empty",
+    "lottery-host": "/components/lottery-host/index"
   }
 }

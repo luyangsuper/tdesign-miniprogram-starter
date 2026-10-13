@@ -1,17 +1,47 @@
 import config from './config';
 import createBus from './utils/eventBus';
 import { callFunction } from './utils/cloud';
-import { applyLoginResult } from './utils/auth';
+import { applyLoginResult, getOpenId } from './utils/auth';
 import { applyPendingPointGifts } from './utils/giftHint';
 import {
   applyPendingLotteryInvites,
   applyPendingLotteryResults,
 } from './utils/lotteryHint';
+import { setCachedEntitlement } from './utils/entitlement';
 import { initTheme } from './utils/theme';
 
+/** 公众号动态入口 oaId：字母数字 _ -，1～64 */
+function normalizeOaId(raw) {
+  const id = String(raw || '').trim();
+  if (!id || id.length > 64) return '';
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) return '';
+  return id;
+}
+
+function pickOaIdFromOptions(opts) {
+  if (!opts) return '';
+  // 页面 onLoad 可能直接是 { oaId }；App 生命周期多为 { query: { oaId } }
+  const q =
+    opts.query && typeof opts.query === 'object' ? opts.query : opts;
+  const fromQuery = normalizeOaId(q && q.oaId);
+  if (fromQuery) return fromQuery;
+  // 部分入口把参数写在 path 上
+  const path = String(opts.path || opts.pathname || '');
+  const m = path.match(/[?&]oaId=([^&#]+)/i);
+  if (m) {
+    try {
+      return normalizeOaId(decodeURIComponent(m[1]));
+    } catch (e) {
+      return normalizeOaId(m[1]);
+    }
+  }
+  return '';
+}
+
 App({
-  onLaunch() {
+  onLaunch(options) {
     initTheme();
+    this.captureOaEntry(options);
     if (!wx.cloud) {
       console.error('请使用 2.2.3 或以上基础库以使用云能力');
     } else if (!config.cloudEnv) {
@@ -36,6 +66,69 @@ App({
         },
       });
     });
+  },
+
+  /** 从启动/切前台参数里抓取公众号动态 oaId */
+  captureOaEntry(extraOptions) {
+    try {
+      let oaId = '';
+      if (extraOptions) {
+        oaId = pickOaIdFromOptions(extraOptions);
+      }
+      if (!oaId && typeof wx.getEnterOptionsSync === 'function') {
+        oaId = pickOaIdFromOptions(wx.getEnterOptionsSync());
+      }
+      if (!oaId && typeof wx.getLaunchOptionsSync === 'function') {
+        oaId = pickOaIdFromOptions(wx.getLaunchOptionsSync());
+      }
+      if (oaId) {
+        this.globalData.pendingOaId = oaId;
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  },
+
+  async claimPendingOaBonus() {
+    const oaId = normalizeOaId(this.globalData.pendingOaId);
+    if (!oaId || this._claimingOaBonus || !wx.cloud) return;
+    // 本地可能已有上次登录的 openid；云调用本身用上下文 OPENID
+    const openid = this.globalData.openid || getOpenId();
+    if (!openid) return;
+    if (!this.globalData.openid) this.globalData.openid = openid;
+    this._claimingOaBonus = true;
+    try {
+      const res = await callFunction('userEntitlement', {
+        action: 'claimOaBonus',
+        oaId,
+      });
+      // 已领过 / 关闭 / 成功领取后都清掉 pending，避免反复打
+      if (res && (res.claimed || res.skipped)) {
+        this.globalData.pendingOaId = '';
+      }
+      if (res && res.entitlement) {
+        setCachedEntitlement(res.entitlement);
+      }
+      if (res && res.claimed) {
+        applyPendingPointGifts(res.pendingPointGifts);
+        const n = Number(res.points) || 0;
+        if (n > 0) {
+          wx.showToast({ title: `公众号礼 +${n} 积分`, icon: 'none' });
+        }
+      } else if (
+        res &&
+        res.skipped &&
+        Array.isArray(res.pendingPointGifts) &&
+        res.pendingPointGifts.length
+      ) {
+        // 以前领过但弹窗可能错过：仍把待弹队列灌进首页
+        applyPendingPointGifts(res.pendingPointGifts);
+      }
+    } catch (e) {
+      // 失败保留 pendingOaId，下次 onShow 重试
+    } finally {
+      this._claimingOaBonus = false;
+    }
   },
 
   async login() {
@@ -71,6 +164,7 @@ App({
         // login 不下发开奖结果，避免 replace 清空
         applyPendingLotteryResults(res.pendingLotteryResults);
         console.log('[login] openid ok, isAdmin =', res.isAdmin, 'nick =', res.nickName || '');
+        await this.claimPendingOaBonus();
       }
     } catch (e) {
       const msg = (e && (e.errMsg || e.message)) || String(e);
@@ -87,7 +181,9 @@ App({
     }
   },
 
-  onShow() {
+  onShow(options) {
+    this.captureOaEntry(options);
+    this.claimPendingOaBonus();
     this.startLotteryPoll();
     this.pullLotteryPending();
   },
@@ -143,6 +239,8 @@ App({
     pendingActivityGifts: [],
     /** 本会话已确认的活动礼 id，防 ack 竞态重复弹窗 */
     ackedActivityGiftIds: [],
+    /** 公众号动态入口待领取 oaId */
+    pendingOaId: '',
     pendingLotteryInvites: [],
     pendingLotteryResults: [],
     ackedLotteryInviteIds: [],

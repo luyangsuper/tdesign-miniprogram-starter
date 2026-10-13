@@ -46,9 +46,6 @@
       }
     ]
   },
-  "usingComponents": {
-    "lottery-host": "/components/lottery-host/index"
-  },
   "resolveAlias": {
     "~/*": "/*"
   },
