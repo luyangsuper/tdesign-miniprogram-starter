@@ -1,5 +1,52 @@
+<wxs src="./refresher.wxs" module="rf" />
 <view class="home {{selectMode ? 'home--select' : ''}}" style="{{themeStyle}}">
-  <t-navbar title="趣集" placeholder="{{true}}" z-index="{{500}}" t-class="home__navbar" />
+  <t-navbar
+    title="{{searchExpanded ? '' : '趣集'}}"
+    placeholder="{{true}}"
+    z-index="{{500}}"
+    t-class="home__navbar"
+  />
+  <!-- 搜索抬到导航行：展开用 left+right 限位，右缘停在「多选」左侧 -->
+  <view
+    class="home__search {{searchExpanded ? 'home__search--open' : ''}}"
+    style="{{searchBoxStyle}}"
+  >
+    <view
+      class="home__search-fab"
+      style="width: {{searchBarHeight}}px; height: {{searchBarHeight}}px;"
+      hover-class="home__search-fab--press"
+      bindtap="openSearch"
+      aria-role="button"
+      aria-label="搜索"
+    >
+      <t-icon name="search" size="{{searchIconSize}}" />
+      <view wx:if="{{keyword && !searchExpanded}}" class="home__search-dot" aria-hidden="true" />
+    </view>
+    <view class="home__search-panel" style="height: {{searchBarHeight}}px;">
+      <view
+        class="home__search-collapse"
+        style="height: {{searchBarHeight}}px;"
+        hover-class="home__search-collapse--press"
+        catchtap="closeSearch"
+        aria-role="button"
+        aria-label="收起搜索"
+      >
+        <t-icon name="chevron-left" size="{{searchIconSize}}" />
+      </view>
+      <t-search
+        t-class="home__search-input"
+        value="{{keyword}}"
+        shape="round"
+        placeholder="搜索合集"
+        clearable
+        focus="{{searchFocus}}"
+        bind:change="onSearchChange"
+        bind:submit="onSearchSubmit"
+        bind:clear="onSearchClear"
+        bind:blur="onSearchBlur"
+      />
+    </view>
+  </view>
   <!-- 本版 t-navbar 无 right 插槽，贴胶囊左侧放多选/取消 -->
   <view
     class="home__nav-action"
@@ -9,7 +56,6 @@
     bindtap="onToggleSelectMode"
   >{{selectMode ? '取消' : '多选'}}</view>
 
-  <!-- 搜索放进分类同一滚动行，避免与 scroll-view 兄弟节点垂直错位 -->
   <view class="home__fixed" style="top: {{navHeight}}px;">
     <scroll-view
       class="home__toolbar"
@@ -21,41 +67,6 @@
       scroll-left="{{catScrollLeft}}"
     >
       <view class="home__toolbar-inner">
-        <view class="home__search {{searchExpanded ? 'home__search--open' : ''}}">
-          <view
-            class="home__search-fab"
-            hover-class="home__search-fab--press"
-            bindtap="openSearch"
-            aria-role="button"
-            aria-label="搜索"
-          >
-            <t-icon name="search" size="32rpx" />
-            <view wx:if="{{keyword && !searchExpanded}}" class="home__search-dot" aria-hidden="true" />
-          </view>
-          <view class="home__search-panel">
-            <view
-              class="home__search-collapse"
-              hover-class="home__search-collapse--press"
-              catchtap="closeSearch"
-              aria-role="button"
-              aria-label="收起搜索"
-            >
-              <t-icon name="chevron-left" size="32rpx" />
-            </view>
-            <t-search
-              t-class="home__search-input"
-              value="{{keyword}}"
-              shape="round"
-              placeholder="搜索合集"
-              clearable
-              focus="{{searchFocus}}"
-              bind:change="onSearchChange"
-              bind:submit="onSearchSubmit"
-              bind:clear="onSearchClear"
-              bind:blur="onSearchBlur"
-            />
-          </view>
-        </view>
         <view
           wx:for="{{filters}}"
           wx:key="id"
@@ -69,6 +80,7 @@
             variant="light"
             content=""
             checked="{{item.id === categoryId}}"
+            custom-style="{{item.checkStyle}}"
             data-id="{{item.id}}"
             bind:change="onCategoryTap"
           >
@@ -129,27 +141,41 @@
             enhanced
             show-scrollbar="{{false}}"
             bounces="{{false}}"
+            scroll-top="{{scrollerTop}}"
+            scroll-into-view="{{scrollerIntoView}}"
+            scroll-with-animation
             refresher-enabled="{{!swipeScrollLock}}"
             refresher-threshold="{{80}}"
             refresher-default-style="none"
             refresher-triggered="{{enable}}"
+            refresher-ballistic-refresh-enabled="{{false}}"
             lower-threshold="{{160}}"
-            bindrefresherpulling="onRefresherPulling"
+            bindrefresherpulling="{{rf.onPulling}}"
             bindrefresherrefresh="onRefresh"
-            bindrefresherrestore="onRefresherRestore"
-            bindrefresherabort="onRefresherAbort"
+            bindrefresherrestore="{{rf.onRestore}}"
+            bindrefresherabort="{{rf.onAbort}}"
             bindscrolltolower="onScrollToLower"
             bindscroll="onListScroll"
           >
-            <!-- 与上拉「加载更多」同一套 fun-loading -->
+            <!--
+              下拉过程文案用 WXS 切，勿在 pulling 里 setData，
+              否则真机常见：停手后 refresher 仍继续往下窜。
+            -->
             <view slot="refresher" class="home__refresher">
               <fun-loading
                 size="small"
                 variant="wave"
                 funTips="{{false}}"
-                text="{{refresherText}}"
+                text="{{enable ? '正在刷新' : ''}}"
               />
+              <view wx:if="{{!enable}}" class="js-rf-pull home__refresher-text">下拉刷新</view>
+              <view
+                wx:if="{{!enable}}"
+                class="js-rf-release home__refresher-text"
+                style="display: none;"
+              >松手刷新</view>
             </view>
+            <view id="homeScrollerTop" class="home__scroller-anchor" />
             <block wx:if="{{!loading && list.length}}">
               <view class="home__list" style="gap: {{listGap}}px;">
                 <view
@@ -204,6 +230,17 @@
       </view>
     </view>
   </view>
+
+  <!-- 瀑布流回到顶部：滚动超过阈值后出现，叠在 tabBar 上方 -->
+  <t-back-top
+    wx:if="{{!selectMode}}"
+    t-class="home__back-top"
+    theme="round"
+    text="顶部"
+    scroll-top="{{listScrollTop}}"
+    visibility-height="{{backTopVisible}}"
+    bind:to-top="onBackToTop"
+  />
 
   <!-- 多选下载底栏：叠在自定义 tabBar 上方 -->
   <view class="home__batch" wx:if="{{selectMode}}">

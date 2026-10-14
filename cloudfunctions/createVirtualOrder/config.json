@@ -1,5 +1,12 @@
 {
   "permissions": {
     "openapi": ["auth.code2Session"]
-  }
+  },
+  "triggers": [
+    {
+      "name": "pollVirtualOrders",
+      "type": "timer",
+      "config": "0 */5 * * * * *"
+    }
+  ]
 }

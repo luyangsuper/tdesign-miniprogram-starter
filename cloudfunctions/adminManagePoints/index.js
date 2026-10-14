@@ -83,13 +83,13 @@ async function grantToExistingUsers({ campaignId, title, points }) {
         const userRef = db.collection('users').doc(id);
         try {
           const tx = await db.runTransaction(async (transaction) => {
-            const snap = await transaction.get(userRef);
+            const snap = await transaction.collection('users').doc(id).get();
             const data = (snap && snap.data) || null;
             if (!data) return { skip: true, missing: true };
             const credited =
               data.campaignCredits && data.campaignCredits[campaignId];
             if (credited) return { skip: true };
-            transaction.update(userRef, {
+            await transaction.collection('users').doc(id).update({
               data: {
                 points: _.inc(points),
                 pendingPointGifts: _.push({

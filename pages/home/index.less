@@ -13,7 +13,7 @@
 
   &__nav-action {
     position: fixed;
-    z-index: 510;
+    z-index: 520;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -22,53 +22,29 @@
     color: var(--td-brand-color);
     font-weight: 500;
     box-sizing: border-box;
+    /* 避免被搜索条半透明叠色 */
+    background: var(--td-bg-color-container);
+    border-radius: 8rpx;
 
     &--press {
       opacity: 0.7;
     }
   }
 
-  &__fixed {
-    position: fixed;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    padding: 8rpx 0 10rpx;
-    background: var(--td-bg-color-container);
-    box-sizing: border-box;
-  }
-
-  /* 搜索 + 分类同一行，统一行高 56rpx（标签默认 border/padding 会撑高，需强制） */
-  @toolbar-h: 56rpx;
-
-  &__toolbar {
-    width: 100%;
-    height: @toolbar-h;
-    white-space: nowrap;
-    box-sizing: border-box;
-  }
-
-  &__toolbar-inner {
-    display: inline-flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 12rpx;
-    height: @toolbar-h;
-    padding: 0 16rpx;
-    box-sizing: border-box;
-  }
-
+  /* 导航行搜索：64rpx 完整胶囊圆角；展开靠 left/right，勿写死 width 盖住多选 */
   &__search {
-    position: relative;
-    flex-shrink: 0;
-    width: @toolbar-h;
-    height: @toolbar-h;
+    position: fixed;
+    z-index: 510;
     overflow: hidden;
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-    &--open {
-      width: 300rpx;
-    }
+    border-radius: 999rpx;
+    transition:
+      width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
+    --td-search-clear-icon-size: 28rpx;
+    --td-search-font: var(--td-font-body-small, 24rpx / 40rpx var(--td-font-family));
+    --td-search-padding: 0 20rpx;
+    --td-search-bg-color: var(--td-bg-color-secondarycontainer);
   }
 
   &__search-fab {
@@ -76,8 +52,6 @@
     left: 0;
     top: 0;
     z-index: 2;
-    width: @toolbar-h;
-    height: @toolbar-h;
     border-radius: 999rpx;
     background: var(--td-bg-color-secondarycontainer);
     display: flex;
@@ -118,9 +92,8 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 2rpx;
-    width: 300rpx;
-    height: @toolbar-h;
+    gap: 4rpx;
+    width: 100%;
     opacity: 0;
     transform: translateX(-12rpx);
     pointer-events: none;
@@ -128,12 +101,6 @@
       opacity 0.22s ease 0.04s,
       transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-sizing: border-box;
-    --td-search-height: @toolbar-h;
-    --td-search-icon-size: 24rpx;
-    --td-search-clear-icon-size: 24rpx;
-    --td-search-font: var(--td-font-body-small, 24rpx / 40rpx var(--td-font-family));
-    --td-search-padding: 0 14rpx;
-    --td-search-bg-color: var(--td-bg-color-secondarycontainer);
 
     .home__search--open & {
       opacity: 1;
@@ -144,8 +111,7 @@
 
   &__search-collapse {
     flex-shrink: 0;
-    width: 40rpx;
-    height: @toolbar-h;
+    width: 48rpx;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -160,6 +126,40 @@
   &__search-input {
     flex: 1;
     min-width: 0;
+    height: 100% !important;
+    border-radius: 999rpx !important;
+    overflow: hidden;
+  }
+
+  &__fixed {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 12rpx 0 14rpx;
+    background: var(--td-bg-color-container);
+    box-sizing: border-box;
+  }
+
+  /* 分类行高于标签，避免 scroll-view 裁掉底部圆角 */
+  @toolbar-h: 72rpx;
+  @cat-h: 56rpx;
+
+  &__toolbar {
+    width: 100%;
+    height: @toolbar-h;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+
+  &__toolbar-inner {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12rpx;
+    height: @toolbar-h;
+    padding: 0 24rpx;
+    box-sizing: border-box;
   }
 
   &__cat-wrap {
@@ -171,17 +171,19 @@
 
   &__cat {
     flex-shrink: 0;
-    height: @toolbar-h !important;
-    min-height: @toolbar-h !important;
-    max-height: @toolbar-h !important;
+    height: @cat-h !important;
+    min-height: @cat-h !important;
+    max-height: @cat-h !important;
     padding: 0 20rpx !important;
     border-width: 0 !important;
+    border-radius: 999rpx !important;
     box-sizing: border-box !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     font-size: 24rpx !important;
     line-height: 1 !important;
+    overflow: hidden;
     transition: background-color 0.22s ease, color 0.22s ease, transform 0.16s ease;
 
     &.t-tag {
@@ -213,7 +215,7 @@
     height: 28rpx;
   }
 
-  /* 数量用行高盒子居中（小程序数字比 flex 更稳） */
+  /* 数量角标色跟当前分类 accent（custom-style 注入 --home-cat-accent） */
   &__cat-count {
     display: inline-block;
     height: 28rpx;
@@ -227,7 +229,7 @@
     font-size: 20rpx;
     font-weight: 600;
     line-height: 28rpx;
-    color: var(--td-brand-color);
+    color: var(--home-cat-accent, var(--td-brand-color));
     background: var(--td-bg-color-container);
     box-sizing: border-box;
     text-align: center;
@@ -270,12 +272,21 @@
 
   &__refresher {
     width: 100%;
-    min-height: 80px;
+    /* 固定高度，避免下拉中内容重测把 dy 顶飞 */
+    height: 80px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 4rpx;
     box-sizing: border-box;
-    padding: 12rpx 0 8rpx;
+    overflow: hidden;
+  }
+
+  &__refresher-text {
+    font-size: 22rpx;
+    line-height: 1.2;
+    color: var(--td-text-color-placeholder, rgba(0, 0, 0, 0.4));
   }
 
   /* 露白条：fixed 对齐屏幕可视区，宽=跟手位移，条内水平垂直居中 */
@@ -493,6 +504,20 @@
     color: var(--td-text-color-secondary);
   }
 
+  &__scroller-anchor {
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+
+  &__back-top {
+    z-index: 350 !important;
+    right: 32rpx !important;
+    bottom: calc(@tab-bar-height + env(safe-area-inset-bottom) + 32rpx) !important;
+    border: none !important;
+    box-shadow: 0 8rpx 28rpx rgba(0, 0, 0, 0.14) !important;
+  }
+
   &__batch {
     position: fixed;
     left: 0;
@@ -576,15 +601,9 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .home__cat {
-    /* 选中浅底用品牌半透明，未选中保持 secondarycontainer */
-    --td-tag-primary-color: var(--td-brand-color);
-    --td-tag-primary-light-color: var(--td-brand-color-light);
-  }
-
   .home__cat-count {
     color: var(--td-text-color-anti, #fff);
-    background: var(--td-brand-color);
+    background: var(--home-cat-accent, var(--td-brand-color));
   }
 }
 

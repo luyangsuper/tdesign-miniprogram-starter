@@ -9,4 +9,8 @@ export const BUILTIN_CATEGORIES = [
 export const CATEGORY_FILTER_ALL = 'all';
 export const CATEGORY_FILTER_UNCATEGORIZED = 'uncategorized';
 
-export { categoryTagStyle, metaTagStyle } from '~/utils/theme';
+export {
+  categoryTagStyle,
+  categoryCheckTagStyle,
+  metaTagStyle,
+} from '~/utils/theme';

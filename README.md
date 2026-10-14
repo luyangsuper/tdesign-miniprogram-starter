@@ -57,7 +57,7 @@
 | `users` | 登录用户与权益（`vipExpireAt` / `vipMonthQuota` / `vipQuotaPeriod` / `points`）；订阅额度 `newPackNotifyCredits` / `feedbackNotifyCredits` |
 | `redeem_codes` | 兑换码（`vip_days` / `points`；`unused` / `used` / `disabled`） |
 | `orders` | 虚拟支付订单（`outTradeNo` / `productId` / `status` / `wxOrderId`） |
-| `download_logs` | 下载记录（含 `grantType`: vip / points） |
+| `download_logs` | 下载记录：`openid` / `packId` / `packTitle` / `emojiIndex` / `variant`(static\|anim) / `fileID` / `thumbFileID` / `grantType` |
 | `feedback` | 用户意见反馈（`content` / `contact` / `status`） |
 | `lotteries` | 抽奖活动（`title` / `poolPoints` / `winnerCount` / `drawAt` / `status` / `winners`） |
 | `lottery_entries` | 抽奖参与记录（文档 id：`{lotteryId}_{openid}`） |
@@ -66,7 +66,7 @@
 
 - `packs`：`status` + `createdAt`（降序）；`downloadCount`（降序）
 - `redeem_codes`：`code`（唯一）；`status` + `createdAt`
-- `download_logs`：`createdAt`（降序）
+- `download_logs`：`openid` + `createdAt`（降序）；`createdAt`（降序）
 - `users`：`vipExpireAt`；`lastLoginAt`（降序，openid 片段搜索）
 - `orders`：`outTradeNo`（唯一）；`openid` + `createdAt`；`wxOrderId`
 - `lotteries`：`status` + `drawAt`；`createdAt`（降序）；`status` + `drawnAt`（降序）
@@ -125,24 +125,41 @@
 
 ### 4.1 虚拟支付（沙箱 → 现网）
 
-1. MP 后台道具管理：开发版道具测试通过后 **发布现网**
-2. 云开发控制台创建集合 `orders`（权限仅云函数）
-3. 部署云函数（均选「云端安装依赖」）：`login`（已改）、`createVirtualOrder`、`virtualPayNotify`
-4. 云函数环境变量（至少配在 `createVirtualOrder`；`login` 也建议配 `WX_APP_SECRET`）：
+1. MP 后台道具管理：开发版道具测试通过后 **发布现网**（已上线道具改价只能在 MP「道具管理」编辑发布，API 不能改同 ID 价格）
+2. 云开发控制台创建集合 `orders`、`app_config`（权限仅云函数；`app_config` 也可由云函数自动创建）
+3. 部署云函数（均选「云端安装依赖」）：`login`、`createVirtualOrder`、`virtualPayNotify`、`adminManagePricing`
+4. 云函数环境变量（`createVirtualOrder` + `adminManagePricing`；`login` 也建议配 `WX_APP_SECRET`）：
 
 | 变量 | 说明 |
 |------|------|
 | `WX_APP_SECRET` | **必配**：MP → 开发 → 开发管理 → AppSecret（支付签名要 session_key） |
-| `VIRTUAL_PAY_OFFER_ID` | OfferId，如 `1450673547`（不配则用代码默认） |
-| `VIRTUAL_PAY_ENV` | `0` 现网（默认）/ `1` 沙箱 |
-| `VIRTUAL_PAY_APPKEY` | 现网 AppKey（建议配环境变量；代码内有默认） |
-| `VIRTUAL_PAY_APPKEY_SANDBOX` | 沙箱 AppKey（仅 `VIRTUAL_PAY_ENV=1` 时用） |
+| `VIRTUAL_PAY_OFFER_ID` | OfferId（虚拟支付 → 基本配置） |
+| `VIRTUAL_PAY_ENV` | `0` 现网（默认，个人指引固定现网）/ `1` 沙箱 |
+| `VIRTUAL_PAY_APPKEY` | **必配**：现网 AppKey（勿写进源码） |
+| `VIRTUAL_PAY_APPKEY_SANDBOX` | 沙箱 AppKey（仅 `VIRTUAL_PAY_ENV=1`） |
+| `ADMIN_OPENIDS` | 管理员 openid，逗号分隔（定价管理鉴权） |
 
-5. 云开发 → 设置 → 消息推送：事件 `xpay_goods_deliver_notify` → 云函数 `virtualPayNotify`（沙箱可用支付 success 后查单/确认兜底）
-6. 沙箱测通后：道具「发布现网」→ `VIRTUAL_PAY_ENV=0` + 现网 AppKey → `config.js` 的 `virtualPay.env` 改为 `0`
-7. **真机**调试购买（模拟器通常拉不起虚拟支付）
+5. 云开发 → 设置 → 消息推送：`xpay_goods_deliver_notify` + `xpay_refund_notify` → `virtualPayNotify`
+6. 部署 `createVirtualOrder` 后确认定时触发器 `pollVirtualOrders`（每 5 分钟 `query_order` 补发货）已启用
+7. 沙箱测通后：`VIRTUAL_PAY_ENV=0` + 现网 AppKey → `config.js` 的 `virtualPay.env` 改为 `0`
+8. **真机**调试购买（模拟器通常拉不起虚拟支付）
 
-> AppKey / AppSecret 不要写进前端。若密钥曾出现在聊天记录，上线前建议在 MP 重置。
+> AppKey / AppSecret **只放云函数环境变量**，不要写进源码或前端。曾泄露过的建议在 MP 重置。
+
+发货要点（个人指引）：以 `wx_order_id` 幂等；推送找不到本地单会返回失败让微信重试（不盲建单）；退款推送会尽力回收积分/天数；前端 success 仅作触发查单，现网不凭 success 直接发货。
+
+### 4.2 管理端动态定价（全链路）
+
+「我的 → 定价方案」可改 6 个固定 SKU 的标题 / 售价 / 权益（天数或积分）。
+
+> 微信官方：已上线道具 **不能改价**（同 id 上传会「id已经存在」）；**也没有删除道具的开放 API**（接口列表仅有 upload/publish/query）。本系统改价时为槽位生成**新的 productId** 上传发布，确认后支付切到新 ID。旧 ID 可在 MP「道具管理」由有权限账号下架，或留着不用（不影响支付）。微信同时只允许一个批量任务，多档改价会串行排队。
+
+1. 改售价点「保存」→ 生成新道具 ID（如 `m_200_a1b2c3`）并上传微信
+2. 页面轮询上传/发布；成功后点「确认切换」→ live 使用新 `productId` + 新价
+3. 支付失败（与微信价不一致）：售价填微信现网价 →「对齐现网价」（不换 ID）
+4. 仅改天数/积分数：立即写入 live，不影响扣款价
+
+云库文档：`app_config/pricing`（槽位 key 稳定，`productId` 可轮换）。客户端 `config.membershipPricing` 仅作离线默认。
 
 ### 5. 订阅消息（新合集 + 管理员反馈通知）
 

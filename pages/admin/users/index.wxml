@@ -1,5 +1,5 @@
 <view class="users-page" style="{{themeStyle}}">
-  <view class="users-page__tip">点选用户管理包月会员 / 积分。共 {{total}} 人，可筛选或搜索昵称、openid。</view>
+  <view class="users-page__tip">点选用户管理包月会员 / 积分，并查看其下载过的合集。共 {{total}} 人。</view>
 
   <view class="users-page__search-wrap">
     <t-search
@@ -65,7 +65,7 @@
           <t-tag wx:if="{{item.isAdmin}}" size="small" theme="danger" variant="light">管理员</t-tag>
           <t-tag wx:if="{{item.entitlement.isVip}}" size="small" theme="warning" variant="light">包月</t-tag>
         </view>
-        <view class="users-page__sub">{{item.statusText}} · 积分 {{item.entitlement.points}}{{item.entitlement.isVip ? ' · 本月 ' + item.entitlement.vipMonthQuota : ''}}</view>
+        <view class="users-page__sub">{{item.statusText}} · 积分 {{item.entitlement.points}} 分{{item.entitlement.isVip ? ' · 本月额度 ' + item.entitlement.vipMonthQuota + ' 分' : ''}}</view>
         <view class="users-page__sub">{{item.shortId}}{{item.lastLoginText ? ' · ' + item.lastLoginText : ''}}</view>
       </view>
       <t-icon name="chevron-right" size="36rpx" />
@@ -83,80 +83,155 @@
     <view class="users-panel" wx:if="{{user}}">
       <view class="users-panel__head">
         <view class="users-panel__title">管理权益</view>
-        <t-button size="extra-small" variant="text" content="关闭" bind:tap="closePanel" />
+        <t-button
+          t-class="users-panel__close"
+          size="extra-small"
+          variant="text"
+          content="关闭"
+          bind:tap="closePanel"
+        />
       </view>
 
-      <view class="users-panel__profile">
-        <t-avatar
-          t-class="users-page__avatar"
-          image="{{user.avatarUrl}}"
-          icon="user"
-          size="88rpx"
-          shape="circle"
-        />
-        <view class="users-page__meta">
-          <view class="users-page__name">{{user.nickName || '未设置昵称'}}</view>
-          <view class="users-page__id" bindtap="copyOpenid">{{user.openid}}</view>
-          <view class="users-page__tags">
-            <t-tag wx:if="{{user.entitlement.isVip}}" theme="warning" variant="light" size="small">包月</t-tag>
-            <t-tag wx:if="{{user.isAdmin}}" theme="danger" variant="light" size="small">管理员</t-tag>
-            <t-tag theme="primary" variant="light" size="small">积分 {{user.entitlement.points}}</t-tag>
-            <t-tag wx:if="{{user.entitlement.isVip}}" theme="success" variant="light" size="small">本月 {{user.entitlement.vipMonthQuota}}</t-tag>
+      <scroll-view
+        class="users-panel__scroll"
+        scroll-y
+        enhanced
+        show-scrollbar
+        enable-flex
+      >
+        <view class="users-panel__profile">
+          <t-avatar
+            t-class="users-page__avatar"
+            image="{{user.avatarUrl}}"
+            icon="user"
+            size="88rpx"
+            shape="circle"
+          />
+          <view class="users-page__meta">
+            <view class="users-page__name">{{user.nickName || '未设置昵称'}}</view>
+            <view class="users-page__id" bindtap="copyOpenid">{{user.openid}}</view>
+            <view class="users-page__tags">
+              <t-tag wx:if="{{user.entitlement.isVip}}" theme="warning" variant="light" size="small">包月中</t-tag>
+              <t-tag wx:if="{{user.isAdmin}}" theme="danger" variant="light" size="small">管理员</t-tag>
+              <t-tag theme="primary" variant="light" size="small">积分 {{user.entitlement.points}} 分</t-tag>
+              <t-tag wx:if="{{user.entitlement.isVip}}" theme="success" variant="light" size="small">本月额度 {{user.entitlement.vipMonthQuota}} 分</t-tag>
+            </view>
           </view>
         </view>
-      </view>
 
-      <view class="users-panel__block">
-        <view class="users-panel__label">包月 · {{user.entitlement.isVip ? ('至 ' + user.entitlement.vipExpireText + ' · 本月剩余 ' + user.entitlement.vipMonthQuota) : '未开通'}}</view>
-        <view class="users-page__row">
-          <t-input
-            class="users-page__input"
-            borderless
-            type="number"
-            placeholder="天数"
-            value="{{vipDays}}"
-            bind:change="onVipDaysChange"
+        <view class="users-panel__block">
+          <view class="users-panel__label">包月 · {{user.entitlement.isVip ? ('至 ' + user.entitlement.vipExpireText + ' · 本月剩余 ' + user.entitlement.vipMonthQuota + ' 分') : '未开通'}}</view>
+          <view class="users-page__row">
+            <t-input
+              class="users-page__input"
+              borderless
+              type="number"
+              placeholder="续期天数"
+              suffix="天"
+              value="{{vipDays}}"
+              bind:change="onVipDaysChange"
+            />
+            <t-button theme="warning" size="medium" content="开通/续期" bind:tap="onSetVipDays" />
+          </view>
+          <t-button
+            wx:if="{{user.entitlement.isVip}}"
+            class="users-page__cancel"
+            theme="danger"
+            variant="outline"
+            size="medium"
+            block
+            content="取消包月"
+            bind:tap="askCancelVip"
           />
-          <t-button theme="warning" size="medium" content="开通/续期" bind:tap="onSetVipDays" />
         </view>
-        <t-button
-          wx:if="{{user.entitlement.isVip}}"
-          class="users-page__cancel"
-          theme="danger"
-          variant="outline"
-          size="medium"
-          block
-          content="取消包月"
-          bind:tap="askCancelVip"
-        />
-      </view>
 
-      <view class="users-panel__block">
-        <view class="users-panel__label">积分（静态 1 积分 / 动态 2 积分）</view>
-        <view class="users-page__row">
-          <t-input
-            class="users-page__input"
-            borderless
-            type="number"
-            value="{{pointsValue}}"
-            bind:change="onPointsChange"
-          />
-          <t-button theme="primary" size="medium" content="设为" bind:tap="onSetPoints" />
+        <view class="users-panel__block">
+          <view class="users-panel__label">积分（静态 1 分 / 动态 2 分）</view>
+          <view class="users-page__row">
+            <t-input
+              class="users-page__input"
+              borderless
+              type="number"
+              suffix="分"
+              value="{{pointsValue}}"
+              bind:change="onPointsChange"
+            />
+            <t-button theme="primary" size="medium" content="设为" bind:tap="onSetPoints" />
+          </view>
+          <view class="users-page__adjust">
+            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="+20 分" data-delta="20" bind:tap="onAdjustPoints" />
+            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="+10 分" data-delta="10" bind:tap="onAdjustPoints" />
+            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="-1 分" data-delta="-1" bind:tap="onAdjustPoints" />
+            <t-button t-class="users-page__adj-btn" size="small" variant="outline" theme="danger" content="-10 分" data-delta="-10" bind:tap="onAdjustPoints" />
+            <t-button t-class="users-page__adj-btn" size="small" variant="outline" theme="danger" content="清零" bind:tap="onClearPoints" />
+          </view>
         </view>
-        <view class="users-page__adjust">
-          <t-button size="small" variant="outline" content="+20" data-delta="20" bind:tap="onAdjustPoints" />
-          <t-button size="small" variant="outline" content="+10" data-delta="10" bind:tap="onAdjustPoints" />
-          <t-button size="small" variant="outline" content="-1" data-delta="-1" bind:tap="onAdjustPoints" />
-          <t-button size="small" variant="outline" theme="danger" content="-10" data-delta="-10" bind:tap="onAdjustPoints" />
-          <t-button size="small" variant="outline" theme="danger" content="清零" bind:tap="onClearPoints" />
+
+        <view class="users-panel__block users-panel__block--last">
+          <view class="users-panel__label-row">
+            <text class="users-panel__label">下载过的合集</text>
+            <text class="users-panel__hint" wx:if="{{downloadsLoading}}">加载中…</text>
+            <text class="users-panel__hint" wx:elif="{{downloadPacks.length}}">{{downloadPacks.length}} 个</text>
+          </view>
+          <view class="users-page__dl-state" wx:if="{{downloadsLoading && !downloadPacks.length}}">
+            <t-loading theme="circular" size="40rpx" />
+          </view>
+          <t-empty wx:elif="{{!downloadPacks.length}}" description="暂无下载记录" />
+          <view wx:else class="users-page__dl-list">
+            <view class="users-page__dl-card" wx:for="{{downloadPacks}}" wx:key="packId">
+              <view
+                class="users-page__dl-item"
+                data-id="{{item.packId}}"
+                bind:tap="onOpenPack"
+              >
+                <image
+                  wx:if="{{item.coverUrl}}"
+                  class="users-page__dl-cover"
+                  src="{{item.coverUrl}}"
+                  mode="aspectFill"
+                />
+                <view wx:else class="users-page__dl-cover users-page__dl-cover--empty">
+                  <t-icon name="image" size="36rpx" />
+                </view>
+                <view class="users-page__dl-meta">
+                  <text class="users-page__dl-title">{{item.title}}</text>
+                  <text class="users-page__dl-sub">{{item.emojiCount}} 张 · 保存 {{item.count}} 次{{item.lastText ? ' · ' + item.lastText : ''}}</text>
+                </view>
+                <t-icon name="chevron-right" size="32rpx" />
+              </view>
+              <view wx:if="{{item.emojis.length}}" class="users-page__dl-emojis">
+                <view
+                  class="users-page__dl-emoji"
+                  wx:for="{{item.emojis}}"
+                  wx:for-item="em"
+                  wx:key="label"
+                  data-id="{{item.packId}}"
+                  bind:tap="onOpenPack"
+                >
+                  <image
+                    wx:if="{{em.thumbUrl}}"
+                    class="users-page__dl-emoji-img"
+                    src="{{em.thumbUrl}}"
+                    mode="aspectFill"
+                  />
+                  <view wx:else class="users-page__dl-emoji-img users-page__dl-emoji-img--empty">
+                    <t-icon name="image" size="28rpx" />
+                  </view>
+                  <text class="users-page__dl-emoji-label">{{em.label}}</text>
+                  <text class="users-page__dl-emoji-count">×{{em.count}}</text>
+                </view>
+              </view>
+            </view>
+          </view>
         </view>
-      </view>
+      </scroll-view>
     </view>
   </t-popup>
 
   <t-dialog
     visible="{{confirmVisible}}"
     title="{{confirmTitle}}"
+    content="{{confirmContent}}"
     confirm-btn="确认"
     cancel-btn="取消"
     bind:confirm="onConfirm"

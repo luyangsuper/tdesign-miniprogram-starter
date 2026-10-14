@@ -94,7 +94,10 @@ Component({
           ? reshuffle
             ? pick(TIPS)
             : this.data.displayText
-          : this.properties.text || '加载中',
+          : // 允许传空串隐藏文案（首页下拉刷新用 WXS 切字，避免 setData）
+            typeof this.properties.text === 'string'
+              ? this.properties.text
+              : '加载中',
       };
       if (set) {
         patch.emoji0 = set[0];

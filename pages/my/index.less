@@ -252,10 +252,17 @@
     margin: 2rpx 0 10rpx;
   }
 
-  &__pricing-link {
+  &__pricing-links {
     flex-shrink: 0;
     align-self: flex-start;
     margin-top: 6rpx;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8rpx;
+  }
+
+  &__pricing-link {
     font-size: 20rpx;
     line-height: 1.3;
     color: var(--td-text-color-placeholder);
@@ -270,14 +277,15 @@
   }
 
   &__pricing-chip {
+    position: relative;
     flex: 1;
     min-width: 0;
     padding: 12rpx 10rpx;
-    border-radius: 12rpx;
+    border-radius: 14rpx;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 4rpx;
+    gap: 8rpx;
     box-sizing: border-box;
   }
 
@@ -285,24 +293,42 @@
     background: rgba(242, 153, 74, 0.16);
     .my__pricing-chip-title { color: #c56a1a; }
     .my__pricing-chip-price { color: #e67e22; }
+    .my__pricing-chip-deal { background: rgba(230, 126, 34, 0.9); color: #fff; }
   }
 
   &__pricing-chip--quarter {
     background: rgba(47, 128, 237, 0.14);
     .my__pricing-chip-title { color: #1f6fd6; }
     .my__pricing-chip-price { color: #2f80ed; }
+    .my__pricing-chip-deal { background: rgba(47, 128, 237, 0.9); color: #fff; }
   }
 
   &__pricing-chip--year {
     background: rgba(155, 81, 224, 0.14);
     .my__pricing-chip-title { color: #7b3fb8; }
     .my__pricing-chip-price { color: #9b51e0; }
+    .my__pricing-chip-deal { background: rgba(155, 81, 224, 0.9); color: #fff; }
   }
 
   &__pricing-chip--points {
     background: rgba(39, 174, 96, 0.14);
     .my__pricing-chip-title { color: #1e8a4c; }
     .my__pricing-chip-price { color: #27ae60; }
+    .my__pricing-chip-deal { background: rgba(39, 174, 96, 0.9); color: #fff; }
+  }
+
+  &__pricing-chip-icon {
+    width: 36rpx;
+    height: 36rpx;
+    flex-shrink: 0;
+  }
+
+  &__pricing-chip-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2rpx;
   }
 
   &__pricing-chip-title {
@@ -310,10 +336,36 @@
     line-height: 1.2;
   }
 
+  &__pricing-chip-prices {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: nowrap;
+    gap: 6rpx;
+  }
+
+  &__pricing-chip-origin {
+    font-size: 16rpx;
+    line-height: 1.1;
+    color: var(--td-text-color-placeholder);
+    text-decoration: line-through;
+  }
+
   &__pricing-chip-price {
     font-size: 26rpx;
-    font-weight: 700;
-    line-height: 1.2;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+
+  &__pricing-chip-deal {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0 8rpx;
+    border-radius: 0 14rpx 0 10rpx;
+    font-size: 16rpx;
+    line-height: 1.55;
+    font-weight: 600;
   }
 
   &__pricing-cost {
@@ -627,15 +679,41 @@
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-  gap: 10rpx;
+  gap: 8rpx;
   padding-top: 0;
 }
 
+.my__pricing-card-price-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  gap: 8rpx;
+}
+
+.my__pricing-card-origin {
+  font-size: 20rpx;
+  color: var(--td-text-color-placeholder);
+  text-decoration: line-through;
+  line-height: 1.2;
+}
+
 .my__pricing-card-price {
-  font-size: 34rpx;
+  font-size: 32rpx;
   font-weight: 800;
   color: var(--plan-accent);
   line-height: 1.2;
+}
+
+.my__pricing-card-deal {
+  padding: 0 8rpx;
+  border-radius: 999rpx;
+  font-size: 18rpx;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--plan-accent);
+  background: var(--plan-icon-bg);
+  flex-shrink: 0;
 }
 
 .my__pricing-card-actions {

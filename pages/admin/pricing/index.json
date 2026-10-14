@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "定价方案",
+  "usingComponents": {
+    "t-input": "tdesign-miniprogram/input/input",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "lottery-host": "/components/lottery-host/index"
+  }
+}

@@ -10,6 +10,8 @@ const icons = require('@icon-park/svg');
 const ROOT = path.join(__dirname, '..');
 /** 弹窗/卡片装饰图；256 足够清晰且可把整包图片总量压到 200KB 内 */
 const SIZE = 256;
+/** 微信虚拟支付道具图强制 200×200 */
+const PRICING_SIZE = 200;
 const TAB_SIZE = 81;
 
 /** @type {Record<string, [string, string, string, string]>} */
@@ -50,13 +52,13 @@ const ASSETS = [
   { dir: 'static/emoji', file: 'swipe-prev.png', icon: 'LeftC', palette: 'preview', note: '滑向上一分类' },
   { dir: 'static/emoji', file: 'swipe-next.png', icon: 'RightC', palette: 'brand', note: '滑向下一分类' },
   { dir: 'static/emoji', file: 'swipe-end.png', icon: 'SmilingFace', palette: 'warn', note: '分类滑到头' },
-  // pricing 套餐图
-  { dir: 'static/pricing', file: 'month.png', icon: 'CalendarThirty', palette: 'month', note: '包月' },
-  { dir: 'static/pricing', file: 'quarter.png', icon: 'Schedule', palette: 'quarter', note: '季卡' },
+  // pricing 套餐图（优惠感：券/VIP/皇冠/闪电）
+  { dir: 'static/pricing', file: 'month.png', icon: 'Coupon', palette: 'month', note: '包月' },
+  { dir: 'static/pricing', file: 'quarter.png', icon: 'VipOne', palette: 'quarter', note: '季卡' },
   { dir: 'static/pricing', file: 'year.png', icon: 'Crown', palette: 'year', note: '年卡' },
-  { dir: 'static/pricing', file: 'points.png', icon: 'Gift', palette: 'points', note: '积分包1' },
-  { dir: 'static/pricing', file: 'points2.png', icon: 'Diamond', palette: 'points2', note: '积分包2' },
-  { dir: 'static/pricing', file: 'points3.png', icon: 'Star', palette: 'points3', note: '积分包3' },
+  { dir: 'static/pricing', file: 'points.png', icon: 'Ticket', palette: 'points', note: '积分包1' },
+  { dir: 'static/pricing', file: 'points2.png', icon: 'Gift', palette: 'points2', note: '积分包2' },
+  { dir: 'static/pricing', file: 'points3.png', icon: 'Lightning', palette: 'points3', note: '积分包3' },
 ];
 
 /** 底栏：未选中 outline / 选中 filled（实心） */
@@ -69,7 +71,7 @@ const TAB_ASSETS = [
   { file: 'my-active.png', icon: 'Me', theme: 'filled', color: '#FA9D3B', note: '我的·选中' },
 ];
 
-function renderSvg(iconName, fill) {
+function renderSvg(iconName, fill, size = SIZE) {
   const fn = icons[iconName];
   if (typeof fn !== 'function') {
     throw new Error(`IconPark 无图标: ${iconName}`);
@@ -77,7 +79,7 @@ function renderSvg(iconName, fill) {
   // two-tone：比 multi-color 更干净，贴合小程序卡片插图
   return fn({
     theme: 'two-tone',
-    size: SIZE,
+    size,
     fill: [fill[1], fill[3]],
     strokeWidth: 3,
     strokeLinecap: 'round',
@@ -100,9 +102,13 @@ function renderTabSvg(iconName, theme, color) {
   });
 }
 
-async function writePng(outPath, svg) {
+async function writePng(outPath, svg, size) {
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(outPath);
+  let pipeline = sharp(Buffer.from(svg));
+  if (size) {
+    pipeline = pipeline.resize(size, size, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } });
+  }
+  await pipeline.png({ compressionLevel: 9 }).toFile(outPath);
   return fs.statSync(outPath);
 }
 
@@ -110,10 +116,12 @@ async function main() {
   const rows = [];
   for (const item of ASSETS) {
     const fill = PALETTE[item.palette];
-    const svg = renderSvg(item.icon, fill);
+    const isPricing = item.dir.includes('pricing');
+    const iconSize = isPricing ? PRICING_SIZE : SIZE;
+    const svg = renderSvg(item.icon, fill, iconSize);
     const outPath = path.join(ROOT, item.dir, item.file);
-    const stat = await writePng(outPath, svg);
-    console.log('OK', item.file, '←', item.icon, `${stat.size}B`);
+    const stat = await writePng(outPath, svg, isPricing ? PRICING_SIZE : null);
+    console.log('OK', item.file, '←', item.icon, isPricing ? '200x200' : '', `${stat.size}B`);
     rows.push(`| ${item.file} | ${item.icon} | ${item.note} |`);
   }
 
@@ -143,6 +151,7 @@ ${rows.filter((_, i) => ASSETS[i].dir.includes('emoji')).join('\n')}
 Graphics from [IconPark](https://iconpark.oceanengine.com/) two-tone PNG.
 
 - License: **Apache-2.0**
+- Size: **200×200**（微信虚拟支付道具图强制尺寸）
 - Regenerate: \`npm run icons:gen\`
 
 | File | IconPark | Use |

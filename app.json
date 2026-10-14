@@ -20,6 +20,7 @@
         "codes/index",
         "users/index",
         "points/index",
+        "pricing/index",
         "lottery/index"
       ]
     }

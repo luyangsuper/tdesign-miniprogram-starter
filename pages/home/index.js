@@ -4,7 +4,10 @@ import {
   runBatchDownload,
 } from '~/utils/batchDownload';
 import { getOpenId, resolveIsAdmin } from '~/utils/auth';
-import { CATEGORY_FILTER_ALL } from '~/utils/categories';
+import {
+  CATEGORY_FILTER_ALL,
+  categoryCheckTagStyle,
+} from '~/utils/categories';
 import {
   canAttemptDownload,
   estimateBatchAffordable,
@@ -79,6 +82,10 @@ function appendColumns(columns, newItems, columnCount) {
 }
 
 const LIST_CACHE_TTL = 90 * 1000;
+/** 瀑布流滚过该高度（px）后显示回到顶部 */
+const BACK_TOP_VISIBLE = 400;
+/** 节流同步 scrollTop 给 t-back-top，避免每帧 setData */
+const BACK_TOP_SYNC_MS = 80;
 
 function listCacheKey(categoryId, keyword) {
   return `${categoryId || 'all'}::${String(keyword || '').trim()}`;
@@ -87,8 +94,6 @@ function listCacheKey(categoryId, keyword) {
 Page({
   data: {
     enable: false,
-    /** 下拉刷新文案，与上拉 fun-loading 同款 */
-    refresherText: '下拉刷新',
     loading: true,
     list: [],
     columns: [[], []],
@@ -117,7 +122,14 @@ Page({
       height: 32,
       gap: 96,
     },
-    /** 仅固定搜索栏高度；导航栏靠 t-navbar placeholder 占位，勿再叠加 */
+    /** 导航行搜索几何；展开样式用 searchBoxStyle 拼接，避免 wxml 拼串 */
+    navSearchLeft: 12,
+    navSearchRight: 160,
+    searchBarHeight: 32,
+    searchTop: 48,
+    searchIconSize: '32rpx',
+    searchBoxStyle: '',
+    /** 仅固定分类栏高度；导航栏靠 t-navbar placeholder 占位，勿再叠加 */
     fixedOffset: 80,
     subscribeGuideVisible: false,
     themeStyle: '',
@@ -151,6 +163,13 @@ Page({
     swipeScrollLock: false,
     /** scroll-view 明确高度（px） */
     scrollerHeight: 500,
+    /** 仅用于程序化滚回顶部（0 / 0.01 交替，勿跟手写回） */
+    scrollerTop: 0,
+    /** scroll-into-view 锚点 id，回到顶部兜底 */
+    scrollerIntoView: '',
+    /** 同步给 t-back-top 判断显隐 */
+    listScrollTop: 0,
+    backTopVisible: BACK_TOP_VISIBLE,
     /** 分类条横向滚动位置（手动算，留给左侧边距） */
     catScrollLeft: 0,
     /** 滑动露白提示 */
@@ -183,7 +202,11 @@ Page({
   _swipeSwitching: false,
   _lastSwipeSetAt: 0,
   _listScrollTop: 0,
+  _backTopSyncTimer: null,
+  _intoViewClearTimer: null,
   _hintMeta: null,
+  /** 下拉刷新进行中，防止 refresher-triggered 回写重复进 onRefresh */
+  _freshing: false,
 
   onShow() {
     applyThemeToPage(this);
@@ -390,7 +413,10 @@ Page({
     this._listCache = Object.create(null);
     this._listSeq = 0;
     this.setData({ themeStyle: getThemeStyle() });
-    this._onThemeChange = () => applyThemeToPage(this);
+    this._onThemeChange = () => {
+      applyThemeToPage(this);
+      this.refreshFilterStyles();
+    };
     this._onWelcomeGift = () => this.maybeShowWelcomeGift();
     this._onActivityGift = () => this.maybeShowActivityGift();
     try {
@@ -430,6 +456,14 @@ Page({
 
   onUnload() {
     this.stopActivityGiftPoll();
+    if (this._backTopSyncTimer) {
+      clearTimeout(this._backTopSyncTimer);
+      this._backTopSyncTimer = null;
+    }
+    if (this._intoViewClearTimer) {
+      clearTimeout(this._intoViewClearTimer);
+      this._intoViewClearTimer = null;
+    }
     try {
       const app = getApp();
       if (app && app.eventBus) {
@@ -531,7 +565,7 @@ Page({
     this.updateScrollerHeight();
   },
 
-  /** 自定义导航栏高度（状态栏 + 标题栏）+ 胶囊旁多选按钮位置 */
+  /** 自定义导航栏高度（状态栏 + 标题栏）+ 胶囊旁多选 / 左侧搜索几何 */
   updateNavHeight() {
     try {
       const win = getWindowInfoSafe();
@@ -539,6 +573,18 @@ Page({
       const gap = menu.top - win.statusBarHeight;
       const navHeight = win.statusBarHeight + gap * 2 + menu.height;
       const menuGap = Math.max(8, Math.round(win.windowWidth - menu.left + 8));
+      const rpx = (win.windowWidth || 375) / 750;
+      const navSearchLeft = Math.round(24 * rpx);
+      // 多选 right=menuGap；再为「多选/取消」文案 + 间距留空，展开用 right 限位更稳
+      const selectBtnW = Math.round(88 * rpx);
+      const searchSelectGap = Math.round(12 * rpx);
+      const navSearchRight = menuGap + selectBtnW + searchSelectGap;
+      // 搜索条用 64rpx 完整胶囊圆角；勿锁成胶囊高度，否则 overflow 会裁成扁椭圆
+      const searchBarHeight = Math.max(menu.height, Math.round(64 * rpx));
+      const searchTop = Math.round(menu.top + (menu.height - searchBarHeight) / 2);
+      // 收起/展开共用图标尺寸
+      const iconPx = Math.max(16, Math.round(searchBarHeight * 0.44));
+      const searchIconSize = `${iconPx}px`;
       this.setData({
         navHeight,
         menuButton: {
@@ -546,13 +592,80 @@ Page({
           height: menu.height,
           gap: menuGap,
         },
+        navSearchLeft,
+        navSearchRight,
+        searchBarHeight,
+        searchTop,
+        searchIconSize,
+        searchBoxStyle: this.buildSearchBoxStyle({
+          searchExpanded: this.data.searchExpanded,
+          searchTop,
+          searchBarHeight,
+          navSearchLeft,
+          navSearchRight,
+          searchIconSize,
+        }),
       });
     } catch (e) {
-      this.setData({
+      const fallback = {
         navHeight: 64,
         menuButton: { top: 48, height: 32, gap: 96 },
+        navSearchLeft: 12,
+        navSearchRight: 160,
+        searchBarHeight: 32,
+        searchTop: 48,
+        searchIconSize: '16px',
+      };
+      this.setData({
+        ...fallback,
+        searchBoxStyle: this.buildSearchBoxStyle({
+          searchExpanded: this.data.searchExpanded,
+          ...fallback,
+        }),
       });
     }
+  },
+
+  /** 展开：left+right 限位；收起：固定正方形宽 */
+  buildSearchBoxStyle(opts = {}) {
+    const searchExpanded =
+      opts.searchExpanded != null ? opts.searchExpanded : this.data.searchExpanded;
+    const searchTop = opts.searchTop != null ? opts.searchTop : this.data.searchTop;
+    const searchBarHeight =
+      opts.searchBarHeight != null ? opts.searchBarHeight : this.data.searchBarHeight;
+    const navSearchLeft =
+      opts.navSearchLeft != null ? opts.navSearchLeft : this.data.navSearchLeft;
+    const navSearchRight =
+      opts.navSearchRight != null ? opts.navSearchRight : this.data.navSearchRight;
+    const searchIconSize = opts.searchIconSize || this.data.searchIconSize;
+    const parts = [
+      `top:${searchTop}px`,
+      `height:${searchBarHeight}px`,
+      `left:${navSearchLeft}px`,
+      `--td-search-height:${searchBarHeight}px`,
+      `--td-search-icon-size:${searchIconSize}`,
+    ];
+    if (searchExpanded) {
+      parts.push(`right:${navSearchRight}px`);
+      parts.push('width:auto');
+    } else {
+      parts.push(`width:${searchBarHeight}px`);
+    }
+    return parts.join(';');
+  },
+
+  /** 给筛选标签写入与卡片一致的分类色 token */
+  decorateFilters(list) {
+    return (list || []).map((f) => ({
+      ...f,
+      checkStyle: categoryCheckTagStyle(f.id, f.name),
+    }));
+  },
+
+  refreshFilterStyles() {
+    const filters = this.data.filters || [];
+    if (!filters.length) return;
+    this.setData({ filters: this.decorateFilters(filters) });
   },
 
   measureFixedBar() {
@@ -628,14 +741,14 @@ Page({
       total,
       loading = false,
       loadingMore = false,
-      enable = false,
       appendItems,
     } = payload;
     const columns =
       appendItems && appendItems.length
         ? appendColumns(this.data.columns, appendItems, this.data.columnCount)
         : buildColumns(list, this.data.columnCount);
-    this.setData({
+    // 不在每次列表更新里写 enable，避免误触 refresher-triggered 抖动
+    const patch = {
       list,
       columns,
       page,
@@ -643,8 +756,11 @@ Page({
       listTotal: Math.max(0, Number(total) || 0),
       loading,
       loadingMore,
-      enable,
-    });
+    };
+    if (Object.prototype.hasOwnProperty.call(payload, 'enable')) {
+      patch.enable = payload.enable;
+    }
+    this.setData(patch);
   },
 
   clearListCache() {
@@ -657,7 +773,7 @@ Page({
       const raw = (res.data && res.data.filters) || [
         { id: 'all', name: '全部', count: 0 },
       ];
-      // 标签只保留名称；数量用 listTotal 单独展示
+      // 标签只保留名称；数量用 listTotal 单独展示；选中色跟卡片分类标签一致
       const filters = raw
         .filter((f) => f.id === 'all' || (f.count || 0) > 0)
         .map((f) => ({
@@ -665,7 +781,9 @@ Page({
           name: f.name || f.label || '',
           count: f.count || 0,
         }));
-      const next = filters.length ? filters : [{ id: 'all', name: '全部', count: 0 }];
+      const next = this.decorateFilters(
+        filters.length ? filters : [{ id: 'all', name: '全部', count: 0 }],
+      );
       const patch = { filters: next };
       if (!next.some((f) => f.id === this.data.categoryId)) {
         patch.categoryId = 'all';
@@ -688,17 +806,22 @@ Page({
 
   openSearch() {
     if (this.data.searchExpanded) return;
-    this.setData({ searchExpanded: true });
+    this.setData({
+      searchExpanded: true,
+      searchBoxStyle: this.buildSearchBoxStyle({ searchExpanded: true }),
+    });
     // 等宽度过渡后再聚焦，避免键盘把布局顶乱
     setTimeout(() => {
       this.setData({ searchFocus: true });
-      this.measureFixedBar();
     }, 280);
   },
 
   closeSearch() {
-    this.setData({ searchFocus: false, searchExpanded: false });
-    setTimeout(() => this.measureFixedBar(), 280);
+    this.setData({
+      searchFocus: false,
+      searchExpanded: false,
+      searchBoxStyle: this.buildSearchBoxStyle({ searchExpanded: false }),
+    });
   },
 
   onSearchChange(e) {
@@ -758,6 +881,7 @@ Page({
         Object.assign(patch, this.buildSwipeHintPatch(0));
       }
       this.setData(patch, () => {
+        this.resetListScroll();
         this.scrollCategoryIntoView(id);
         setTimeout(() => this.measureFixedBar(), 30);
         if (pageAnim) {
@@ -786,14 +910,14 @@ Page({
   },
 
   /**
-   * 把当前分类滚进可视区，左侧留 margin，避免贴边裁切。
+   * 仅当分类被挡住时才滚；滚完后左右各留边距，避免选中项贴死左缘。
    */
   scrollCategoryIntoView(id) {
     const targetId = id || this.data.categoryId;
     if (!targetId) return;
-    // rpx→px：约 24rpx 左边距
     const { windowWidth } = getWindowInfoSafe();
-    const marginPx = Math.max(10, Math.round(((windowWidth || 375) / 750) * 24));
+    // 约 48rpx，比原先 24rpx 更松
+    const marginPx = Math.max(16, Math.round(((windowWidth || 375) / 750) * 48));
 
     const run = () => {
       const q = wx.createSelectorQuery();
@@ -805,8 +929,17 @@ Page({
         const off = res && res[1];
         const cat = res && res[2];
         if (!bar || !off || !cat || !cat.width) return;
-        const delta = cat.left - bar.left - marginPx;
-        let next = Math.max(0, off.scrollLeft + delta);
+        const leftBound = bar.left + marginPx;
+        const rightBound = bar.right - marginPx;
+        let next = off.scrollLeft;
+        if (cat.left < leftBound) {
+          next = off.scrollLeft + (cat.left - leftBound);
+        } else if (cat.right > rightBound) {
+          next = off.scrollLeft + (cat.right - rightBound);
+        } else {
+          return;
+        }
+        next = Math.max(0, next);
         // 同值时微调，强制 scroll-view 响应
         if (Math.abs(next - (this.data.catScrollLeft || 0)) < 0.5) {
           next = next < 1 ? next + 0.5 : next - 0.5;
@@ -1039,6 +1172,12 @@ Page({
     if (!this._touchLocked) {
       // 走出死区后再锁轴：横滑切分类，竖滑交给列表
       if (absX < 12 && absY < 12) return;
+      const atTop = (this._listScrollTop || 0) <= 2;
+      // 顶部下拉优先交给 refresher，避免斜滑误锁横轴关掉 refresher-enabled
+      if (atTop && dy > 0 && absY >= absX * 0.85) {
+        this._touchLocked = 'v';
+        return;
+      }
       this._touchLocked = absX > absY * 1.15 ? 'h' : 'v';
       if (this._touchLocked === 'h') {
         // 立刻关掉 scroll-y，避免横滑时瀑布流还在滚
@@ -1095,7 +1234,51 @@ Page({
 
   onListScroll(e) {
     const top = e && e.detail && e.detail.scrollTop;
-    if (typeof top === 'number') this._listScrollTop = top;
+    if (typeof top !== 'number') return;
+    this._listScrollTop = top;
+    if (this._backTopSyncTimer) return;
+    this._backTopSyncTimer = setTimeout(() => {
+      this._backTopSyncTimer = null;
+      const next = this._listScrollTop || 0;
+      if (next === this.data.listScrollTop) return;
+      this.setData({ listScrollTop: next });
+    }, BACK_TOP_SYNC_MS);
+  },
+
+  onBackToTop() {
+    this.scrollListToTop();
+  },
+
+  /** 列表滚回顶部；scroll-top 同值不生效，故 0/0.01 交替 + into-view 兜底 */
+  scrollListToTop() {
+    if (this._backTopSyncTimer) {
+      clearTimeout(this._backTopSyncTimer);
+      this._backTopSyncTimer = null;
+    }
+    if (this._intoViewClearTimer) {
+      clearTimeout(this._intoViewClearTimer);
+      this._intoViewClearTimer = null;
+    }
+    this._listScrollTop = 0;
+    const scrollerTop = this.data.scrollerTop === 0 ? 0.01 : 0;
+    this.setData({
+      scrollerTop,
+      listScrollTop: 0,
+      scrollerIntoView: '',
+    }, () => {
+      this.setData({ scrollerIntoView: 'homeScrollerTop' });
+      this._intoViewClearTimer = setTimeout(() => {
+        this._intoViewClearTimer = null;
+        if (this.data.scrollerIntoView === 'homeScrollerTop') {
+          this.setData({ scrollerIntoView: '' });
+        }
+      }, 400);
+    });
+  },
+
+  /** 列表重置时滚回顶部（分类切换等） */
+  resetListScroll() {
+    this.scrollListToTop();
   },
 
   clearPackSelection() {
@@ -1504,37 +1687,34 @@ Page({
     }
   },
 
-  onRefresherPulling(e) {
-    if (this.data.enable) return;
-    const dy = (e.detail && e.detail.dy) || 0;
-    const refresherText = dy >= 80 ? '松手刷新' : '下拉刷新';
-    if (refresherText !== this.data.refresherText) {
-      this.setData({ refresherText });
-    }
-  },
-
   onRefresherRestore() {
-    if (!this.data.enable) {
-      this.setData({ refresherText: '下拉刷新' });
-    }
+    this._freshing = false;
   },
 
   onRefresherAbort() {
-    this.setData({ enable: false, refresherText: '下拉刷新' });
+    this._freshing = false;
+    if (this.data.enable) {
+      this.setData({ enable: false });
+    }
   },
 
   onRefresh() {
+    if (this._freshing) return;
     if (this.data.swipeScrollLock) {
-      this.setData({ enable: false, refresherText: '下拉刷新' });
+      this._freshing = false;
+      if (this.data.enable) this.setData({ enable: false });
       return;
     }
-    this.setData({ enable: true, refresherText: '正在刷新' });
+    this._freshing = true;
+    if (!this.data.enable) {
+      this.setData({ enable: true });
+    }
     this.clearPackSelection();
-    this.updateLayout();
     this.clearListCache();
     this.loadCategories();
     Promise.resolve(this.loadList(true, { force: true })).finally(() => {
-      this.setData({ enable: false, refresherText: '下拉刷新' });
+      this._freshing = false;
+      this.setData({ enable: false });
     });
   },
 

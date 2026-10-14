@@ -13,8 +13,12 @@ import {
   getCachedEntitlement,
   setCachedEntitlement,
 } from '~/utils/entitlement';
-import { getPricingPlans } from '~/utils/pricing';
-import { buyPlan } from '~/utils/virtualPay';
+import {
+  getPricingPlans,
+  loadPricingPlans,
+  pricingFromLoginPayload,
+} from '~/utils/pricing';
+import { buyPlan, recoverMyPendingOrders } from '~/utils/virtualPay';
 import {
   createAndCopyCode,
   extractRedeemCode,
@@ -161,9 +165,68 @@ Page({
     this.refreshIdentity();
     this.syncProfileFromCloud();
     this.syncEntitlement();
+    this.recoverPendingOrders();
     this.refreshNotifyStatus();
     this.refreshFeedbackNotifyStatus();
     this.maybeOpenCheckinPopup();
+  },
+
+  /** 手动点「补发权益」 */
+  onRecoverOrders() {
+    this.recoverPendingOrders({ manual: true });
+  },
+
+  /** 支付成功但发货失败的订单：进「我的」自动 / 手动补发 */
+  async recoverPendingOrders(opts = {}) {
+    const manual = !!(opts && opts.manual);
+    if (this._recoveringOrders) return;
+    this._recoveringOrders = true;
+    if (manual) wx.showLoading({ title: '补发中', mask: true });
+    try {
+      const res = await recoverMyPendingOrders();
+      console.log('[recoverOrders]', res);
+      if (manual) wx.hideLoading();
+      if (res && res.delivered > 0) {
+        if (res.entitlement) this.refreshIdentity();
+        await this.syncEntitlement();
+        wx.showToast({
+          title: res.message || '权益已补发',
+          icon: 'success',
+        });
+        return;
+      }
+      if (res && res.failed > 0) {
+        wx.showModal({
+          title: '补发未成功',
+          content: res.errorMessage || res.message || '发货失败，请查看云函数日志',
+          showCancel: false,
+        });
+        return;
+      }
+      // 自动进页：扫不到不提示；手动点「补发权益」：始终给结果
+      if (manual) {
+        wx.showToast({
+          title:
+            res && res.scanned
+              ? `已检查 ${res.scanned} 笔，无需补发`
+              : '当前没有待补发订单',
+          icon: 'none',
+          duration: 2500,
+        });
+      }
+    } catch (e) {
+      if (manual) wx.hideLoading();
+      console.warn('[recoverOrders]', e && e.message);
+      if (manual) {
+        wx.showModal({
+          title: '补发异常',
+          content: (e && e.message) || '补发失败',
+          showCancel: false,
+        });
+      }
+    } finally {
+      this._recoveringOrders = false;
+    }
   },
 
   onLoad() {
@@ -215,8 +278,15 @@ Page({
     });
   },
 
-  openPricing() {
-    this.setData({ pricingVisible: true, pricing: getPricingPlans() });
+  async openPricing() {
+    const cached = getPricingPlans();
+    this.setData({ pricingVisible: true, pricing: cached });
+    try {
+      const pricing = await loadPricingPlans();
+      if (this.data.pricingVisible && pricing) this.setData({ pricing });
+    } catch (e) {
+      /* keep cache / config */
+    }
   },
 
   closePricing() {
@@ -524,6 +594,8 @@ Page({
       applyPendingPointGifts(res.pendingPointGifts);
       applyPendingLotteryInvites(res.pendingLotteryInvites, { replace: true });
       applyPendingLotteryResults(res.pendingLotteryResults);
+      const fromLogin = pricingFromLoginPayload(res);
+      if (fromLogin) this.setData({ pricing: fromLogin });
       const profile = getUserProfile() || {};
       // 云函数已换链则直接用；否则 / 链不新鲜时客户端再换一次
       if (
@@ -780,6 +852,10 @@ Page({
 
   goPointsSettings() {
     wx.navigateTo({ url: '/pages/admin/points/index' });
+  },
+
+  goPricingSettings() {
+    wx.navigateTo({ url: '/pages/admin/pricing/index' });
   },
 
   goAdminLottery() {

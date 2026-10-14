@@ -11,11 +11,18 @@ const OFFER_ID = String(process.env.VIRTUAL_PAY_OFFER_ID || '1450673547');
 const PAY_ENV = Number(process.env.VIRTUAL_PAY_ENV != null ? process.env.VIRTUAL_PAY_ENV : 0);
 
 function getAppKey() {
-  const sandbox =
-    process.env.VIRTUAL_PAY_APPKEY_SANDBOX || 'SiNAFgrJGD027zQ34tGikX58CEVI9i8B';
-  const prod = process.env.VIRTUAL_PAY_APPKEY || 'IzKEvNsBSs8aicwCILZbmScWMAkL2QGn';
-  if (PAY_ENV === 1) return sandbox;
-  return prod;
+  const key =
+    PAY_ENV === 1
+      ? String(process.env.VIRTUAL_PAY_APPKEY_SANDBOX || '').trim()
+      : String(process.env.VIRTUAL_PAY_APPKEY || '').trim();
+  if (!key) {
+    throw new Error(
+      PAY_ENV === 1
+        ? '未配置环境变量 VIRTUAL_PAY_APPKEY_SANDBOX'
+        : '未配置环境变量 VIRTUAL_PAY_APPKEY',
+    );
+  }
+  return key;
 }
 
 function hmacSha256Hex(key, message) {
@@ -220,10 +227,10 @@ async function deliverOrder(db, cloud, order, meta = {}) {
   const openidHint = order.openid;
   if (openidHint) await ensureUser(db, openidHint);
 
+  // 微信云库事务：transaction.collection().doc().get/update，不是 Firestore 的 transaction.get(ref)
   const txResult = await db.runTransaction(async (transaction) => {
-    const orderRef = db.collection('orders').doc(orderId);
-    const orderSnap = await transaction.get(orderRef);
-    const fresh = orderSnap.data;
+    const orderSnap = await transaction.collection('orders').doc(orderId).get();
+    const fresh = (orderSnap && orderSnap.data) || null;
     if (!fresh) throw new Error('订单不存在');
     if (fresh.status === 'delivered') {
       return { already: true, openid: fresh.openid, productId: fresh.productId };
@@ -233,9 +240,8 @@ async function deliverOrder(db, cloud, order, meta = {}) {
     if (!product) throw new Error(`未知道具 ${fresh.productId}`);
 
     const openid = fresh.openid;
-    const userRef = db.collection('users').doc(openid);
-    const userSnap = await transaction.get(userRef);
-    const user = userSnap.data || { openid, points: 0 };
+    const userSnap = await transaction.collection('users').doc(openid).get();
+    const user = (userSnap && userSnap.data) || { openid, points: 0 };
 
     const computed = computeGrantPatch(user, product.type, product.value);
     const userData = {
@@ -245,9 +251,9 @@ async function deliverOrder(db, cloud, order, meta = {}) {
     if (computed.pointsInc) {
       userData.points = _.inc(computed.pointsInc);
     }
-    transaction.update(userRef, { data: userData });
+    await transaction.collection('users').doc(openid).update({ data: userData });
 
-    transaction.update(orderRef, {
+    await transaction.collection('orders').doc(orderId).update({
       data: {
         status: 'delivered',
         deliveredAt: db.serverDate(),

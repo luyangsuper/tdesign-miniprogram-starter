@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { code2Session, saveSessionKey } = require('./session');
 const { getPointsSettings } = require('./pointsSettings');
+const { getPricingDoc, listLiveProducts } = require('./pricingSettings');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -132,6 +133,12 @@ exports.main = async (event = {}) => {
       user = patch;
     }
     const avatarUrl = await resolveAvatarUrl(user.avatarFileID || '');
+    let pricingProducts = null;
+    try {
+      pricingProducts = listLiveProducts(await getPricingDoc(db));
+    } catch (err) {
+      /* ignore */
+    }
     return {
       ok: true,
       openid: OPENID,
@@ -140,6 +147,7 @@ exports.main = async (event = {}) => {
       avatarFileID: user.avatarFileID || '',
       avatarUrl,
       entitlement: buildEntitlement(user),
+      pricingProducts,
     };
   }
 
@@ -179,6 +187,12 @@ exports.main = async (event = {}) => {
       return !(drawAt > 0 && drawAt <= now);
     })
     .slice(0, 20);
+  let pricingProducts = null;
+  try {
+    pricingProducts = listLiveProducts(await getPricingDoc(db));
+  } catch (err) {
+    /* ignore */
+  }
   return {
     ok: true,
     openid: OPENID,
@@ -190,6 +204,7 @@ exports.main = async (event = {}) => {
     welcomeGift,
     pendingPointGifts,
     pendingLotteryInvites,
+    pricingProducts,
     // 开奖结果不在此返回：只走 userLottery.pending（校验已参与）
   };
 };

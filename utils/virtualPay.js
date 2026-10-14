@@ -120,7 +120,6 @@ async function pollDelivered(outTradeNo, { forceAfterClientSuccess = false, trie
       if (res.delivered || res.already) return res;
     } catch (err) {
       lastErr = err;
-      // 推送可能已发货：查本地订单
       try {
         const done = await fetchDeliveredStatus(outTradeNo);
         if (done) return done;
@@ -147,7 +146,6 @@ async function pollDelivered(outTradeNo, { forceAfterClientSuccess = false, trie
 
 /**
  * 购买套餐：下单 → 拉起虚拟支付 → 确认发货
- * 每笔成功支付对应一笔新订单，会员续期叠加、积分累加
  */
 export async function buyPlan(plan) {
   if (!checkIosWechatVersion()) {
@@ -158,6 +156,7 @@ export async function buyPlan(plan) {
   const code = await wxLoginCode();
   const created = await callFunction('createVirtualOrder', {
     action: 'create',
+    slotId: plan.slotId || '',
     planKey: plan.planKey || plan.key,
     productId: plan.productId,
     code,
@@ -170,6 +169,45 @@ export async function buyPlan(plan) {
     throw err;
   }
   return pollDelivered(order.outTradeNo, { forceAfterClientSuccess: true });
+}
+
+/**
+ * 进入「我的」时补发当前用户未完结订单
+ */
+export async function recoverMyPendingOrders() {
+  const res = await callFunction('createVirtualOrder', { action: 'recoverMine' });
+  const results = (res && res.results) || [];
+  const deliveredRows = results.filter((r) => r && r.ok && r.delivered);
+  const failedRows = results.filter((r) => r && r.ok === false);
+  let entitlement = null;
+  let message = '';
+  deliveredRows.forEach((r) => {
+    if (r.entitlement) entitlement = r.entitlement;
+    if (r.grant && !message) {
+      if (r.grant.grantType === 'points') message = `已补发 ${r.grant.add} 积分`;
+      else if (r.grant.grantType === 'vip_days') message = `已补发包月 ${r.grant.days} 天`;
+    }
+  });
+  if (entitlement) setCachedEntitlement(entitlement);
+  const failMsg = failedRows.length
+    ? String(failedRows[0].message || '补发失败').slice(0, 40)
+    : '';
+  const scanned = (res && res.scanned) || 0;
+  return {
+    delivered: deliveredRows.length,
+    failed: failedRows.length,
+    scanned,
+    entitlement,
+    message:
+      message ||
+      (deliveredRows.length
+        ? '权益已补发到账'
+        : scanned
+          ? res.message || `已检查 ${scanned} 笔`
+          : res.message || '未找到待补发订单'),
+    errorMessage: failMsg,
+    results,
+  };
 }
 
 export { canUseVirtualPay };

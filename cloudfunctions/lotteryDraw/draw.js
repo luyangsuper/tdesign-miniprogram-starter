@@ -187,11 +187,11 @@ async function creditAndPushResult(db, _, {
   if (won && pts > 0) {
     try {
       await db.runTransaction(async (transaction) => {
-        const snap = await transaction.get(userRef);
+        const snap = await transaction.collection('users').doc(openid).get();
         const data = (snap && snap.data) || null;
         if (!data) return;
         if (data.lotteryCredits && data.lotteryCredits[lotteryId]) return;
-        transaction.update(userRef, {
+        await transaction.collection('users').doc(openid).update({
           data: {
             points: _.inc(pts),
             [`lotteryCredits.${lotteryId}`]: true,

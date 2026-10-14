@@ -1,6 +1,6 @@
 /**
- * 虚拟支付道具目录（与 MP「道具管理」一致；价格单位：分）
- * 包月批量导入为整数元 10 → 1000 分
+ * 虚拟支付道具目录硬编码回退（与 MP「道具管理」一致；价格单位：分）
+ * 运行时优先 app_config/pricing（见 pricingSettings.js）
  */
 const PRODUCTS = {
   vip_month: {

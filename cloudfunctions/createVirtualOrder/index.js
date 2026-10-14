@@ -10,32 +10,61 @@ const {
   deliverOrder,
   queryOrderPaid,
   isOrderPaid,
-  getProduct,
   grantMessage,
+  pollPendingOrders,
+  recoverMineOrders,
 } = require('./virtualPay');
 const { resolveSessionKey } = require('./session');
-const { productIdByPlanKey } = require('./products');
+const { resolveLiveProduct } = require('./pricingSettings');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
-const db = cloud.database();
+// 事务/单读找不到文档时不要抛错，方便发货兜底
+const db = cloud.database({ throwOnNotFound: false });
 
 /**
- * 虚拟支付下单 / 支付后确认发货
+ * 虚拟支付下单 / 支付后确认发货 / 定时补单
  * action:
- *  - create（默认）{ planKey | productId, code }  code 来自 wx.login
- *  - confirm { outTradeNo }  查单并幂等发货（推送未配时的兜底）
- *  - status { outTradeNo }   查本地订单
+ *  - create（默认）{ slotId | planKey | productId, code }
+ *  - confirm { outTradeNo }
+ *  - status { outTradeNo }
+ *  - pollPending  定时触发或运维手动：query_order 补发货
  */
 exports.main = async (event = {}) => {
-  const { OPENID } = cloud.getWXContext();
-  if (!OPENID) {
-    return { ok: false, code: 'NO_OPENID', message: '请先登录' };
+  const wxCtx = cloud.getWXContext();
+  const OPENID = wxCtx.OPENID || '';
+
+  // 云开发定时触发器（无 OPENID）
+  const isTimer = event.Type === 'Timer' || !!event.TriggerName;
+
+  let action = event.action || 'create';
+  if (isTimer) {
+    action = 'pollPending';
   }
 
-  const action = event.action || 'create';
-
   try {
+    if (action === 'recoverMine') {
+      if (!OPENID) {
+        return { ok: false, code: 'NO_OPENID', message: '请先登录' };
+      }
+      return await recoverMineOrders(db, cloud, OPENID);
+    }
+
+    if (action === 'pollPending') {
+      // 定时：扫全库；客户端手动调用只补当前用户
+      if (!isTimer && !OPENID) {
+        return { ok: false, code: 'NO_OPENID', message: '请先登录' };
+      }
+      return await pollPendingOrders(db, cloud, {
+        limit: isTimer ? 20 : 10,
+        openid: isTimer ? '' : OPENID,
+      });
+    }
+
+    if (!OPENID) {
+      return { ok: false, code: 'NO_OPENID', message: '请先登录' };
+    }
+
     if (action === 'status') {
       const outTradeNo = String(event.outTradeNo || '');
       if (!outTradeNo) return { ok: false, code: 'BAD_PARAM', message: '缺少订单号' };
@@ -142,11 +171,12 @@ exports.main = async (event = {}) => {
       };
     }
 
-    let productId = String(event.productId || '').trim();
-    if (!productId && event.planKey) {
-      productId = productIdByPlanKey(String(event.planKey));
-    }
-    const product = getProduct(productId);
+    // 优先 slotId / planKey（槽位稳定）；productId 改价后会轮换，客户端缓存可能过期
+    const product = await resolveLiveProduct(db, {
+      slotId: event.slotId,
+      planKey: event.planKey,
+      productId: event.productId,
+    });
     if (!product) {
       return { ok: false, code: 'BAD_PRODUCT', message: '未知商品' };
     }
@@ -178,10 +208,12 @@ exports.main = async (event = {}) => {
       data: {
         openid: OPENID,
         outTradeNo,
+        slotId: product.slotId || '',
         productId: product.productId,
         planKey: product.planKey,
         grantType: product.type,
         grantValue: product.value,
+        buyQuantity: 1,
         priceFen: product.priceFen,
         title: product.title,
         env: PAY_ENV,

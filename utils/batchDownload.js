@@ -70,6 +70,7 @@ export async function downloadOne(opts = {}) {
     const report = await callFunction('reportDownload', {
       packId,
       index,
+      variant,
       grantType: (res.data && res.data.grantType) || '',
     });
     downloadCount = report.data && report.data.downloadCount;

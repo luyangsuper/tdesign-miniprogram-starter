@@ -1,0 +1,9 @@
+{
+  "name": "adminManagePricing",
+  "version": "1.0.0",
+  "description": "管理员动态定价 / 同步微信虚拟支付道具",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

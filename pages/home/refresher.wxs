@@ -1,0 +1,44 @@
+/** 下拉过程只在视图层改文案，避免 setData 导致 refresher 位移失控 */
+var THRESHOLD = 80;
+var lastOver = false;
+
+function setLabels(ins, over) {
+  var pull = ins.selectComponent('.js-rf-pull');
+  var release = ins.selectComponent('.js-rf-release');
+  if (!pull || !release) return;
+  pull.setStyle({
+    display: over ? 'none' : 'inline',
+  });
+  release.setStyle({
+    display: over ? 'inline' : 'none',
+  });
+}
+
+function onPulling(e, ins) {
+  var dy = (e.detail && e.detail.dy) || 0;
+  var over = dy >= THRESHOLD;
+  if (over === lastOver) return;
+  lastOver = over;
+  setLabels(ins, over);
+}
+
+function reset(ins) {
+  lastOver = false;
+  setLabels(ins, false);
+}
+
+function onRestore(_e, ins) {
+  reset(ins);
+  ins.callMethod('onRefresherRestore');
+}
+
+function onAbort(_e, ins) {
+  reset(ins);
+  ins.callMethod('onRefresherAbort');
+}
+
+module.exports = {
+  onPulling: onPulling,
+  onRestore: onRestore,
+  onAbort: onAbort,
+};

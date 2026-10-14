@@ -19,6 +19,6 @@
 | feedback.png | Mail | 意见反馈 |
 | gift.png | Gift | 见面礼弹窗 |
 | checkin.png | Calendar | 每日签到 |
-| swipe-prev.png | HandLeft | 滑向上一分类 |
-| swipe-next.png | HandRight | 滑向下一分类 |
+| swipe-prev.png | LeftC | 滑向上一分类 |
+| swipe-next.png | RightC | 滑向下一分类 |
 | swipe-end.png | SmilingFace | 分类滑到头 |

@@ -428,9 +428,18 @@ export function metaTagStyle(kind, theme) {
   return tagCustomStyle(c);
 }
 
-/** 分类色：避开主题色与元信息色 */
-export function categoryTagStyle(id, name, theme) {
+/** 解析分类色（与卡片标签同一套算法） */
+export function resolveCategorySwatch(id, name, theme) {
   const t = theme || getCurrentTheme();
+  // 「全部」跟主题品牌色，和未选分类时的默认选中态一致
+  if (!id || id === 'all') {
+    const dark = isDarkMode();
+    return {
+      hue: t.hue,
+      color: dark ? t.scale[5] : t.brand,
+      bg: dark ? hexToRgba(t.scale[7], 0.22) : t.scale[1],
+    };
+  }
   const meta = getMetaSwatches(t);
   const avoid = nearHues(t.hue)
     .concat(nearHues(meta.count.hue))
@@ -442,7 +451,25 @@ export function categoryTagStyle(id, name, theme) {
     builtinIdx != null
       ? builtinIdx % palette.length
       : hashToIndex(String(name || id || ''), palette.length);
-  return tagCustomStyle(resolveSwatch(palette[idx]));
+  return resolveSwatch(palette[idx]);
+}
+
+/** 分类色：避开主题色与元信息色（卡片 t-tag light） */
+export function categoryTagStyle(id, name, theme) {
+  return tagCustomStyle(resolveCategorySwatch(id, name, theme));
+}
+
+/**
+ * 首页筛选 check-tag：只写 primary token + 数量角标色，
+ * 未选中仍走默认灰底，选中后与卡片分类标签同色。
+ */
+export function categoryCheckTagStyle(id, name, theme) {
+  const c = resolveCategorySwatch(id, name, theme);
+  return [
+    `--td-tag-primary-color:${c.color}`,
+    `--td-tag-primary-light-color:${c.bg}`,
+    `--home-cat-accent:${c.color}`,
+  ].join(';');
 }
 
 /** 同步当前页 / 自定义 tabBar 的 themeStyle */

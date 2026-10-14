@@ -1,0 +1,303 @@
+<view class="admin-pricing" style="{{themeStyle}}">
+  <view class="admin-pricing__tip">
+    改价=新建道具 ID 上传（微信同时只跑 1 个任务，会自动排队）。图须 200×200。官方无删除道具 API，旧 ID 可在 MP「道具管理」下架，或不删留着。支付失败：对齐现网价。
+  </view>
+
+  <view wx:if="{{loading}}" class="admin-pricing__loading">
+    <t-loading theme="circular" size="40rpx" text="加载定价" />
+  </view>
+
+  <block wx:else>
+    <view class="admin-pricing__toolbar">
+      <text class="admin-pricing__env">{{payEnvLabel}} · 改价用新道具 ID</text>
+      <t-button
+        t-class="admin-pricing__reset-btn"
+        theme="default"
+        variant="text"
+        size="small"
+        content="{{missingIconCount ? '补默认道具图' : '重置默认道具图'}}"
+        loading="{{fillingIcons}}"
+        disabled="{{fillingIcons || saving}}"
+        bind:tap="onFillDefaultIcons"
+      />
+    </view>
+
+    <view class="admin-pricing__section">包月会员</view>
+    <block wx:for="{{vipItems}}" wx:key="slotId">
+      <view class="admin-pricing__block">
+        <view class="admin-pricing__chip admin-pricing__chip--{{item.tone}}">
+          <view
+            class="admin-pricing__chip-icon"
+            catch:tap="onPickPropImage"
+            data-id="{{item.slotId}}"
+          >
+            <image
+              class="admin-pricing__chip-icon-img"
+              src="{{item.thumbSrc}}"
+              mode="aspectFit"
+            />
+          </view>
+          <view class="admin-pricing__chip-main">
+            <view class="admin-pricing__chip-title-row">
+              <text class="admin-pricing__chip-title">{{item.displayTitle}}</text>
+              <text wx:if="{{item.wxLabel}}" class="admin-pricing__chip-status admin-pricing__chip-status--{{item.wxStatus}}">{{item.wxLabel}}</text>
+            </view>
+            <text class="admin-pricing__chip-meta">{{item.period}} · {{item.desc}}</text>
+            <text class="admin-pricing__chip-id">ID {{item.wxProductId}}</text>
+          </view>
+          <view class="admin-pricing__chip-side">
+            <text class="admin-pricing__chip-live">支付现网价</text>
+            <text class="admin-pricing__chip-price">{{item.displayPrice}}</text>
+          </view>
+        </view>
+
+        <view class="admin-pricing__edit">
+          <view class="admin-pricing__edit-row">
+            <text class="admin-pricing__edit-label">道具名</text>
+            <t-input
+              class="admin-pricing__edit-input"
+              borderless
+              align="right"
+              maxlength="{{20}}"
+              placeholder="修改"
+              value="{{item.title}}"
+              data-id="{{item.slotId}}"
+              data-field="title"
+              bind:change="onFieldChange"
+            />
+          </view>
+          <view class="admin-pricing__edit-row">
+            <text class="admin-pricing__edit-label">售价</text>
+            <t-input
+              class="admin-pricing__edit-input"
+              type="digit"
+              borderless
+              align="right"
+              suffix="元"
+              placeholder="修改"
+              value="{{item.priceYuan}}"
+              data-id="{{item.slotId}}"
+              data-field="priceYuan"
+              bind:change="onFieldChange"
+            />
+          </view>
+          <view class="admin-pricing__edit-row">
+            <text class="admin-pricing__edit-label">天数</text>
+            <t-input
+              class="admin-pricing__edit-input"
+              type="number"
+              borderless
+              align="right"
+              suffix="天"
+              placeholder="修改"
+              value="{{item.value}}"
+              data-id="{{item.slotId}}"
+              data-field="value"
+              bind:change="onFieldChange"
+            />
+          </view>
+          <view wx:if="{{item.showSyncBox}}" class="admin-pricing__sync admin-pricing__sync--{{item.wxStatus}}">
+            <text class="admin-pricing__sync-title">{{item.draftText}}</text>
+            <text class="admin-pricing__sync-hint">{{item.syncHint}}</text>
+            <text wx:if="{{item.wxError}}" class="admin-pricing__sync-err">{{item.wxError}}</text>
+          </view>
+          <view class="admin-pricing__ops">
+            <t-button
+              wx:if="{{item.canConfirm}}"
+              t-class="admin-pricing__ops-btn"
+              theme="primary"
+              variant="outline"
+              size="medium"
+              content="确认切换"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onConfirmLive"
+            />
+            <t-button
+              wx:if="{{item.canRetry}}"
+              t-class="admin-pricing__ops-btn"
+              theme="primary"
+              variant="outline"
+              size="medium"
+              content="重试上传"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onRetry"
+            />
+            <t-button
+              wx:if="{{item.canCancel}}"
+              t-class="admin-pricing__ops-btn"
+              theme="default"
+              variant="outline"
+              size="medium"
+              content="放弃"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onCancelDraft"
+            />
+            <t-button
+              t-class="admin-pricing__ops-btn"
+              theme="danger"
+              variant="outline"
+              size="medium"
+              content="对齐现网价"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onForceLive"
+            />
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view class="admin-pricing__section">积分包</view>
+    <block wx:for="{{pointItems}}" wx:key="slotId">
+      <view class="admin-pricing__block">
+        <view class="admin-pricing__chip admin-pricing__chip--{{item.tone}}">
+          <view
+            class="admin-pricing__chip-icon"
+            catch:tap="onPickPropImage"
+            data-id="{{item.slotId}}"
+          >
+            <image
+              class="admin-pricing__chip-icon-img"
+              src="{{item.thumbSrc}}"
+              mode="aspectFit"
+            />
+          </view>
+          <view class="admin-pricing__chip-main">
+            <view class="admin-pricing__chip-title-row">
+              <text class="admin-pricing__chip-title">{{item.displayTitle}}</text>
+              <text wx:if="{{item.wxLabel}}" class="admin-pricing__chip-status admin-pricing__chip-status--{{item.wxStatus}}">{{item.wxLabel}}</text>
+            </view>
+            <text class="admin-pricing__chip-meta">{{item.period}} · {{item.desc}}</text>
+            <text class="admin-pricing__chip-id">ID {{item.wxProductId}}</text>
+          </view>
+          <view class="admin-pricing__chip-side">
+            <text class="admin-pricing__chip-live">支付现网价</text>
+            <text class="admin-pricing__chip-price">{{item.displayPrice}}</text>
+          </view>
+        </view>
+
+        <view class="admin-pricing__edit">
+          <view class="admin-pricing__edit-row">
+            <text class="admin-pricing__edit-label">道具名</text>
+            <t-input
+              class="admin-pricing__edit-input"
+              borderless
+              align="right"
+              maxlength="{{20}}"
+              placeholder="修改"
+              value="{{item.title}}"
+              data-id="{{item.slotId}}"
+              data-field="title"
+              bind:change="onFieldChange"
+            />
+          </view>
+          <view class="admin-pricing__edit-row">
+            <text class="admin-pricing__edit-label">售价</text>
+            <t-input
+              class="admin-pricing__edit-input"
+              type="digit"
+              borderless
+              align="right"
+              suffix="元"
+              placeholder="修改"
+              value="{{item.priceYuan}}"
+              data-id="{{item.slotId}}"
+              data-field="priceYuan"
+              bind:change="onFieldChange"
+            />
+          </view>
+          <view class="admin-pricing__edit-row">
+            <text class="admin-pricing__edit-label">积分</text>
+            <t-input
+              class="admin-pricing__edit-input"
+              type="number"
+              borderless
+              align="right"
+              suffix="分"
+              placeholder="修改"
+              value="{{item.value}}"
+              data-id="{{item.slotId}}"
+              data-field="value"
+              bind:change="onFieldChange"
+            />
+          </view>
+          <view wx:if="{{item.showSyncBox}}" class="admin-pricing__sync admin-pricing__sync--{{item.wxStatus}}">
+            <text class="admin-pricing__sync-title">{{item.draftText}}</text>
+            <text class="admin-pricing__sync-hint">{{item.syncHint}}</text>
+            <text wx:if="{{item.wxError}}" class="admin-pricing__sync-err">{{item.wxError}}</text>
+          </view>
+          <view class="admin-pricing__ops">
+            <t-button
+              wx:if="{{item.canConfirm}}"
+              t-class="admin-pricing__ops-btn"
+              theme="primary"
+              variant="outline"
+              size="medium"
+              content="确认切换"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onConfirmLive"
+            />
+            <t-button
+              wx:if="{{item.canRetry}}"
+              t-class="admin-pricing__ops-btn"
+              theme="primary"
+              variant="outline"
+              size="medium"
+              content="重试上传"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onRetry"
+            />
+            <t-button
+              wx:if="{{item.canCancel}}"
+              t-class="admin-pricing__ops-btn"
+              theme="default"
+              variant="outline"
+              size="medium"
+              content="放弃"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onCancelDraft"
+            />
+            <t-button
+              t-class="admin-pricing__ops-btn"
+              theme="danger"
+              variant="outline"
+              size="medium"
+              content="对齐现网价"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onForceLive"
+            />
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <view class="admin-pricing__footer">
+      <t-button
+        theme="primary"
+        size="large"
+        block
+        content="保存改价"
+        loading="{{saving}}"
+        disabled="{{saving || loading || fillingIcons}}"
+        bind:tap="onSave"
+      />
+    </view>
+  </block>
+
+  <lottery-host />
+</view>

@@ -3,7 +3,7 @@
  * - cloudEnv：微信开发者工具 → 云开发 → 环境 ID
  * - rewardedAdUnitId：激励广告位（空=关闭免费通道；需包月 / 积分才能保存）
  * - downloadCosts：单张扣分（与整包静 2 元 / 动 4 元对齐为 1:2）
- * - membershipPricing：与虚拟支付道具价一致（包月批量导入为整数元 10）
+ * - membershipPricing：离线默认售价；线上以云库 app_config/pricing（管理端「定价方案」）为准
  * - virtualPay：OfferId 可公开；AppKey 只放云函数环境变量
  * - adminOpenids：管理员 openid 列表（真正鉴权在云函数；客户端可用「我的→预览普通用户」）
  * - 默认头像：Pixabots（https://pixabots.com/browse），按 openid 固定分配
@@ -32,7 +32,8 @@ export default {
   checkinPoints: 1,
   oaBonusPoints: 1,
   /**
-   * 售价（与 MP 虚拟支付道具一致；单位元）
+   * 售价离线默认（单位元）。运行时优先云库 app_config/pricing；
+   * 管理端改价会同步微信道具，发布成功后 live 价才用于下单。
    */
   membershipPricing: {
     monthYuan: 10,

@@ -1,6 +1,6 @@
 import { callFunction } from '~/utils/cloud';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
-import { getPricingPlans } from '~/utils/pricing';
+import { getPricingPlans, loadPricingPlans } from '~/utils/pricing';
 import {
   benefitLabel,
   createAndCopyCode,
@@ -40,12 +40,29 @@ Page({
       type: first ? first.type : 'vip_days',
       value: first ? String(first.value) : '30',
     });
+    this.hydratePricing();
   },
 
   onShow() {
     applyThemeToPage(this);
-    this.setData({ pricing: getPricingPlans() });
+    this.hydratePricing();
     this.loadList(true);
+  },
+
+  async hydratePricing() {
+    try {
+      const pricing = await loadPricingPlans();
+      const first = (pricing.vipPlans && pricing.vipPlans[0]) || null;
+      const patch = { pricing };
+      if (!this.data.activePlanKey && first) {
+        patch.activePlanKey = first.key;
+        patch.type = first.type;
+        patch.value = String(first.value);
+      }
+      this.setData(patch);
+    } catch (e) {
+      this.setData({ pricing: getPricingPlans() });
+    }
   },
 
   applyPlan(plan) {

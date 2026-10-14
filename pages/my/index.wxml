@@ -41,7 +41,10 @@
     <block wx:if="{{benefit.empty}}">
       <view class="my__benefit-top">
         <text class="my__benefit-empty">{{benefit.emptyText}}</text>
-        <text class="my__pricing-link" bindtap="openPricing">看定价</text>
+        <view class="my__pricing-links">
+          <text class="my__pricing-link" bindtap="openPricing">看定价</text>
+          <text class="my__pricing-link" bindtap="onRecoverOrders">补发权益</text>
+        </view>
       </view>
     </block>
     <block wx:else>
@@ -53,7 +56,10 @@
             <text class="my__benefit-sum-sub">{{benefit.affordLine}}</text>
           </view>
         </view>
-        <text class="my__pricing-link" bindtap="openPricing">看定价</text>
+        <view class="my__pricing-links">
+          <text class="my__pricing-link" bindtap="openPricing">看定价</text>
+          <text class="my__pricing-link" bindtap="onRecoverOrders">补发权益</text>
+        </view>
       </view>
 
       <view wx:if="{{benefit.showMonth}}" class="my__benefit-row">
@@ -82,15 +88,33 @@
         wx:for="{{pricing.vipPlans}}"
         wx:key="key"
       >
-        <text class="my__pricing-chip-title">{{item.title}}</text>
-        <text class="my__pricing-chip-price">{{item.price}}</text>
+        <text wx:if="{{item.dealTag}}" class="my__pricing-chip-deal">{{item.dealTag}}</text>
+        <image class="my__pricing-chip-icon" src="{{item.iconSrc}}" mode="aspectFit" />
+        <view class="my__pricing-chip-body">
+          <text class="my__pricing-chip-title">{{item.title}}</text>
+          <view class="my__pricing-chip-prices">
+            <text wx:if="{{item.originPrice}}" class="my__pricing-chip-origin">{{item.originPrice}}</text>
+            <text class="my__pricing-chip-price">{{item.price}}</text>
+          </view>
+        </view>
       </view>
       <view
         wx:if="{{pricing.pointsStrip}}"
         class="my__pricing-chip my__pricing-chip--{{pricing.pointsStrip.tone}}"
       >
-        <text class="my__pricing-chip-title">{{pricing.pointsStrip.title}}</text>
-        <text class="my__pricing-chip-price">{{pricing.pointsStrip.price}}</text>
+        <text wx:if="{{pricing.pointsStrip.dealTag}}" class="my__pricing-chip-deal">{{pricing.pointsStrip.dealTag}}</text>
+        <image
+          wx:if="{{pricing.pointsStrip.iconSrc}}"
+          class="my__pricing-chip-icon"
+          src="{{pricing.pointsStrip.iconSrc}}"
+          mode="aspectFit"
+        />
+        <view class="my__pricing-chip-body">
+          <text class="my__pricing-chip-title">{{pricing.pointsStrip.title}}</text>
+          <view class="my__pricing-chip-prices">
+            <text class="my__pricing-chip-price">{{pricing.pointsStrip.price}}</text>
+          </view>
+        </view>
       </view>
     </view>
     <view class="my__pricing-cost">{{pricing.costLine}}</view>
@@ -269,6 +293,22 @@
       >
         <view slot="left-icon" class="my-menu-icon">
           <image class="my-menu-icon__img" src="/static/emoji/gift.png" mode="aspectFit" />
+        </view>
+      </t-cell>
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        title="定价方案"
+        note="售价 / 同步微信道具"
+        arrow
+        hover
+        bind:click="goPricingSettings"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <image class="my-menu-icon__img" src="/static/pricing/month.png" mode="aspectFit" />
         </view>
       </t-cell>
       <t-cell
@@ -591,7 +631,11 @@
           <text class="my__pricing-card-desc">{{item.desc}}</text>
         </view>
         <view class="my__pricing-card-side">
-          <text class="my__pricing-card-price">{{item.price}}</text>
+          <view class="my__pricing-card-price-wrap">
+            <text wx:if="{{item.originPrice}}" class="my__pricing-card-origin">{{item.originPrice}}</text>
+            <text class="my__pricing-card-price">{{item.price}}</text>
+            <text wx:if="{{item.dealTag}}" class="my__pricing-card-deal">{{item.dealTag}}</text>
+          </view>
           <view class="my__pricing-card-actions">
             <t-button
               wx:if="{{pricing.virtualPayEnabled}}"
@@ -645,7 +689,11 @@
           <text class="my__pricing-card-desc">{{item.desc}}</text>
         </view>
         <view class="my__pricing-card-side">
-          <text class="my__pricing-card-price">{{item.price}}</text>
+          <view class="my__pricing-card-price-wrap">
+            <text wx:if="{{item.originPrice}}" class="my__pricing-card-origin">{{item.originPrice}}</text>
+            <text class="my__pricing-card-price">{{item.price}}</text>
+            <text wx:if="{{item.dealTag}}" class="my__pricing-card-deal">{{item.dealTag}}</text>
+          </view>
           <view class="my__pricing-card-actions">
             <t-button
               wx:if="{{pricing.virtualPayEnabled}}"
