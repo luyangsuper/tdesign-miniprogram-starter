@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk');
 const { dayjs, toMs, formatDate } = require('./time');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
+const { getPointsSettings } = require('./pointsSettings');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -82,6 +83,149 @@ async function getUserByOpenid(openid) {
   } catch (e) {
     return null;
   }
+}
+
+/**
+ * 补发见面礼（welcomeGiftAt 幂等）
+ * @returns {{ ok: boolean, granted: boolean, points?: number, message: string }}
+ */
+async function repairWelcomeGift(ref, user) {
+  const settings = await getPointsSettings(db);
+  const giftPoints = Math.max(0, Number(settings.welcomeGiftPoints) || 0);
+  if (giftPoints <= 0) {
+    return { ok: true, granted: false, message: '见面礼已关闭' };
+  }
+  if (user && user.welcomeGiftAt) {
+    return {
+      ok: true,
+      granted: false,
+      points: Math.max(0, Number(user.welcomeGiftPoints) || giftPoints),
+      message: '见面礼已发放过',
+    };
+  }
+  const uid = String((user && (user._id || user.openid)) || '');
+  const giftId = `welcome_${uid}`;
+  await ref.update({
+    data: {
+      points: _.inc(giftPoints),
+      welcomeGiftAt: db.serverDate(),
+      welcomeGiftPoints: giftPoints,
+      pendingPointGifts: _.push({
+        id: giftId,
+        title: '新用户见面礼',
+        points: giftPoints,
+        source: 'welcome',
+        at: Date.now(),
+      }),
+      updatedAt: db.serverDate(),
+    },
+  });
+  return {
+    ok: true,
+    granted: true,
+    points: giftPoints,
+    message: `见面礼 +${giftPoints} 分`,
+  };
+}
+
+/**
+ * 补发已中奖但未到账的抽奖积分（lotteryCredits 幂等）
+ */
+async function repairLotteryCredits(openid, user) {
+  let entries = [];
+  try {
+    const res = await db
+      .collection('lottery_entries')
+      .where({ openid, won: true })
+      .limit(50)
+      .get();
+    entries = (res && res.data) || [];
+  } catch (e) {
+    try {
+      const res = await db
+        .collection('lottery_entries')
+        .where({ openid })
+        .limit(50)
+        .get();
+      entries = ((res && res.data) || []).filter((r) => r && r.won);
+    } catch (e2) {
+      return { repaired: 0, points: 0, message: '无抽奖记录' };
+    }
+  }
+  if (!entries.length) {
+    return { repaired: 0, points: 0, message: '无中奖待补发' };
+  }
+
+  let repaired = 0;
+  let pointsTotal = 0;
+  let cur = user || {};
+  // eslint-disable-next-line no-restricted-syntax
+  for (const entry of entries) {
+    const lotteryId = String(entry.lotteryId || '').trim();
+    const pts = Math.max(0, Math.floor(Number(entry.prizePoints) || 0));
+    if (!lotteryId || pts <= 0) continue;
+    if (cur.lotteryCredits && cur.lotteryCredits[lotteryId]) continue;
+
+    let title = '抽奖活动';
+    let drawAtMs = 0;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const lot = (await db.collection('lotteries').doc(lotteryId).get()).data;
+      if (lot) {
+        title = String(lot.title || title);
+        drawAtMs = toMs(lot.drawAt || lot.drawnAt);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
+    const resultId = `result_${lotteryId}_${openid}`;
+    const patch = {
+      points: _.inc(pts),
+      [`lotteryCredits.${lotteryId}`]: true,
+      updatedAt: db.serverDate(),
+    };
+    const pushed = cur.lotteryResultPushed && cur.lotteryResultPushed[lotteryId];
+    const acked =
+      (cur.lotteryResultsAcked && cur.lotteryResultsAcked[lotteryId]) ||
+      (cur.lotteryResultsAcked && cur.lotteryResultsAcked[resultId]);
+    if (!pushed && !acked) {
+      patch.pendingLotteryResults = _.push({
+        id: resultId,
+        lotteryId,
+        title,
+        won: true,
+        prizePoints: pts,
+        drawAt: drawAtMs || 0,
+        at: Date.now(),
+      });
+      patch[`lotteryResultPushed.${lotteryId}`] = true;
+    }
+
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await db.collection('users').doc(openid).update({ data: patch });
+      repaired += 1;
+      pointsTotal += pts;
+      cur = {
+        ...cur,
+        lotteryCredits: { ...(cur.lotteryCredits || {}), [lotteryId]: true },
+        lotteryResultPushed: {
+          ...(cur.lotteryResultPushed || {}),
+          [lotteryId]: true,
+        },
+      };
+    } catch (e) {
+      console.warn('repairLottery', lotteryId, e.message || e);
+    }
+  }
+  return {
+    repaired,
+    points: pointsTotal,
+    message: repaired
+      ? `抽奖补发 ${repaired} 笔 +${pointsTotal} 分`
+      : '抽奖权益已齐全',
+  };
 }
 
 exports.main = async (event = {}) => {
@@ -443,6 +587,37 @@ exports.main = async (event = {}) => {
         ok: true,
         message: `积分→${next}`,
         data: await formatUserAsync(fresh),
+      };
+    }
+
+    /**
+     * 一键补发：见面礼 + 抽奖未到账。
+     * 购买订单补发由前端再调 createVirtualOrder.recoverUser（需查微信单）。
+     */
+    if (action === 'repairEntitlements') {
+      const welcome = await repairWelcomeGift(ref, user);
+      let freshUser = (await getUserByOpenid(targetOpenid)) || user;
+      const lottery = await repairLotteryCredits(targetOpenid, freshUser);
+      freshUser = await getUserByOpenid(targetOpenid);
+      if (freshUser) {
+        freshUser = await syncVipMonthQuota(ref, freshUser, db.serverDate());
+      }
+      const lines = [];
+      if (welcome.granted) lines.push(welcome.message);
+      else if (welcome.message && !/已发放过|已关闭/.test(welcome.message)) {
+        lines.push(welcome.message);
+      }
+      if (lottery.repaired > 0) lines.push(lottery.message);
+      const changed = !!(welcome.granted || lottery.repaired > 0);
+      return {
+        ok: true,
+        message: changed ? lines.join('；') || '已补发' : '见面礼/抽奖无需补发',
+        data: await formatUserAsync(freshUser),
+        repair: {
+          welcome,
+          lottery,
+          changed,
+        },
       };
     }
 

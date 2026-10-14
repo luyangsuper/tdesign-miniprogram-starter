@@ -167,6 +167,24 @@
           </view>
         </view>
 
+        <view class="users-panel__block">
+          <view class="users-panel__label">补发权益</view>
+          <view class="users-panel__hint users-panel__hint--block">
+            自动检查并补发：未到账的新用户见面礼、已中奖抽奖积分、已支付未发货的购买订单。
+          </view>
+          <t-button
+            theme="success"
+            variant="outline"
+            size="medium"
+            block
+            icon="refresh"
+            content="一键补发"
+            loading="{{repairing}}"
+            disabled="{{repairing || saving}}"
+            bind:tap="askRepairEntitlements"
+          />
+        </view>
+
         <view class="users-panel__block users-panel__block--last">
           <view class="users-panel__label-row">
             <text class="users-panel__label">下载过的合集</text>

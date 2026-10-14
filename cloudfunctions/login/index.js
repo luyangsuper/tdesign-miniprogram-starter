@@ -32,24 +32,24 @@ async function resolveAvatarUrl(fileID) {
 }
 
 /**
+ * 见面礼只发一次（welcomeGiftAt 幂等）。
+ * 其他云函数若抢先建档（points:0 且无 welcomeGiftAt），此处补发，避免新用户拿不到积分。
  * @returns {{ user: object, welcomeGift: null|{ points: number } }}
  */
 async function getOrCreateUser(openid, isAdmin) {
   const ref = db.collection('users').doc(openid);
+  const _ = db.command;
+  const settings = await getPointsSettings(db);
+  const giftPoints = Math.max(0, Number(settings.welcomeGiftPoints) || 0);
+
+  let data = null;
   try {
-    const snap = await ref.get();
-    const data = snap.data || {};
-    const patch = {
-      isAdmin,
-      lastLoginAt: db.serverDate(),
-    };
-    if (typeof data.points !== 'number') patch.points = 0;
-    await ref.update({ data: patch });
-    const synced = await syncVipMonthQuota(ref, { ...data, ...patch }, db.serverDate());
-    return { user: synced, welcomeGift: null };
+    data = (await ref.get()).data || {};
   } catch (e) {
-    const settings = await getPointsSettings(db);
-    const giftPoints = Math.max(0, Number(settings.welcomeGiftPoints) || 0);
+    data = null;
+  }
+
+  if (!data) {
     const blank = {
       openid,
       isAdmin,
@@ -68,23 +68,55 @@ async function getOrCreateUser(openid, isAdmin) {
     }
     try {
       await ref.set({ data: blank });
+      const synced = await syncVipMonthQuota(ref, blank, db.serverDate());
+      return {
+        user: synced,
+        welcomeGift: giftPoints > 0 ? { points: giftPoints } : null,
+      };
     } catch (err) {
       console.warn('users create skip', err.message);
-      // 并发建档：当作老用户
+      // 并发建档：重读后走补发逻辑
       try {
-        const snap = await ref.get();
-        const data = snap.data || {};
-        const synced = await syncVipMonthQuota(ref, data, db.serverDate());
-        return { user: synced, welcomeGift: null };
+        data = (await ref.get()).data || {};
       } catch (err2) {
         return { user: blank, welcomeGift: null };
       }
     }
-    return {
-      user: blank,
-      welcomeGift: giftPoints > 0 ? { points: giftPoints } : null,
-    };
   }
+
+  const patch = {
+    isAdmin,
+    lastLoginAt: db.serverDate(),
+  };
+  let welcomeGift = null;
+  const alreadyGifted = !!data.welcomeGiftAt;
+  if (!alreadyGifted && giftPoints > 0) {
+    // 补发：占位建档常把 points 写成 0，用 inc 叠加上去更安全
+    if (typeof data.points !== 'number') {
+      patch.points = giftPoints;
+    } else {
+      patch.points = _.inc(giftPoints);
+    }
+    patch.welcomeGiftAt = db.serverDate();
+    patch.welcomeGiftPoints = giftPoints;
+    welcomeGift = { points: giftPoints };
+  } else if (typeof data.points !== 'number') {
+    patch.points = 0;
+  }
+
+  await ref.update({ data: patch });
+  let fresh = { ...data };
+  try {
+    fresh = (await ref.get()).data || fresh;
+  } catch (e) {
+    if (welcomeGift) {
+      fresh.points = Math.max(0, Number(data.points) || 0) + giftPoints;
+      fresh.welcomeGiftAt = patch.welcomeGiftAt;
+      fresh.welcomeGiftPoints = giftPoints;
+    }
+  }
+  const synced = await syncVipMonthQuota(ref, fresh, db.serverDate());
+  return { user: synced, welcomeGift };
 }
 
 exports.main = async (event = {}) => {

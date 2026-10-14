@@ -42,7 +42,8 @@ export function setCachedEntitlement(entitlement) {
   const next = {
     isVip: !!(entitlement && entitlement.isVip),
     vipExpireAt,
-    vipExpireText: (entitlement && entitlement.vipExpireText) || formatVipText(vipExpireAt),
+    // 优先用毫秒本地格式化；云函数默认 UTC，其 vipExpireText 可能偏 8 小时
+    vipExpireText: formatVipText(vipExpireAt) || (entitlement && entitlement.vipExpireText) || '',
     vipMonthQuota,
     monthlyQuota: Math.max(0, Number((entitlement && entitlement.monthlyQuota) || 36)),
     points,

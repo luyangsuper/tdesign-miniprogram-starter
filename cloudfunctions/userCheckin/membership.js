@@ -11,7 +11,7 @@ function formatDate(ms) {
   if (!ms) return '';
   const d = dayjs(ms);
   if (!d.isValid()) return '';
-  return d.format('YYYY-MM-DD HH:mm');
+  return d.tz(TZ).format('YYYY-MM-DD HH:mm');
 }
 
 function effectiveVipMonthQuota(user = {}) {

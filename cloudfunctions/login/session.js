@@ -71,18 +71,8 @@ async function saveSessionKey(db, openid, sessionKey) {
   try {
     await ref.update({ data: patch });
   } catch (e) {
-    try {
-      await ref.set({
-        data: {
-          openid,
-          points: 0,
-          createdAt: db.serverDate(),
-          ...patch,
-        },
-      });
-    } catch (err) {
-      console.warn('saveSessionKey', err.message);
-    }
+    // 不 set 建档：避免 points:0 覆盖/抢走 login 见面礼；无档案时由 getOrCreateUser 负责
+    console.warn('saveSessionKey update skip', e.message || e);
   }
 }
 

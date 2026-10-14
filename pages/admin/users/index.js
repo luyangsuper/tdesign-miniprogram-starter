@@ -13,6 +13,7 @@ Page({
     panelVisible: false,
     user: null,
     saving: false,
+    repairing: false,
     vipDays: '30',
     pointsValue: '0',
     downloadPacks: [],
@@ -220,6 +221,14 @@ Page({
     );
   },
 
+  askRepairEntitlements() {
+    this.askConfirm(
+      'repairEntitlements',
+      '确认一键补发？',
+      '将检查并补发：未到账的新用户见面礼、已中奖抽奖积分、已支付未发货的购买订单。已发放过的不会重复发放。',
+    );
+  },
+
   closeConfirm() {
     this.setData({
       confirmVisible: false,
@@ -238,7 +247,99 @@ Page({
       confirmExtra: null,
     });
     if (!confirmAction) return;
+    if (confirmAction === 'repairEntitlements') {
+      await this.runRepairEntitlements();
+      return;
+    }
     await this.runAction(confirmAction, confirmExtra || {});
+  },
+
+  /**
+   * 见面礼/抽奖 → adminManageUser；购买订单 → createVirtualOrder.recoverUser
+   */
+  async runRepairEntitlements() {
+    const user = this.data.user;
+    if (!user || !user.openid || this.data.repairing || this.data.saving) return;
+    this.setData({ repairing: true });
+    wx.showLoading({ title: '补发中', mask: true });
+    const lines = [];
+    let nextUser = null;
+    try {
+      const entRes = await callFunction('adminManageUser', {
+        action: 'repairEntitlements',
+        openid: user.openid,
+      });
+      nextUser = entRes.data || null;
+      const welcome = entRes.repair && entRes.repair.welcome;
+      const lottery = entRes.repair && entRes.repair.lottery;
+      if (welcome) {
+        lines.push(
+          welcome.granted
+            ? welcome.message
+            : welcome.message === '见面礼已发放过'
+              ? '见面礼：已发放过'
+              : `见面礼：${welcome.message}`,
+        );
+      }
+      if (lottery) {
+        lines.push(
+          lottery.repaired > 0
+            ? lottery.message
+            : '抽奖：无需补发',
+        );
+      }
+
+      let orderRes = null;
+      try {
+        orderRes = await callFunction('createVirtualOrder', {
+          action: 'recoverUser',
+          openid: user.openid,
+        });
+      } catch (e) {
+        lines.push(`订单：${(e && e.message) || '补发失败'}`);
+      }
+      if (orderRes) {
+        const results = orderRes.results || [];
+        const delivered = results.filter((r) => r && r.ok && r.delivered && !r.already);
+        const already = results.filter((r) => r && r.ok && r.already);
+        const failed = results.filter((r) => r && !r.ok);
+        const unpaid = results.filter((r) => r && r.ok && r.paid === false);
+        if (delivered.length) {
+          lines.push(`订单：新补发 ${delivered.length} 笔`);
+        } else if (already.length) {
+          lines.push(`订单：${already.length} 笔已到账`);
+        } else if (unpaid.length && !failed.length) {
+          lines.push('订单：有未支付单，无需发货');
+        } else if (failed.length) {
+          lines.push(`订单：${failed.length} 笔失败`);
+        } else {
+          lines.push('订单：无待补发');
+        }
+        // 订单可能改了积分/包月，再拉一次最新用户
+        try {
+          const fresh = await callFunction('adminManageUser', {
+            action: 'get',
+            openid: user.openid,
+          });
+          if (fresh && fresh.data) nextUser = fresh.data;
+        } catch (e) {
+          /* keep nextUser from entRes */
+        }
+      }
+
+      if (nextUser) this.patchListUser(nextUser);
+      const content = lines.length ? lines.join('\n') : '未发现可补发项';
+      wx.showModal({
+        title: '补发结果',
+        content,
+        showCancel: false,
+      });
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '补发失败', icon: 'none' });
+    } finally {
+      wx.hideLoading();
+      this.setData({ repairing: false });
+    }
   },
 
   patchListUser(next) {

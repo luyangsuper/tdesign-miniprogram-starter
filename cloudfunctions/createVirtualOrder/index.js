@@ -22,6 +22,22 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 // 事务/单读找不到文档时不要抛错，方便发货兜底
 const db = cloud.database({ throwOnNotFound: false });
 
+const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
+
+function getAdminList() {
+  const fromEnv = process.env.ADMIN_OPENIDS || '';
+  if (fromEnv.trim()) {
+    return fromEnv.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return FALLBACK_ADMINS;
+}
+
+function assertAdmin(openid) {
+  const admins = getAdminList();
+  if (!admins.length) return true;
+  return !!openid && admins.includes(openid);
+}
+
 /**
  * 虚拟支付下单 / 支付后确认发货 / 定时补单
  * action:
@@ -29,6 +45,8 @@ const db = cloud.database({ throwOnNotFound: false });
  *  - confirm { outTradeNo }
  *  - status { outTradeNo }
  *  - pollPending  定时触发或运维手动：query_order 补发货
+ *  - recoverMine  当前用户补发未完结订单
+ *  - recoverUser  管理员：按 openid 补发该用户未完结订单
  */
 exports.main = async (event = {}) => {
   const wxCtx = cloud.getWXContext();
@@ -48,6 +66,22 @@ exports.main = async (event = {}) => {
         return { ok: false, code: 'NO_OPENID', message: '请先登录' };
       }
       return await recoverMineOrders(db, cloud, OPENID);
+    }
+
+    if (action === 'recoverUser') {
+      if (!OPENID) {
+        return { ok: false, code: 'NO_OPENID', message: '请先登录' };
+      }
+      if (!assertAdmin(OPENID)) {
+        return { ok: false, code: 'FORBIDDEN', message: '无管理员权限' };
+      }
+      const target = String(event.openid || '')
+        .trim()
+        .replace(/\s+/g, '');
+      if (!target || target.length < 4) {
+        return { ok: false, code: 'BAD_PARAM', message: '缺少 openid' };
+      }
+      return await recoverMineOrders(db, cloud, target);
     }
 
     if (action === 'pollPending') {

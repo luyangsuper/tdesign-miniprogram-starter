@@ -45,21 +45,18 @@ async function ensureUser(openid) {
     const snap = await ref.get();
     return { ref, data: snap.data || {} };
   } catch (e) {
-    const data = {
-      openid,
-      points: 0,
-      vipMonthQuota: 0,
-      vipQuotaPeriod: '',
-      vipExpireAt: null,
-      createdAt: db.serverDate(),
-      lastLoginAt: db.serverDate(),
+    // 不抢建 users：首页 get 常与 login 并发，set(points:0) 会抢走/覆盖见面礼。
+    // 无档案时返回空壳；真正建档与见面礼由 login 负责。
+    return {
+      ref,
+      data: {
+        openid,
+        points: 0,
+        vipMonthQuota: 0,
+        vipQuotaPeriod: '',
+        vipExpireAt: null,
+      },
     };
-    try {
-      await ref.set({ data });
-    } catch (err) {
-      console.warn('ensureUser set', err.message);
-    }
-    return { ref, data };
   }
 }
 

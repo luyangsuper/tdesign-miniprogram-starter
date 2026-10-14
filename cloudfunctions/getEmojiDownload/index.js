@@ -25,18 +25,11 @@ async function ensureUser(openid) {
     const snap = await ref.get();
     return { ref, data: snap.data || {} };
   } catch (e) {
-    const data = {
-      openid,
-      points: 0,
-      vipExpireAt: null,
-      createdAt: db.serverDate(),
+    // 不抢建 users，避免与 login 见面礼竞态
+    return {
+      ref,
+      data: { openid, points: 0, vipExpireAt: null },
     };
-    try {
-      await ref.set({ data });
-    } catch (err) {
-      console.warn('ensureUser', err.message);
-    }
-    return { ref, data };
   }
 }
 

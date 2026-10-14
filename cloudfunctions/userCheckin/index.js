@@ -120,38 +120,18 @@ async function ensureUser(openid) {
     const snap = await ref.get();
     return { ref, user: { _id: openid, ...(snap.data || {}) } };
   } catch (e) {
-    // 仅在确认不存在时建档；禁止用空 points set 覆盖已有用户（与 login 并发会清零见面礼）
-    try {
-      await ref.set({
-        data: {
-          openid,
-          points: 0,
-          vipMonthQuota: 0,
-          vipQuotaPeriod: '',
-          vipExpireAt: null,
-          createdAt: db.serverDate(),
-          lastLoginAt: db.serverDate(),
-        },
-      });
-    } catch (err) {
-      /* 并发建档：忽略后重读 */
-    }
-    try {
-      const snap = await ref.get();
-      return { ref, user: { _id: openid, ...(snap.data || {}) } };
-    } catch (err2) {
-      return {
-        ref,
-        user: {
-          _id: openid,
-          openid,
-          points: 0,
-          vipMonthQuota: 0,
-          vipQuotaPeriod: '',
-          vipExpireAt: null,
-        },
-      };
-    }
+    // 不抢建 users：与 login 并发 set(points:0) 会抢走见面礼；建档交给 login
+    return {
+      ref,
+      user: {
+        _id: openid,
+        openid,
+        points: 0,
+        vipMonthQuota: 0,
+        vipQuotaPeriod: '',
+        vipExpireAt: null,
+      },
+    };
   }
 }
 
