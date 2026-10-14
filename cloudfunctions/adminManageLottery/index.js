@@ -1,5 +1,5 @@
 const cloud = require('wx-server-sdk');
-const { sendLotteryInviteNotices } = require('./notify');
+const { sendLotteryInviteNotices, resolveMpState } = require('./notify');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -235,6 +235,7 @@ exports.main = async (event = {}) => {
         };
       }
 
+      const subscribeMpState = resolveMpState(event.miniprogramState);
       const addRes = await db.collection('lotteries').add({
         data: {
           title,
@@ -244,6 +245,8 @@ exports.main = async (event = {}) => {
           status: 'open',
           participantCount: 0,
           winners: [],
+          // 开奖定时器无客户端上下文，用创建时版本下发中奖订阅消息
+          subscribeMpState,
           createdBy: OPENID,
           createdAt: db.serverDate(),
           updatedAt: db.serverDate(),
@@ -260,15 +263,24 @@ exports.main = async (event = {}) => {
       });
 
       let subscribeSent = 0;
+      let subscribeSkipped = 0;
+      let subscribeLastError = '';
+      let subscribeCreditUsers = 0;
+      let subscribeWinOnlyUsers = 0;
       try {
         const sub = await sendLotteryInviteNotices(cloud, db, {
           lotteryId,
           title,
-          miniprogramState: event.miniprogramState,
+          miniprogramState: subscribeMpState,
         });
         subscribeSent = (sub && sub.sent) || 0;
+        subscribeSkipped = (sub && sub.skipped) || 0;
+        subscribeLastError = (sub && sub.lastError) || '';
+        subscribeCreditUsers = (sub && sub.creditUsers) || 0;
+        subscribeWinOnlyUsers = (sub && sub.winOnlyUsers) || 0;
       } catch (e) {
         console.warn('[create] subscribe invite', e.message || e);
+        subscribeLastError = String((e && e.message) || e);
       }
 
       await db
@@ -279,20 +291,39 @@ exports.main = async (event = {}) => {
             inviteNotified: notified,
             inviteFailed: failed,
             subscribeSent,
+            subscribeSkipped,
+            subscribeLastError,
+            subscribeCreditUsers,
+            subscribeWinOnlyUsers,
             updatedAt: db.serverDate(),
           },
         });
 
+      let subTip = '';
+      if (subscribeSent) {
+        subTip = `，微信提醒 ${subscribeSent} 人`;
+      } else if (subscribeLastError) {
+        subTip = `，微信提醒未送达（${subscribeLastError}）`;
+      } else if (subscribeWinOnlyUsers > 0) {
+        subTip =
+          `，有 ${subscribeWinOnlyUsers} 人只开了中奖提醒、未开「抽奖机会」发布提醒，请在抽奖页重新开启并勾选全部`;
+      } else {
+        subTip =
+          '，库内无「抽奖机会」订阅额度：请到抽奖页点开启，弹窗里两项都选允许';
+      }
+
       return {
         ok: true,
-        message: `已创建，站内邀请 ${notified} 人${
-          subscribeSent ? `，订阅消息 ${subscribeSent} 人` : ''
-        }`,
+        message: `已创建，站内邀请 ${notified} 人${subTip}`,
         data: {
           lotteryId,
           notified,
           failed,
           subscribeSent,
+          subscribeSkipped,
+          subscribeLastError,
+          subscribeCreditUsers,
+          subscribeWinOnlyUsers,
           title,
           poolPoints,
           winnerCount,

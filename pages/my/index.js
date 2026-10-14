@@ -165,27 +165,23 @@ Page({
     this.refreshIdentity();
     this.syncProfileFromCloud();
     this.syncEntitlement();
-    this.recoverPendingOrders();
     this.refreshNotifyStatus();
     this.refreshFeedbackNotifyStatus();
     this.maybeOpenCheckinPopup();
   },
 
-  /** 手动点「补发权益」 */
+  /** 仅手动点「补发权益」时触发，进页不再自动扫单 */
   onRecoverOrders() {
-    this.recoverPendingOrders({ manual: true });
+    this.recoverPendingOrders();
   },
 
-  /** 支付成功但发货失败的订单：进「我的」自动 / 手动补发 */
-  async recoverPendingOrders(opts = {}) {
-    const manual = !!(opts && opts.manual);
+  async recoverPendingOrders() {
     if (this._recoveringOrders) return;
     this._recoveringOrders = true;
-    if (manual) wx.showLoading({ title: '补发中', mask: true });
+    wx.showLoading({ title: '补发中', mask: true });
     try {
       const res = await recoverMyPendingOrders();
-      console.log('[recoverOrders]', res);
-      if (manual) wx.hideLoading();
+      wx.hideLoading();
       if (res && res.delivered > 0) {
         if (res.entitlement) this.refreshIdentity();
         await this.syncEntitlement();
@@ -203,27 +199,21 @@ Page({
         });
         return;
       }
-      // 自动进页：扫不到不提示；手动点「补发权益」：始终给结果
-      if (manual) {
-        wx.showToast({
-          title:
-            res && res.scanned
-              ? `已检查 ${res.scanned} 笔，无需补发`
-              : '当前没有待补发订单',
-          icon: 'none',
-          duration: 2500,
-        });
-      }
+      wx.showToast({
+        title:
+          res && res.scanned
+            ? `已检查 ${res.scanned} 笔，无需补发`
+            : '当前没有待补发订单',
+        icon: 'none',
+        duration: 2500,
+      });
     } catch (e) {
-      if (manual) wx.hideLoading();
-      console.warn('[recoverOrders]', e && e.message);
-      if (manual) {
-        wx.showModal({
-          title: '补发异常',
-          content: (e && e.message) || '补发失败',
-          showCancel: false,
-        });
-      }
+      wx.hideLoading();
+      wx.showModal({
+        title: '补发异常',
+        content: (e && e.message) || '补发失败',
+        showCancel: false,
+      });
     } finally {
       this._recoveringOrders = false;
     }

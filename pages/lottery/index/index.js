@@ -8,6 +8,7 @@ import {
 import {
   buildLotteryNotifyHint,
   fetchLotterySubscribeStatus,
+  lotterySubscribeToast,
   requestLotterySubscribe,
 } from '~/utils/subscribe';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
@@ -52,6 +53,8 @@ Page({
     loading: true,
     list: [],
     lotteryNotifyHint: buildLotteryNotifyHint(0, 0),
+    inviteCredits: 0,
+    winCredits: 0,
   },
 
   onLoad() {
@@ -130,6 +133,8 @@ Page({
     try {
       const st = await fetchLotterySubscribeStatus();
       this.setData({
+        inviteCredits: st.inviteCredits,
+        winCredits: st.winCredits,
         lotteryNotifyHint: buildLotteryNotifyHint(st.inviteCredits, st.winCredits),
       });
     } catch (e) {
@@ -139,14 +144,17 @@ Page({
 
   async onSubscribe() {
     try {
-      const res = await requestLotterySubscribe();
-      const ok =
-        (res.invite && res.invite.accepted) || (res.win && res.win.accepted);
-      wx.showToast({
-        title: ok ? '已开启抽奖提醒' : '未授权提醒',
-        icon: ok ? 'success' : 'none',
+      // 用已缓存额度，勿在 tap 里先 await 再订阅（会打断手势导致失败）
+      const res = await requestLotterySubscribe({
+        inviteCredits: this.data.inviteCredits,
+        winCredits: this.data.winCredits,
       });
-      this.refreshSubscribeHint();
+      await this.refreshSubscribeHint();
+      const tip = lotterySubscribeToast(res, {
+        inviteCredits: this.data.inviteCredits,
+        winCredits: this.data.winCredits,
+      });
+      wx.showToast({ title: tip.title, icon: tip.icon, duration: 2800 });
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '订阅失败', icon: 'none' });
     }

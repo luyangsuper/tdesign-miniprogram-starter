@@ -796,19 +796,25 @@ Page({
 
       let w = Number(coverWidth) || 0;
       let h = Number(coverHeight) || 0;
-      if ((!w || !h) && coverFiles[0]) {
-        const src = this.pickLocalPath(coverFiles[0]);
-        if (src) {
+      // 本地选图 / 云 fileID 都再量一次，保证首页瀑布流有 coverRatio
+      if (!w || !h) {
+        const candidates = [
+          coverFiles[0] && this.pickLocalPath(coverFiles[0]),
+          coverIds[0],
+        ].filter(Boolean);
+        for (let i = 0; i < candidates.length; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
           const info = await new Promise((resolve) => {
             wx.getImageInfo({
-              src,
+              src: candidates[i],
               success: resolve,
               fail: () => resolve(null),
             });
           });
-          if (info) {
-            w = info.width || 0;
-            h = info.height || 0;
+          if (info && info.width && info.height) {
+            w = info.width;
+            h = info.height;
+            break;
           }
         }
       }
@@ -840,6 +846,16 @@ Page({
           this.setData({ packId: newId, isEdit: true });
           wx.setClipboardData({ data: newId });
         }
+      }
+
+      // 发布后立刻写入本地比例，首页 force 刷新时可先于图片 load 用上
+      if (savedPackId && w > 0 && h > 0) {
+        try {
+          wx.setStorageSync(`coverRatio_${savedPackId}`, h / w);
+        } catch (err) {
+          /* ignore */
+        }
+        this.setData({ coverWidth: w, coverHeight: h });
       }
 
       let notifyTip = '';

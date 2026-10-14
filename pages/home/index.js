@@ -1585,10 +1585,34 @@ Page({
         out.push({ ...item, coverRatio: 1 });
         continue;
       }
-      // 缺比例时用默认值先展示，避免切换分类时排队 getImageInfo
+      // 缺比例时用默认值先展示；封面 load 后由 pack-card 派发 ratiochange 纠正
       out.push({ ...item, coverRatio: 1 });
     }
     return out;
+  },
+
+  /**
+   * 封面实测比例回写：只改对应项，不重排列，避免组件重挂导致封面空白。
+   */
+  onCoverRatioChange(e) {
+    const detail = (e && e.detail) || {};
+    const packId = detail.packId;
+    const ratio = Number(detail.coverRatio) || 0;
+    if (!packId || !(ratio > 0.2 && ratio < 4)) return;
+
+    const patchItem = (item) =>
+      item && item._id === packId ? { ...item, coverRatio: ratio } : item;
+
+    const list = (this.data.list || []).map(patchItem);
+    const columns = (this.data.columns || []).map((col) =>
+      (col || []).map(patchItem),
+    );
+    this.setData({ list, columns });
+
+    const cacheKey = listCacheKey(this.data.categoryId, this.data.keyword);
+    if (this._listCache && this._listCache[cacheKey] && this._listCache[cacheKey].list) {
+      this._listCache[cacheKey].list = this._listCache[cacheKey].list.map(patchItem);
+    }
   },
 
   async loadList(reset = false, options = {}) {

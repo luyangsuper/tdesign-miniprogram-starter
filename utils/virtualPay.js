@@ -172,7 +172,7 @@ export async function buyPlan(plan) {
 }
 
 /**
- * 进入「我的」时补发当前用户未完结订单
+ * 手动补发当前用户未完结订单（「我的」页「补发权益」）
  */
 export async function recoverMyPendingOrders() {
   const res = await callFunction('createVirtualOrder', { action: 'recoverMine' });

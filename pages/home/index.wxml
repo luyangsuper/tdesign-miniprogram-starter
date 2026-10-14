@@ -201,6 +201,7 @@
                       selectMode="{{selectMode}}"
                       selected="{{selectedMap[item._id] ? true : false}}"
                       bind:toggle="onTogglePack"
+                      bind:ratiochange="onCoverRatioChange"
                       bind:edit="onEditPack"
                       bind:delete="onDeletePack"
                     />

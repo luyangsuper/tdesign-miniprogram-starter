@@ -460,6 +460,7 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
             title,
             prizePoints,
             lotteryId: id,
+            miniprogramState: lot.subscribeMpState || lot.miniprogramState,
           });
         } catch (e) {
           console.warn('[draw] win notify', openid, e.message || e);

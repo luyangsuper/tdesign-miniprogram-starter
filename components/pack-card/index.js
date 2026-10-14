@@ -152,6 +152,8 @@ Component({
       const h = Number(detail.height) || 0;
       if (!w || !h) return;
       const ratio = h / w;
+      if (!(ratio > 0.2 && ratio < 4)) return;
+
       const { packId } = this.data;
       if (packId) {
         try {
@@ -160,6 +162,15 @@ Component({
           /* ignore */
         }
       }
+
+      // 缺库内比例时首页会先用 1 占位；加载后按实测比例纠正高度，并通知列表回写
+      const prev = Number(this.data.coverRatio) || 1;
+      if (Math.abs(prev - ratio) < 0.02) return;
+      const cardW = Number(this.data.cardWidth) || 0;
+      this.setData({
+        mediaHeight: cardW ? Math.round(cardW * ratio) : 0,
+      });
+      this.triggerEvent('ratiochange', { packId, coverRatio: ratio });
     },
 
     onTap() {

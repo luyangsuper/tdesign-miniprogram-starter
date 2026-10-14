@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
+const _ = db.command;
 
 /** 与 config.js / 其它云函数保持一致 */
 const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
@@ -53,9 +54,18 @@ function normalizeType(raw) {
   return 'newPack';
 }
 
+async function readCredits(ref, creditsKey) {
+  try {
+    const snap = await ref.get();
+    return Math.max(0, Number((snap.data || {})[creditsKey]) || 0);
+  } catch (e) {
+    return 0;
+  }
+}
+
 /**
  * 一次性模板每同意一次 +1 次发送额度
- * action: record | status
+ * action: record | status | statusLottery
  * type: newPack | feedback | lotteryInvite | lotteryWin
  */
 exports.main = async (event) => {
@@ -74,44 +84,63 @@ exports.main = async (event) => {
   }
 
   try {
+    if (action === 'statusLottery') {
+      const inviteFields = creditFields('lotteryInvite');
+      const winFields = creditFields('lotteryWin');
+      let data = {};
+      try {
+        data = (await ref.get()).data || {};
+      } catch (e) {
+        data = {};
+      }
+      return {
+        ok: true,
+        data: {
+          inviteCredits: Math.max(0, Number(data[inviteFields.creditsKey]) || 0),
+          winCredits: Math.max(0, Number(data[winFields.creditsKey]) || 0),
+        },
+      };
+    }
+
     if (action === 'record') {
       const accepted = !!event.accepted;
       if (!accepted) {
         return { ok: true, data: { credits: 0, skipped: true, type } };
       }
-      let credits = 0;
+
+      let exists = true;
       try {
-        const snap = await ref.get();
-        credits = Math.max(0, Number((snap.data || {})[creditsKey]) || 0);
+        await ref.get();
       } catch (e) {
+        exists = false;
+      }
+
+      if (!exists) {
         await ref.set({
           data: {
             openid: OPENID,
             [creditsKey]: 1,
+            [atKey]: db.serverDate(),
             updatedAt: db.serverDate(),
           },
         });
-        return { ok: true, data: { credits: 1, type } };
+        return { ok: true, data: { credits: 1, type, creditsKey } };
       }
-      credits += 1;
+
       await ref.update({
         data: {
-          [creditsKey]: credits,
+          [creditsKey]: _.inc(1),
           [atKey]: db.serverDate(),
           updatedAt: db.serverDate(),
         },
       });
-      return { ok: true, data: { credits, type } };
+      const credits = await readCredits(ref, creditsKey);
+      return { ok: true, data: { credits, type, creditsKey } };
     }
 
     // status
-    try {
-      const snap = await ref.get();
-      const credits = Math.max(0, Number((snap.data || {})[creditsKey]) || 0);
-      return { ok: true, data: { credits, type } };
-    } catch (e) {
-      return { ok: true, data: { credits: 0, type } };
-    }
+    const credits = await readCredits(ref, creditsKey);
+    return { ok: true, data: { credits, type, creditsKey } };
   } catch (e) {
     console.error(e);
     return { ok: false, code: 'SUBSCRIBE_FAIL', message: e.message || '订阅失败' };
