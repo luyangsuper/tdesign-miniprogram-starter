@@ -58,21 +58,34 @@
 | `redeem_codes` | 兑换码（`vip_days` / `points`；`unused` / `used` / `disabled`） |
 | `orders` | 虚拟支付订单（`outTradeNo` / `productId` / `status` / `wxOrderId`） |
 | `download_logs` | 下载记录：`openid` / `packId` / `packTitle` / `emojiIndex` / `variant`(static\|anim) / `fileID` / `thumbFileID` / `grantType` |
+| `points_logs` | 积分流水：`openid` / `delta` / `balance` / `reason` / `title` / `meta` / `createdAt`（仅 `users.points`，不含月额度） |
 | `feedback` | 用户意见反馈（`content` / `contact` / `status`） |
 | `lotteries` | 抽奖活动（`title` / `poolPoints` / `winnerCount` / `drawAt` / `status` / `winners`） |
 | `lottery_entries` | 抽奖参与记录（文档 id：`{lotteryId}_{openid}`） |
 
 建议索引：
 
-- `packs`：`status` + `createdAt`（降序）；`downloadCount`（降序）
+- `packs`：`status` + `createdAt`（降序）
 - `redeem_codes`：`code`（唯一）；`status` + `createdAt`
 - `download_logs`：`openid` + `createdAt`（降序）；`createdAt`（降序）
+- `points_logs`：`openid` + `createdAt`（降序）
 - `users`：`vipExpireAt`；`lastLoginAt`（降序，openid 片段搜索）
 - `orders`：`outTradeNo`（唯一）；`openid` + `createdAt`；`wxOrderId`
+- 短缓存写在 `app_config`：`category_counts`（约 2 分钟）、`dashboard_cache`（约 3 分钟）；合集增删改会失效
 - `lotteries`：`status` + `drawAt`；`createdAt`（降序）；`status` + `drawnAt`（降序）
 - `lottery_entries`：`lotteryId` + `_id`
 
 **权限建议：** 集合对客户端「所有用户不可读写」，只走云函数。
+
+### 2.1 性能相关（已实现）
+
+| 能力 | 说明 |
+|------|------|
+| 详情原图按需加载 | `getPackDetail` 先只换封面/预览；`action=resolveSlotUrls` 分批补原图链 |
+| 临时 URL 短缓存 | 云函数热实例内存约 90 分钟复用，减少 `getTempFileURL` |
+| 看板 / 分类计数缓存 | `app_config` 短缓存；看板约 3 分钟，分类约 2 分钟；合集/分类变更失效 |
+| 首页列表快照 | 本地 storage 约 5 分钟，二次打开先出壳再静默刷新 |
+| 封面压缩 + 懒加载 | 上传封面压到长边约 900；列表 `t-image` 已 `lazy` |
 
 ### 3. 上传并部署云函数
 
@@ -96,6 +109,8 @@
 | `lotteryDraw` | 定时扫到期活动并开奖（奖池随机拆分） |
 | `adminManagePoints` | 见面礼 / 签到规则 / 活动发积分 |
 | `userCheckin` | 每日签到 / 补签 |
+| `userHistory` | 积分流水 |
+| `adminDashboard` | 管理端数据看板（今日下载 / 成交 / 热门） |
 
 ### 3.1 抽奖定时触发器
 
@@ -187,6 +202,7 @@
 
 | 入口 | 说明 |
 |------|------|
+| 数据看板 | 今日下载 / 成交 / 近 7 日趋势 / 热门合集 |
 | 上传合集 / 管理分类 | 内容管理 |
 | 兑换码 | 生成、列表、作废未用码 |
 | 用户权益 | 按 openid 取消包月、开通/续期、调整积分 |
@@ -197,9 +213,11 @@
 
 ```
 cloudfunctions/          云函数
-pages/home/              合集列表（仅封面）
-pages/pack/detail/       预览 + 鉴权保存原图
+pages/home/              合集列表（搜索标题·简介·分类；本地快照秒开）
+pages/pack/detail/       预览 + 鉴权保存原图（原图 URL 按需加载）
 pages/my/                权益 + 兑换 + 管理入口
+pages/history/           积分流水
+pages/admin/dashboard/   数据看板（约 3 分钟缓存）
 pages/admin/upload/      上传合集
 pages/admin/categories/  管理分类
 pages/admin/codes/       兑换码管理

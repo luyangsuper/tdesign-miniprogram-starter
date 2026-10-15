@@ -173,18 +173,50 @@ Page({
 
   onCoverSuccess(e) {
     const files = e.detail.files.slice(0, 1);
-    this.setData({ coverFiles: files });
-    const src =
-      (files[0] && (files[0].url || files[0].path || files[0].tempFilePath)) || '';
-    if (!src) return;
-    wx.getImageInfo({
-      src,
-      success: (info) => {
-        this.setData({
-          coverWidth: info.width || 0,
-          coverHeight: info.height || 0,
-        });
-      },
+    if (!files.length) {
+      this.setData({ coverFiles: [] });
+      return;
+    }
+    this.compressOneCover(files[0]).then((file) => {
+      this.setData({ coverFiles: [file] });
+      const src = file.url || file.path || file.tempFilePath || '';
+      if (!src) return;
+      wx.getImageInfo({
+        src,
+        success: (info) => {
+          this.setData({
+            coverWidth: info.width || 0,
+            coverHeight: info.height || 0,
+          });
+        },
+      });
+    });
+  },
+
+  /** 封面压到长边约 900，减小首页列表流量（GIF 跳过） */
+  compressOneCover(file) {
+    const src = file.path || file.url || file.tempFilePath;
+    const size = Number(file.size) || 0;
+    const name = `${file.name || ''} ${src}`.toLowerCase();
+    if (
+      !src ||
+      String(src).startsWith('cloud://') ||
+      name.includes('.gif') ||
+      (size > 0 && size < 180 * 1024)
+    ) {
+      return Promise.resolve(file);
+    }
+    return new Promise((resolve) => {
+      wx.compressImage({
+        src,
+        quality: 70,
+        compressedWidth: 900,
+        success: (res) => {
+          const path = res.tempFilePath || src;
+          resolve({ ...file, url: path, path, size: 0 });
+        },
+        fail: () => resolve(file),
+      });
     });
   },
   onCoverRemove() {

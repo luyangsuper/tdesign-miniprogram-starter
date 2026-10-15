@@ -11,7 +11,7 @@ export const COPY = {
   pack: '合集',
   packs: '合集',
   original: '原图',
-  searchPlaceholder: '搜索合集',
+  searchPlaceholder: '搜索标题 / 简介 / 分类',
   emptyList: '没有找到合集，试试换个关键词或分类',
   uploadTitle: '上传合集',
   editTitle: '编辑合集',

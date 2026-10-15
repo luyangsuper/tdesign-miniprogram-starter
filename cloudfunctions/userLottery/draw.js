@@ -2,6 +2,7 @@
  * 抽奖开奖核心：随机抽人 + 奖池随机拆分 + 幂等发奖
  */
 const { sendLotteryWinNotice } = require('./notify');
+const { recordPointsLog } = require('./pointsLog');
 
 function toMs(v) {
   if (!v) return 0;
@@ -185,12 +186,13 @@ async function creditAndPushResult(db, _, {
 
   // 1) 先发积分（幂等）
   if (won && pts > 0) {
+    let credited = false;
     try {
-      await db.runTransaction(async (transaction) => {
+      credited = await db.runTransaction(async (transaction) => {
         const snap = await transaction.collection('users').doc(openid).get();
         const data = (snap && snap.data) || null;
-        if (!data) return;
-        if (data.lotteryCredits && data.lotteryCredits[lotteryId]) return;
+        if (!data) return false;
+        if (data.lotteryCredits && data.lotteryCredits[lotteryId]) return false;
         await transaction.collection('users').doc(openid).update({
           data: {
             points: _.inc(pts),
@@ -198,6 +200,7 @@ async function creditAndPushResult(db, _, {
             updatedAt: db.serverDate(),
           },
         });
+        return true;
       });
     } catch (e) {
       console.warn('[draw] credit tx', openid, e.message || e);
@@ -211,14 +214,30 @@ async function creditAndPushResult(db, _, {
               updatedAt: db.serverDate(),
             },
           });
+          credited = true;
         }
       } catch (e2) {
         console.error('[draw] credit fallback', openid, e2.message || e2);
       }
     }
+    if (credited) {
+      try {
+        const after = (await userRef.get()).data || {};
+        await recordPointsLog(db, {
+          openid,
+          delta: pts,
+          balance: Math.max(0, Number(after.points) || 0),
+          reason: 'lottery',
+          title: title ? `抽奖「${String(title).slice(0, 20)}」` : '抽奖奖励',
+          meta: { lotteryId },
+        });
+      } catch (logErr) {
+        /* ignore */
+      }
+    }
   }
 
-  // 2) 再写弹窗队列（幂等）；用户已确认过的不再重推
+  // 2) 再写弹窗队列（幂等）
   try {
     const data = (await userRef.get()).data;
     if (!data) return;
@@ -293,7 +312,6 @@ async function repairMyLotteryCredits(db, _, openid) {
       (user.lotteryResultsAcked && user.lotteryResultsAcked[lotteryId]) ||
       (user.lotteryResultsAcked &&
         user.lotteryResultsAcked[`result_${lotteryId}_${openid}`]);
-    // 积分已到且（已推送或已确认弹窗）→ 无需再修
     if (credited && (pushed || acked)) continue;
 
     let title = '抽奖活动';

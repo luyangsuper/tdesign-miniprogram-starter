@@ -41,14 +41,16 @@ function isSlotSelectable(slot, downloadReady, variant) {
   return true;
 }
 
-/** 保存区展示：按当前静/动选择对应原图，不再用预览拼图 */
+/** 保存区展示：优先原图临时链，未就绪时用预览占位 */
 function slotDisplayUrl(slot, variant) {
   if (!slot) return '';
   if (variant === 'anim') {
-    return slot.animUrl || '';
+    return slot.animUrl || slot.previewUrl || '';
   }
-  return slot.staticUrl || '';
+  return slot.staticUrl || slot.previewUrl || '';
 }
+
+const SLOT_URL_BATCH = 20;
 
 function decorateSlots(slots, downloadReady, variant, hasAnimAny, canSaveStatic) {
   return (slots || []).map((s) => {
@@ -149,6 +151,10 @@ Page({
     });
     this.refreshEntitlementUi();
     if (packId) this.loadDetail(packId);
+  },
+
+  onUnload() {
+    this._slotUrlSeq = (this._slotUrlSeq || 0) + 1;
   },
 
   onShow() {
@@ -300,9 +306,77 @@ Page({
         loading: false,
       });
       wx.setNavigationBarTitle({ title: pack.title || '合集详情' });
+      // 原图临时链按批后台补齐，首屏先用预览占位
+      this.prefetchSlotUrls(packId, emojiSlots);
     } catch (e) {
       this.setData({ loading: false, heroList: [] });
       wx.showToast({ title: e.message || '加载失败', icon: 'none' });
+    }
+  },
+
+  /**
+   * 分批拉取静/动原图临时链；已就绪的槽位跳过
+   */
+  async prefetchSlotUrls(packId, slots) {
+    const id = packId || this.data.packId;
+    if (!id) return;
+    const seq = (this._slotUrlSeq = (this._slotUrlSeq || 0) + 1);
+    const pending = (slots || this.data.emojiSlots || [])
+      .filter((s) => s && !s.urlsReady)
+      .map((s) => s.index);
+    for (let i = 0; i < pending.length; i += SLOT_URL_BATCH) {
+      if (seq !== this._slotUrlSeq || this.data.packId !== id) return;
+      const indexes = pending.slice(i, i + SLOT_URL_BATCH);
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await callFunction('getPackDetail', {
+          action: 'resolveSlotUrls',
+          packId: id,
+          indexes,
+        });
+        if (seq !== this._slotUrlSeq || this.data.packId !== id) return;
+        const patchMap = {};
+        ((res.data && res.data.slots) || []).forEach((row) => {
+          if (row && typeof row.index === 'number') patchMap[row.index] = row;
+        });
+        if (!Object.keys(patchMap).length) continue;
+        const variant = this.data.downloadVariant;
+        const downloadReady = this.data.downloadReady;
+        const hasAnimAny = this.data.hasAnimAny;
+        const canSaveStatic = this.data.canSaveStatic;
+        const next = (this.data.emojiSlots || []).map((s) => {
+          const row = patchMap[s.index];
+          if (!row) return s;
+          const merged = {
+            ...s,
+            staticUrl: row.staticUrl || s.staticUrl || '',
+            animUrl: row.animUrl || s.animUrl || '',
+            hasAnim: row.hasAnim != null ? !!row.hasAnim : s.hasAnim,
+            urlsReady: true,
+          };
+          return {
+            ...merged,
+            selectable: isSlotSelectable(merged, downloadReady, variant),
+            displayUrl: slotDisplayUrl(merged, variant),
+            saveLabel: buildSaveLabel(
+              merged,
+              downloadReady,
+              variant,
+              hasAnimAny,
+              canSaveStatic,
+            ),
+          };
+        });
+        const summary = summarizeSelection(next, variant);
+        this.setData({
+          emojiSlots: next,
+          selectedCount: summary.selectedCount,
+          selectedCost: summary.selectedCost,
+          allSelected: summary.allSelected,
+        });
+      } catch (e) {
+        console.warn('[slotUrls]', e.message || e);
+      }
     }
   },
 

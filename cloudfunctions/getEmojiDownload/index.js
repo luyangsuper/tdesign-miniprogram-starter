@@ -6,6 +6,8 @@ const {
   refundDownload,
   syncVipMonthQuota,
 } = require('./membership');
+const { recordPointsLog } = require('./pointsLog');
+const { resolveTempUrls } = require('./tempUrlCache');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -61,7 +63,34 @@ async function handleRefund(openid, event) {
   const fromPoints = Number(event.fromPoints) || 0;
   const { ref, data: user } = await ensureUser(openid);
   const synced = await syncVipMonthQuota(ref, user, db.serverDate());
-  return refundDownload(ref, synced, fromVip, fromPoints, _, db.serverDate());
+  const result = await refundDownload(
+    ref,
+    synced,
+    fromVip,
+    fromPoints,
+    _,
+    db.serverDate(),
+  );
+  const pts = Math.max(0, Math.floor(Number(fromPoints) || 0));
+  if (pts > 0) {
+    const balance =
+      result && result.entitlement
+        ? result.entitlement.points
+        : Math.max(0, Number(synced.points) || 0) + pts;
+    await recordPointsLog(db, {
+      openid,
+      delta: pts,
+      balance,
+      reason: 'download_refund',
+      title: '保存失败退回',
+      meta: {
+        packId: String(event.packId || '').trim(),
+        fromVip: Math.max(0, Math.floor(Number(fromVip) || 0)),
+        fromPoints: pts,
+      },
+    });
+  }
+  return result;
 }
 
 exports.main = async (event) => {
@@ -115,9 +144,9 @@ exports.main = async (event) => {
       fileID = animId;
     }
 
-    const temp = await cloud.getTempFileURL({ fileList: [fileID] });
-    const item = (temp.fileList || [])[0];
-    if (!item || !item.tempFileURL) {
+    const urlMap = await resolveTempUrls(cloud, [fileID]);
+    const tempUrl = urlMap[fileID] || '';
+    if (!tempUrl) {
       return { ok: false, code: 'URL_FAIL', message: '获取下载链接失败' };
     }
 
@@ -128,10 +157,30 @@ exports.main = async (event) => {
       return auth;
     }
 
+    const fromPoints = Math.max(0, Number(auth.fromPoints) || 0);
+    if (fromPoints > 0) {
+      const packTitle = String(pack.title || pack.name || '').trim().slice(0, 40);
+      await recordPointsLog(db, {
+        openid: OPENID,
+        delta: -fromPoints,
+        balance: auth.entitlement && auth.entitlement.points,
+        reason: 'download',
+        title: packTitle ? `保存「${packTitle}」` : '保存原图',
+        meta: {
+          packId,
+          packTitle,
+          index,
+          variant,
+          fromVip: auth.fromVip || 0,
+          fromPoints,
+        },
+      });
+    }
+
     return {
       ok: true,
       data: {
-        url: item.tempFileURL,
+        url: tempUrl,
         index,
         variant,
         cost: auth.cost,

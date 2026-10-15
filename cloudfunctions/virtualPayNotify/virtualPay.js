@@ -4,6 +4,7 @@ const { getProduct } = require('./products');
 const { resolveLiveProduct } = require('./pricingSettings');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { toMs, dayjs } = require('./time');
+const { recordPointsLog } = require('./pointsLog');
 
 const APPID = process.env.WX_APPID || 'wxc53da678dce0b8d1';
 /** 沙箱 OfferId；现网一般相同，可用 VIRTUAL_PAY_OFFER_ID 覆盖 */
@@ -253,6 +254,10 @@ async function findDeliveredByWxOrderId(db, wxOrderId) {
   }
 }
 
+/**
+ * 非事务发货（补发 paid 单更稳）：先读单 → 发权益 → 标 delivered
+ * 并发风险低（同用户补发）；事务失败时作兜底
+ */
 async function deliverOrderDirect(db, order, meta = {}, presetGrant = null) {
   const _ = db.command;
   const orderId = order._id || order.id;
@@ -321,6 +326,16 @@ async function deliverOrderDirect(db, order, meta = {}, presetGrant = null) {
   });
 
   const after = (await userRef.get()).data || {};
+  if (computed.pointsInc) {
+    await recordPointsLog(db, {
+      openid,
+      delta: computed.pointsInc,
+      balance: Math.max(0, Number(after.points) || 0),
+      reason: 'purchase',
+      title: '购买积分',
+      meta: { orderId, productId: order.productId || '' },
+    });
+  }
   const synced = await syncVipMonthQuota(userRef, after, db.serverDate());
   return {
     ok: true,
@@ -414,6 +429,16 @@ async function reclaimOrderGrant(db, order) {
       await userRef.update({
         data: { points: nextPts, updatedAt: db.serverDate() },
       });
+      if (add > 0) {
+        await recordPointsLog(db, {
+          openid,
+          delta: -add,
+          balance: nextPts,
+          reason: 'purchase_refund',
+          title: '订单退款回收',
+          meta: { orderId: order._id },
+        });
+      }
     } else if (grant.grantType === 'vip_days') {
       const days = Math.max(1, Number(grant.days) || 1);
       const cur = toMs(user.vipExpireAt);
@@ -444,8 +469,172 @@ async function reclaimOrderGrant(db, order) {
 }
 
 /**
+ * 「我的」进页：只补当前用户。查询尽量简单，避免复合索引导致扫不到 paid 单。
+ */
+async function recoverMineOrders(db, cloud, openid) {
+  const _ = db.command;
+  const uid = String(openid || '').trim();
+  if (!uid) {
+    return { ok: false, code: 'NO_OPENID', message: '请先登录', scanned: 0, results: [] };
+  }
+
+  let list = [];
+  const pushUnique = (rows) => {
+    const map = {};
+    list.forEach((o) => {
+      const id = o && (o._id || o.id);
+      if (id) map[id] = o;
+    });
+    (rows || []).forEach((o) => {
+      const id = o && (o._id || o.id);
+      if (id) map[id] = o;
+    });
+    list = Object.keys(map).map((k) => map[k]);
+  };
+
+  // 1) 最稳：openid + status=paid（用户当前卡住的形态）
+  try {
+    const res = await db.collection('orders').where({ openid: uid, status: 'paid' }).limit(20).get();
+    pushUnique(res.data);
+  } catch (e) {
+    console.warn('recoverMine paid', e.message || e);
+  }
+  // 2) pending
+  try {
+    const res = await db
+      .collection('orders')
+      .where({ openid: uid, status: 'pending' })
+      .limit(20)
+      .get();
+    pushUnique(res.data);
+  } catch (e) {
+    console.warn('recoverMine pending', e.message || e);
+  }
+  // 3) 仅 openid，内存过滤状态
+  if (!list.length) {
+    try {
+      const res = await db.collection('orders').where({ openid: uid }).limit(50).get();
+      pushUnique(
+        (res.data || []).filter((o) => o.status === 'paid' || o.status === 'pending'),
+      );
+    } catch (e) {
+      console.warn('recoverMine by openid', e.message || e);
+    }
+  }
+  // 4) 仅 status=paid，内存匹配 openid（防止字段不一致）
+  if (!list.length) {
+    try {
+      const res = await db.collection('orders').where({ status: 'paid' }).limit(50).get();
+      pushUnique(
+        (res.data || []).filter((o) => {
+          const oid = String(o.openid || o._openid || '');
+          return oid === uid;
+        }),
+      );
+    } catch (e) {
+      console.warn('recoverMine paid-all', e.message || e);
+    }
+  }
+
+  const results = [];
+  for (const order of list) {
+    const orderId = order._id || order.id;
+    try {
+      if (!orderId) {
+        results.push({ outTradeNo: order.outTradeNo, ok: false, message: '订单缺 _id' });
+        continue;
+      }
+      if (order.status === 'paid') {
+        const delivered = await deliverOrder(
+          db,
+          cloud,
+          { ...order, _id: orderId },
+          { wxOrderId: order.wxOrderId || '' },
+        );
+        results.push({
+          outTradeNo: order.outTradeNo,
+          orderId,
+          ok: true,
+          paid: true,
+          delivered: true,
+          already: !!delivered.already,
+          grant: delivered.grant || null,
+          entitlement: delivered.entitlement || null,
+          message: delivered.already ? '已到账' : '补发成功',
+        });
+        continue;
+      }
+      // pending：查单确认后再发
+      let queryRes = null;
+      try {
+        queryRes = await queryOrderPaid(cloud, {
+          openid: order.openid || uid,
+          outTradeNo: order.outTradeNo,
+        });
+      } catch (e) {
+        results.push({
+          outTradeNo: order.outTradeNo,
+          orderId,
+          ok: false,
+          message: e.message || '查单失败',
+        });
+        continue;
+      }
+      if (!isOrderPaid(queryRes)) {
+        results.push({ outTradeNo: order.outTradeNo, orderId, ok: true, paid: false });
+        continue;
+      }
+      const wxOrderId =
+        (queryRes && (queryRes.wx_order_id || queryRes.wxOrderId)) || order.wxOrderId || '';
+      await db.collection('orders').doc(orderId).update({
+        data: {
+          status: 'paid',
+          wxOrderId: wxOrderId || '',
+          querySnapshot: queryRes || null,
+          updatedAt: db.serverDate(),
+        },
+      });
+      const delivered = await deliverOrder(
+        db,
+        cloud,
+        { ...order, _id: orderId, status: 'paid' },
+        { wxOrderId },
+      );
+      results.push({
+        outTradeNo: order.outTradeNo,
+        orderId,
+        ok: true,
+        paid: true,
+        delivered: true,
+        already: !!delivered.already,
+        grant: delivered.grant || null,
+        entitlement: delivered.entitlement || null,
+        message: delivered.already ? '已到账' : '补发成功',
+      });
+    } catch (e) {
+      console.error('recoverMine deliver', order.outTradeNo, e.message || e);
+      results.push({
+        outTradeNo: order.outTradeNo,
+        orderId,
+        ok: false,
+        message: e.message || '补发失败',
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    scanned: list.length,
+    results,
+    message: list.length
+      ? `扫描 ${list.length} 笔未完结订单`
+      : '未找到待补发订单（paid/pending）',
+  };
+}
+
+/**
  * 定时/手动：查单补发最近未完结订单
- * @param {{ limit?: number, openid?: string }} opts
+ * @param {{ limit?: number, openid?: string }} opts openid 有值时只补该用户（「我的」进页触发）
  */
 async function pollPendingOrders(db, cloud, { limit = 20, openid = '' } = {}) {
   const _ = db.command;
@@ -628,6 +817,7 @@ module.exports = {
   deliverOrder,
   reclaimOrderGrant,
   pollPendingOrders,
+  recoverMineOrders,
   findDeliveredByWxOrderId,
   queryOrderPaid,
   isOrderPaid,

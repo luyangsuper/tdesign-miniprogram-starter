@@ -1,0 +1,139 @@
+<view class="dash" style="{{themeStyle}}">
+  <view class="dash__tip">
+    概览今日 / 近 7 日下载与付费。更新于 {{updatedText || '—'}}
+  </view>
+
+  <view wx:if="{{loading}}" class="dash__loading">
+    <t-loading theme="circular" size="40rpx" text="加载中" />
+  </view>
+
+  <block wx:else>
+    <view class="dash__section">今日</view>
+    <view class="dash__grid">
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.downloadsToday}}</text>
+        <text class="dash__stat-label">下载次数</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.activeToday}}</text>
+        <text class="dash__stat-label">下载用户</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.ordersToday}}</text>
+        <text class="dash__stat-label">成交笔数</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">¥{{summary.revenueTodayYuan}}</text>
+        <text class="dash__stat-label">成交额</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.newUsersToday}}</text>
+        <text class="dash__stat-label">新用户</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.ordersPending}}</text>
+        <text class="dash__stat-label">待发货单</text>
+      </view>
+    </view>
+
+    <view class="dash__section">累计</view>
+    <view class="dash__grid dash__grid--2">
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.usersTotal}}</text>
+        <text class="dash__stat-label">注册用户</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.packsPublished}}</text>
+        <text class="dash__stat-label">已发布合集</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.downloadsWeek}}</text>
+        <text class="dash__stat-label">近 7 日下载</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">¥{{summary.revenueWeekYuan}}</text>
+        <text class="dash__stat-label">近 7 日成交</text>
+      </view>
+    </view>
+
+    <view class="dash__section">近 7 日下载</view>
+    <view class="dash__card">
+      <view class="dash__bars" wx:if="{{trend.length}}">
+        <view class="dash__bar-col" wx:for="{{trend}}" wx:key="key">
+          <text class="dash__bar-count">{{item.count}}</text>
+          <view class="dash__bar-track">
+            <view class="dash__bar-fill" style="height: {{item.percent}}%;" />
+          </view>
+          <text class="dash__bar-label">{{item.label}}</text>
+        </view>
+      </view>
+      <t-empty wx:else description="暂无数据" />
+    </view>
+
+    <view class="dash__section">今日热门合集</view>
+    <view class="dash__card">
+      <t-empty wx:if="{{!todayHotPacks.length}}" description="今日暂无下载" />
+      <block wx:else>
+        <view
+          class="dash__pack"
+          wx:for="{{todayHotPacks}}"
+          wx:key="packId"
+          data-id="{{item.packId}}"
+          bind:tap="onOpenPack"
+          hover-class="dash__pack--press"
+        >
+          <image
+            wx:if="{{item.coverUrl}}"
+            class="dash__pack-cover"
+            src="{{item.coverUrl}}"
+            mode="aspectFill"
+          />
+          <view wx:else class="dash__pack-cover dash__pack-cover--empty">
+            <t-icon name="image" size="32rpx" />
+          </view>
+          <view class="dash__pack-meta">
+            <text class="dash__pack-title">{{item.title}}</text>
+            <text class="dash__pack-sub">今日 {{item.count}} 次</text>
+          </view>
+          <t-icon name="chevron-right" size="32rpx" />
+        </view>
+      </block>
+    </view>
+
+    <view class="dash__section">累计热门</view>
+    <view class="dash__card">
+      <t-empty wx:if="{{!allTimeHot.length}}" description="暂无合集" />
+      <block wx:else>
+        <view
+          class="dash__pack"
+          wx:for="{{allTimeHot}}"
+          wx:key="packId"
+          data-id="{{item.packId}}"
+          bind:tap="onOpenPack"
+          hover-class="dash__pack--press"
+        >
+          <image
+            wx:if="{{item.coverUrl}}"
+            class="dash__pack-cover"
+            src="{{item.coverUrl}}"
+            mode="aspectFill"
+          />
+          <view wx:else class="dash__pack-cover dash__pack-cover--empty">
+            <t-icon name="image" size="32rpx" />
+          </view>
+          <view class="dash__pack-meta">
+            <text class="dash__pack-title">{{item.title}}</text>
+            <text class="dash__pack-sub">累计 {{item.count}} 次</text>
+          </view>
+          <t-icon name="chevron-right" size="32rpx" />
+        </view>
+      </block>
+    </view>
+
+    <view class="dash__actions">
+      <t-button theme="primary" variant="outline" content="刷新" block bind:tap="onRefresh" />
+    </view>
+  </block>
+
+  <lottery-host />
+</view>

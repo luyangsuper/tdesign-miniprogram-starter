@@ -3,6 +3,7 @@ const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { code2Session, saveSessionKey } = require('./session');
 const { getPointsSettings } = require('./pointsSettings');
 const { getPricingDoc, listLiveProducts } = require('./pricingSettings');
+const { recordPointsLog } = require('./pointsLog');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -69,6 +70,15 @@ async function getOrCreateUser(openid, isAdmin) {
     try {
       await ref.set({ data: blank });
       const synced = await syncVipMonthQuota(ref, blank, db.serverDate());
+      if (giftPoints > 0) {
+        await recordPointsLog(db, {
+          openid,
+          delta: giftPoints,
+          balance: giftPoints,
+          reason: 'welcome',
+          title: '新用户见面礼',
+        });
+      }
       return {
         user: synced,
         welcomeGift: giftPoints > 0 ? { points: giftPoints } : null,
@@ -114,6 +124,15 @@ async function getOrCreateUser(openid, isAdmin) {
       fresh.welcomeGiftAt = patch.welcomeGiftAt;
       fresh.welcomeGiftPoints = giftPoints;
     }
+  }
+  if (welcomeGift && giftPoints > 0) {
+    await recordPointsLog(db, {
+      openid,
+      delta: giftPoints,
+      balance: Math.max(0, Number(fresh.points) || 0),
+      reason: 'welcome',
+      title: '新用户见面礼',
+    });
   }
   const synced = await syncVipMonthQuota(ref, fresh, db.serverDate());
   return { user: synced, welcomeGift };

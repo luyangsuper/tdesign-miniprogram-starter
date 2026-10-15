@@ -4,6 +4,7 @@ const { getProduct } = require('./products');
 const { resolveLiveProduct } = require('./pricingSettings');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { toMs, dayjs } = require('./time');
+const { recordPointsLog } = require('./pointsLog');
 
 const APPID = process.env.WX_APPID || 'wxc53da678dce0b8d1';
 /** 沙箱 OfferId；现网一般相同，可用 VIRTUAL_PAY_OFFER_ID 覆盖 */
@@ -325,6 +326,16 @@ async function deliverOrderDirect(db, order, meta = {}, presetGrant = null) {
   });
 
   const after = (await userRef.get()).data || {};
+  if (computed.pointsInc) {
+    await recordPointsLog(db, {
+      openid,
+      delta: computed.pointsInc,
+      balance: Math.max(0, Number(after.points) || 0),
+      reason: 'purchase',
+      title: '购买积分',
+      meta: { orderId, productId: order.productId || '' },
+    });
+  }
   const synced = await syncVipMonthQuota(userRef, after, db.serverDate());
   return {
     ok: true,
@@ -418,6 +429,16 @@ async function reclaimOrderGrant(db, order) {
       await userRef.update({
         data: { points: nextPts, updatedAt: db.serverDate() },
       });
+      if (add > 0) {
+        await recordPointsLog(db, {
+          openid,
+          delta: -add,
+          balance: nextPts,
+          reason: 'purchase_refund',
+          title: '订单退款回收',
+          meta: { orderId: order._id },
+        });
+      }
     } else if (grant.grantType === 'vip_days') {
       const days = Math.max(1, Number(grant.days) || 1);
       const cur = toMs(user.vipExpireAt);

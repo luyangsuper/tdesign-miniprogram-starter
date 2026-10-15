@@ -1,0 +1,10 @@
+{
+  "name": "adminDashboard",
+  "version": "1.0.0",
+  "description": "管理端数据看板",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

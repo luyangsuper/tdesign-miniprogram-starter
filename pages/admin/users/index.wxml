@@ -96,7 +96,7 @@
         class="users-panel__scroll"
         scroll-y
         enhanced
-        show-scrollbar
+        show-scrollbar="{{false}}"
         enable-flex
       >
         <view class="users-panel__profile">

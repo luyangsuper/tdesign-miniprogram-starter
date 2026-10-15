@@ -12,6 +12,11 @@
       "pages": ["index/index", "detail/index"]
     },
     {
+      "root": "pages/history",
+      "name": "history",
+      "pages": ["points-log/index"]
+    },
+    {
       "root": "pages/admin",
       "name": "admin",
       "pages": [
@@ -21,7 +26,8 @@
         "users/index",
         "points/index",
         "pricing/index",
-        "lottery/index"
+        "lottery/index",
+        "dashboard/index"
       ]
     }
   ],

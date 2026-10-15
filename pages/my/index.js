@@ -818,6 +818,14 @@ Page({
     wx.navigateTo({ url: '/pages/admin/codes/index' });
   },
 
+  goPointsLog() {
+    wx.navigateTo({ url: '/pages/history/points-log/index' });
+  },
+
+  goDashboard() {
+    wx.navigateTo({ url: '/pages/admin/dashboard/index' });
+  },
+
   goUsers() {
     wx.navigateTo({ url: '/pages/admin/users/index' });
   },

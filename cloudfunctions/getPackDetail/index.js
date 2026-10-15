@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk');
+const { resolveTempUrls } = require('./tempUrlCache');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -18,24 +19,120 @@ function isAdminOpenid(openid) {
   return !!openid && getAdminList().includes(openid);
 }
 
-/** 云存储临时链批量转换（单次最多 50） */
-async function fillTempUrlMap(fileIds, urlMap) {
-  const ids = (fileIds || []).filter(Boolean);
-  for (let i = 0; i < ids.length; i += 50) {
-    const chunk = ids.slice(i, i + 50);
-    // eslint-disable-next-line no-await-in-loop
-    const temp = await cloud.getTempFileURL({ fileList: chunk });
-    (temp.fileList || []).forEach((item) => {
-      if (item && item.fileID) urlMap[item.fileID] = item.tempFileURL || '';
-    });
+/**
+ * 轻量详情：封面 + 预览临时链；原图 URL 走 resolveSlotUrls 按需加载
+ */
+async function getDetail(packId, OPENID) {
+  const doc = await db.collection('packs').doc(packId).get();
+  const pack = doc.data;
+  if (!pack || pack.status !== 'published') {
+    return { ok: false, code: 'NOT_FOUND', message: '合集不存在' };
   }
+
+  const emojiFileIDs = pack.emojiFileIDs || [];
+  const emojiCount = emojiFileIDs.length;
+  const previewFileIDs = pack.previewFileIDs || [];
+  const emojiAnimFileIDs = pack.emojiAnimFileIDs || [];
+  const pairKeys = Array.isArray(pack.pairKeys) ? pack.pairKeys : [];
+
+  const urlMap = await resolveTempUrls(cloud, [
+    pack.coverFileID,
+    ...previewFileIDs,
+  ]);
+
+  const previewUrls = previewFileIDs.map((id) => urlMap[id] || '');
+  const hasAnimAny = emojiAnimFileIDs.some((id) => String(id || '').trim());
+  const slots = Array.from({ length: emojiCount }, (_, i) => {
+    const animId = String(emojiAnimFileIDs[i] || '').trim();
+    return {
+      index: i,
+      pairKey: pairKeys[i] || '',
+      previewUrl: previewUrls[i] || '',
+      staticUrl: '',
+      animUrl: '',
+      hasAnim: !!animId,
+      label: pairKeys[i] ? `#${pairKeys[i]}` : `原图 ${i + 1}`,
+      urlsReady: false,
+    };
+  });
+
+  const admin = isAdminOpenid(OPENID);
+  const data = {
+    _id: pack._id,
+    title: pack.title,
+    description: pack.description || '',
+    categoryId: pack.categoryId || '',
+    categoryName: pack.categoryName || '',
+    coverUrl: urlMap[pack.coverFileID] || '',
+    previewUrls,
+    pairKeys,
+    slots,
+    hasAnimAny,
+    emojiCount,
+    downloadCount: pack.downloadCount || 0,
+  };
+
+  if (admin) {
+    data.staticDriveUrl = pack.staticDriveUrl || '';
+    data.animDriveUrl = pack.animDriveUrl || '';
+  }
+
+  return { ok: true, data };
 }
 
 /**
- * 详情：封面 + 预览图 + 静/动原图临时链（供保存区展示；扣费仍走 getEmojiDownload）
- * 网盘链接仅管理员可见
+ * 按需解析若干槽位的静/动原图临时链
+ * event.indexes: number[]，最多 40
  */
-exports.main = async (event) => {
+async function resolveSlotUrls(packId, indexes) {
+  const doc = await db.collection('packs').doc(packId).get();
+  const pack = doc.data;
+  if (!pack || pack.status !== 'published') {
+    return { ok: false, code: 'NOT_FOUND', message: '合集不存在' };
+  }
+
+  const emojiFileIDs = pack.emojiFileIDs || [];
+  const emojiAnimFileIDs = pack.emojiAnimFileIDs || [];
+  const emojiCount = emojiFileIDs.length;
+
+  const raw = Array.isArray(indexes) ? indexes : [];
+  const idxList = Array.from(
+    new Set(
+      raw
+        .map((n) => Math.floor(Number(n)))
+        .filter((n) => !Number.isNaN(n) && n >= 0 && n < emojiCount),
+    ),
+  ).slice(0, 40);
+
+  if (!idxList.length) {
+    return { ok: true, data: { slots: [] } };
+  }
+
+  const fileIds = [];
+  idxList.forEach((i) => {
+    const staticId = String(emojiFileIDs[i] || '').trim();
+    const animId = String(emojiAnimFileIDs[i] || '').trim();
+    if (staticId) fileIds.push(staticId);
+    if (animId) fileIds.push(animId);
+  });
+
+  const urlMap = await resolveTempUrls(cloud, fileIds);
+  const slots = idxList.map((i) => {
+    const staticId = String(emojiFileIDs[i] || '').trim();
+    const animId = String(emojiAnimFileIDs[i] || '').trim();
+    return {
+      index: i,
+      staticUrl: (staticId && urlMap[staticId]) || '',
+      animUrl: (animId && urlMap[animId]) || '',
+      hasAnim: !!animId,
+      urlsReady: true,
+    };
+  });
+
+  return { ok: true, data: { slots } };
+}
+
+exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext();
   const packId = event.packId || event.id;
   if (!packId) {
@@ -43,63 +140,10 @@ exports.main = async (event) => {
   }
 
   try {
-    const doc = await db.collection('packs').doc(packId).get();
-    const pack = doc.data;
-    if (!pack || pack.status !== 'published') {
-      return { ok: false, code: 'NOT_FOUND', message: '合集不存在' };
+    if (event.action === 'resolveSlotUrls') {
+      return await resolveSlotUrls(packId, event.indexes);
     }
-
-    const emojiFileIDs = pack.emojiFileIDs || [];
-    const emojiCount = emojiFileIDs.length;
-    const previewFileIDs = pack.previewFileIDs || [];
-    const emojiAnimFileIDs = pack.emojiAnimFileIDs || [];
-    const pairKeys = Array.isArray(pack.pairKeys) ? pack.pairKeys : [];
-
-    const urlMap = {};
-    await fillTempUrlMap(
-      [pack.coverFileID, ...previewFileIDs, ...emojiFileIDs, ...emojiAnimFileIDs],
-      urlMap,
-    );
-
-    const previewUrls = previewFileIDs.map((id) => urlMap[id] || '');
-    const slots = Array.from({ length: emojiCount }, (_, i) => {
-      const staticId = emojiFileIDs[i] || '';
-      const animId = emojiAnimFileIDs[i] || '';
-      const hasAnim = !!(animId && String(animId).trim());
-      return {
-        index: i,
-        pairKey: pairKeys[i] || '',
-        previewUrl: previewUrls[i] || '',
-        staticUrl: (staticId && urlMap[staticId]) || '',
-        animUrl: hasAnim ? urlMap[animId] || '' : '',
-        hasAnim,
-        label: pairKeys[i] ? `#${pairKeys[i]}` : `原图 ${i + 1}`,
-      };
-    });
-    const hasAnimAny = slots.some((s) => s.hasAnim);
-    const admin = isAdminOpenid(OPENID);
-
-    const data = {
-      _id: pack._id,
-      title: pack.title,
-      description: pack.description || '',
-      categoryId: pack.categoryId || '',
-      categoryName: pack.categoryName || '',
-      coverUrl: urlMap[pack.coverFileID] || '',
-      previewUrls,
-      pairKeys,
-      slots,
-      hasAnimAny,
-      emojiCount,
-      downloadCount: pack.downloadCount || 0,
-    };
-
-    if (admin) {
-      data.staticDriveUrl = pack.staticDriveUrl || '';
-      data.animDriveUrl = pack.animDriveUrl || '';
-    }
-
-    return { ok: true, data };
+    return await getDetail(packId, OPENID);
   } catch (e) {
     console.error(e);
     return { ok: false, code: 'DETAIL_FAIL', message: e.message || '加载失败' };

@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk');
 const { dayjs, toMs, formatDate } = require('./time');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { getPointsSettings } = require('./pointsSettings');
+const { recordPointsLog } = require('./pointsLog');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -120,6 +121,15 @@ async function repairWelcomeGift(ref, user) {
       updatedAt: db.serverDate(),
     },
   });
+  const afterPts =
+    Math.max(0, Number((user && user.points) || 0)) + giftPoints;
+  await recordPointsLog(db, {
+    openid: uid,
+    delta: giftPoints,
+    balance: afterPts,
+    reason: 'admin_repair',
+    title: '补发见面礼',
+  });
   return {
     ok: true,
     granted: true,
@@ -205,6 +215,21 @@ async function repairLotteryCredits(openid, user) {
     try {
       // eslint-disable-next-line no-await-in-loop
       await db.collection('users').doc(openid).update({ data: patch });
+      const nextPts = Math.max(0, Number(cur.points) || 0) + pts;
+      // eslint-disable-next-line no-await-in-loop
+      await recordPointsLog(db, {
+        openid,
+        delta: pts,
+        balance: nextPts,
+        reason: 'admin_repair',
+        title: title ? `补发抽奖「${String(title).slice(0, 20)}」` : '补发抽奖',
+        meta: { lotteryId },
+      });
+      cur = {
+        ...cur,
+        points: nextPts,
+        lotteryCredits: { ...(cur.lotteryCredits || {}), [lotteryId]: true },
+      };
       repaired += 1;
       pointsTotal += pts;
       cur = {
@@ -554,12 +579,23 @@ exports.main = async (event = {}) => {
       if (Number.isNaN(points)) {
         return { ok: false, code: 'BAD_PARAM', message: '积分无效' };
       }
+      const prev = Math.max(0, Number(user.points) || 0);
       await ref.update({
         data: {
           points,
           updatedAt: db.serverDate(),
         },
       });
+      const delta = points - prev;
+      if (delta) {
+        await recordPointsLog(db, {
+          openid: targetOpenid,
+          delta,
+          balance: points,
+          reason: 'admin',
+          title: '管理员设置积分',
+        });
+      }
       const fresh = await getUserByOpenid(targetOpenid);
       // toast 标题过长会被截断（50 看起来像 5），保持短文案
       return {
@@ -576,12 +612,22 @@ exports.main = async (event = {}) => {
       }
       const current = Math.max(0, Number(user.points) || 0);
       const next = Math.max(0, Math.min(99999, current + delta));
+      const applied = next - current;
       await ref.update({
         data: {
           points: next,
           updatedAt: db.serverDate(),
         },
       });
+      if (applied) {
+        await recordPointsLog(db, {
+          openid: targetOpenid,
+          delta: applied,
+          balance: next,
+          reason: 'admin',
+          title: '管理员调整积分',
+        });
+      }
       const fresh = await getUserByOpenid(targetOpenid);
       return {
         ok: true,

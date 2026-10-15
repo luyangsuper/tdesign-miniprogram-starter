@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk');
 const { dayjs, TZ } = require('./time');
 const { buildEntitlement } = require('./membership');
 const { getPointsSettings } = require('./pointsSettings');
+const { recordPointsLog } = require('./pointsLog');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -536,6 +537,17 @@ exports.main = async (event = {}) => {
         fresh = { _id: OPENID, ...(snap.data || {}) };
       } catch (err) {
         /* keep tx pointsAfter */
+      }
+
+      if (add > 0) {
+        await recordPointsLog(db, {
+          openid: OPENID,
+          delta: add,
+          balance: Math.max(0, Number(fresh.points) || 0),
+          reason: isMakeup ? 'makeup' : 'checkin',
+          title: isMakeup ? '补签' : '每日签到',
+          meta: { dateKey: requestDate, isMakeup: !!isMakeup },
+        });
       }
 
       const statusMonthKey = parseMonthKey(event.monthKey || targetMonthKey);

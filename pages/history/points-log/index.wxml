@@ -1,0 +1,36 @@
+<view class="points-log" style="{{themeStyle}}">
+  <view class="points-log__balance">
+    <text class="points-log__balance-label">当前积分</text>
+    <text class="points-log__balance-num">{{balance}}</text>
+  </view>
+
+  <view class="points-log__tip">仅记录购买积分变动；包月月额度消耗不计入</view>
+
+  <view wx:if="{{loading && !list.length}}" class="points-log__state">
+    <t-loading theme="circular" size="40rpx" text="加载中" />
+  </view>
+
+  <block wx:elif="{{!list.length}}">
+    <t-empty description="暂无积分流水" />
+  </block>
+
+  <view wx:else class="points-log__list">
+    <view class="points-log__row" wx:for="{{list}}" wx:key="id">
+      <view class="points-log__main">
+        <text class="points-log__title">{{item.title}}</text>
+        <text class="points-log__time">{{item.createdText}}</text>
+      </view>
+      <view class="points-log__right">
+        <text class="points-log__delta points-log__delta--{{item.tone}}">{{item.deltaText}}</text>
+        <text wx:if="{{item.balance != null}}" class="points-log__after">余 {{item.balance}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{loadingMore}}" class="points-log__more">
+    <t-loading theme="circular" size="32rpx" text="加载更多" />
+  </view>
+  <view wx:elif="{{list.length && !hasMore}}" class="points-log__end">没有更多了</view>
+
+  <lottery-host />
+</view>

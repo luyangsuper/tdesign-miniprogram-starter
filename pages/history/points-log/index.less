@@ -1,0 +1,120 @@
+@import '/variable.less';
+
+.points-log {
+  min-height: 100vh;
+  background: var(--td-bg-color-page);
+  padding-bottom: 48rpx;
+  box-sizing: border-box;
+
+  &__balance {
+    margin: 16rpx 16rpx 8rpx;
+    padding: 28rpx 32rpx;
+    background: var(--td-bg-color-container);
+    border-radius: 16rpx;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__balance-label {
+    font-size: 30rpx;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--td-text-color-primary);
+  }
+
+  &__balance-num {
+    font-size: 44rpx;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--td-brand-color);
+  }
+
+  &__tip {
+    margin: 0 24rpx 16rpx;
+    font-size: 22rpx;
+    color: var(--td-text-color-placeholder);
+    line-height: 1.5;
+  }
+
+  &__state {
+    padding: 120rpx 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  &__list {
+    margin: 0 16rpx;
+    background: var(--td-bg-color-container);
+    border-radius: 16rpx;
+    overflow: hidden;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16rpx;
+    padding: 24rpx 28rpx;
+    border-bottom: 1rpx solid var(--td-border-level1-color);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    display: block;
+    font-size: 28rpx;
+    color: var(--td-text-color-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__time {
+    display: block;
+    margin-top: 6rpx;
+    font-size: 22rpx;
+    color: var(--td-text-color-placeholder);
+  }
+
+  &__right {
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  &__delta {
+    display: block;
+    font-size: 32rpx;
+    font-weight: 600;
+
+    &--plus {
+      color: var(--td-success-color);
+    }
+
+    &--minus {
+      color: var(--td-error-color);
+    }
+  }
+
+  &__after {
+    display: block;
+    margin-top: 4rpx;
+    font-size: 20rpx;
+    color: var(--td-text-color-placeholder);
+  }
+
+  &__more,
+  &__end {
+    padding: 24rpx 0;
+    text-align: center;
+    font-size: 24rpx;
+    color: var(--td-text-color-placeholder);
+  }
+}

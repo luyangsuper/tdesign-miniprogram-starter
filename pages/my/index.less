@@ -860,6 +860,38 @@
 .my-cell-group {
   margin: 0 12rpx !important;
   animation: my-fade-up 0.28s ease 0.08s both;
+
+  &--tail {
+    margin-top: 16rpx !important;
+  }
+
+  &--admin {
+    margin: 0 !important;
+    animation: none;
+  }
+}
+
+/** 管理员菜单块：预览切换时展开 / 收起 */
+.my-admin-fold {
+  margin: 0 12rpx;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-12rpx);
+  pointer-events: none;
+  transition:
+    max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.28s ease,
+    transform 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+    margin-top 0.34s ease;
+
+  &--open {
+    max-height: 1600rpx;
+    opacity: 1;
+    transform: translateY(0);
+    margin-top: 16rpx;
+    pointer-events: auto;
+  }
 }
 
 .my-menu-icon {

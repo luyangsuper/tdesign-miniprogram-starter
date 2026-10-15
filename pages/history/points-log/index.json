@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "积分流水",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "t-empty": "tdesign-miniprogram/empty/empty",
+    "lottery-host": "/components/lottery-host/index"
+  }
+}

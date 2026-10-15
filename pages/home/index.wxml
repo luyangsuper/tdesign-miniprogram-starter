@@ -37,7 +37,7 @@
         t-class="home__search-input"
         value="{{keyword}}"
         shape="round"
-        placeholder="搜索合集"
+        placeholder="搜索标题 / 简介 / 分类"
         clearable
         focus="{{searchFocus}}"
         bind:change="onSearchChange"

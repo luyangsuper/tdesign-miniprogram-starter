@@ -31,6 +31,10 @@ import {
   shouldShowNewPackGuide,
 } from '~/utils/subscribe';
 import { applyThemeToPage, applyThemeToTabBar, getThemeStyle } from '~/utils/theme';
+import {
+  readHomeSnapshot,
+  writeHomeSnapshot,
+} from '~/utils/homeSnapshot';
 
 const CONFIRM_ICONS = {
   warn: '/static/emoji/warn.png',
@@ -439,6 +443,8 @@ Page({
     this.updateLayout();
     this.updateScrollerHeight();
     this.refreshAdmin();
+    // 本地快照先出壳，再拉分类 + 静默刷新列表
+    this.hydrateFromSnapshot();
     this.loadCategories();
     this.loadList(true);
     // 等固定栏渲染后量高度，给列表留出顶距
@@ -765,6 +771,60 @@ Page({
 
   clearListCache() {
     this._listCache = Object.create(null);
+  },
+
+  /** 二次打开：用本地快照先铺瀑布流，减少白屏 */
+  hydrateFromSnapshot() {
+    const snap = readHomeSnapshot();
+    if (!snap) return;
+    const categoryId = snap.categoryId || 'all';
+    const keyword = String(snap.keyword || '').trim();
+    if (keyword) return;
+    const list = snap.list || [];
+    if (!list.length) return;
+    const cacheKey = listCacheKey(categoryId, keyword);
+    this._listCache[cacheKey] = {
+      at: snap.at || Date.now(),
+      list,
+      page: snap.page || 2,
+      hasMore: !!snap.hasMore,
+      total: snap.total || list.length,
+    };
+    const patch = {
+      categoryId,
+      keyword: '',
+      listTotal: snap.total || list.length,
+      loading: false,
+    };
+    if (Array.isArray(snap.filters) && snap.filters.length) {
+      patch.filters = this.decorateFilters(snap.filters);
+    }
+    this.setData(patch);
+    this.applyListState({
+      list,
+      page: snap.page || 2,
+      hasMore: !!snap.hasMore,
+      total: snap.total || list.length,
+      loading: false,
+    });
+  },
+
+  persistHomeSnapshot(listState = {}) {
+    if (String(this.data.keyword || '').trim()) return;
+    writeHomeSnapshot({
+      categoryId: this.data.categoryId,
+      keyword: '',
+      list: listState.list || this.data.list || [],
+      page: listState.page != null ? listState.page : this.data.page,
+      hasMore:
+        listState.hasMore != null ? listState.hasMore : this.data.hasMore,
+      total: listState.total != null ? listState.total : this.data.listTotal,
+      filters: (this.data.filters || []).map((f) => ({
+        id: f.id,
+        name: f.name,
+        count: f.count || 0,
+      })),
+    });
   },
 
   async loadCategories() {
@@ -1701,6 +1761,14 @@ Page({
         // 分页追加：不重排已有列，避免旧卡片重挂封面空白
         appendItems: reset ? null : withRatio,
       });
+      if (reset && !keyword) {
+        this.persistHomeSnapshot({
+          list: nextList,
+          page: nextPage,
+          hasMore,
+          total: nextTotal,
+        });
+      }
     } catch (e) {
       if (seq !== this._listSeq) return;
       this.setData({ loading: false, loadingMore: false, enable: false });

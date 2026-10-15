@@ -176,6 +176,23 @@
       t-class-center="my-menu-cell__center"
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
+      title="积分流水"
+      note="收入 / 消耗明细"
+      arrow
+      hover
+      bind:click="goPointsLog"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="root-list" size="40rpx" color="#27AE60" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
       title="每日签到"
       note="弹窗签到 · 每日领积分"
       hover
@@ -218,7 +235,31 @@
         <t-icon name="notification" size="40rpx" color="{{themeBrand}}" />
       </view>
     </t-cell>
-    <block wx:if="{{isAdmin}}">
+  </t-cell-group>
+
+  <!-- 管理入口：保持挂载以便展开/收起过渡（非管理员永不渲染） -->
+  <view
+    wx:if="{{canBeAdmin}}"
+    class="my-admin-fold {{isAdmin ? 'my-admin-fold--open' : ''}}"
+  >
+    <t-cell-group theme="card" t-class="my-cell-group my-cell-group--admin">
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        t-class-note="my-menu-cell__note"
+        title="数据看板"
+        note="下载 / 成交概览"
+        arrow
+        hover
+        bind:click="goDashboard"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <t-icon name="chart-bar" size="40rpx" color="#2D9CDB" />
+        </view>
+      </t-cell>
       <t-cell
         t-class="my-menu-cell"
         t-class-left="my-menu-cell__left"
@@ -344,7 +385,26 @@
           <t-icon name="search" size="40rpx" color="#56CCF2" />
         </view>
       </t-cell>
-    </block>
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
+        t-class-note="my-menu-cell__note"
+        title="反馈通知"
+        note="{{feedbackNotifyHint}}"
+        hover
+        bind:click="onSubscribeFeedbackNotify"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <t-icon name="mail" size="40rpx" color="#E34D59" />
+        </view>
+      </t-cell>
+    </t-cell-group>
+  </view>
+
+  <t-cell-group theme="card" t-class="my-cell-group my-cell-group--tail">
     <t-cell
       t-class="my-menu-cell"
       t-class-left="my-menu-cell__left"
@@ -393,23 +453,6 @@
     >
       <view slot="left-icon" class="my-menu-icon">
         <t-icon name="chat" size="40rpx" color="#0052D9" />
-      </view>
-    </t-cell>
-    <t-cell
-      wx:if="{{isAdmin}}"
-      t-class="my-menu-cell"
-      t-class-left="my-menu-cell__left"
-      t-class-left-icon="my-menu-cell__icon"
-      t-class-center="my-menu-cell__center"
-      t-class-title="my-menu-cell__title"
-      t-class-note="my-menu-cell__note"
-      title="反馈通知"
-      note="{{feedbackNotifyHint}}"
-      hover
-      bind:click="onSubscribeFeedbackNotify"
-    >
-      <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="mail" size="40rpx" color="#E34D59" />
       </view>
     </t-cell>
     <t-cell

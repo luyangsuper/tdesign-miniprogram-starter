@@ -1,5 +1,6 @@
 const cloud = require('wx-server-sdk');
 const { ensureAndListCategories } = require('./categories');
+const { invalidateListCaches } = require('./invalidateCaches');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -92,6 +93,7 @@ exports.main = async (event) => {
       },
     });
 
+    await invalidateListCaches(db);
     return {
       ok: true,
       data: {

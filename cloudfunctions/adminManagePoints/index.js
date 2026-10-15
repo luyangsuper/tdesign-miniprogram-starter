@@ -4,6 +4,7 @@ const {
   savePointsSettings,
   DEFAULTS,
 } = require('./pointsSettings');
+const { recordPointsLog } = require('./pointsLog');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -107,6 +108,19 @@ async function grantToExistingUsers({ campaignId, title, points }) {
             else failed += 1;
           } else {
             granted += 1;
+            try {
+              const after = (await userRef.get()).data || {};
+              await recordPointsLog(db, {
+                openid: id,
+                delta: points,
+                balance: Math.max(0, Number(after.points) || 0),
+                reason: 'campaign',
+                title: String(giftBase.title || '活动发放').slice(0, 40),
+                meta: { campaignId },
+              });
+            } catch (logErr) {
+              /* ignore */
+            }
           }
         } catch (e) {
           failed += 1;
