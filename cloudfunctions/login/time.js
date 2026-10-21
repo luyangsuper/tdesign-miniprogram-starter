@@ -37,6 +37,7 @@ function formatDateTimeCn(date) {
 
 module.exports = {
   dayjs,
+  TZ,
   toMs,
   formatDate,
   formatDateTime,

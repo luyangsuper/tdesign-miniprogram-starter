@@ -1,12 +1,16 @@
 {
   "navigationBarTitleText": "抽奖活动",
+  "navigationStyle": "default",
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
   "usingComponents": {
     "t-loading": "tdesign-miniprogram/loading/loading",
-    "t-empty": "tdesign-miniprogram/empty/empty",
+    "fun-empty": "/components/fun-empty/index",
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-button": "tdesign-miniprogram/button/button",
     "t-cell": "tdesign-miniprogram/cell/cell",
     "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
-    "lottery-host": "/components/lottery-host/index"
+    "lottery-host": "/components/lottery-host/index",
+    "grid-lottery": "/components/grid-lottery/index"
   }
 }

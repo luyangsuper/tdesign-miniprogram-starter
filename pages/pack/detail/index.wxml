@@ -5,37 +5,106 @@
 
   <block wx:elif="{{pack}}">
   <view class="detail__body">
-  <view class="detail__hero" style="height: {{swiperHeight}}px;">
-    <t-swiper
-      wx:if="{{heroList.length}}"
-      list="{{heroList}}"
-      height="{{swiperHeight}}"
-      autoplay="{{false}}"
-      loop="{{heroList.length > 1}}"
-      navigation="{{swiperNav}}"
-      image-props="{{swiperImageProps}}"
+  <view class="detail__hero" wx:if="{{heroSlides.length}}" style="height: {{swiperHeight}}px;">
+    <swiper
+      class="detail__hero-swiper"
+      style="height: {{swiperHeight}}px;"
       current="{{heroCurrent}}"
-      bind:change="onHeroChange"
-      bind:click="onHeroClick"
+      circular="{{heroSlides.length > 1}}"
+      autoplay="{{false}}"
+      easing-function="easeOutCubic"
+      bindchange="onHeroChange"
+    >
+      <swiper-item wx:for="{{heroSlides}}" wx:key="key">
+        <view wx:if="{{item.type === 'video'}}" class="detail__hero-video-wrap">
+          <video
+            id="heroPreviewVideo"
+            class="detail__hero-video"
+            src="{{item.url}}"
+            controls
+            show-center-play-btn="{{false}}"
+            show-mute-btn
+            enable-play-gesture
+            object-fit="contain"
+            bindplay="onHeroVideoPlay"
+            bindpause="onHeroVideoPause"
+            bindended="onHeroVideoPause"
+          />
+          <view
+            wx:if="{{!heroVideoPlaying}}"
+            class="detail__hero-play"
+            catchtap="onHeroVideoPlayTap"
+          >
+            <image
+              class="detail__hero-play-icon"
+              src="/static/emoji/play.png"
+              mode="aspectFit"
+            />
+          </view>
+        </view>
+        <view
+          wx:else
+          class="detail__hero-image-wrap"
+          data-url="{{item.url}}"
+          bindtap="onHeroImageTap"
+        >
+          <t-image
+            t-class="detail__hero-image"
+            t-class-image="detail__hero-image-inner"
+            src="{{item.url}}"
+            mode="aspectFit"
+            shape="square"
+            width="100%"
+            height="{{swiperHeight}}px"
+          />
+        </view>
+      </swiper-item>
+    </swiper>
+    <t-swiper-nav
+      wx:if="{{heroSlides.length > 1}}"
+      t-class="detail__hero-nav"
+      type="fraction"
+      current="{{heroCurrent}}"
+      total="{{heroSlides.length}}"
+      pagination-position="bottom-right"
+      min-show-num="{{2}}"
+      show-controls
+      bind:nav-btn-change="onHeroNavBtn"
     />
-    <view class="detail__hero-placeholder" wx:else>
-      <text class="detail__hero-empty">暂无图片</text>
+  </view>
+  <view class="detail__hero" wx:else style="height: {{swiperHeight}}px;">
+    <view class="detail__hero-placeholder">
+      <text class="detail__hero-empty">暂无预览</text>
     </view>
   </view>
 
     <view class="detail__info">
       <view class="detail__title-row">
         <view class="detail__title">{{pack.title}}</view>
-        <t-button
-          t-class="detail__share-btn"
-          size="small"
-          theme="light"
-          variant="base"
-          shape="round"
-          icon="share-1"
-          content="分享"
-          open-type="share"
-        />
+        <view class="detail__title-actions">
+          <view class="detail__fav-wrap">
+            <t-button
+              t-class="detail__share-btn {{favorited ? 'detail__fav-btn--on' : ''}}"
+              size="small"
+              theme="light"
+              variant="base"
+              shape="round"
+              icon="{{favorited ? 'heart-filled' : 'heart'}}"
+              content="{{favorited ? '已收藏' : '收藏'}}"
+              bind:tap="onToggleFavorite"
+            />
+          </view>
+          <t-button
+            t-class="detail__share-btn"
+            size="small"
+            theme="light"
+            variant="base"
+            shape="round"
+            icon="share-1"
+            content="分享"
+            open-type="share"
+          />
+        </view>
       </view>
       <text class="detail__desc" wx:if="{{pack.description}}" user-select>{{pack.description}}</text>
       <view class="detail__meta">
@@ -78,7 +147,7 @@
       <view class="detail__hint">
         <block wx:if="{{downloadReady}}">
           {{entitlementHint}} · {{costHint}}
-          点封面勾选，长按预览；也可点单张保存。
+          点封面勾选后保存，也可点单张保存。
         </block>
         <block wx:elif="{{canSaveStatic}}">
           当前积分不够保存动态图（需 2 积分）。可切回静态图（1 积分），或兑换更多积分。
@@ -154,15 +223,18 @@
             <t-image
               wx:if="{{item.displayUrl}}"
               t-class="detail__slot-cover"
-              t-class-image="detail__slot-img"
+              t-class-image="{{item.imgReady ? 'detail__slot-img detail__slot-img--ready' : 'detail__slot-img'}}"
               t-class-load="detail__slot-load"
               src="{{item.displayUrl}}"
               mode="aspectFit"
               shape="round"
               lazy
               loading="slot"
+              show-menu-by-longpress="{{false}}"
               width="210rpx"
               height="280rpx"
+              data-index="{{item.index}}"
+              bind:load="onSlotImgLoad"
             >
               <view slot="loading" class="detail__slot-skeleton" aria-hidden="true" />
             </t-image>
@@ -174,12 +246,12 @@
               class="detail__slot-mask"
               aria-hidden="true"
             />
-            <!-- 整块透明热区：点选 / 长按预览，避免点到 t-image 误开大图 -->
+            <!-- 点选勾选；长按由管理员视图决定是否预览 -->
             <view
               class="detail__slot-hit"
               data-index="{{item.index}}"
-              bindtap="onCoverTap"
-              bindlongpress="onPreviewTap"
+              catchtap="onCoverTap"
+              catchlongpress="onBlockPreview"
             />
             <view
               wx:if="{{downloadReady && item.selectable}}"
@@ -260,4 +332,5 @@
   </t-dialog>
 
   <lottery-host />
+  <heart-burst id="heartBurst" />
 </view>

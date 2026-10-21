@@ -1,0 +1,66 @@
+<view class="about" style="{{themeStyle}}">
+  <view class="about__hero">
+    <image class="about__logo" src="/static/emoji/ok.png" mode="aspectFit" />
+    <view class="about__name">{{appName}}</view>
+    <view class="about__ver">版本 {{appVersion}}</view>
+    <view class="about__intro">{{intro}}</view>
+  </view>
+
+  <view class="about__card">
+    <view class="about__card-title">如何使用</view>
+    <view class="about__tip" wx:for="{{tips}}" wx:key="*this">{{item}}</view>
+  </view>
+
+  <t-cell-group theme="card" t-class="about__group">
+    <t-cell title="用户协议" arrow hover bind:click="openAgreement">
+      <view slot="left-icon" class="about__icon">
+        <t-icon name="file-1" size="40rpx" color="#2F80ED" />
+      </view>
+    </t-cell>
+    <t-cell title="隐私政策" arrow hover bind:click="openPrivacy">
+      <view slot="left-icon" class="about__icon">
+        <t-icon name="secured" size="40rpx" color="#27AE60" />
+      </view>
+    </t-cell>
+    <t-cell
+      title="联系客服"
+      note="微信 {{serviceWechat}}"
+      hover
+      bind:click="copyServiceWechat"
+    >
+      <view slot="left-icon" class="about__icon">
+        <t-icon name="service" size="40rpx" color="#07c160" />
+      </view>
+    </t-cell>
+  </t-cell-group>
+
+  <view class="about__foot">趣集由个人开发者运营 · 素材仅供个人使用</view>
+
+  <t-popup
+    visible="{{legalVisible}}"
+    placement="bottom"
+    bind:visible-change="onLegalVisibleChange"
+  >
+    <view class="about__legal">
+      <view class="about__legal-head">
+        <view class="about__legal-title">{{legalTitle}}</view>
+        <t-button
+          size="small"
+          variant="text"
+          theme="primary"
+          content="关闭"
+          bind:tap="closeLegal"
+        />
+      </view>
+      <scroll-view scroll-y class="about__legal-scroll" enhanced show-scrollbar="{{false}}">
+        <view wx:if="{{legalUpdated}}" class="about__legal-updated">更新于 {{legalUpdated}}</view>
+        <view wx:for="{{legalSections}}" wx:key="heading" class="about__legal-sec">
+          <view class="about__legal-h">{{item.heading}}</view>
+          <view class="about__legal-p" wx:for="{{item.paras}}" wx:for-item="p" wx:key="*this">{{p}}</view>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+
+  <lottery-host />
+</view>

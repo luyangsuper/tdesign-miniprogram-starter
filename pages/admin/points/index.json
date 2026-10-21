@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "积分与活动",
+  "navigationStyle": "default",
   "usingComponents": {
     "t-input": "tdesign-miniprogram/input/input",
     "t-button": "tdesign-miniprogram/button/button",

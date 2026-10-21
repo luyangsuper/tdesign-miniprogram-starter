@@ -28,45 +28,42 @@
   }
 
   &__title {
-    font-size: 36rpx;
+    .ui-title();
     font-weight: 700;
   }
 
   &__pool {
+    .ui-display();
     margin-top: 16rpx;
-    font-size: 40rpx;
     font-weight: 800;
     color: #10b981;
   }
 
   &__meta {
+    .ui-caption();
     margin-top: 10rpx;
-    font-size: 24rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__countdown {
+    .ui-strong();
     margin-top: 20rpx;
-    font-size: 30rpx;
-    font-weight: 600;
     color: var(--td-brand-color);
   }
 
   &__joined {
+    .ui-body();
     margin-top: 16rpx;
-    font-size: 26rpx;
     color: var(--td-brand-color);
   }
 
   &__result {
+    .ui-strong();
     margin-top: 20rpx;
-    font-size: 28rpx;
-    font-weight: 600;
     color: var(--td-text-color-secondary);
 
     &.is-win {
+      .ui-title();
       color: #10b981;
-      font-size: 32rpx;
     }
   }
 
@@ -75,25 +72,26 @@
   }
 
   &__section {
+    .ui-strong();
     margin: 8rpx 24rpx 12rpx;
-    font-size: 28rpx;
-    font-weight: 600;
   }
 
   &__prize {
-    font-size: 26rpx;
+    .ui-body();
     font-weight: 600;
     color: #10b981;
   }
 
   &__hint {
+    .ui-caption();
     margin: 24rpx;
     text-align: center;
-    font-size: 24rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__empty {
-    padding: 32rpx 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }

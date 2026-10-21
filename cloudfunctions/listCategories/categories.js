@@ -5,6 +5,40 @@ const BUILTIN_CATEGORIES = [
   { id: 'shinchan', name: '蜡笔小新', builtin: true, sort: 4 },
 ];
 
+const CATEGORY_MAX_LEN = 32;
+
+function normalizeCategoryName(raw) {
+  const name = String(raw || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!name || name.length > CATEGORY_MAX_LEN) return null;
+  return name;
+}
+
+function isBuiltinId(id) {
+  return BUILTIN_CATEGORIES.some((c) => c.id === id);
+}
+
+function createCustomCategoryId() {
+  const rand = Math.random().toString(36).slice(2, 12);
+  return `c_${Date.now().toString(36)}_${rand}`;
+}
+
+/** 与 config.js / login 兜底一致；环境变量 ADMIN_OPENIDS 可覆盖 */
+const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
+
+function getAdminList() {
+  const fromEnv = process.env.ADMIN_OPENIDS || '';
+  if (fromEnv.trim()) {
+    return fromEnv.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return FALLBACK_ADMINS;
+}
+
+function assertAdmin(openid) {
+  return getAdminList().includes(openid);
+}
+
 async function ensureAndListCategories(db) {
   const col = db.collection('categories');
   let list = [];
@@ -54,4 +88,26 @@ async function ensureAndListCategories(db) {
     .sort((a, b) => (a.sort || 0) - (b.sort || 0));
 }
 
-module.exports = { BUILTIN_CATEGORIES, ensureAndListCategories };
+async function resolveCategory(db, categoryId) {
+  if (!categoryId) return null;
+  try {
+    const res = await db.collection('categories').where({ id: categoryId }).limit(1).get();
+    const doc = (res.data || [])[0];
+    if (doc) return { id: doc.id || doc._id, name: doc.name };
+  } catch (e) {
+    console.warn(e.message);
+  }
+  const hit = BUILTIN_CATEGORIES.find((c) => c.id === categoryId);
+  if (hit) return { id: hit.id, name: hit.name };
+  return null;
+}
+
+module.exports = {
+  BUILTIN_CATEGORIES,
+  normalizeCategoryName,
+  isBuiltinId,
+  createCustomCategoryId,
+  ensureAndListCategories,
+  resolveCategory,
+  assertAdmin,
+};

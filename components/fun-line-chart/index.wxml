@@ -1,0 +1,20 @@
+<view class="fun-line">
+  <view class="fun-line__hint" wx:if="{{hint}}">{{hint}}</view>
+  <view class="fun-line__body">
+    <view class="fun-line__y" style="width: {{yWidthRpx}}rpx;">
+      <text class="fun-line__y-tick" wx:for="{{yTicks}}" wx:key="index">{{item}}</text>
+    </view>
+    <view class="fun-line__plot">
+      <canvas
+        type="2d"
+        id="funLine"
+        class="fun-line__canvas"
+        disable-scroll="{{true}}"
+        bindtouchstart="onTouchStart"
+      />
+      <view class="fun-line__axis" wx:if="{{labels.length}}">
+        <text class="fun-line__tick" wx:for="{{labels}}" wx:key="index">{{item}}</text>
+      </view>
+    </view>
+  </view>
+</view>

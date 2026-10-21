@@ -1,0 +1,65 @@
+@import '/variable.less';
+
+.fun-line {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4rpx 4rpx 0 0;
+}
+
+.fun-line__hint {
+  .ui-caption();
+  padding: 4rpx 8rpx 8rpx;
+  color: var(--td-text-color-secondary);
+}
+
+.fun-line__body {
+  display: flex;
+  align-items: flex-start;
+}
+
+.fun-line__y {
+  flex: none;
+  height: 280rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6rpx 8rpx 6rpx 2rpx;
+  box-sizing: content-box;
+}
+
+.fun-line__y-tick {
+  .ui-caption();
+  display: block;
+  width: auto;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-color-placeholder);
+  line-height: 1;
+}
+
+.fun-line__plot {
+  flex: 1;
+  min-width: 0;
+}
+
+.fun-line__canvas {
+  width: 100%;
+  height: 280rpx;
+  display: block;
+}
+
+.fun-line__axis {
+  display: flex;
+  justify-content: space-between;
+  padding: 8rpx 0 0;
+}
+
+.fun-line__tick {
+  .ui-caption();
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}

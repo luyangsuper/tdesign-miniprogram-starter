@@ -1,0 +1,154 @@
+@import '/variable.less';
+
+.favorites {
+  min-height: 100vh;
+  background: var(--td-bg-color-page);
+  padding-bottom: 48rpx;
+  box-sizing: border-box;
+}
+
+.favorites__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 16rpx 4rpx 28rpx;
+}
+
+.favorites__bar-count {
+  .ui-caption();
+}
+
+.favorites__bar-btn {
+  margin: 0 !important;
+  font-weight: 500 !important;
+}
+
+.favorites__state,
+.favorites__empty {
+  width: 100%;
+  min-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24rpx;
+  padding: 0 48rpx 80rpx;
+  box-sizing: border-box;
+}
+
+.favorites__list {
+  margin: 16rpx 16rpx 0;
+  background: var(--td-bg-color-container);
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+@fav-cover: 160rpx;
+
+.favorites__row {
+  display: flex;
+  align-items: stretch;
+  gap: 20rpx;
+  padding: 16rpx 20rpx;
+
+  &--press {
+    background: var(--td-bg-color-secondarycontainer);
+  }
+}
+
+.favorites__cover {
+  flex-shrink: 0;
+  display: block !important;
+  width: @fav-cover !important;
+  height: @fav-cover !important;
+  border-radius: 16rpx !important;
+  overflow: hidden !important;
+  background: var(--td-bg-color-secondarycontainer);
+  --td-image-round-radius: 16rpx;
+}
+
+.favorites__cover-load {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.favorites__main {
+  flex: 1;
+  min-width: 0;
+  height: @fav-cover;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4rpx 0;
+  box-sizing: border-box;
+}
+
+.favorites__title {
+  .ui-strong();
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorites__meta,
+.favorites__time {
+  .ui-caption();
+  display: block;
+  margin-top: 0;
+}
+
+.favorites__heart {
+  flex-shrink: 0;
+  width: 72rpx;
+  height: @fav-cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.favorites__water {
+  display: flex;
+  align-items: flex-start;
+  box-sizing: border-box;
+}
+
+.favorites__col {
+  display: flex;
+  flex-direction: column;
+}
+
+.favorites__water-card {
+  position: relative;
+}
+
+.favorites__water-fav {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  z-index: 2;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  .favorites__water-fav {
+    background: rgba(32, 32, 32, 0.82);
+  }
+}
+
+.favorites__more,
+.favorites__end {
+  .ui-caption();
+  padding: 24rpx 0;
+  text-align: center;
+}

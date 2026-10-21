@@ -8,10 +8,8 @@
   color: var(--td-text-color-primary);
 
   &__tip {
+    .ui-caption();
     margin: 0 24rpx 16rpx;
-    font-size: 24rpx;
-    line-height: 1.5;
-    color: var(--td-text-color-placeholder);
   }
 
   &__loading {
@@ -21,9 +19,8 @@
   }
 
   &__section {
+    .ui-strong();
     margin: 24rpx 24rpx 12rpx;
-    font-size: 26rpx;
-    font-weight: 600;
   }
 
   &__card {
@@ -59,6 +56,125 @@
 
   &__hint {
     .form-hint();
+
+    &--block {
+      display: block;
+      margin-top: 8rpx;
+      margin-bottom: 12rpx;
+      white-space: normal;
+    }
+  }
+
+  &__mini {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8rpx;
+    margin: 8rpx 0 16rpx;
+  }
+
+  &__mini-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4rpx;
+    min-height: 120rpx;
+    padding: 8rpx 4rpx;
+    border-radius: 12rpx;
+    background: var(--td-bg-color-secondarycontainer, var(--td-bg-color-page));
+    box-sizing: border-box;
+
+    &.is-go {
+      background: var(--td-brand-color);
+    }
+
+    &.is-go .admin-lottery__mini-label {
+      color: #ffffff;
+      font-weight: 700;
+    }
+  }
+
+  &__mini-art {
+    width: 48rpx;
+    height: 48rpx;
+  }
+
+  &__mini-label {
+    .ui-caption();
+    text-align: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__prize {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8rpx;
+    margin-top: 16rpx;
+  }
+
+  &__prize-lead {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6rpx;
+    flex-shrink: 0;
+  }
+
+  &__prize-art {
+    width: 44rpx;
+    height: 44rpx;
+    flex-shrink: 0;
+  }
+
+  &__prize-slot {
+    .ui-caption();
+    width: 2em;
+    margin: 0;
+    line-height: 44rpx;
+  }
+
+  &__prize-name,
+  &__prize-num {
+    .form-input-tokens();
+    margin-top: 0 !important;
+    min-height: 72rpx;
+    height: auto;
+    overflow: visible;
+    box-sizing: border-box;
+    --td-input-height: 72rpx;
+    --td-input-vertical-padding: 12rpx 16rpx;
+    --td-input-font: var(--ui-fs-body, @ui-fs-body);
+  }
+
+  &__prize-name {
+    flex: 1 1 200rpx;
+    min-width: 180rpx;
+  }
+
+  &__prize-num {
+    flex: 0 0 196rpx;
+    width: 196rpx;
+    min-width: 196rpx;
+  }
+
+  &__grid-save {
+    margin-top: 16rpx;
+  }
+
+  &__grid-reset {
+    margin-top: 12rpx;
+  }
+
+  &__types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+    margin-top: 8rpx;
   }
 
   &__field {
@@ -81,10 +197,10 @@
   }
 
   &__picker-text {
+    .ui-strong();
     flex: 1;
     min-width: 0;
-    font-size: 28rpx;
-    line-height: 1.4;
+    font-weight: 400;
   }
 
   &__actions {
@@ -105,16 +221,14 @@
   }
 
   &__history-title {
+    .ui-strong();
     flex: 1;
     min-width: 0;
-    font-size: 28rpx;
-    font-weight: 600;
   }
 
   &__history-meta {
+    .ui-caption();
     margin-top: @form-hint-gap;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__history-actions {
@@ -124,6 +238,10 @@
   }
 
   &__empty {
-    padding: 48rpx 0;
+    width: 100%;
+    min-height: 40vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }

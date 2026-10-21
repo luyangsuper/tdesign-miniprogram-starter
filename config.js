@@ -10,6 +10,8 @@
  *   需在小程序后台将 pixabots.com 加入 downloadFile 合法域名
  */
 export default {
+  /** 关于页展示；与 package.json version 对齐即可 */
+  appVersion: '0.1.0',
   cloudEnv: 'cloud1-d4g0731mc55f853ef',
   rewardedAdUnitId: '', // 暂不开放广告；接好后填 adunit-xxxxxx
   /** 单张原图积分消耗（云函数 getEmojiDownload 须保持一致） */

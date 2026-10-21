@@ -13,13 +13,13 @@
   flex: 1;
   box-sizing: border-box;
   background: var(--td-bg-color-page);
-  padding: 12rpx 0 calc(@tab-bar-height + env(safe-area-inset-bottom));
+  padding: 12rpx 0 calc(@tab-bar-height + @tab-bar-page-gap + env(safe-area-inset-bottom));
   --td-cell-group-margin: 12rpx;
   --td-cell-vertical-padding: 24rpx;
   /* 行高与左侧图标同为 40rpx，避免图标偏上、文字偏下 */
   --td-cell-line-height: 40rpx;
-  --td-cell-title-font-size: 30rpx;
-  --td-cell-note-font-size: 24rpx;
+  --td-cell-title-font-size: var(--ui-fs-strong, @ui-fs-strong);
+  --td-cell-note-font-size: var(--ui-fs-caption, @ui-fs-caption);
   --td-cell-left-icon-font-size: 40rpx;
   --td-cell-right-icon-font-size: 40rpx;
   --td-button-small-height: 56rpx;
@@ -105,7 +105,7 @@
   }
 
   &__avatar-badge-text {
-    font-size: 16rpx;
+    .ui-caption();
     font-weight: 700;
     color: #fff;
     line-height: 1;
@@ -119,10 +119,8 @@
   }
 
   &__name-input {
+    .ui-strong();
     width: 100%;
-    font-size: 30rpx;
-    font-weight: 600;
-    color: var(--td-text-color-primary);
     height: 40rpx;
     line-height: 40rpx;
   }
@@ -136,8 +134,7 @@
   }
 
   &__id {
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -162,8 +159,7 @@
   &__benefit-empty {
     flex: 1;
     min-width: 0;
-    font-size: 22rpx;
-    line-height: 1.4;
+    .ui-caption();
     color: var(--td-text-color-secondary);
   }
 
@@ -175,9 +171,7 @@
   }
 
   &__benefit-sum-num {
-    font-size: 48rpx;
-    font-weight: 700;
-    color: var(--td-brand-color);
+    .ui-display();
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
@@ -190,16 +184,13 @@
   }
 
   &__benefit-sum-title {
-    font-size: 24rpx;
+    .ui-caption();
     font-weight: 600;
     color: var(--td-text-color-secondary);
-    line-height: 1.2;
   }
 
   &__benefit-sum-sub {
-    font-size: 20rpx;
-    color: var(--td-text-color-placeholder);
-    line-height: 1.3;
+    .ui-caption();
   }
 
   &__benefit-row {
@@ -211,16 +202,14 @@
   }
 
   &__benefit-k {
-    font-size: 22rpx;
+    .ui-caption();
     color: var(--td-text-color-secondary);
-    line-height: 1.3;
   }
 
   &__benefit-v {
-    font-size: 22rpx;
+    .ui-caption();
     font-weight: 600;
     color: var(--td-brand-color);
-    line-height: 1.3;
     font-variant-numeric: tabular-nums;
   }
 
@@ -246,9 +235,7 @@
 
   &__benefit-foot {
     display: block;
-    font-size: 18rpx;
-    line-height: 1.35;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     margin: 2rpx 0 10rpx;
   }
 
@@ -263,9 +250,7 @@
   }
 
   &__pricing-link {
-    font-size: 20rpx;
-    line-height: 1.3;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
   }
 
   &__pricing-strip {
@@ -332,7 +317,7 @@
   }
 
   &__pricing-chip-title {
-    font-size: 20rpx;
+    .ui-caption();
     line-height: 1.2;
   }
 
@@ -345,14 +330,13 @@
   }
 
   &__pricing-chip-origin {
-    font-size: 16rpx;
+    .ui-caption();
     line-height: 1.1;
-    color: var(--td-text-color-placeholder);
     text-decoration: line-through;
   }
 
   &__pricing-chip-price {
-    font-size: 26rpx;
+    .ui-body();
     font-weight: 800;
     line-height: 1.15;
   }
@@ -363,16 +347,13 @@
     right: 0;
     padding: 0 8rpx;
     border-radius: 0 14rpx 0 10rpx;
-    font-size: 16rpx;
-    line-height: 1.55;
+    .ui-caption();
     font-weight: 600;
   }
 
   &__pricing-cost {
     margin-bottom: 10rpx;
-    font-size: 20rpx;
-    color: var(--td-text-color-placeholder);
-    line-height: 1.35;
+    .ui-caption();
   }
 
   &__service {
@@ -389,15 +370,14 @@
   &__service-text {
     flex: 1;
     min-width: 0;
-    font-size: 24rpx;
+    .ui-caption();
     color: #07c160;
     font-weight: 600;
-    line-height: 1.3;
   }
 
   &__service-copy {
     flex-shrink: 0;
-    font-size: 22rpx;
+    .ui-caption();
     color: #07c160;
     font-weight: 600;
   }
@@ -417,8 +397,7 @@
     min-width: 0;
     height: 56rpx;
     line-height: 56rpx;
-    font-size: 26rpx;
-    color: var(--td-text-color-primary);
+    .ui-body();
   }
 }
 
@@ -434,11 +413,11 @@
   margin: 0 !important;
   padding: 0 !important;
   box-sizing: border-box !important;
-  font-size: 24rpx !important;
+  font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
   font-weight: 600 !important;
   line-height: 56rpx !important;
   --td-button-small-height: 56rpx !important;
-  --td-button-small-font-size: 24rpx !important;
+  --td-button-small-font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
   --td-button-small-padding-horizontal: 0 !important;
   --td-button-border-width: 0 !important;
   border-width: 0 !important;
@@ -450,9 +429,9 @@
 }
 
 .my__redeem-btn--paste {
-  --td-button-light-bg-color: #ffffff !important;
+  --td-button-light-bg-color: var(--td-bg-color-container) !important;
   --td-button-light-color: var(--td-text-color-primary) !important;
-  --td-button-light-active-bg-color: rgba(0, 0, 0, 0.04) !important;
+  --td-button-light-active-bg-color: var(--td-bg-color-page) !important;
   --td-button-light-border-color: transparent !important;
 }
 
@@ -477,9 +456,7 @@
 }
 
 .my__pricing-sheet-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
+  .ui-title();
 }
 
 .my__pricing-sheet-scroll {
@@ -492,17 +469,14 @@
 
 .my__pricing-sheet-desc {
   margin-top: 10rpx;
-  font-size: 24rpx;
+  .ui-caption();
   color: var(--td-brand-color);
-  line-height: 1.4;
 }
 
 .my__pricing-sheet-rule {
+  .ui-caption();
   margin-top: 6rpx;
   margin-bottom: 20rpx;
-  font-size: 22rpx;
-  color: var(--td-text-color-placeholder);
-  line-height: 1.45;
 }
 
 .my__pricing-service {
@@ -536,12 +510,12 @@
 }
 
 .my__pricing-service-label {
-  font-size: 22rpx;
+  .ui-caption();
   color: rgba(7, 193, 96, 0.75);
 }
 
 .my__pricing-service-id {
-  font-size: 28rpx;
+  .ui-strong();
   font-weight: 700;
   color: #07c160;
   letter-spacing: 0.5rpx;
@@ -555,10 +529,9 @@
 }
 
 .my__pricing-section-title {
+  .ui-body();
   margin: 8rpx 0 12rpx;
-  font-size: 26rpx;
   font-weight: 600;
-  color: var(--td-text-color-primary);
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
@@ -566,9 +539,7 @@
 }
 
 .my__pricing-admin-tip {
-  font-size: 20rpx;
-  font-weight: 400;
-  color: var(--td-text-color-placeholder);
+  .ui-caption();
 }
 
 .my__pricing-card {
@@ -655,22 +626,21 @@
 }
 
 .my__pricing-card-title {
-  font-size: 30rpx;
+  .ui-strong();
   font-weight: 700;
   color: var(--plan-accent);
   line-height: 1.2;
 }
 
 .my__pricing-card-period {
-  font-size: 22rpx;
+  .ui-caption();
   color: var(--plan-accent);
   opacity: 0.72;
 }
 
 .my__pricing-card-desc {
-  font-size: 22rpx;
+  .ui-caption();
   color: var(--td-text-color-secondary);
-  line-height: 1.4;
 }
 
 .my__pricing-card-side {
@@ -692,24 +662,22 @@
 }
 
 .my__pricing-card-origin {
-  font-size: 20rpx;
-  color: var(--td-text-color-placeholder);
+  .ui-caption();
   text-decoration: line-through;
   line-height: 1.2;
 }
 
 .my__pricing-card-price {
-  font-size: 32rpx;
+  .ui-title();
   font-weight: 800;
   color: var(--plan-accent);
   line-height: 1.2;
 }
 
 .my__pricing-card-deal {
+  .ui-caption();
   padding: 0 8rpx;
   border-radius: 999rpx;
-  font-size: 18rpx;
-  line-height: 1.5;
   font-weight: 600;
   color: var(--plan-accent);
   background: var(--plan-icon-bg);
@@ -747,11 +715,9 @@
 }
 
 .my__pricing-buy-tip {
+  .ui-caption();
   margin-top: 8rpx;
   margin-bottom: 16rpx;
-  font-size: 22rpx;
-  color: var(--td-text-color-placeholder);
-  line-height: 1.45;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -944,11 +910,9 @@
 }
 
 .my__feedback-title {
+  .ui-title();
   flex: 1;
   min-width: 0;
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
 }
 
 .my__feedback-close {
@@ -957,10 +921,8 @@
 }
 
 .my__feedback-desc {
+  .ui-caption();
   margin: 8rpx 0 20rpx;
-  font-size: 22rpx;
-  line-height: 1.4;
-  color: var(--td-text-color-placeholder);
 }
 
 .my__feedback-textarea {
@@ -972,8 +934,8 @@
 }
 
 .my__feedback-upload-label {
+  .ui-caption();
   margin: 0 0 12rpx;
-  font-size: 24rpx;
   color: var(--td-text-color-secondary);
 }
 
@@ -996,17 +958,13 @@
 }
 
 .my__theme-sheet-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
+  .ui-title();
 }
 
 .my__theme-sheet-desc {
+  .ui-caption();
   margin-top: 8rpx;
   margin-bottom: 28rpx;
-  font-size: 24rpx;
-  color: var(--td-text-color-placeholder);
-  line-height: 1.4;
 }
 
 .my__theme-grid {
@@ -1042,9 +1000,9 @@
 }
 
 .my__theme-label {
+  .ui-strong();
   flex: 1;
-  font-size: 28rpx;
-  color: var(--td-text-color-primary);
+  font-weight: 400;
 }
 
 .my__lookup {
@@ -1081,12 +1039,9 @@
 }
 
 .my__guide-title {
+  .ui-title();
   flex: 1;
   min-width: 0;
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
-  line-height: 1.3;
 }
 
 .my__guide-close-btn {
@@ -1108,8 +1063,7 @@
 }
 
 .my__guide-tip {
-  font-size: 24rpx;
-  line-height: 1.5;
+  .ui-caption();
   color: var(--td-text-color-secondary);
   margin-bottom: 20rpx;
   padding: 16rpx;
@@ -1131,7 +1085,7 @@
   border-radius: 50%;
   background: var(--td-brand-color-light);
   color: var(--td-brand-color);
-  font-size: 22rpx;
+  .ui-caption();
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -1145,24 +1099,18 @@
 }
 
 .my__guide-step-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
-  line-height: 1.35;
+  .ui-strong();
 }
 
 .my__guide-step-desc {
+  .ui-caption();
   margin-top: 8rpx;
-  font-size: 24rpx;
-  line-height: 1.55;
   color: var(--td-text-color-secondary);
 }
 
 .my__guide-foot {
+  .ui-caption();
   margin-top: 20rpx;
-  font-size: 22rpx;
-  line-height: 1.5;
-  color: var(--td-text-color-placeholder);
 }
 
 /* 走 t-class / t-class-*：整行、左图标、标题、备注同一中线 */
@@ -1201,7 +1149,7 @@
 .my-menu-cell__title {
   display: flex !important;
   align-items: center !important;
-  font-size: 30rpx !important;
+  font-size: var(--ui-fs-strong, @ui-fs-strong) !important;
   line-height: 40rpx !important;
   min-height: 40rpx;
 }
@@ -1210,9 +1158,16 @@
   display: flex !important;
   align-items: center !important;
   align-self: center !important;
-  font-size: 24rpx !important;
+  font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
   line-height: 40rpx !important;
   min-height: 40rpx;
+}
+
+.my-lottery-note {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8rpx;
 }
 
 @keyframes my-fade-up {

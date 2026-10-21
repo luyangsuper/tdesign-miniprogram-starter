@@ -11,7 +11,7 @@
   </view>
 
   <block wx:elif="{{!list.length}}">
-    <t-empty description="暂无积分流水" />
+    <fun-empty fill description="暂无积分流水" />
   </block>
 
   <view wx:else class="points-log__list">

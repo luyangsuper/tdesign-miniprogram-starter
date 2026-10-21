@@ -1,50 +1,14 @@
-<!-- 固定底栏：首页 | 发布 | 我的；发布仅管理员 -->
+<!-- 固定底栏：首页 | 我的 -->
 <view class="page custom-tab-bar" style="{{themeStyle}}">
-  <view class="tab-bar {{isAdmin ? 'tab-bar--admin' : 'tab-bar--user'}} {{cold ? 'tab-bar--cold' : ''}}">
-    <view
-      class="tab-item {{value === 'home' ? 'tab-item--active' : ''}}"
-      hover-class="tab-item--press"
-      hover-stay-time="60"
-      bindtap="onTapHome"
-    >
-      <view class="tab-item__stack">
-        <view class="tab-icon {{value === 'home' ? 'tab-icon--active' : ''}}" aria-hidden="true">
-          <image class="tab-icon__img tab-icon__img--idle" src="{{home.icon}}" mode="aspectFit" />
-          <image class="tab-icon__img tab-icon__img--active" src="{{home.iconActive}}" mode="aspectFit" />
-        </view>
-        <text class="tab-label" style="color: {{value === 'home' ? brand : colorIdle}};">首页</text>
-      </view>
-    </view>
-
-    <view
-      wx:if="{{isAdmin}}"
-      class="tab-item {{value === 'publish' ? 'tab-item--active' : ''}}"
-      hover-class="tab-item--press"
-      hover-stay-time="60"
-      bindtap="onTapPublish"
-    >
-      <view class="tab-item__stack">
-        <view class="tab-icon {{value === 'publish' ? 'tab-icon--active' : ''}}" aria-hidden="true">
-          <image class="tab-icon__img tab-icon__img--idle" src="{{publish.icon}}" mode="aspectFit" />
-          <image class="tab-icon__img tab-icon__img--active" src="{{publish.iconActive}}" mode="aspectFit" />
-        </view>
-        <text class="tab-label" style="color: {{value === 'publish' ? brand : colorIdle}};">发布</text>
-      </view>
-    </view>
-
-    <view
-      class="tab-item {{value === 'my' ? 'tab-item--active' : ''}}"
-      hover-class="tab-item--press"
-      hover-stay-time="60"
-      bindtap="onTapMy"
-    >
-      <view class="tab-item__stack">
-        <view class="tab-icon {{value === 'my' ? 'tab-icon--active' : ''}}" aria-hidden="true">
-          <image class="tab-icon__img tab-icon__img--idle" src="{{my.icon}}" mode="aspectFit" />
-          <image class="tab-icon__img tab-icon__img--active" src="{{my.iconActive}}" mode="aspectFit" />
-        </view>
-        <text class="tab-label" style="color: {{value === 'my' ? myColorActive : colorIdle}};">我的</text>
-      </view>
-    </view>
-  </view>
+  <t-tab-bar
+    value="{{value}}"
+    bordered="{{false}}"
+    split="{{false}}"
+    fixed="{{false}}"
+    safe-area-inset-bottom="{{true}}"
+    bindchange="onChange"
+  >
+    <t-tab-bar-item t-class="tab-bar-item" value="home" icon="home">首页</t-tab-bar-item>
+    <t-tab-bar-item t-class="tab-bar-item" value="my" icon="user">我的</t-tab-bar-item>
+  </t-tab-bar>
 </view>

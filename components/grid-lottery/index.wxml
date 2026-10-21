@@ -1,0 +1,105 @@
+<view class="grid-lot {{boardShake ? 'is-shake' : ''}}" wx:if="{{ready && enabled}}">
+  <view class="grid-lot__head">
+    <view class="grid-lot__brand">
+      <image class="grid-lot__brand-art" src="/static/lottery/go.png" mode="aspectFit" />
+      <view class="grid-lot__brand-copy">
+        <view class="grid-lot__title-row">
+          <text class="grid-lot__title">每日九宫格</text>
+          <view class="grid-lot__sound {{soundMuted ? 'is-off' : ''}}" catchtap="onToggleSound">
+            <t-icon
+              name="{{soundMuted ? 'sound-mute' : 'sound'}}"
+              size="36rpx"
+              color="{{soundMuted ? 'var(--td-text-color-placeholder)' : 'var(--td-brand-color)'}}"
+            />
+          </view>
+        </view>
+        <text class="grid-lot__sub">转动幸运，收获惊喜</text>
+      </view>
+    </view>
+    <view class="grid-lot__chips">
+      <t-tag size="small" variant="light" theme="primary">剩 {{remainCount}} 次</t-tag>
+      <t-tag size="small" variant="light" theme="warning">{{costPoints}} 积分/次</t-tag>
+    </view>
+  </view>
+
+  <view class="grid-lot__board {{spinning || goPhase === 'spin' ? 'is-rolling' : ''}}">
+    <view
+      wx:for="{{cells}}"
+      wx:key="id"
+      class="grid-lot__cell tone-{{item.tone}} {{item.active ? 'is-active' : ''}} {{item.win ? 'is-win' : ''}} {{item.miss ? 'is-miss' : ''}}"
+      style="grid-column: {{item.x + 1}}; grid-row: {{item.y + 1}};"
+    >
+      <view wx:if="{{item.badge}}" class="grid-lot__badge">
+        <t-tag size="small" theme="danger" variant="light">惊喜奖励</t-tag>
+      </view>
+      <image
+        class="grid-lot__art {{item.drawPulse ? 'is-draw-' + item.drawPulse : ''}}"
+        src="{{item.art}}"
+        mode="aspectFit"
+      />
+      <text class="grid-lot__label">{{item.cellLabel}}</text>
+    </view>
+
+    <view class="grid-lot__center is-{{goPhase}}">
+      <t-button
+        t-class="grid-lot__go"
+        theme="primary"
+        shape="circle"
+        disabled="{{goPhase !== 'idle' || remainCount <= 0}}"
+        bind:tap="onDraw"
+      />
+      <view class="grid-lot__go-face" catchtap="onDraw">
+        <image
+          class="grid-lot__go-art {{goArtPulse ? 'is-draw-' + goArtPulse : ''}}"
+          src="{{goLiveArt}}"
+          mode="aspectFit"
+        />
+        <text class="grid-lot__go-text">{{goPhase === 'idle' ? '抽奖' : goPhase === 'spin' ? '开奖' : goPhase === 'win' ? '中奖' : '…'}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{fxShow}}" class="grid-lot__fx {{fxWin ? 'is-win' : 'is-lose'}}" catchtap="noop" catchtouchmove="noop">
+      <view class="grid-lot__fx-card">
+        <image class="grid-lot__fx-art" src="{{fxArt}}" mode="aspectFit" />
+        <text class="grid-lot__fx-title">{{fxTitle}}</text>
+        <text class="grid-lot__fx-sub">{{fxSub}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="grid-lot__stats">
+    <view class="grid-lot__stat">
+      <image class="grid-lot__stat-art" src="/static/lottery/pts18.png" mode="aspectFit" />
+      <text class="grid-lot__stat-cap">我的积分</text>
+      <text class="grid-lot__stat-num">{{wallet}}</text>
+    </view>
+    <view class="grid-lot__stat">
+      <image class="grid-lot__stat-art" src="/static/lottery/pts1.png" mode="aspectFit" />
+      <text class="grid-lot__stat-cap">今日剩余</text>
+      <text class="grid-lot__stat-num">{{remainCount}}</text>
+    </view>
+    <view class="grid-lot__stat">
+      <image class="grid-lot__stat-art" src="/static/lottery/pts2.png" mode="aspectFit" />
+      <text class="grid-lot__stat-cap">每次消耗</text>
+      <text class="grid-lot__stat-num">{{costPoints}}</text>
+    </view>
+  </view>
+  <t-button
+    wx:if="{{isAdmin}}"
+    t-class="grid-lot__reset"
+    theme="light"
+    variant="text"
+    size="extra-small"
+    content="重置我的今日次数"
+    disabled="{{resetting}}"
+    bind:tap="onResetToday"
+  />
+  <text wx:if="{{isAdmin}}" class="grid-lot__reset-hint">仅管理员可见，只清你自己的次数</text>
+  <confetti-burst id="gridConfetti" />
+</view>
+<view class="grid-lot grid-lot--off" wx:elif="{{ready && !enabled}}">
+  <text class="grid-lot__sub">九宫格暂未开放</text>
+</view>
+<view class="grid-lot grid-lot--load" wx:elif="{{loading}}">
+  <t-loading theme="circular" size="40rpx" />
+</view>

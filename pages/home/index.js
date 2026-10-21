@@ -35,6 +35,7 @@ import {
   readHomeSnapshot,
   writeHomeSnapshot,
 } from '~/utils/homeSnapshot';
+import { shareAppMessage, shareTimeline } from '~/utils/share';
 
 const CONFIRM_ICONS = {
   warn: '/static/emoji/warn.png',
@@ -244,6 +245,14 @@ Page({
     this.stopActivityGiftPoll();
   },
 
+  onShareAppMessage() {
+    return shareAppMessage();
+  },
+
+  onShareTimeline() {
+    return shareTimeline();
+  },
+
   /** 拉取云端待弹活动积分 / 抽奖（覆盖「正在用」的用户，不必冷启动） */
   async pullPendingActivityGifts() {
     if (this._pullingActivityGifts || this._closingActivityGift) return;
@@ -423,6 +432,7 @@ Page({
     };
     this._onWelcomeGift = () => this.maybeShowWelcomeGift();
     this._onActivityGift = () => this.maybeShowActivityGift();
+    this._onAdminViewChange = () => this.refreshAdmin();
     try {
       const app = getApp();
       if (app && typeof app.captureOaEntry === 'function') {
@@ -435,6 +445,7 @@ Page({
         app.eventBus.on('themeChange', this._onThemeChange);
         app.eventBus.on('welcomeGift', this._onWelcomeGift);
         app.eventBus.on('activityGift', this._onActivityGift);
+        app.eventBus.on('adminViewChange', this._onAdminViewChange);
       }
     } catch (e) {
       /* ignore */
@@ -476,6 +487,7 @@ Page({
         if (this._onThemeChange) app.eventBus.off('themeChange', this._onThemeChange);
         if (this._onWelcomeGift) app.eventBus.off('welcomeGift', this._onWelcomeGift);
         if (this._onActivityGift) app.eventBus.off('activityGift', this._onActivityGift);
+        if (this._onAdminViewChange) app.eventBus.off('adminViewChange', this._onAdminViewChange);
       }
     } catch (e) {
       /* ignore */
@@ -1821,12 +1833,14 @@ Page({
   },
 
   onEditPack(e) {
+    if (!resolveIsAdmin()) return;
     const { packId } = e.detail || {};
     if (!packId) return;
     wx.navigateTo({ url: `/pages/admin/upload/index?id=${packId}` });
   },
 
   onDeletePack(e) {
+    if (!resolveIsAdmin()) return;
     const { packId, title } = e.detail || {};
     if (!packId) return;
     this.setData({
@@ -1845,6 +1859,10 @@ Page({
   },
 
   async onConfirmDelete() {
+    if (!resolveIsAdmin()) {
+      this.setData({ deleteDialogVisible: false, deletePackId: '', deleteTitle: '' });
+      return;
+    }
     const { deletePackId } = this.data;
     this.setData({ deleteDialogVisible: false });
     if (!deletePackId) return;

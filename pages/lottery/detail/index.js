@@ -11,6 +11,7 @@ import {
   requestLotterySubscribe,
 } from '~/utils/subscribe';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
+import { shareAppMessage, shareTimeline } from '~/utils/share';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -24,6 +25,12 @@ Page({
     id: '',
     title: '',
     poolPoints: 0,
+    type: 'free',
+    costPoints: 0,
+    paidCost: 0,
+    drawOutcome: '',
+    refunded: false,
+    joinLabel: '参与抽奖',
     winnerCount: 0,
     participantCount: 0,
     drawAt: 0,
@@ -136,6 +143,15 @@ Page({
       this.setData({
         title: d.title || '',
         poolPoints: d.poolPoints || 0,
+        type: d.type || 'free',
+        costPoints: Number(d.costPoints) || 0,
+        paidCost: Number(d.paidCost) || 0,
+        drawOutcome: d.drawOutcome || '',
+        refunded: !!d.refunded,
+        joinLabel:
+          d.type === 'paid'
+            ? `投入 ${Number(d.costPoints) || 0} 分参与`
+            : '参与抽奖',
         winnerCount: d.winnerCount || 0,
         participantCount: d.participantCount || 0,
         drawAt: d.drawAt || 0,
@@ -181,6 +197,20 @@ Page({
 
   async onJoin() {
     if (this.data.joining || !this.data.canJoin) return;
+    const paid = this.data.type === 'paid';
+    const cost = Number(this.data.costPoints) || 0;
+    if (paid) {
+      const ok = await new Promise((resolve) => {
+        wx.showModal({
+          title: '投入积分参与',
+          content: `将扣除 ${cost} 积分报名。未中奖不退回；仅少数人中奖。`,
+          confirmText: '确认投入',
+          success: (r) => resolve(!!r.confirm),
+          fail: () => resolve(false),
+        });
+      });
+      if (!ok) return;
+    }
     this.setData({ joining: true });
     try {
       try {
@@ -192,10 +222,24 @@ Page({
         action: 'join',
         lotteryId: this._id || this.data.id,
       });
-      wx.showToast({ title: '已参与', icon: 'success' });
+      wx.showToast({ title: paid ? `已投入 ${cost} 分` : '已参与', icon: 'success' });
       this.loadDetail({ silent: true });
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '参与失败', icon: 'none' });
+      const msg = (e && e.message) || '参与失败';
+      if (paid && /积分不足/.test(msg)) {
+        const go = await new Promise((resolve) => {
+          wx.showModal({
+            title: '积分不足',
+            content: `${msg}。可到「我的」签到或购买积分。`,
+            confirmText: '去我的',
+            success: (r) => resolve(!!r.confirm),
+            fail: () => resolve(false),
+          });
+        });
+        if (go) wx.switchTab({ url: '/pages/my/index' });
+      } else {
+        wx.showToast({ title: msg, icon: 'none' });
+      }
     } finally {
       this.setData({ joining: false });
     }
@@ -229,5 +273,27 @@ Page({
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '订阅失败', icon: 'none' });
     }
+  },
+
+  onShareAppMessage() {
+    const id = this.data.id || this._id || '';
+    const title = this.data.title
+      ? `趣集抽奖 · ${this.data.title}`
+      : '趣集抽奖';
+    return shareAppMessage({
+      title,
+      path: `/pages/lottery/detail/index?id=${id}`,
+    });
+  },
+
+  onShareTimeline() {
+    const id = this.data.id || this._id || '';
+    const title = this.data.title
+      ? `趣集抽奖 · ${this.data.title}`
+      : '趣集抽奖';
+    return shareTimeline({
+      title,
+      query: `id=${id}`,
+    });
   },
 });

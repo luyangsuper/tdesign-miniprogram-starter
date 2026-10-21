@@ -1,0 +1,18 @@
+{
+  "navigationBarTitleText": "我的收藏",
+  "navigationStyle": "default",
+  "styleIsolation": "shared",
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "t-image": "tdesign-miniprogram/image/image",
+    "t-icon": "tdesign-miniprogram/icon/icon",
+    "t-button": "tdesign-miniprogram/button/button",
+    "fun-empty": "/components/fun-empty/index",
+    "pack-card": "/components/pack-card/index",
+    "lottery-host": "/components/lottery-host/index",
+    "heart-burst": "/components/heart-burst/index"
+  }
+}

@@ -2,7 +2,7 @@ const cloud = require('wx-server-sdk');
 const { dayjs, toMs, formatDate } = require('./time');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { getPointsSettings } = require('./pointsSettings');
-const { recordPointsLog } = require('./pointsLog');
+const { recordPointsLog, applyUserPoints, queryPointsLogs } = require('./pointsLog');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -35,7 +35,12 @@ async function resolveAvatarMap(fileIDs = []) {
       // eslint-disable-next-line no-await-in-loop
       const res = await cloud.getTempFileURL({ fileList: chunk });
       (res.fileList || []).forEach((item) => {
-        if (item.fileID && item.tempFileURL) map[item.fileID] = item.tempFileURL;
+        const ok =
+          item &&
+          item.fileID &&
+          item.tempFileURL &&
+          (item.status == null || Number(item.status) === 0);
+        if (ok) map[item.fileID] = item.tempFileURL;
       });
     } catch (e) {
       /* ignore */
@@ -46,19 +51,79 @@ async function resolveAvatarMap(fileIDs = []) {
 
 const { defaultAvatarUrl } = require('./avatar');
 
-function formatUser(doc, avatarMap = {}) {
+function formatPaidText(fen) {
+  const n = Math.max(0, Number(fen) || 0);
+  const yuan = (n / 100).toFixed(2).replace(/\.00$/, '');
+  return `消费 ¥${yuan}`;
+}
+
+async function resolvePaidFenMap(openids = []) {
+  const ids = Array.from(
+    new Set((openids || []).map((s) => String(s || '').trim()).filter(Boolean)),
+  );
+  const map = {};
+  ids.forEach((id) => {
+    map[id] = 0;
+  });
+  if (!ids.length) return map;
+
+  const addRows = (rows) => {
+    (rows || []).forEach((o) => {
+      const uid = String((o && o.openid) || '');
+      if (!uid) return;
+      map[uid] = (map[uid] || 0) + Math.max(0, Number(o.priceFen) || 0);
+    });
+  };
+
+  for (let i = 0; i < ids.length; i += 10) {
+    const chunk = ids.slice(i, i + 10);
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await db
+        .collection('orders')
+        .where({
+          openid: _.in(chunk),
+          status: 'delivered',
+        })
+        .limit(1000)
+        .get();
+      addRows(res.data);
+    } catch (e) {
+      // eslint-disable-next-line no-restricted-syntax
+      for (const uid of chunk) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const res = await db
+            .collection('orders')
+            .where({ openid: uid, status: 'delivered' })
+            .limit(200)
+            .get();
+          addRows(res.data);
+        } catch (err) {
+          /* ignore */
+        }
+      }
+    }
+  }
+  return map;
+}
+
+function formatUser(doc, avatarMap = {}, paidFenMap = {}) {
   const data = doc || {};
   const openid = data._id || data.openid || '';
   const lastLoginMs = toMs(data.lastLoginAt);
   const entitlement = buildEntitlement(data);
   const cloudAvatar =
     (data.avatarFileID && avatarMap[data.avatarFileID]) || '';
+  const paidFen = Math.max(0, Number(paidFenMap[openid]) || 0);
   return {
     openid,
     nickName: data.nickName || '',
     avatarUrl: cloudAvatar || defaultAvatarUrl(openid),
     isAdmin: !!data.isAdmin,
     entitlement,
+    paidFen,
+    paidText: formatPaidText(paidFen),
     lastLoginAt: lastLoginMs || null,
     lastLoginText: lastLoginMs ? formatDate(lastLoginMs) : '',
     createdAt: toMs(data.createdAt) || null,
@@ -72,8 +137,12 @@ function formatUser(doc, avatarMap = {}) {
 }
 
 async function formatUserAsync(doc) {
-  const map = await resolveAvatarMap([doc && doc.avatarFileID]);
-  return formatUser(doc, map);
+  const openid = (doc && (doc._id || doc.openid)) || '';
+  const [map, paidFenMap] = await Promise.all([
+    resolveAvatarMap([doc && doc.avatarFileID]),
+    resolvePaidFenMap([openid]),
+  ]);
+  return formatUser(doc, map, paidFenMap);
 }
 
 async function getUserByOpenid(openid) {
@@ -311,7 +380,10 @@ exports.main = async (event = {}) => {
       }
 
       const avatarMap = await resolveAvatarMap(rows.map((u) => u.avatarFileID));
-      const list = rows.map((u) => formatUser(u, avatarMap));
+      const paidFenMap = await resolvePaidFenMap(
+        rows.map((u) => u._id || u.openid),
+      );
+      const list = rows.map((u) => formatUser(u, avatarMap, paidFenMap));
 
       return {
         ok: true,
@@ -511,6 +583,19 @@ exports.main = async (event = {}) => {
       };
     }
 
+    if (action === 'listPointsLogs') {
+      if (!targetOpenid || targetOpenid.length < 4) {
+        return { ok: false, code: 'BAD_PARAM', message: '缺少 openid' };
+      }
+      return queryPointsLogs(db, {
+        openid: targetOpenid,
+        page: event.page,
+        pageSize: event.pageSize || 20,
+        toMs,
+        formatDate,
+      });
+    }
+
     if (!targetOpenid) {
       return { ok: false, code: 'BAD_PARAM', message: '缺少 openid' };
     }
@@ -579,28 +664,18 @@ exports.main = async (event = {}) => {
       if (Number.isNaN(points)) {
         return { ok: false, code: 'BAD_PARAM', message: '积分无效' };
       }
-      const prev = Math.max(0, Number(user.points) || 0);
-      await ref.update({
-        data: {
-          points,
-          updatedAt: db.serverDate(),
-        },
+      const applied = await applyUserPoints(db, _, {
+        openid: targetOpenid,
+        setTo: points,
+        currentPoints: user.points,
+        maxPoints: 99999,
+        reason: 'admin',
+        title: '管理员设置积分',
       });
-      const delta = points - prev;
-      if (delta) {
-        await recordPointsLog(db, {
-          openid: targetOpenid,
-          delta,
-          balance: points,
-          reason: 'admin',
-          title: '管理员设置积分',
-        });
-      }
       const fresh = await getUserByOpenid(targetOpenid);
-      // toast 标题过长会被截断（50 看起来像 5），保持短文案
       return {
         ok: true,
-        message: `积分→${points}`,
+        message: `积分→${applied.next}`,
         data: await formatUserAsync(fresh),
       };
     }
@@ -610,28 +685,18 @@ exports.main = async (event = {}) => {
       if (!delta || Number.isNaN(delta)) {
         return { ok: false, code: 'BAD_PARAM', message: '增减量无效' };
       }
-      const current = Math.max(0, Number(user.points) || 0);
-      const next = Math.max(0, Math.min(99999, current + delta));
-      const applied = next - current;
-      await ref.update({
-        data: {
-          points: next,
-          updatedAt: db.serverDate(),
-        },
+      const applied = await applyUserPoints(db, _, {
+        openid: targetOpenid,
+        delta,
+        currentPoints: user.points,
+        maxPoints: 99999,
+        reason: 'admin',
+        title: '管理员调整积分',
       });
-      if (applied) {
-        await recordPointsLog(db, {
-          openid: targetOpenid,
-          delta: applied,
-          balance: next,
-          reason: 'admin',
-          title: '管理员调整积分',
-        });
-      }
       const fresh = await getUserByOpenid(targetOpenid);
       return {
         ok: true,
-        message: `积分→${next}`,
+        message: `积分→${applied.next}`,
         data: await formatUserAsync(fresh),
       };
     }

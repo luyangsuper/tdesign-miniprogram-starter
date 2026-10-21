@@ -1,6 +1,7 @@
 @import '/variable.less';
 
 .lottery-list {
+  .ui-type-tokens();
   min-height: 100vh;
   background: var(--td-bg-color-page);
   padding: 16rpx 0 80rpx;
@@ -15,17 +16,27 @@
   }
 
   &__subscribe-hint {
+    .ui-caption();
     margin-top: 12rpx;
     text-align: center;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
+  }
+
+  &__section {
+    .ui-strong();
+    margin: 8rpx 24rpx 12rpx;
   }
 
   &__loading,
   &__empty {
-    padding: 80rpx 0;
+    width: 100%;
+    min-height: 52vh;
     display: flex;
+    align-items: center;
     justify-content: center;
+  }
+
+  &__loading--list {
+    min-height: 24vh;
   }
 
   &__card {
@@ -46,20 +57,18 @@
   &__title {
     flex: 1;
     min-width: 0;
-    font-size: 30rpx;
+    .ui-strong();
     font-weight: 700;
   }
 
   &__meta {
+    .ui-caption();
     margin-top: 8rpx;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
-    line-height: 1.4;
   }
 
   &__sub {
+    .ui-body();
     margin-top: 12rpx;
-    font-size: 24rpx;
     font-weight: 600;
     color: var(--td-brand-color);
   }

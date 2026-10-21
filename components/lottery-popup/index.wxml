@@ -21,7 +21,7 @@
         block
         loading="{{joining}}"
         disabled="{{joining}}"
-        content="参与抽奖"
+        content="{{joinLabel}}"
         bind:tap="onJoin"
       />
       <t-button
@@ -36,7 +36,7 @@
 
     <block wx:else>
       <view class="ltp__points {{won ? 'is-win' : ''}}">
-        {{won ? '+' + prizePoints + ' 积分' : '未中奖'}}
+        {{refunded ? '已退回' : (won ? '+' + prizePoints + ' 积分' : '未中奖')}}
       </view>
       <view class="ltp__meta">{{metaLine}}</view>
       <view class="ltp__tip">{{tip}}</view>

@@ -8,6 +8,7 @@
 | File | IconPark | Use |
 |------|----------|-----|
 | eyes.png | PreviewOpen | 预览空状态 |
+| empty.png | Ghost | 列表空状态 |
 | static.png | PictureOne | 静态图 |
 | anim.png | Film | 动态图 |
 | save.png | EmotionHappy | 确认保存 |
@@ -22,3 +23,4 @@
 | swipe-prev.png | LeftC | 滑向上一分类 |
 | swipe-next.png | RightC | 滑向下一分类 |
 | swipe-end.png | SmilingFace | 分类滑到头 |
+| play.png | Play | 详情预览视频 |

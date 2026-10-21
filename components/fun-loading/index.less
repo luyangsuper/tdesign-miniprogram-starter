@@ -1,3 +1,5 @@
+@import '/variable.less';
+
 .fun-loading {
   display: flex;
   flex-direction: column;
@@ -33,14 +35,13 @@
     }
 
     .fun-loading__text {
-      font-size: 22rpx;
+      .ui-caption();
     }
   }
 
   &__text {
-    font-size: 26rpx;
+    .ui-body();
     color: var(--td-text-color-secondary);
-    line-height: 1.4;
   }
 
   /* —— bounce —— */

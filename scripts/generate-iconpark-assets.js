@@ -27,6 +27,8 @@ const PALETTE = {
   points2: ['#1f2937', '#06b6d4', '#ffffff', '#67e8f9'],
   points3: ['#1f2937', '#eab308', '#ffffff', '#fde047'],
   preview: ['#1f2937', '#8b5cf6', '#ffffff', '#c4b5fd'],
+  /** 叠在视频上：深底白三角，别用品牌绿显得花哨 */
+  play: ['#1f2937', '#ffffff', '#ffffff', '#1f2937'],
   anim: ['#1f2937', '#ec4899', '#ffffff', '#f9a8d4'],
   guide: ['#1f2937', '#f59e0b', '#ffffff', '#fcd34d'],
   mail: ['#1f2937', '#3b82f6', '#ffffff', '#93c5fd'],
@@ -38,6 +40,7 @@ const PALETTE = {
 const ASSETS = [
   // emoji 装饰图
   { dir: 'static/emoji', file: 'eyes.png', icon: 'PreviewOpen', palette: 'preview', note: '预览空状态' },
+  { dir: 'static/emoji', file: 'empty.png', icon: 'Ghost', palette: 'preview', note: '列表空状态' },
   { dir: 'static/emoji', file: 'static.png', icon: 'PictureOne', palette: 'brand', note: '静态图' },
   { dir: 'static/emoji', file: 'anim.png', icon: 'Film', palette: 'anim', note: '动态图' },
   { dir: 'static/emoji', file: 'save.png', icon: 'EmotionHappy', palette: 'brand', note: '确认保存' },
@@ -52,6 +55,15 @@ const ASSETS = [
   { dir: 'static/emoji', file: 'swipe-prev.png', icon: 'LeftC', palette: 'preview', note: '滑向上一分类' },
   { dir: 'static/emoji', file: 'swipe-next.png', icon: 'RightC', palette: 'brand', note: '滑向下一分类' },
   { dir: 'static/emoji', file: 'swipe-end.png', icon: 'SmilingFace', palette: 'warn', note: '分类滑到头' },
+  { dir: 'static/emoji', file: 'play.png', icon: 'Play', palette: 'play', note: '详情预览视频' },
+  { dir: 'static/lottery', file: 'miss.png', icon: 'DisappointedFace', palette: 'soft', note: '谢谢参与' },
+  { dir: 'static/lottery', file: 'pts1.png', icon: 'Ticket', palette: 'points', note: '1积分' },
+  { dir: 'static/lottery', file: 'pts2.png', icon: 'Gift', palette: 'points2', note: '2积分' },
+  { dir: 'static/lottery', file: 'pts4.png', icon: 'GiftBox', palette: 'month', note: '4积分' },
+  { dir: 'static/lottery', file: 'pts8.png', icon: 'Trophy', palette: 'points3', note: '8积分' },
+  { dir: 'static/lottery', file: 'pts12.png', icon: 'Diamond', palette: 'quarter', note: '12积分' },
+  { dir: 'static/lottery', file: 'pts18.png', icon: 'Crown', palette: 'year', note: '18积分大奖' },
+  { dir: 'static/lottery', file: 'go.png', icon: 'GiftBox', palette: 'brand', note: '中间抽奖钮' },
   // pricing 套餐图（优惠感：券/VIP/皇冠/闪电）
   { dir: 'static/pricing', file: 'month.png', icon: 'Coupon', palette: 'month', note: '包月' },
   { dir: 'static/pricing', file: 'quarter.png', icon: 'VipOne', palette: 'quarter', note: '季卡' },
@@ -172,8 +184,21 @@ Icons from [IconPark](https://iconpark.oceanengine.com/) (\`@icon-park/svg\`).
 ${tabRows.join('\n')}
 `;
 
+  const lotteryReadme = `# 九宫格奖池插图
+
+装饰图来自 [IconPark](https://iconpark.oceanengine.com/)（\`@icon-park/svg\` two-tone）。
+
+- 许可：**Apache-2.0**
+- 生成：\`npm run icons:gen\`
+
+| File | IconPark | Use |
+|------|----------|-----|
+${rows.filter((_, i) => ASSETS[i].dir.includes('lottery')).join('\n')}
+`;
+
   fs.writeFileSync(path.join(ROOT, 'static/emoji/README.md'), emojiReadme, 'utf8');
   fs.writeFileSync(path.join(ROOT, 'static/pricing/README.md'), pricingReadme, 'utf8');
+  fs.writeFileSync(path.join(ROOT, 'static/lottery/README.md'), lotteryReadme, 'utf8');
   fs.writeFileSync(path.join(ROOT, 'static/tab/README.md'), tabReadme, 'utf8');
   console.log('READMEs updated');
 }

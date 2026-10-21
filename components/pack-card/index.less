@@ -93,9 +93,8 @@
   &__title {
     display: block;
     overflow: hidden;
+    .ui-body();
     font-weight: 400;
-    font-size: @font-size-small;
-    color: var(--td-text-color-primary);
     line-height: 1.35;
     max-height: 2.7em;
   }
@@ -134,8 +133,8 @@
     border-radius: 10rpx;
     background: var(--td-bg-color-secondarycontainer);
     --td-button-extra-small-height: 44rpx;
-    --td-button-extra-small-font-size: 22rpx;
-    --td-button-extra-small-icon-font-size: 28rpx;
+    --td-button-extra-small-font-size: var(--ui-fs-caption, @ui-fs-caption);
+    --td-button-extra-small-icon-font-size: var(--ui-fs-strong, @ui-fs-strong);
     --td-button-extra-small-padding-horizontal: 8rpx;
   }
 

@@ -11,8 +11,7 @@
     padding: 12rpx 16rpx;
     border-radius: @form-card-radius;
     background: var(--td-bg-color-container);
-    font-size: 22rpx;
-    line-height: 1.4;
+    .ui-caption();
     color: var(--td-text-color-secondary);
   }
 
@@ -33,8 +32,7 @@
   &__env {
     flex: 1;
     min-width: 0;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
   }
 
   &__reset-btn {
@@ -44,9 +42,8 @@
   }
 
   &__section {
+    .ui-strong();
     margin: 28rpx 4rpx 12rpx;
-    font-size: 26rpx;
-    font-weight: 600;
     color: var(--td-text-color-secondary);
   }
 
@@ -130,16 +127,14 @@
   }
 
   &__chip-title {
-    font-size: 28rpx;
-    font-weight: 600;
+    .ui-strong();
     color: var(--plan-accent);
     line-height: 1.2;
   }
 
   &__chip-status {
-    font-size: 20rpx;
+    .ui-caption();
     line-height: 1.2;
-    color: var(--td-text-color-placeholder);
 
     &--await_mp,
     &--syncing {
@@ -160,20 +155,18 @@
   }
 
   &__chip-meta {
-    font-size: 20rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     line-height: 1.35;
   }
 
   &__chip-id {
-    font-size: 18rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     line-height: 1.3;
     word-break: break-all;
   }
 
   &__sync-err {
-    font-size: 20rpx;
+    .ui-caption();
     color: var(--td-error-color, #d54941);
     line-height: 1.3;
   }
@@ -188,9 +181,8 @@
   }
 
   &__chip-live {
-    font-size: 18rpx;
+    .ui-caption();
     line-height: 1.2;
-    color: var(--td-text-color-placeholder);
   }
 
   &__chip-prices {
@@ -201,25 +193,23 @@
   }
 
   &__chip-origin {
-    font-size: 20rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     text-decoration: line-through;
     line-height: 1.2;
   }
 
   &__chip-price {
-    font-size: 32rpx;
+    .ui-title();
     font-weight: 800;
     color: var(--plan-accent);
     line-height: 1.2;
   }
 
   &__chip-deal {
+    .ui-caption();
     margin-top: 2rpx;
     padding: 0 8rpx;
     border-radius: 999rpx;
-    font-size: 16rpx;
-    line-height: 1.55;
     font-weight: 600;
     color: var(--plan-accent);
     background: rgba(255, 255, 255, 0.55);
@@ -242,10 +232,9 @@
   }
 
   &__edit-label {
+    .ui-body();
     width: 96rpx;
     flex-shrink: 0;
-    font-size: 26rpx;
-    font-weight: 500;
     color: var(--td-text-color-secondary);
   }
 
@@ -274,22 +263,19 @@
   }
 
   &__sync-title {
-    font-size: 24rpx;
+    .ui-caption();
     font-weight: 600;
     color: var(--td-text-color-primary);
-    line-height: 1.35;
   }
 
   &__sync-hint {
-    font-size: 22rpx;
+    .ui-caption();
     color: var(--td-text-color-secondary);
-    line-height: 1.4;
   }
 
   &__sync-err {
-    font-size: 22rpx;
+    .ui-caption();
     color: var(--td-error-color, #d54941);
-    line-height: 1.35;
   }
 
   &__ops {

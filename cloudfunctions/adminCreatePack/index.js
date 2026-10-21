@@ -33,6 +33,7 @@ exports.main = async (event) => {
   const title = (event.title || '').trim();
   const coverFileID = event.coverFileID;
   const previewFileIDs = Array.isArray(event.previewFileIDs) ? event.previewFileIDs.filter(Boolean) : [];
+  const previewVideoFileID = String(event.previewVideoFileID || '').trim();
   const emojiFileIDs = Array.isArray(event.emojiFileIDs) ? event.emojiFileIDs.filter(Boolean) : [];
   // 与静态同序；空串表示该槽无动态
   const rawAnim = Array.isArray(event.emojiAnimFileIDs) ? event.emojiAnimFileIDs : [];
@@ -48,9 +49,6 @@ exports.main = async (event) => {
   }
   if (!coverFileID) {
     return { ok: false, code: 'BAD_PARAM', message: '请上传封面' };
-  }
-  if (!previewFileIDs.length) {
-    return { ok: false, code: 'BAD_PARAM', message: '请至少上传一张预览图' };
   }
   if (!emojiFileIDs.length) {
     return { ok: false, code: 'BAD_PARAM', message: '请至少上传一张静态原图' };
@@ -78,10 +76,11 @@ exports.main = async (event) => {
         coverWidth: Math.max(0, Number(event.coverWidth) || 0),
         coverHeight: Math.max(0, Number(event.coverHeight) || 0),
         previewFileIDs,
+        previewVideoFileID,
         emojiFileIDs,
         emojiAnimFileIDs,
         pairKeys,
-        previewCount: previewFileIDs.length,
+        previewCount: previewFileIDs.length + (previewVideoFileID ? 1 : 0),
         emojiCount: emojiFileIDs.length,
         downloadCount: 0,
         categoryId: cat.id,

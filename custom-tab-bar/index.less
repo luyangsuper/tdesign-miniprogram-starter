@@ -1,108 +1,29 @@
 @import '/variable.less';
 
-@tab-bar-h: 100rpx;
-
 .custom-tab-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 500;
-  padding: 0;
-  padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box;
   background: var(--td-bg-color-container);
-  overflow: hidden;
+  /* 向上投影；勿 overflow:hidden，否则阴影会被裁掉 */
+  box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.08);
+  --td-tab-bar-height: @tab-bar-item-height;
+  --td-tab-bar-bg-color: var(--td-bg-color-container);
+  --td-tab-bar-color: var(--td-text-color-placeholder);
+  --td-tab-bar-active-color: var(--td-brand-color);
 }
 
-.tab-bar {
-  display: grid;
-  align-items: center;
-  height: @tab-bar-h;
-  box-sizing: border-box;
+/* t-class 打到 item 根节点，压掉 TDesign 默认上下 16rpx margin */
+.tab-bar-item {
+  height: @tab-bar-item-height !important;
+  margin: @tab-bar-item-margin-y 0 !important;
+}
 
-  &--user {
-    grid-template-columns: 1fr 1fr;
+@media (prefers-color-scheme: dark) {
+  .custom-tab-bar {
+    box-shadow: 0 -8rpx 28rpx rgba(0, 0, 0, 0.4);
   }
-
-  &--admin {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-
-  &--cold {
-    .tab-icon__img,
-    .tab-label {
-      transition: none !important;
-    }
-  }
-}
-
-.tab-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-
-  &--press {
-    opacity: 0.78;
-  }
-
-  &__stack {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6rpx;
-  }
-}
-
-.tab-icon {
-  position: relative;
-  width: 48rpx;
-  height: 48rpx;
-  display: block;
-}
-
-.tab-icon__img {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 48rpx;
-  height: 48rpx;
-  transition: opacity 0.18s ease;
-}
-
-.tab-icon__img--idle {
-  opacity: 1;
-}
-
-.tab-icon__img--active {
-  opacity: 0;
-}
-
-.tab-icon--active .tab-icon__img--idle {
-  opacity: 0;
-}
-
-.tab-icon--active .tab-icon__img--active {
-  opacity: 1;
-}
-
-.tab-label {
-  display: block;
-  font-size: 22rpx;
-  font-weight: 400;
-  line-height: 1.15;
-  letter-spacing: 0.5rpx;
-  opacity: 0.72;
-  transition:
-    color 0.18s ease,
-    opacity 0.18s ease;
-}
-
-.tab-item--active .tab-label {
-  font-weight: 500;
-  opacity: 1;
 }

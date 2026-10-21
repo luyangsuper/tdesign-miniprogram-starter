@@ -1,5 +1,6 @@
 import { callFunction } from '~/utils/cloud';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
+import { shareAppMessage, shareTimeline } from '~/utils/share';
 
 Page({
   data: {
@@ -19,6 +20,14 @@ Page({
   onShow() {
     applyThemeToPage(this);
     this.loadList(true);
+  },
+
+  onShareAppMessage() {
+    return shareAppMessage();
+  },
+
+  onShareTimeline() {
+    return shareTimeline();
   },
 
   onReachBottom() {

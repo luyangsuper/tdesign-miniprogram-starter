@@ -1,4 +1,4 @@
-﻿const { dayjs, toMs, formatDate } = require('./time');
+const { dayjs, toMs, formatDate } = require('./time');
 
 const TZ = 'Asia/Shanghai';
 const MONTHLY_QUOTA = 36;
@@ -127,6 +127,61 @@ async function consumeDownload(ref, user, variant, command, serverDate) {
   };
 }
 
+/**
+ * 保存失败时退回本次扣费（额度 / 购买积分原路返回）。
+ */
+async function refundDownload(ref, user, fromVip, fromPoints, command, serverDate) {
+  const vip = Math.max(0, Math.floor(Number(fromVip) || 0));
+  const pts = Math.max(0, Math.floor(Number(fromPoints) || 0));
+  if (!vip && !pts) {
+    return { ok: true, entitlement: buildEntitlement(user || {}) };
+  }
+
+  const data = { updatedAt: serverDate };
+  if (vip) data.vipMonthQuota = command.inc(vip);
+  if (pts) data.points = command.inc(pts);
+  await ref.update({ data });
+
+  const nextUser = {
+    ...(user || {}),
+    vipMonthQuota: Math.max(0, Number((user && user.vipMonthQuota) || 0)) + vip,
+    points: Math.max(0, Number((user && user.points) || 0)) + pts,
+  };
+  return { ok: true, entitlement: buildEntitlement(nextUser) };
+}
+
+/**
+ * 发放权益（兑换码 / 虚拟支付发货共用）
+ * type: vip_days | points
+ */
+async function applyGrant(ref, user, type, value, command, serverDate, toMsFn) {
+  const ms = typeof toMsFn === 'function' ? toMsFn : toMs;
+  const now = Date.now();
+  if (type === 'vip_days') {
+    const days = Math.max(1, Number(value) || 1);
+    const base = Math.max(now, ms(user.vipExpireAt));
+    const next = dayjs(base).add(days, 'day').toDate();
+    await ref.update({
+      data: {
+        vipExpireAt: next,
+        updatedAt: serverDate,
+      },
+    });
+    return { grantType: 'vip_days', days, vipExpireAt: next.getTime() };
+  }
+  if (type === 'points') {
+    const add = Math.max(1, Number(value) || 1);
+    await ref.update({
+      data: {
+        points: command.inc(add),
+        updatedAt: serverDate,
+      },
+    });
+    return { grantType: 'points', add };
+  }
+  throw new Error('不支持的发放类型');
+}
+
 module.exports = {
   MONTHLY_QUOTA,
   COST,
@@ -135,4 +190,6 @@ module.exports = {
   buildEntitlement,
   syncVipMonthQuota,
   consumeDownload,
+  refundDownload,
+  applyGrant,
 };

@@ -1,11 +1,12 @@
 {
   "navigationBarTitleText": "兑换码管理",
+  "navigationStyle": "default",
   "usingComponents": {
     "t-input": "tdesign-miniprogram/input/input",
     "t-button": "tdesign-miniprogram/button/button",
     "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
     "t-loading": "tdesign-miniprogram/loading/loading",
-    "t-empty": "tdesign-miniprogram/empty/empty",
+    "fun-empty": "/components/fun-empty/index",
     "t-tag": "tdesign-miniprogram/tag/tag",
     "lottery-host": "/components/lottery-host/index"
   }

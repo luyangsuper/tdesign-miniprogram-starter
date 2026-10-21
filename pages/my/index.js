@@ -49,6 +49,7 @@ import {
   getThemeStyle,
   setThemeId,
 } from '~/utils/theme';
+import { shareAppMessage, shareTimeline } from '~/utils/share';
 
 /**
  * 预览普通用户：只隐藏管理员身份，仍按真实权益显示 VIP / 积分
@@ -56,12 +57,11 @@ import {
  */
 function buildRoleLabel({ isAdmin, isVip, points, vipMonthQuota, previewAsUser }) {
   if (!previewAsUser && isAdmin) return '管理员';
-  let base = '普通用户';
-  if (isVip) base = '包月会员';
-  else if ((points || 0) + (vipMonthQuota || 0) > 0) {
-    base = `积分 ${(points || 0) + (vipMonthQuota || 0)}`;
+  if (isVip) return '包月会员';
+  if ((points || 0) + (vipMonthQuota || 0) > 0) {
+    return `积分 ${(points || 0) + (vipMonthQuota || 0)}`;
   }
-  return previewAsUser ? `预览·${base}` : base;
+  return '普通用户';
 }
 
 /** 头像角标：VIP 红色 user-vip；积分礼盒；管理员「管」（预览时不显示管） */
@@ -122,7 +122,10 @@ Page({
     feedbackContact: '',
     feedbackFiles: [],
     feedbackGridConfig: { column: 4, width: 160, height: 160 },
+    feedbackPickConfig: { sizeType: ['original'], sourceType: ['album'] },
     feedbackSubmitting: false,
+    lotteryOpenCount: 0,
+    gridLotteryOn: false,
     checkinVisible: false,
     guideVisible: false,
     guideSteps: [
@@ -167,7 +170,16 @@ Page({
     this.syncEntitlement();
     this.refreshNotifyStatus();
     this.refreshFeedbackNotifyStatus();
+    this.refreshLotteryHint();
     this.maybeOpenCheckinPopup();
+  },
+
+  onShareAppMessage() {
+    return shareAppMessage();
+  },
+
+  onShareTimeline() {
+    return shareTimeline();
   },
 
   /** 仅手动点「补发权益」时触发，进页不再自动扫单 */
@@ -224,8 +236,10 @@ Page({
     this._onEntitlementChange = () => this.refreshIdentity();
     try {
       const app = getApp();
+      this._onAdminViewChange = () => this.refreshIdentity();
       if (app && app.eventBus) {
         app.eventBus.on('entitlementChange', this._onEntitlementChange);
+        app.eventBus.on('adminViewChange', this._onAdminViewChange);
       }
     } catch (e) {
       /* ignore */
@@ -235,8 +249,9 @@ Page({
   onUnload() {
     try {
       const app = getApp();
-      if (app && app.eventBus && this._onEntitlementChange) {
-        app.eventBus.off('entitlementChange', this._onEntitlementChange);
+      if (app && app.eventBus) {
+        if (this._onEntitlementChange) app.eventBus.off('entitlementChange', this._onEntitlementChange);
+        if (this._onAdminViewChange) app.eventBus.off('adminViewChange', this._onAdminViewChange);
       }
     } catch (e) {
       /* ignore */
@@ -807,14 +822,17 @@ Page({
   },
 
   goUpload() {
+    if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/upload/index' });
   },
 
   goCategories() {
+    if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/categories/index' });
   },
 
   goCodes() {
+    if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/codes/index' });
   },
 
@@ -822,11 +840,21 @@ Page({
     wx.navigateTo({ url: '/pages/history/points-log/index' });
   },
 
+  goFavorites() {
+    wx.navigateTo({ url: '/pages/history/favorites/index' });
+  },
+
+  goAbout() {
+    wx.navigateTo({ url: '/pages/about/index' });
+  },
+
   goDashboard() {
+    if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/dashboard/index' });
   },
 
   goUsers() {
+    if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/users/index' });
   },
 
@@ -849,15 +877,33 @@ Page({
   },
 
   goPointsSettings() {
+    if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/points/index' });
   },
 
   goPricingSettings() {
+    if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/pricing/index' });
   },
 
   goAdminLottery() {
+    if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/lottery/index' });
+  },
+
+  async refreshLotteryHint() {
+    try {
+      const [gridRes, listRes] = await Promise.all([
+        callFunction('gridLottery', { action: 'get' }).catch(() => null),
+        callFunction('userLottery', { action: 'list' }).catch(() => null),
+      ]);
+      const gridLotteryOn = !!(gridRes && gridRes.data && gridRes.data.enabled !== false);
+      const list = (listRes && listRes.data && listRes.data.list) || [];
+      const lotteryOpenCount = list.filter((item) => item && item.status === 'open').length;
+      this.setData({ gridLotteryOn, lotteryOpenCount });
+    } catch (e) {
+      /* ignore */
+    }
   },
 
   goLottery() {
@@ -879,6 +925,7 @@ Page({
   },
 
   openLookup() {
+    if (!resolveIsAdmin()) return;
     this.setData({ lookupVisible: true, lookupId: '' });
   },
 
@@ -891,6 +938,7 @@ Page({
   },
 
   async onLookupConfirm() {
+    if (!resolveIsAdmin()) return;
     const packId = String(this.data.lookupId || '').trim();
     this.setData({ lookupVisible: false });
     if (!packId) {

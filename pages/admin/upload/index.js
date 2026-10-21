@@ -1,9 +1,16 @@
 import { callFunction, uploadFile } from '~/utils/cloud';
+import { guardAdminPage } from '~/utils/auth';
 import { getSubscribeMpState } from '~/utils/subscribe';
-import { getFileName, pairByIndex } from '../utils/pairFiles';
+import {
+  getFileName,
+  isVideoFile,
+  pairByIndex,
+  splitPreviewMedia,
+} from '../utils/pairFiles';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 
 const gridConfig = { column: 4, width: 160, height: 160 };
+const coverPickConfig = { count: 1, sizeType: ['original'], sourceType: ['album'] };
 
 Page({
   data: {
@@ -20,6 +27,7 @@ Page({
     emojiFiles: [],
     emojiAnimFiles: [],
     gridConfig,
+    coverPickConfig,
     submitting: false,
     categories: [],
     categoryId: '',
@@ -54,6 +62,7 @@ Page({
   },
 
   onLoad(options) {
+    if (!guardAdminPage()) return;
     const packId = options.id || '';
     this.setData({ themeStyle: getThemeStyle() });
     if (packId) {
@@ -65,6 +74,7 @@ Page({
   },
 
   onShow() {
+    if (!guardAdminPage()) return;
     applyThemeToPage(this);
   },
 
@@ -106,7 +116,7 @@ Page({
         coverFiles: pack.coverFiles || [],
         coverWidth: pack.coverWidth || 0,
         coverHeight: pack.coverHeight || 0,
-        previewFiles: this.withAutoSeq(pack.previewFiles || []),
+        previewFiles: this.withAutoSeq(this.markPreviewMedia(pack.previewFiles || [])),
         emojiFiles: this.withAutoSeq(pack.emojiFiles || []),
         emojiAnimFiles: this.withPreservedSeq(pack.emojiAnimFiles || []),
         notifySubscribers: false,
@@ -177,48 +187,21 @@ Page({
       this.setData({ coverFiles: [] });
       return;
     }
-    this.compressOneCover(files[0]).then((file) => {
-      this.setData({ coverFiles: [file] });
-      const src = file.url || file.path || file.tempFilePath || '';
-      if (!src) return;
-      wx.getImageInfo({
-        src,
-        success: (info) => {
-          this.setData({
-            coverWidth: info.width || 0,
-            coverHeight: info.height || 0,
-          });
-        },
-      });
+    const file = files[0];
+    this.setData({ coverFiles: [file] });
+    const src = file.url || file.path || file.tempFilePath || '';
+    if (!src) return;
+    wx.getImageInfo({
+      src,
+      success: (info) => {
+        this.setData({
+          coverWidth: info.width || 0,
+          coverHeight: info.height || 0,
+        });
+      },
     });
   },
 
-  /** 封面压到长边约 900，减小首页列表流量（GIF 跳过） */
-  compressOneCover(file) {
-    const src = file.path || file.url || file.tempFilePath;
-    const size = Number(file.size) || 0;
-    const name = `${file.name || ''} ${src}`.toLowerCase();
-    if (
-      !src ||
-      String(src).startsWith('cloud://') ||
-      name.includes('.gif') ||
-      (size > 0 && size < 180 * 1024)
-    ) {
-      return Promise.resolve(file);
-    }
-    return new Promise((resolve) => {
-      wx.compressImage({
-        src,
-        quality: 70,
-        compressedWidth: 900,
-        success: (res) => {
-          const path = res.tempFilePath || src;
-          resolve({ ...file, url: path, path, size: 0 });
-        },
-        fail: () => resolve(file),
-      });
-    });
-  },
   onCoverRemove() {
     this.setData({ coverFiles: [], coverWidth: 0, coverHeight: 0 });
   },
@@ -355,13 +338,31 @@ Page({
     return `f_${Date.now()}_${this._fileUid}`;
   },
 
-  /** 从左到右标 1、2、3…，与同下标静态/动态对齐 */
+  markPreviewMedia(list = []) {
+    return (list || []).map((f) => {
+      const video = isVideoFile(f);
+      return {
+        ...f,
+        type: video ? 'video' : f.type || 'image',
+        isVideo: video,
+      };
+    });
+  },
+
+  /** 从左到右标 1、2、3…（视频不占预览图序号） */
   withAutoSeq(list = []) {
-    return (list || []).map((f, i) => ({
-      ...f,
-      _uid: f._uid || this.nextFileUid(),
-      seqLabel: String(i + 1),
-    }));
+    let imageSeq = 0;
+    return (list || []).map((f) => {
+      const video = isVideoFile(f);
+      if (!video) imageSeq += 1;
+      return {
+        ...f,
+        _uid: f._uid || this.nextFileUid(),
+        type: video ? 'video' : f.type || 'image',
+        isVideo: video,
+        seqLabel: video ? '视频' : String(imageSeq),
+      };
+    });
   },
 
   /** 编辑回填：保留服务端槽位序号（动态可能稀疏） */
@@ -416,49 +417,14 @@ Page({
     return best;
   },
 
-  compressOnePreview(file) {
-    const src = file.path || file.url;
-    const size = Number(file.size) || 0;
-    const name = `${file.name || ''} ${src}`.toLowerCase();
-    if (!src || name.includes('.gif') || (size > 0 && size < 280 * 1024)) {
-      return Promise.resolve(file);
-    }
-    return new Promise((resolve) => {
-      wx.compressImage({
-        src,
-        quality: 72,
-        compressedWidth: 1200,
-        success: (res) => {
-          const path = res.tempFilePath || src;
-          resolve({ ...file, url: path, path, size: 0 });
-        },
-        fail: () => resolve(file),
-      });
-    });
-  },
-
-  async compressPreviewPicks(items) {
-    wx.showLoading({ title: '处理预览图', mask: true });
-    try {
-      const next = [];
-      for (let i = 0; i < items.length; i += 1) {
-        // eslint-disable-next-line no-await-in-loop
-        next.push(await this.compressOnePreview(items[i]));
-      }
-      return next;
-    } finally {
-      wx.hideLoading();
-    }
-  },
-
   appendPickedFiles(field, maxCount, items) {
     if (!items.length) {
-      wx.showToast({ title: '请选择图片', icon: 'none' });
+      wx.showToast({ title: '请选择文件', icon: 'none' });
       return;
     }
     const merged = [...(this.data[field] || []), ...items].slice(0, maxCount);
     this.setFileList(field, merged, {
-      title: `已添加 ${items.length} 张`,
+      title: `已添加 ${items.length} 个`,
       icon: 'success',
     });
   },
@@ -474,7 +440,7 @@ Page({
       count: Math.min(remain, 20),
       mediaType: ['image'],
       sourceType: ['album'],
-      sizeType: field === 'previewFiles' ? ['compressed'] : ['original'],
+      sizeType: ['original'],
       success: (res) => {
         const picked = (res.tempFiles || []).map((f) => {
           const path = f.tempFilePath || f.path;
@@ -487,12 +453,6 @@ Page({
             byAlbum: true,
           };
         });
-        if (field === 'previewFiles') {
-          this.compressPreviewPicks(picked).then((next) => {
-            this.appendPickedFiles(field, maxCount, next);
-          });
-          return;
-        }
         this.appendPickedFiles(field, maxCount, picked);
       },
       fail: (err) => {
@@ -503,7 +463,65 @@ Page({
   },
 
   pickPreviewFromAlbum() {
-    this.pickFilesByAlbum(30, 'previewFiles');
+    const maxCount = 30;
+    const remain = Math.max(0, maxCount - (this.data.previewFiles || []).length);
+    if (!remain) {
+      wx.showToast({ title: '已达数量上限', icon: 'none' });
+      return;
+    }
+    wx.chooseMedia({
+      count: Math.min(remain, 20),
+      mediaType: ['image', 'video'],
+      sourceType: ['album'],
+      sizeType: ['original'],
+      maxDuration: 60,
+      success: (res) => {
+        const picked = (res.tempFiles || []).map((f) => {
+          const path = f.tempFilePath || f.path;
+          const video = f.fileType === 'video' || isVideoFile({ path, type: f.fileType });
+          return {
+            url: path,
+            path,
+            name: '',
+            type: video ? 'video' : 'image',
+            isVideo: video,
+            thumb: f.thumbTempFilePath || '',
+            size: f.size,
+            duration: f.duration || 0,
+            byAlbum: true,
+          };
+        });
+        const existingHasVideo = (this.data.previewFiles || []).some(isVideoFile);
+        const images = [];
+        const videos = [];
+        picked.forEach((f) => {
+          if (isVideoFile(f)) videos.push(f);
+          else images.push(f);
+        });
+        let extraVideoDropped = false;
+        let next = images;
+        if (videos.length) {
+          if (existingHasVideo) {
+            extraVideoDropped = true;
+          } else {
+            next = [...images, videos[0]];
+            extraVideoDropped = videos.length > 1;
+          }
+        }
+        if (!next.length) {
+          wx.showToast({
+            title: extraVideoDropped ? '预览视频仅限 1 个' : '请选择文件',
+            icon: 'none',
+          });
+          return;
+        }
+        this.appendPickedFiles('previewFiles', maxCount, next);
+      },
+      fail: (err) => {
+        if (err && /cancel/i.test(err.errMsg || '')) return;
+        wx.showToast({ title: '选择失败', icon: 'none' });
+      },
+    });
   },
 
   pickEmojiFromAlbum() {
@@ -521,16 +539,35 @@ Page({
     this.setFileList(field, list);
   },
 
-  /** 点击缩略图预览大图 */
+  /** 点击缩略图预览大图；预览区含视频时走 previewMedia */
   onPreviewGridImage(e) {
     if (this._drag && this._drag.field) return;
     const { field, index } = e.currentTarget.dataset;
     const list = this.data[field] || [];
+    const i = Number(index) || 0;
+    if (field === 'previewFiles' && list.some(isVideoFile)) {
+      const sources = list
+        .map((f) => {
+          const url = f.url || f.path || f.tempFilePath || '';
+          if (!url) return null;
+          return {
+            url,
+            type: isVideoFile(f) ? 'video' : 'image',
+            poster: f.thumb || '',
+          };
+        })
+        .filter(Boolean);
+      if (!sources.length) return;
+      wx.previewMedia({
+        sources,
+        current: i >= 0 && i < sources.length ? i : 0,
+      });
+      return;
+    }
     const urls = list
       .map((f) => f.url || f.path || f.tempFilePath || '')
       .filter(Boolean);
     if (!urls.length) return;
-    const i = Number(index) || 0;
     this.setData({
       viewerVisible: true,
       viewerImages: urls,
@@ -672,7 +709,8 @@ Page({
         continue;
       }
       const name = getFileName(file);
-      const ext = (name.split('.').pop() || local.split('.').pop() || 'png').split('?')[0];
+      const fallbackExt = isVideoFile(file) ? 'mp4' : 'png';
+      const ext = (name.split('.').pop() || local.split('.').pop() || fallbackExt).split('?')[0];
       const safeBase = (name.replace(/\.[^.]+$/, '') || `file_${i}`).replace(/[^\w.-]/g, '_');
       const cloudPath = `packs/${folder}/${stamp}_${safeBase}.${ext}`;
       // eslint-disable-next-line no-await-in-loop
@@ -706,43 +744,38 @@ Page({
       wx.showToast({ title: '请上传封面', icon: 'none' });
       return;
     }
-    if (!previewFiles.length) {
-      wx.showToast({ title: '请上传预览图', icon: 'none' });
-      return;
-    }
     if (!emojiFiles.length) {
       wx.showToast({ title: '请上传静态原图', icon: 'none' });
       return;
     }
 
-    if (previewFiles.length !== emojiFiles.length) {
-      wx.showToast({
-        title: `预览 ${previewFiles.length} 张、静态 ${emojiFiles.length} 张，数量需一致`,
-        icon: 'none',
-      });
-      return;
-    }
-
-    const paired = pairByIndex(previewFiles, emojiFiles, emojiAnimFiles);
+    const { images: previewImages, videos: previewVideos } = splitPreviewMedia(previewFiles);
+    const paired = pairByIndex(previewImages, emojiFiles, emojiAnimFiles);
     if (!paired.pairs.length) {
-      wx.showToast({ title: '请上传预览图与静态原图', icon: 'none' });
+      wx.showToast({ title: '请上传静态原图', icon: 'none' });
       return;
     }
 
-    if (emojiAnimFiles.length && emojiAnimFiles.length !== previewFiles.length) {
+    const submitPayload = {
+      ...paired,
+      previewImages,
+      previewVideo: previewVideos[0] || null,
+    };
+
+    if (emojiAnimFiles.length && emojiAnimFiles.length !== emojiFiles.length) {
       wx.showModal({
         title: '动态数量不一致',
-        content: `动态 ${emojiAnimFiles.length} 张，预览/静态 ${previewFiles.length} 张。多出的动态会忽略，缺少的槽位为空。是否继续？`,
+        content: `动态 ${emojiAnimFiles.length} 张，静态 ${emojiFiles.length} 张。多出的动态会忽略，缺少的槽位为空。是否继续？`,
         confirmText: '继续',
         cancelText: '去修改',
         success: (res) => {
-          if (res.confirm) this.doSubmit(paired);
+          if (res.confirm) this.doSubmit(submitPayload);
         },
       });
       return;
     }
 
-    this.doSubmit(paired);
+    this.doSubmit(submitPayload);
   },
 
   async sendNewPackNotify(targetPackId, payload, categoryId) {
@@ -774,6 +807,8 @@ Page({
   },
 
   async doSubmit(paired) {
+    const previewImages = paired.previewImages || paired.orderedPreviews || [];
+    const previewVideo = paired.previewVideo || null;
     const {
       packId,
       isEdit,
@@ -809,13 +844,15 @@ Page({
 
     try {
       const animFilesToUpload = (paired.orderedAnims || []).filter(Boolean);
-      const [coverIds, previewFileIDs, emojiFileIDs, animUploadedIds] =
+      const [coverIds, previewFileIDs, emojiFileIDs, animUploadedIds, previewVideoIds] =
         await Promise.all([
           this.resolveFileIds(coverFiles, 'cover'),
-          this.resolveFileIds(paired.orderedPreviews, 'preview'),
+          this.resolveFileIds(previewImages.filter(Boolean), 'preview'),
           this.resolveFileIds(paired.orderedStatics, 'emoji'),
           this.resolveFileIds(animFilesToUpload, 'emoji-anim'),
+          this.resolveFileIds(previewVideo ? [previewVideo] : [], 'preview-video'),
         ]);
+      const previewVideoFileID = previewVideoIds[0] || '';
 
       // 与静态同序；无动态槽位填空串
       let animCursor = 0;
@@ -861,6 +898,7 @@ Page({
         coverWidth: w,
         coverHeight: h,
         previewFileIDs,
+        previewVideoFileID,
         emojiFileIDs,
         emojiAnimFileIDs,
         pairKeys: paired.pairKeys,

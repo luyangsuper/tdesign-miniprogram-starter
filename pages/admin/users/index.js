@@ -1,5 +1,7 @@
 import { callFunction } from '~/utils/cloud';
+import { guardAdminPage } from '~/utils/auth';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
+import { getDefaultAvatarUrl } from '~/utils/avatar';
 
 Page({
   data: {
@@ -16,8 +18,15 @@ Page({
     repairing: false,
     vipDays: '30',
     pointsValue: '0',
+    pointsDelta: '',
     downloadPacks: [],
     downloadsLoading: false,
+    pointsLogs: [],
+    pointsLogsLoading: false,
+    pointsLogsHasMore: true,
+    pointsLogsPage: 1,
+    pointsLogsTotal: 0,
+    pointsLogsValue: [],
     confirmVisible: false,
     confirmTitle: '',
     confirmContent: '',
@@ -33,6 +42,7 @@ Page({
   },
 
   onShow() {
+    if (!guardAdminPage()) return;
     applyThemeToPage(this);
     this.loadList(true).then(() => {
       if (this._pendingOpenid) {
@@ -71,10 +81,18 @@ Page({
       panelVisible: true,
       vipDays: '30',
       pointsValue: String((user.entitlement && user.entitlement.points) || 0),
+      pointsDelta: '',
       downloadPacks: [],
       downloadsLoading: true,
+      pointsLogs: [],
+      pointsLogsLoading: true,
+      pointsLogsHasMore: true,
+      pointsLogsPage: 1,
+      pointsLogsTotal: 0,
+      pointsLogsValue: [],
     });
     this.loadUserDownloads(user.openid);
+    this.loadUserPointsLogs(user.openid, true);
   },
 
   async loadUserDownloads(openid) {
@@ -99,6 +117,62 @@ Page({
       if (!this.data.user || this.data.user.openid !== openid) return;
       this.setData({ downloadPacks: [], downloadsLoading: false });
     }
+  },
+
+  async loadUserPointsLogs(openid, reset = false) {
+    if (!openid) {
+      this.setData({
+        pointsLogs: [],
+        pointsLogsLoading: false,
+        pointsLogsHasMore: false,
+        pointsLogsTotal: 0,
+      });
+      return;
+    }
+    if (this.data.pointsLogsLoading && !reset) return;
+    if (!reset && !this.data.pointsLogsHasMore) return;
+
+    const page = reset ? 1 : this.data.pointsLogsPage;
+    this._pointsLogsSeq = (this._pointsLogsSeq || 0) + 1;
+    const seq = this._pointsLogsSeq;
+    this.setData({ pointsLogsLoading: true });
+    try {
+      const res = await callFunction('adminManageUser', {
+        action: 'listPointsLogs',
+        openid,
+        page,
+        pageSize: 20,
+      });
+      if (seq !== this._pointsLogsSeq) return;
+      const data = (res && res.data) || {};
+      if (!this.data.user || this.data.user.openid !== openid) return;
+      const list = data.list || [];
+      this.setData({
+        pointsLogs: reset ? list : this.data.pointsLogs.concat(list),
+        pointsLogsPage: page + 1,
+        pointsLogsHasMore: !!data.hasMore,
+        pointsLogsTotal: data.total || 0,
+        pointsLogsLoading: false,
+      });
+    } catch (e) {
+      if (seq !== this._pointsLogsSeq) return;
+      if (!this.data.user || this.data.user.openid !== openid) return;
+      this.setData({
+        pointsLogsLoading: false,
+        pointsLogsHasMore: false,
+      });
+    }
+  },
+
+  onLoadMorePointsLogs() {
+    const user = this.data.user;
+    if (!user || !user.openid) return;
+    this.loadUserPointsLogs(user.openid, false);
+  },
+
+  onPointsLogsCollapse(e) {
+    const value = (e.detail && e.detail.value) || e.detail || [];
+    this.setData({ pointsLogsValue: Array.isArray(value) ? value : [] });
   },
 
   onFilterChange(e) {
@@ -165,11 +239,49 @@ Page({
     this.openUserPanel(user);
   },
 
+  fallbackAvatarUrl(current, openid) {
+    const fallback = getDefaultAvatarUrl(openid);
+    if (current && current !== fallback) return fallback;
+    return '';
+  },
+
+  onListAvatarError(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (!Number.isFinite(index) || index < 0) return;
+    const list = this.data.list.slice();
+    const item = list[index];
+    if (!item) return;
+    const next = this.fallbackAvatarUrl(item.avatarUrl, item.openid);
+    if (next === item.avatarUrl) return;
+    list[index] = { ...item, avatarUrl: next };
+    this.setData({ list });
+  },
+
+  onPanelAvatarError() {
+    const user = this.data.user;
+    if (!user) return;
+    const next = this.fallbackAvatarUrl(user.avatarUrl, user.openid);
+    if (next === user.avatarUrl) return;
+    this.setData({ user: { ...user, avatarUrl: next } });
+  },
+
+  resetPanelExtras() {
+    return {
+      downloadPacks: [],
+      downloadsLoading: false,
+      pointsLogs: [],
+      pointsLogsLoading: false,
+      pointsLogsHasMore: true,
+      pointsLogsPage: 1,
+      pointsLogsTotal: 0,
+      pointsLogsValue: [],
+    };
+  },
+
   closePanel() {
     this.setData({
       panelVisible: false,
-      downloadPacks: [],
-      downloadsLoading: false,
+      ...this.resetPanelExtras(),
     });
   },
 
@@ -178,8 +290,7 @@ Page({
     if (!visible) {
       this.setData({
         panelVisible: false,
-        downloadPacks: [],
-        downloadsLoading: false,
+        ...this.resetPanelExtras(),
       });
       return;
     }
@@ -194,6 +305,11 @@ Page({
   onPointsChange(e) {
     const v = e.detail && (e.detail.value !== undefined ? e.detail.value : e.detail);
     this.setData({ pointsValue: v == null ? '' : String(v) });
+  },
+
+  onPointsDeltaChange(e) {
+    const v = e.detail && (e.detail.value !== undefined ? e.detail.value : e.detail);
+    this.setData({ pointsDelta: v == null ? '' : String(v) });
   },
 
   onOpenPack(e) {
@@ -350,6 +466,9 @@ Page({
       user: next,
       pointsValue: String((next.entitlement && next.entitlement.points) || 0),
     });
+    if (this.data.panelVisible) {
+      this.loadUserPointsLogs(next.openid, true);
+    }
   },
 
   async runAction(action, extra = {}) {
@@ -408,8 +527,16 @@ Page({
     );
   },
 
-  onAdjustPoints(e) {
-    const delta = Number(e.currentTarget.dataset.delta);
+  parseCustomDelta() {
+    const amount = Number(this.data.pointsDelta);
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) {
+      wx.showToast({ title: '请填写大于 0 的整数', icon: 'none' });
+      return 0;
+    }
+    return amount;
+  },
+
+  confirmAdjustPoints(delta) {
     if (!delta) return;
     const cur = Number(
       (this.data.user && this.data.user.entitlement && this.data.user.entitlement.points) || 0,
@@ -422,6 +549,22 @@ Page({
       `当前 ${cur} 分，${sign} 分后变为 ${next} 分。`,
       { delta },
     );
+  },
+
+  onAdjustPoints(e) {
+    this.confirmAdjustPoints(Number(e.currentTarget.dataset.delta));
+  },
+
+  onAddCustomPoints() {
+    const amount = this.parseCustomDelta();
+    if (!amount) return;
+    this.confirmAdjustPoints(amount);
+  },
+
+  onSubCustomPoints() {
+    const amount = this.parseCustomDelta();
+    if (!amount) return;
+    this.confirmAdjustPoints(-amount);
   },
 
   onClearPoints() {

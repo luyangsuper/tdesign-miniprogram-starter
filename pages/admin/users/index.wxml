@@ -1,5 +1,5 @@
 <view class="users-page" style="{{themeStyle}}">
-  <view class="users-page__tip">点选用户管理包月会员 / 积分，并查看其下载过的合集。共 {{total}} 人。</view>
+  <view class="users-page__tip">点选用户管理包月 / 积分，查看流水与下载合集。共 <text class="users-page__tip-count">{{total}}</text> 人。</view>
 
   <view class="users-page__search-wrap">
     <t-search
@@ -58,6 +58,8 @@
         icon="user"
         size="88rpx"
         shape="circle"
+        data-index="{{index}}"
+        bind:error="onListAvatarError"
       />
       <view class="users-page__meta">
         <view class="users-page__name-row">
@@ -65,7 +67,7 @@
           <t-tag wx:if="{{item.isAdmin}}" size="small" theme="danger" variant="light">管理员</t-tag>
           <t-tag wx:if="{{item.entitlement.isVip}}" size="small" theme="warning" variant="light">包月</t-tag>
         </view>
-        <view class="users-page__sub">{{item.statusText}} · 积分 {{item.entitlement.points}} 分{{item.entitlement.isVip ? ' · 本月额度 ' + item.entitlement.vipMonthQuota + ' 分' : ''}}</view>
+        <view class="users-page__sub">{{item.statusText}} · 积分 {{item.entitlement.points}} 分{{item.entitlement.isVip ? ' · 本月额度 ' + item.entitlement.vipMonthQuota + ' 分' : ''}} · <text class="users-page__paid {{item.paidFen > 0 ? 'users-page__paid--on' : ''}}">{{item.paidText}}</text></view>
         <view class="users-page__sub">{{item.shortId}}{{item.lastLoginText ? ' · ' + item.lastLoginText : ''}}</view>
       </view>
       <t-icon name="chevron-right" size="36rpx" />
@@ -76,7 +78,7 @@
   </block>
 
   <view class="users-page__state" wx:else>
-    <t-empty description="暂无用户" />
+    <fun-empty description="暂无用户" />
   </view>
 
   <t-popup visible="{{panelVisible}}" placement="bottom" bind:visible-change="onPopupChange">
@@ -101,13 +103,14 @@
       >
         <view class="users-panel__profile">
           <t-avatar
-            t-class="users-page__avatar"
+            t-class="users-panel__avatar"
             image="{{user.avatarUrl}}"
             icon="user"
-            size="88rpx"
+            size="120rpx"
             shape="circle"
+            bind:error="onPanelAvatarError"
           />
-          <view class="users-page__meta">
+          <view class="users-panel__meta">
             <view class="users-page__name">{{user.nickName || '未设置昵称'}}</view>
             <view class="users-page__id" bindtap="copyOpenid">{{user.openid}}</view>
             <view class="users-page__tags">
@@ -115,12 +118,16 @@
               <t-tag wx:if="{{user.isAdmin}}" theme="danger" variant="light" size="small">管理员</t-tag>
               <t-tag theme="primary" variant="light" size="small">积分 {{user.entitlement.points}} 分</t-tag>
               <t-tag wx:if="{{user.entitlement.isVip}}" theme="success" variant="light" size="small">本月额度 {{user.entitlement.vipMonthQuota}} 分</t-tag>
+              <t-tag theme="{{user.paidFen > 0 ? 'primary' : 'default'}}" variant="light" size="small">{{user.paidText}}</t-tag>
             </view>
           </view>
         </view>
 
         <view class="users-panel__block">
-          <view class="users-panel__label">包月 · {{user.entitlement.isVip ? ('至 ' + user.entitlement.vipExpireText + ' · 本月剩余 ' + user.entitlement.vipMonthQuota + ' 分') : '未开通'}}</view>
+          <view class="users-panel__label-row">
+            <text class="users-panel__label">包月</text>
+            <text class="users-panel__hint">{{user.entitlement.isVip ? ('至 ' + user.entitlement.vipExpireText + ' · 本月剩余 ' + user.entitlement.vipMonthQuota + ' 分') : '未开通'}}</text>
+          </view>
           <view class="users-page__row">
             <t-input
               class="users-page__input"
@@ -146,7 +153,10 @@
         </view>
 
         <view class="users-panel__block">
-          <view class="users-panel__label">积分（静态 1 分 / 动态 2 分）</view>
+          <view class="users-panel__label-row">
+            <text class="users-panel__label">积分</text>
+            <text class="users-panel__hint">静态 1 分 / 动态 2 分</text>
+          </view>
           <view class="users-page__row">
             <t-input
               class="users-page__input"
@@ -158,13 +168,95 @@
             />
             <t-button theme="primary" size="medium" content="设为" bind:tap="onSetPoints" />
           </view>
+          <view class="users-page__row users-page__row--delta">
+            <t-input
+              class="users-page__input"
+              borderless
+              type="number"
+              placeholder="自定义数量"
+              suffix="分"
+              value="{{pointsDelta}}"
+              bind:change="onPointsDeltaChange"
+            />
+            <t-button
+              t-class="users-page__delta-btn"
+              theme="primary"
+              variant="outline"
+              size="medium"
+              content="增加"
+              bind:tap="onAddCustomPoints"
+            />
+            <t-button
+              t-class="users-page__delta-btn"
+              theme="danger"
+              variant="outline"
+              size="medium"
+              content="扣除"
+              bind:tap="onSubCustomPoints"
+            />
+          </view>
           <view class="users-page__adjust">
-            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="+20 分" data-delta="20" bind:tap="onAdjustPoints" />
-            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="+10 分" data-delta="10" bind:tap="onAdjustPoints" />
-            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="-1 分" data-delta="-1" bind:tap="onAdjustPoints" />
-            <t-button t-class="users-page__adj-btn" size="small" variant="outline" theme="danger" content="-10 分" data-delta="-10" bind:tap="onAdjustPoints" />
+            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="+18 分" data-delta="18" bind:tap="onAdjustPoints" />
+            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="+12 分" data-delta="12" bind:tap="onAdjustPoints" />
+            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="+4 分" data-delta="4" bind:tap="onAdjustPoints" />
+            <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="+2 分" data-delta="2" bind:tap="onAdjustPoints" />
             <t-button t-class="users-page__adj-btn" size="small" variant="outline" theme="danger" content="清零" bind:tap="onClearPoints" />
           </view>
+        </view>
+
+        <view class="users-panel__block users-panel__block--logs">
+          <t-collapse
+            t-class="users-page__log-collapse"
+            value="{{pointsLogsValue}}"
+            expand-icon
+            bind:change="onPointsLogsCollapse"
+          >
+            <t-collapse-panel
+              t-class="users-page__log-panel"
+              t-class-header="users-page__log-header"
+              t-class-content="users-page__log-body"
+              value="logs"
+              header-right-content="{{pointsLogsLoading && !pointsLogs.length ? '加载中' : (pointsLogsTotal ? pointsLogsTotal + ' 条' : '')}}"
+            >
+              <view slot="header" class="users-panel__label">积分流水</view>
+              <view class="users-panel__hint users-panel__hint--block">仅记录积分变动；包月月额度消耗不计入</view>
+              <view class="users-page__dl-state" wx:if="{{pointsLogsLoading && !pointsLogs.length}}">
+                <t-loading theme="circular" size="40rpx" />
+              </view>
+              <fun-empty wx:elif="{{!pointsLogs.length}}" size="small" description="暂无积分流水" />
+              <block wx:else>
+                <t-cell-group t-class="users-page__log-group" bordered="{{false}}">
+                  <t-cell
+                    wx:for="{{pointsLogs}}"
+                    wx:key="id"
+                    t-class="users-page__log-cell"
+                    t-class-title="users-page__log-title"
+                    t-class-description="users-page__log-desc"
+                    hover="{{false}}"
+                    bordered="{{false}}"
+                  >
+                    <view slot="title" class="users-page__log-title">{{item.title}}</view>
+                    <view slot="description" class="users-page__log-desc">{{item.createdText}}</view>
+                    <view slot="note" class="users-page__log-right">
+                      <text class="users-page__log-delta users-page__log-delta--{{item.tone}}">{{item.deltaText}}</text>
+                      <text wx:if="{{item.balance != null}}" class="users-page__log-after">余 {{item.balance}}</text>
+                    </view>
+                  </t-cell>
+                </t-cell-group>
+                <t-button
+                  wx:if="{{pointsLogsHasMore}}"
+                  class="users-page__log-more"
+                  theme="default"
+                  variant="outline"
+                  size="small"
+                  block
+                  loading="{{pointsLogsLoading}}"
+                  content="加载更多"
+                  bind:tap="onLoadMorePointsLogs"
+                />
+              </block>
+            </t-collapse-panel>
+          </t-collapse>
         </view>
 
         <view class="users-panel__block">
@@ -194,7 +286,7 @@
           <view class="users-page__dl-state" wx:if="{{downloadsLoading && !downloadPacks.length}}">
             <t-loading theme="circular" size="40rpx" />
           </view>
-          <t-empty wx:elif="{{!downloadPacks.length}}" description="暂无下载记录" />
+          <fun-empty wx:elif="{{!downloadPacks.length}}" size="small" description="暂无下载记录" />
           <view wx:else class="users-page__dl-list">
             <view class="users-page__dl-card" wx:for="{{downloadPacks}}" wx:key="packId">
               <view

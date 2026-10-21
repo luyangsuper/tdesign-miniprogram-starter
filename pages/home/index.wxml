@@ -2,6 +2,7 @@
 <view class="home {{selectMode ? 'home--select' : ''}}" style="{{themeStyle}}">
   <t-navbar
     title="{{searchExpanded ? '' : '趣集'}}"
+    fixed="{{true}}"
     placeholder="{{true}}"
     z-index="{{500}}"
     t-class="home__navbar"
@@ -219,12 +220,7 @@
             </view>
 
             <view class="home__state" wx:else>
-              <t-empty
-                t-class="home__empty"
-                t-class-image="home__empty-img"
-                image="/static/emoji/search.png"
-                description="没有找到合集，试试换个关键词或分类"
-              />
+              <fun-empty description="没有找到合集，试试换个关键词或分类" />
             </view>
           </scroll-view>
         </view>

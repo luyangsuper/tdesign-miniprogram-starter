@@ -16,20 +16,82 @@
     --td-swiper-nav-btn-color: #fff;
     --td-swiper-nav-btn-bg-color: rgba(0, 0, 0, 0.45);
     --td-swiper-nav-btn-size: 56rpx;
-    /* fraction 默认只有 height、无垂直居中，显得偏高/字不居中 */
-    --td-swiper-nav-fraction-height: 40rpx;
-    --td-swiper-nav-fraction-font: 22rpx;
+    /* 行盒与字号对齐，避免 TDesign 默认 height>line-height 把数字顶上去 */
+    --td-swiper-nav-fraction-height: 44rpx;
+    --td-swiper-nav-fraction-font: 22rpx / 44rpx PingFang SC, Microsoft YaHei, sans-serif;
 
     .t-swiper-nav__fraction {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      box-sizing: border-box;
-      height: var(--td-swiper-nav-fraction-height, 40rpx);
-      line-height: 1;
-      padding: 0 16rpx;
-      font-size: var(--td-swiper-nav-fraction-font, 22rpx);
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      box-sizing: border-box !important;
+      height: 44rpx !important;
+      line-height: 44rpx !important;
+      padding: 0 18rpx !important;
+      font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
+      font-weight: 400 !important;
+      font-style: normal !important;
+      /* 微信数字字形视觉中心偏上 */
+      transform: translateY(2rpx);
     }
+  }
+
+  &__hero-swiper {
+    width: 100%;
+    height: 100%;
+  }
+
+  &__hero-video-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #111;
+  }
+
+  &__hero-video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #111;
+  }
+
+  &__hero-play {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+  }
+
+  &__hero-play-icon {
+    width: 112rpx;
+    height: 112rpx;
+    filter: drop-shadow(0 6rpx 16rpx rgba(0, 0, 0, 0.4));
+  }
+
+  &__hero-image-wrap {
+    width: 100%;
+    height: 100%;
+  }
+
+  &__hero-image {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+  }
+
+  &__hero-image-inner {
+    width: 100%;
+    height: 100%;
+  }
+
+  &__hero-nav {
+    z-index: 2;
   }
 
   &__body {
@@ -46,8 +108,8 @@
   }
 
   &__hero-empty {
+    .ui-strong();
     color: var(--td-text-color-placeholder);
-    font-size: 28rpx;
   }
 
   &__info {
@@ -58,22 +120,34 @@
 
   &__title-row {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 16rpx;
   }
 
   &__title {
     flex: 1;
     min-width: 0;
-    font-size: 36rpx;
+    .ui-title();
     font-weight: 700;
-    color: var(--td-text-color-primary);
-    line-height: 1.35;
+    line-height: 1.25;
+  }
+
+  &__title-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+  }
+
+  &__fav-wrap {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
   }
 
   &__share-btn {
     flex-shrink: 0 !important;
-    margin-top: 2rpx !important;
+    margin: 0 !important;
     --td-button-border-width: 0 !important;
     --td-button-light-bg-color: var(--td-brand-color-light) !important;
     --td-button-light-color: var(--td-brand-color) !important;
@@ -87,10 +161,18 @@
     }
   }
 
+  &__fav-btn--on {
+    --td-button-light-bg-color: rgba(235, 87, 87, 0.14) !important;
+    --td-button-light-color: #eb5757 !important;
+    --td-button-light-active-bg-color: rgba(235, 87, 87, 0.22) !important;
+    --td-button-light-border-color: transparent !important;
+  }
+
   &__desc {
     display: block;
+    .ui-strong();
     margin-top: 12rpx;
-    font-size: 28rpx;
+    font-weight: 400;
     color: var(--td-text-color-secondary);
     line-height: 1.55;
     white-space: pre-wrap;
@@ -106,14 +188,13 @@
   }
 
   &__id-label {
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
   }
 
   &__id-value {
     flex: 1;
     min-width: 0;
-    font-size: 22rpx;
+    .ui-caption();
     color: var(--td-text-color-secondary);
     word-break: break-all;
   }
@@ -126,7 +207,7 @@
   }
 
   &__drive-title {
-    font-size: 22rpx;
+    .ui-caption();
     font-weight: 600;
     color: var(--td-warning-color);
     margin-bottom: 8rpx;
@@ -141,14 +222,14 @@
 
   &__drive-label {
     flex-shrink: 0;
-    font-size: 22rpx;
+    .ui-caption();
     color: var(--td-text-color-secondary);
   }
 
   &__drive-url {
     flex: 1;
     min-width: 0;
-    font-size: 22rpx;
+    .ui-caption();
     color: var(--td-text-color-primary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -156,14 +237,13 @@
   }
 
   &__meta {
+    .ui-caption();
     margin-top: 16rpx;
-    font-size: 24rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__entitlement {
+    .ui-caption();
     margin-top: 12rpx;
-    font-size: 24rpx;
     color: var(--td-brand-color);
     line-height: 1.4;
     transition: opacity 0.2s ease;
@@ -176,15 +256,12 @@
   }
 
   &__section-title {
-    font-size: 30rpx;
-    font-weight: 600;
+    .ui-strong();
     margin-bottom: 16rpx;
-    color: var(--td-text-color-primary);
   }
 
   &__hint {
-    font-size: 24rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     margin-bottom: 24rpx;
     line-height: 1.5;
   }
@@ -240,23 +317,20 @@
   }
 
   &__variant-title {
-    font-size: 26rpx;
+    .ui-body();
     font-weight: 700;
-    color: var(--td-text-color-primary);
     line-height: 1.2;
   }
 
   &__variant-desc {
-    font-size: 20rpx;
+    .ui-caption();
     color: var(--td-text-color-secondary);
-    line-height: 1.3;
   }
 
   &__variant-tip {
     margin: 0 0 20rpx;
-    font-size: 22rpx;
+    .ui-caption();
     color: var(--td-brand-color);
-    line-height: 1.4;
   }
 
   &__batch {
@@ -284,14 +358,14 @@
   }
 
   &__batch-all-label {
-    font-size: 24rpx;
+    .ui-caption();
     color: var(--td-text-color-primary);
   }
 
   &__batch-meta {
     flex: 1;
     min-width: 0;
-    font-size: 24rpx;
+    .ui-caption();
     color: var(--td-text-color-secondary);
   }
 
@@ -381,12 +455,21 @@
       justify-content: center;
       border-radius: 12rpx;
       background: var(--td-bg-color-secondarycontainer);
-      color: var(--td-text-color-placeholder);
-      font-size: 22rpx;
+      .ui-caption();
     }
   }
 
-  &__slot-img,
+  &__slot-img {
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.28s ease;
+  }
+
+  &__slot-img--ready {
+    opacity: 1;
+  }
+
   &__slot-load {
     width: 100%;
     height: 100%;
@@ -395,12 +478,19 @@
   &__slot-skeleton {
     width: 100%;
     height: 100%;
-    background: var(--td-bg-color-secondarycontainer);
+    background: linear-gradient(
+      110deg,
+      var(--td-bg-color-secondarycontainer) 30%,
+      rgba(0, 0, 0, 0.04) 45%,
+      var(--td-bg-color-secondarycontainer) 60%
+    );
+    background-size: 200% 100%;
+    animation: detail-slot-shimmer 1.2s ease-in-out infinite;
   }
 
   &__slot-label {
     margin: 12rpx 0;
-    font-size: 24rpx;
+    .ui-caption();
     color: var(--td-text-color-primary);
     text-align: center;
   }
@@ -436,7 +526,7 @@
   }
 
   &__confirm-text {
-    font-size: 26rpx;
+    .ui-body();
     line-height: 1.55;
     color: var(--td-text-color-secondary);
     text-align: center;
@@ -457,6 +547,15 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes detail-slot-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
   }
 }
 

@@ -7,10 +7,8 @@
   box-sizing: border-box;
 
   &__tip {
+    .ui-caption();
     margin: 0 24rpx 12rpx;
-    font-size: 24rpx;
-    line-height: 1.5;
-    color: var(--td-text-color-placeholder);
   }
 
   &__loading {
@@ -20,10 +18,33 @@
   }
 
   &__section {
+    .ui-strong();
     margin: 28rpx 24rpx 12rpx;
-    font-size: 26rpx;
-    font-weight: 600;
-    color: var(--td-text-color-primary);
+
+    &--row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12rpx;
+    }
+  }
+
+  &__section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16rpx;
+  }
+
+  &__section-extra {
+    .ui-caption();
+    font-weight: 400;
+  }
+
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
   }
 
   &__grid {
@@ -45,18 +66,17 @@
   }
 
   &__stat-num {
+    .ui-title();
     display: block;
-    font-size: 34rpx;
     font-weight: 700;
     color: var(--td-brand-color);
     line-height: 1.2;
   }
 
   &__stat-label {
+    .ui-caption();
     display: block;
     margin-top: 8rpx;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__card {
@@ -65,6 +85,10 @@
     border-radius: 16rpx;
     padding: 16rpx 8rpx;
     overflow: hidden;
+
+    &--chart {
+      padding: 8rpx 12rpx 12rpx 8rpx;
+    }
   }
 
   &__bars {
@@ -84,8 +108,7 @@
   }
 
   &__bar-count {
-    font-size: 18rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     margin-bottom: 6rpx;
   }
 
@@ -107,9 +130,8 @@
   }
 
   &__bar-label {
+    .ui-caption();
     margin-top: 8rpx;
-    font-size: 18rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__pack {
@@ -144,19 +166,17 @@
   }
 
   &__pack-title {
+    .ui-body();
     display: block;
-    font-size: 28rpx;
-    color: var(--td-text-color-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   &__pack-sub {
+    .ui-caption();
     display: block;
     margin-top: 6rpx;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__actions {

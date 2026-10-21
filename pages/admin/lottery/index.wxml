@@ -1,6 +1,6 @@
 <view class="admin-lottery" style="{{themeStyle}}">
   <view class="admin-lottery__tip">
-    创建后向已注册用户推邀请弹窗；用户主动参与后入池。到点自动开奖：随机抽出中奖人数，总奖池随机拆成有大有小的积分份额。
+    九宫格随时抽、当场出结果。限时活动：免费或投入积分报名，到点抽少数人。投入型实发不超过报名费×返还比例。
   </view>
 
   <view wx:if="{{loading}}" class="admin-lottery__loading">
@@ -8,7 +8,119 @@
   </view>
 
   <block wx:else>
-    <view class="admin-lottery__section">新建抽奖</view>
+    <view class="admin-lottery__section">常驻九宫格</view>
+    <view class="admin-lottery__card">
+      <view class="admin-lottery__row">
+        <view class="admin-lottery__meta">
+          <view class="admin-lottery__label">开放</view>
+          <view class="admin-lottery__hint">关闭后用户页不展示</view>
+        </view>
+        <t-switch value="{{gridEnabled}}" bind:change="onGridEnabledChange" />
+      </view>
+      <view class="admin-lottery__row">
+        <view class="admin-lottery__meta">
+          <view class="admin-lottery__label">每次消耗</view>
+        </view>
+        <t-input
+          class="admin-lottery__field admin-lottery__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{gridCost}}"
+          bind:change="onGridCostChange"
+        />
+      </view>
+      <view class="admin-lottery__row">
+        <view class="admin-lottery__meta">
+          <view class="admin-lottery__label">每日次数</view>
+        </view>
+        <t-input
+          class="admin-lottery__field admin-lottery__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="次"
+          value="{{gridDailyLimit}}"
+          bind:change="onGridDailyChange"
+        />
+      </view>
+      <view class="admin-lottery__hint admin-lottery__hint--block">{{gridEvText}}。权重越大越容易抽中；改名称/积分后用户端会同步显示。</view>
+      <view class="admin-lottery__mini">
+        <view class="admin-lottery__mini-cell {{item.go ? 'is-go' : ''}}" wx:for="{{gridBoard}}" wx:key="id">
+          <image wx:if="{{!item.go}}" class="admin-lottery__mini-art" src="{{item.art}}" mode="aspectFit" />
+          <text class="admin-lottery__mini-label">{{item.label}}</text>
+        </view>
+      </view>
+      <view class="admin-lottery__prize" wx:for="{{gridPrizes}}" wx:key="id">
+        <view class="admin-lottery__prize-lead">
+          <image class="admin-lottery__prize-art" src="{{item.art}}" mode="aspectFit" />
+          <text class="admin-lottery__prize-slot">{{item.slot}}</text>
+        </view>
+        <t-input
+          class="admin-lottery__field admin-lottery__prize-name"
+          borderless
+          placeholder="展示名称"
+          value="{{item.name}}"
+          data-index="{{index}}"
+          data-key="name"
+          bind:change="onGridPrizeChange"
+        />
+        <t-input
+          class="admin-lottery__field admin-lottery__prize-num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{item.points}}"
+          data-index="{{index}}"
+          data-key="points"
+          bind:change="onGridPrizeChange"
+        />
+        <t-input
+          class="admin-lottery__field admin-lottery__prize-num"
+          type="number"
+          borderless
+          align="right"
+          suffix="权重"
+          value="{{item.weight}}"
+          data-index="{{index}}"
+          data-key="weight"
+          bind:change="onGridPrizeChange"
+        />
+      </view>
+      <t-button
+        class="admin-lottery__grid-save"
+        theme="primary"
+        size="medium"
+        block
+        loading="{{gridSaving}}"
+        disabled="{{gridSaving}}"
+        content="保存九宫格"
+        bind:tap="onSaveGrid"
+      />
+      <t-button
+        class="admin-lottery__grid-reset"
+        theme="light"
+        size="medium"
+        block
+        disabled="{{gridSaving}}"
+        content="恢复默认奖池"
+        bind:tap="onResetGrid"
+      />
+      <t-button
+        class="admin-lottery__grid-reset"
+        theme="light"
+        size="medium"
+        block
+        loading="{{gridResetting}}"
+        disabled="{{gridSaving || gridResetting}}"
+        content="重置我的今日次数"
+        bind:tap="onResetMyGridToday"
+      />
+    </view>
+
+    <view class="admin-lottery__section">新建限时抽奖</view>
     <view class="admin-lottery__card">
       <view class="admin-lottery__field-block">
         <view class="admin-lottery__label">活动标题</view>
@@ -21,10 +133,61 @@
           bind:change="onTitleChange"
         />
       </view>
+      <view class="admin-lottery__field-block">
+        <view class="admin-lottery__label">类型</view>
+        <view class="admin-lottery__types">
+          <t-check-tag
+            size="medium"
+            variant="dark"
+            checked="{{lotteryType === 'free'}}"
+            content="免费报名"
+            data-type="free"
+            bind:change="onTypeChange"
+          />
+          <t-check-tag
+            size="medium"
+            variant="dark"
+            checked="{{lotteryType === 'paid'}}"
+            content="投入积分"
+            data-type="paid"
+            bind:change="onTypeChange"
+          />
+        </view>
+      </view>
+      <view wx:if="{{lotteryType === 'paid'}}" class="admin-lottery__row">
+        <view class="admin-lottery__meta">
+          <view class="admin-lottery__label">报名费</view>
+          <view class="admin-lottery__hint">每人参与扣一次</view>
+        </view>
+        <t-input
+          class="admin-lottery__field admin-lottery__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costPoints}}"
+          bind:change="onCostChange"
+        />
+      </view>
+      <view wx:if="{{lotteryType === 'paid'}}" class="admin-lottery__row">
+        <view class="admin-lottery__meta">
+          <view class="admin-lottery__label">返还比例</view>
+          <view class="admin-lottery__hint">实发 ≤ 报名费×此比例，且不超过奖池上限</view>
+        </view>
+        <t-input
+          class="admin-lottery__field admin-lottery__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="%"
+          value="{{payoutPercent}}"
+          bind:change="onPayoutPercentChange"
+        />
+      </view>
       <view class="admin-lottery__row">
         <view class="admin-lottery__meta">
-          <view class="admin-lottery__label">总奖池</view>
-          <view class="admin-lottery__hint">开奖后随机拆分给中奖者</view>
+          <view class="admin-lottery__label">{{lotteryType === 'paid' ? '奖池上限' : '总奖池'}}</view>
+          <view class="admin-lottery__hint">{{lotteryType === 'paid' ? '实发再与报名费返还取小' : '开奖后随机拆分给中奖者'}}</view>
         </view>
         <t-input
           class="admin-lottery__field admin-lottery__field--num"
@@ -93,7 +256,7 @@
           <t-tag size="small" variant="light" theme="{{item.statusTheme}}">{{item.statusLabel}}</t-tag>
         </view>
         <view class="admin-lottery__history-meta">
-          奖池 {{item.poolPoints}} · {{item.winnerCount}} 人中奖 · 参与 {{item.participantCount}}
+          {{item.type === 'paid' ? ('投入 ' + item.costPoints + ' 分 · 返还 ' + item.payoutPercentText + ' · 上限 ' + item.poolPoints) : ('奖池 ' + item.poolPoints)}} · {{item.winnerCount}} 人中奖 · 参与 {{item.participantCount}}{{item.drawOutcome === 'refunded' ? ' · 人数不足已退费' : (item.actualPool ? ' · 实发 ' + item.actualPool : '')}}
         </view>
         <view class="admin-lottery__history-meta">开奖 {{item.drawAtText || '—'}}</view>
         <view wx:if="{{item.status === 'open'}}" class="admin-lottery__history-actions">
@@ -109,7 +272,7 @@
       </view>
     </block>
     <view wx:else class="admin-lottery__empty">
-      <t-empty description="暂无抽奖活动" />
+      <fun-empty description="暂无抽奖活动" />
     </view>
   </block>
   <lottery-host />

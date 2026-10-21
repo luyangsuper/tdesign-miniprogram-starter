@@ -33,6 +33,7 @@ exports.main = async (event) => {
 
     const fileList = [
       pack.coverFileID,
+      pack.previewVideoFileID,
       ...(pack.previewFileIDs || []),
       ...(pack.emojiFileIDs || []),
     ].filter(Boolean);

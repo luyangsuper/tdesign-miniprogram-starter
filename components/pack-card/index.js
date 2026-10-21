@@ -47,6 +47,11 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 收藏等场景不展示「已下载」数量 */
+    showDownloadCount: {
+      type: Boolean,
+      value: true,
+    },
   },
 
   data: {
@@ -54,10 +59,16 @@ Component({
     mediaHeight: 0,
     coverReady: false,
     brandColor: '#07C160',
+    adminActionsVisible: false,
   },
 
   observers: {
-    'emojiCount, downloadCount, categoryId, categoryName': function () {
+    'selectMode, showAdmin': function (selectMode, showAdmin) {
+      if ((selectMode || !showAdmin) && this.data.adminActionsVisible) {
+        this.setData({ adminActionsVisible: false });
+      }
+    },
+    'emojiCount, downloadCount, categoryId, categoryName, showDownloadCount': function () {
       this.refreshTags();
     },
     'cardWidth, coverRatio': function () {
@@ -117,7 +128,7 @@ Component({
     },
 
     refreshTags() {
-      const { emojiCount, downloadCount, categoryId, categoryName } = this.data;
+      const { emojiCount, downloadCount, categoryId, categoryName, showDownloadCount } = this.data;
       const tags = [];
       if (categoryName) {
         tags.push({
@@ -133,7 +144,7 @@ Component({
           customStyle: metaTagStyle('count'),
         });
       }
-      if (downloadCount) {
+      if (showDownloadCount && downloadCount) {
         tags.push({
           text: `已下载${downloadCount}`,
           theme: 'default',
@@ -183,6 +194,16 @@ Component({
       wx.navigateTo({
         url: `/pages/pack/detail/index?id=${packId}`,
       });
+    },
+
+    onLongPress() {
+      if (!this.data.showAdmin || this.data.selectMode) return;
+      this.setData({ adminActionsVisible: !this.data.adminActionsVisible });
+      try {
+        wx.vibrateShort({ type: 'light' });
+      } catch (e) {
+        /* ignore */
+      }
     },
 
     noop() {},

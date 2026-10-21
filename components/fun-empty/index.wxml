@@ -1,0 +1,8 @@
+<view class="fun-empty fun-empty--{{size}} {{fill ? 'fun-empty--fill' : ''}}">
+  <t-empty
+    t-class="fun-empty__inner"
+    t-class-image="fun-empty__img"
+    image="/static/emoji/empty.png"
+    description="{{description}}"
+  />
+</view>

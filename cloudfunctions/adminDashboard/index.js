@@ -49,6 +49,138 @@ async function fetchAll(collection, where, orderField, limit = MAX) {
   }
 }
 
+async function fetchAllPaged(collection, where, orderField, cap = 2000) {
+  const rows = [];
+  let skip = 0;
+  while (rows.length < cap) {
+    const batchSize = Math.min(MAX, cap - rows.length);
+    const col = where
+      ? db.collection(collection).where(where)
+      : db.collection(collection);
+    let res;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      res = await col.orderBy(orderField, 'desc').skip(skip).limit(batchSize).get();
+    } catch (e) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        res = await col.skip(skip).limit(batchSize).get();
+      } catch (err) {
+        break;
+      }
+    }
+    const batch = res.data || [];
+    if (!batch.length) break;
+    rows.push(...batch);
+    skip += batch.length;
+    if (batch.length < batchSize) break;
+  }
+  return rows;
+}
+
+function yuanStr(fen) {
+  return (Math.max(0, Number(fen) || 0) / 100).toFixed(2);
+}
+
+function orderTimeMs(row) {
+  return toMs(row.deliveredAt) || toMs(row.createdAt) || 0;
+}
+
+function sumFen(list) {
+  return list.reduce((s, o) => s + Math.max(0, Number(o.priceFen) || 0), 0);
+}
+
+function filterSince(list, sinceMs, timeFn) {
+  return list.filter((row) => timeFn(row) >= sinceMs);
+}
+
+function dailyKeys(from, to) {
+  const keys = [];
+  let d = from.startOf('day');
+  const end = to.startOf('day');
+  let guard = 0;
+  while (d.valueOf() <= end.valueOf() && guard < 62) {
+    keys.push(d.format('YYYY-MM-DD'));
+    d = d.add(1, 'day');
+    guard += 1;
+  }
+  return keys;
+}
+
+function monthKeys(from, to, cap = 12) {
+  const keys = [];
+  let d = from.startOf('month');
+  const end = to.startOf('month');
+  let guard = 0;
+  while (d.valueOf() <= end.valueOf() && guard < 36) {
+    keys.push(d.format('YYYY-MM'));
+    d = d.add(1, 'month');
+    guard += 1;
+  }
+  return keys.slice(-cap);
+}
+
+function buildRevenueSeries(keys, orders, keyFn, labelFn) {
+  const fenMap = {};
+  keys.forEach((k) => {
+    fenMap[k] = 0;
+  });
+  orders.forEach((row) => {
+    const ms = orderTimeMs(row);
+    if (!ms) return;
+    const key = keyFn(ms);
+    if (fenMap[key] != null) fenMap[key] += Math.max(0, Number(row.priceFen) || 0);
+  });
+  return keys.map((key) => ({
+    key,
+    label: labelFn(key),
+    yuan: Number((fenMap[key] / 100).toFixed(2)),
+  }));
+}
+
+function buildAllRevenueTrend(now, orders) {
+  let minMs = Infinity;
+  orders.forEach((row) => {
+    const ms = orderTimeMs(row);
+    if (ms && ms < minMs) minMs = ms;
+  });
+  if (!Number.isFinite(minMs)) {
+    return buildRevenueSeries(
+      dailyKeys(now.subtract(6, 'day'), now),
+      orders,
+      (ms) => dayjs(ms).tz(TZ).format('YYYY-MM-DD'),
+      (key) => key.slice(5),
+    );
+  }
+  const first = dayjs(minMs).tz(TZ);
+  const spanDays = now.startOf('day').diff(first.startOf('day'), 'day');
+  if (spanDays <= 31) {
+    return buildRevenueSeries(
+      dailyKeys(first, now),
+      orders,
+      (ms) => dayjs(ms).tz(TZ).format('YYYY-MM-DD'),
+      (key) => key.slice(5),
+    );
+  }
+  return buildRevenueSeries(
+    monthKeys(first, now, 12),
+    orders,
+    (ms) => dayjs(ms).tz(TZ).format('YYYY-MM'),
+    (key) => `${Number(key.slice(5))}月`,
+  );
+}
+
+function periodBlock(users, downloads, orders) {
+  return {
+    summary: {
+      users,
+      downloads,
+      orders: orders.length,
+      revenueYuan: yuanStr(sumFen(orders)),
+    },
+  };
+}
+
 async function safeCount(collection, where) {
   try {
     const col = where
@@ -58,6 +190,31 @@ async function safeCount(collection, where) {
     return res.total || 0;
   } catch (e) {
     return 0;
+  }
+}
+
+/** 超过 24h 仍未支付的下单单关掉，避免看板把弃单当成待发货 */
+async function closeStaleUnpaidPending() {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  try {
+    const res = await db.collection('orders').where({ status: 'pending' }).limit(100).get();
+    const rows = res.data || [];
+    await Promise.all(
+      rows.map(async (o) => {
+        const t = toMs(o.createdAt);
+        if (t && t > cutoff) return;
+        if (!o._id) return;
+        await db.collection('orders').doc(o._id).update({
+          data: {
+            status: 'closed',
+            closeReason: 'unpaid_timeout',
+            updatedAt: db.serverDate(),
+          },
+        });
+      }),
+    );
+  } catch (e) {
+    console.warn('[dashboard] close stale pending', e.message || e);
   }
 }
 
@@ -113,7 +270,7 @@ exports.main = async (event = {}) => {
   try {
     if (!force) {
       const cached = await readDashboardCache();
-      if (cached) {
+      if (cached && cached.periods) {
         return {
           ok: true,
           data: {
@@ -125,11 +282,17 @@ exports.main = async (event = {}) => {
       }
     }
 
+    await closeStaleUnpaidPending();
+
     const now = dayjs().tz(TZ);
     const todayStart = now.startOf('day').toDate();
     const todayStartMs = todayStart.getTime();
-    const weekStart = now.subtract(6, 'day').startOf('day').toDate();
+    const weekStartDj = now.subtract(6, 'day').startOf('day');
+    const weekStart = weekStartDj.toDate();
     const weekStartMs = weekStart.getTime();
+    const monthStartDj = now.startOf('month');
+    const monthStart = monthStartDj.toDate();
+    const monthStartMs = monthStart.getTime();
 
     const [
       usersTotal,
@@ -140,6 +303,13 @@ exports.main = async (event = {}) => {
       ordersDelivered,
       ordersPending,
       topPacksRaw,
+      newUsersToday,
+      newUsersWeek,
+      newUsersMonth,
+      downloadsToday,
+      downloadsWeek,
+      downloadsMonth,
+      downloadsAll,
     ] = await Promise.all([
       safeCount('users'),
       safeCount('packs', { status: 'published' }),
@@ -156,27 +326,25 @@ exports.main = async (event = {}) => {
         'createdAt',
         MAX,
       ),
-      fetchAll('orders', { status: 'delivered' }, 'createdAt', MAX),
-      safeCount('orders', { status: 'pending' }),
+      fetchAllPaged('orders', { status: 'delivered' }, 'createdAt', 2000),
+      safeCount('orders', { status: 'paid' }),
       fetchAll('packs', { status: 'published' }, 'downloadCount', 8),
+      safeCount('users', { createdAt: _.gte(todayStart) }),
+      safeCount('users', { createdAt: _.gte(weekStart) }),
+      safeCount('users', { createdAt: _.gte(monthStart) }),
+      safeCount('download_logs', { createdAt: _.gte(todayStart) }),
+      safeCount('download_logs', { createdAt: _.gte(weekStart) }),
+      safeCount('download_logs', { createdAt: _.gte(monthStart) }),
+      safeCount('download_logs'),
     ]);
-
-    const downloadsToday = downloadsTodayRows.length;
-    const downloadsWeek = downloadsWeekRows.length;
 
     const activeToday = new Set(
       downloadsTodayRows.map((r) => r.openid).filter(Boolean),
     ).size;
 
-    const todayOrders = ordersDelivered.filter(
-      (o) => (toMs(o.deliveredAt) || toMs(o.createdAt) || 0) >= todayStartMs,
-    );
-    const weekOrders = ordersDelivered.filter(
-      (o) => (toMs(o.deliveredAt) || toMs(o.createdAt) || 0) >= weekStartMs,
-    );
-
-    const sumFen = (list) =>
-      list.reduce((s, o) => s + Math.max(0, Number(o.priceFen) || 0), 0);
+    const todayOrders = filterSince(ordersDelivered, todayStartMs, orderTimeMs);
+    const weekOrders = filterSince(ordersDelivered, weekStartMs, orderTimeMs);
+    const monthOrders = filterSince(ordersDelivered, monthStartMs, orderTimeMs);
 
     const revenueTodayFen = sumFen(todayOrders);
     const revenueWeekFen = sumFen(weekOrders);
@@ -259,16 +427,19 @@ exports.main = async (event = {}) => {
       coverUrl: (p.coverFileID && urlMap[p.coverFileID]) || '',
     }));
 
-    let newUsersToday = 0;
-    try {
-      const nu = await db
-        .collection('users')
-        .where({ createdAt: _.gte(todayStart) })
-        .count();
-      newUsersToday = nu.total || 0;
-    } catch (e) {
-      /* ignore */
-    }
+    const weekTrend = buildRevenueSeries(
+      dailyKeys(weekStartDj, now),
+      weekOrders,
+      (ms) => dayjs(ms).tz(TZ).format('YYYY-MM-DD'),
+      (key) => key.slice(5),
+    );
+    const monthTrend = buildRevenueSeries(
+      dailyKeys(monthStartDj, now),
+      monthOrders,
+      (ms) => dayjs(ms).tz(TZ).format('YYYY-MM-DD'),
+      (key) => key.slice(8),
+    );
+    const allTrend = buildAllRevenueTrend(now, ordersDelivered);
 
     const payload = {
       updatedText: formatDate(Date.now()),
@@ -283,8 +454,22 @@ exports.main = async (event = {}) => {
         ordersToday,
         ordersWeek,
         ordersPending,
-        revenueTodayYuan: (revenueTodayFen / 100).toFixed(2),
-        revenueWeekYuan: (revenueWeekFen / 100).toFixed(2),
+        revenueTodayYuan: yuanStr(revenueTodayFen),
+        revenueWeekYuan: yuanStr(revenueWeekFen),
+      },
+      periods: {
+        week: {
+          ...periodBlock(newUsersWeek, downloadsWeek, weekOrders),
+          revenueTrend: weekTrend,
+        },
+        month: {
+          ...periodBlock(newUsersMonth, downloadsMonth, monthOrders),
+          revenueTrend: monthTrend,
+        },
+        all: {
+          ...periodBlock(usersTotal, downloadsAll, ordersDelivered),
+          revenueTrend: allTrend,
+        },
       },
       trend,
       todayHotPacks,

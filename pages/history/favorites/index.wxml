@@ -1,0 +1,120 @@
+<view class="favorites" style="{{themeStyle}}">
+  <view class="favorites__bar">
+    <text class="favorites__bar-count">{{list.length ? list.length + ' 个合集' : '我的收藏'}}</text>
+    <t-button
+      t-class="favorites__bar-btn"
+      theme="light"
+      variant="text"
+      size="small"
+      icon="{{layout === 'waterfall' ? 'view-list' : 'view-module'}}"
+      content="{{layout === 'waterfall' ? '列表' : '瀑布流'}}"
+      bind:tap="onToggleLayout"
+    />
+  </view>
+
+  <view wx:if="{{loading && !list.length}}" class="favorites__state">
+    <t-loading theme="circular" size="40rpx" text="加载中" />
+  </view>
+
+  <block wx:elif="{{!list.length}}">
+    <view class="favorites__empty">
+      <fun-empty fill description="还没有收藏合集" />
+      <t-button
+        theme="primary"
+        size="medium"
+        content="去首页看看"
+        bind:tap="goHome"
+      />
+    </view>
+  </block>
+
+  <view wx:elif="{{layout === 'list'}}" class="favorites__list">
+    <view
+      class="favorites__row"
+      wx:for="{{list}}"
+      wx:key="packId"
+      data-id="{{item.packId}}"
+      hover-class="favorites__row--press"
+      bindtap="onOpenPack"
+    >
+      <t-image
+        t-class="favorites__cover"
+        src="{{item.coverUrl}}"
+        mode="aspectFill"
+        shape="round"
+        width="160rpx"
+        height="160rpx"
+        lazy
+        loading="slot"
+      >
+        <view slot="loading" class="favorites__cover-load">
+          <t-loading theme="dots" size="40rpx" />
+        </view>
+      </t-image>
+      <view class="favorites__main">
+        <text class="favorites__title">{{item.title}}</text>
+        <text class="favorites__meta">
+          {{item.categoryName ? item.categoryName + ' · ' : ''}}{{item.emojiCount}} 张
+        </text>
+        <text wx:if="{{item.createdText}}" class="favorites__time">收藏于 {{item.createdText}}</text>
+      </view>
+      <view
+        class="favorites__heart"
+        data-id="{{item.packId}}"
+        catchtap="onUnfavorite"
+        aria-role="button"
+        aria-label="取消收藏"
+      >
+        <t-icon name="heart-filled" size="44rpx" color="#EB5757" />
+      </view>
+    </view>
+  </view>
+
+  <view
+    wx:else
+    class="favorites__water"
+    style="gap: {{listGap}}px; padding-left: {{listGap}}px; padding-right: {{listGap}}px;"
+  >
+    <view
+      class="favorites__col"
+      wx:for="{{columns}}"
+      wx:for-item="col"
+      wx:for-index="colIndex"
+      wx:key="colIndex"
+      style="width: {{cardWidth}}px; gap: {{rowGap}}px;"
+    >
+      <view class="favorites__water-card" wx:for="{{col}}" wx:for-item="item" wx:key="packId">
+        <pack-card
+          packId="{{item.packId}}"
+          title="{{item.title}}"
+          coverUrl="{{item.coverUrl}}"
+          emojiCount="{{item.emojiCount}}"
+          downloadCount="{{item.downloadCount}}"
+          showDownloadCount="{{false}}"
+          categoryId="{{item.categoryId}}"
+          categoryName="{{item.categoryName}}"
+          coverRatio="{{item.coverRatio}}"
+          cardWidth="{{cardWidth}}"
+          bind:ratiochange="onCoverRatioChange"
+        />
+        <view
+          class="favorites__water-fav"
+          data-id="{{item.packId}}"
+          catchtap="onUnfavorite"
+          aria-role="button"
+          aria-label="取消收藏"
+        >
+          <t-icon name="heart-filled" size="36rpx" color="#EB5757" />
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{loadingMore}}" class="favorites__more">
+    <t-loading theme="circular" size="32rpx" text="加载更多" />
+  </view>
+  <view wx:elif="{{list.length && !hasMore}}" class="favorites__end">没有更多了</view>
+
+  <lottery-host />
+  <heart-burst id="heartBurst" />
+</view>

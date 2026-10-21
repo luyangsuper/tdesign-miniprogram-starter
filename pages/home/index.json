@@ -1,12 +1,14 @@
 {
   "navigationStyle": "custom",
   "styleIsolation": "shared",
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
   "usingComponents": {
     "t-navbar": "tdesign-miniprogram/navbar/navbar",
     "t-search": "tdesign-miniprogram/search/search",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
-    "t-empty": "tdesign-miniprogram/empty/empty",
+    "fun-empty": "/components/fun-empty/index",
     "fun-loading": "/components/fun-loading/index",
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
     "t-popup": "tdesign-miniprogram/popup/popup",

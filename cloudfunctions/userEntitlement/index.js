@@ -2,7 +2,7 @@ const cloud = require('wx-server-sdk');
 const { dayjs, toMs } = require('./time');
 const { MONTHLY_QUOTA, buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { getPointsSettings } = require('./pointsSettings');
-const { recordPointsLog } = require('./pointsLog');
+const { applyUserPoints } = require('./pointsLog');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -61,7 +61,7 @@ async function ensureUser(openid) {
   }
 }
 
-async function applyGrant(ref, user, type, value) {
+async function applyGrant(ref, user, type, value, logCtx = {}) {
   const now = Date.now();
   if (type === 'vip_days') {
     const days = Math.max(1, Number(value) || 1);
@@ -77,13 +77,16 @@ async function applyGrant(ref, user, type, value) {
   }
   if (type === 'points') {
     const add = Math.max(1, Number(value) || 1);
-    await ref.update({
-      data: {
-        points: _.inc(add),
-        updatedAt: db.serverDate(),
-      },
+    const openid = String((user && (user._id || user.openid)) || '');
+    const applied = await applyUserPoints(db, _, {
+      openid: String(logCtx.openid || openid || ''),
+      delta: add,
+      currentPoints: user && user.points,
+      reason: 'redeem',
+      title: '兑换码',
+      meta: logCtx.meta,
     });
-    return { grantType: 'points', add };
+    return { grantType: 'points', add: applied.delta || add };
   }
   throw new Error('不支持的兑换类型');
 }
@@ -263,9 +266,14 @@ exports.main = async (event = {}) => {
       });
 
       try {
-        await userRef.update({
-          data: {
-            points: _.inc(points),
+        await applyUserPoints(db, _, {
+          openid: OPENID,
+          delta: points,
+          currentPoints: userData.points,
+          reason: 'oa',
+          title: '公众号动态礼',
+          meta: { oaId, giftId },
+          userPatch: {
             pendingPointGifts: _.push({
               id: giftId,
               title: '公众号动态礼',
@@ -275,7 +283,6 @@ exports.main = async (event = {}) => {
               at: Date.now(),
             }),
             [`oaArticleCredits.${oaId}`]: true,
-            updatedAt: db.serverDate(),
           },
         });
       } catch (e) {
@@ -289,14 +296,6 @@ exports.main = async (event = {}) => {
 
       const fresh = (await userRef.get()).data || {};
       const synced = await syncVipMonthQuota(userRef, fresh, db.serverDate());
-      await recordPointsLog(db, {
-        openid: OPENID,
-        delta: points,
-        balance: Math.max(0, Number(synced.points) || 0),
-        reason: 'oa',
-        title: '公众号动态礼',
-        meta: { oaId, giftId },
-      });
       const pendingPointGifts = Array.isArray(synced.pendingPointGifts)
         ? synced.pendingPointGifts.slice(0, 50)
         : [];
@@ -341,7 +340,10 @@ exports.main = async (event = {}) => {
       }
 
       const { ref, data: user } = await ensureUser(OPENID);
-      const grant = await applyGrant(ref, user, row.type, row.value);
+      const grant = await applyGrant(ref, user, row.type, row.value, {
+        openid: OPENID,
+        meta: { code: String(row.code || code).slice(0, 32) },
+      });
 
       const nextUses = (row.useCount || 0) + 1;
       const maxUses = row.maxUses || 1;
@@ -359,16 +361,6 @@ exports.main = async (event = {}) => {
 
       const fresh = (await ref.get()).data || {};
       const synced = await syncVipMonthQuota(ref, fresh, db.serverDate());
-      if (row.type === 'points' && grant.add) {
-        await recordPointsLog(db, {
-          openid: OPENID,
-          delta: grant.add,
-          balance: Math.max(0, Number(synced.points) || 0),
-          reason: 'redeem',
-          title: '兑换码',
-          meta: { code: String(row.code || code).slice(0, 32) },
-        });
-      }
       return {
         ok: true,
         message:

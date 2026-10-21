@@ -71,7 +71,7 @@ async function saveSessionKey(db, openid, sessionKey) {
   try {
     await ref.update({ data: patch });
   } catch (e) {
-    // 不 set 建档：避免 points:0 覆盖/抢走 login 见面礼；无档案时由 getOrCreateUser 负责
+    // 不 set 建档：避免 points:0 覆盖/抢走 login 见面礼
     console.warn('saveSessionKey update skip', e.message || e);
   }
 }

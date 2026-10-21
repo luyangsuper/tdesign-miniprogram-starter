@@ -84,11 +84,12 @@
 
   <view class="block">
     <view class="block__label">封面（1 张，列表展示）</view>
-    <view class="block__tip">从相册选 1 张，用于列表展示。上传后可用 AI 根据「主题分类 + 封面」生成标题与简介；需要时再开公众号文案。</view>
+    <view class="block__tip">从相册选 1 张原图，用于列表展示（不压缩）。上传后可用 AI 根据「主题分类 + 封面」生成标题与简介；需要时再开公众号文案。</view>
     <t-upload
       media-type="{{['image']}}"
       files="{{coverFiles}}"
       gridConfig="{{gridConfig}}"
+      config="{{coverPickConfig}}"
       max="1"
       bind:success="onCoverSuccess"
       bind:remove="onCoverRemove"
@@ -132,17 +133,17 @@
 
   <view class="block block--file">
     <view class="block__head">
-      <view class="block__label block__label--inline">预览图</view>
-      <t-tag size="small" variant="light" theme="primary">用户可见</t-tag>
+      <view class="block__label block__label--inline">预览</view>
+      <t-tag size="small" variant="light" theme="primary">可选 · 图或视频</t-tag>
     </view>
-    <view class="block__tip">相册多选；点图预览，长按拖排序。与静态/动态同序号对齐。</view>
+    <view class="block__tip">可不传。可多选预览图，或只传 1 段预览视频；点预览，长按拖排序。预览图有则与静态同序号占位。</view>
     <t-button
       t-class="pick-btn"
       theme="primary"
       variant="outline"
       size="medium"
       block
-      content="从相册选择"
+      content="选择预览图或视频"
       bind:tap="pickPreviewFromAlbum"
     />
     <view class="file-grid js-grid-previewFiles" wx:if="{{previewFiles.length}}">
@@ -165,6 +166,7 @@
           bindtap="onPreviewGridImage"
         >
           <t-image
+            wx:if="{{!item.isVideo}}"
             t-class="file-grid__img"
             t-class-image="file-grid__img-inner"
             src="{{item.url || item.path}}"
@@ -173,7 +175,18 @@
             width="100%"
             height="100%"
           />
-          <view class="file-grid__seq">{{item.seqLabel}}</view>
+          <view wx:else class="file-grid__video">
+            <image
+              wx:if="{{item.thumb}}"
+              class="file-grid__video-thumb"
+              src="{{item.thumb}}"
+              mode="aspectFill"
+            />
+            <view class="file-grid__play">
+              <image class="file-grid__play-icon" src="/static/emoji/play.png" mode="aspectFit" />
+            </view>
+          </view>
+          <view class="file-grid__seq">{{item.isVideo ? '视频' : item.seqLabel}}</view>
           <view
             class="file-grid__del"
             data-index="{{index}}"
@@ -187,7 +200,7 @@
     </view>
     <view class="file-grid__empty" wx:else bindtap="pickPreviewFromAlbum">
       <image class="file-grid__empty-art" src="/static/emoji/eyes.png" mode="aspectFit" />
-      <text class="file-grid__empty-text">点击上方按钮选择预览图</text>
+      <text class="file-grid__empty-text">可不传，点上方选择预览图或视频</text>
     </view>
   </view>
 
@@ -196,7 +209,7 @@
       <view class="block__label block__label--inline">静态原图</view>
       <t-tag size="small" variant="light" theme="warning">必选 · 保存到相册</t-tag>
     </view>
-    <view class="block__tip">相册多选；拖排序后与预览同序号对齐，数量需一致。</view>
+    <view class="block__tip">相册多选；拖排序后与动态同序号对齐。</view>
     <t-button
       t-class="pick-btn"
       theme="primary"
@@ -257,7 +270,7 @@
       <view class="block__label block__label--inline">动态原图</view>
       <t-tag size="small" variant="light" theme="primary">可选 · GIF 等</t-tag>
     </view>
-    <view class="block__tip">可不传。有则拖到与预览/静态同序号；用户可在详情切换「静态/动态」批量保存。</view>
+    <view class="block__tip">可不传。有则拖到与静态同序号；用户可在详情切换「静态/动态」批量保存。</view>
     <t-button
       t-class="pick-btn"
       theme="primary"

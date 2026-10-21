@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "用户权益",
+  "navigationStyle": "default",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "t-search": "tdesign-miniprogram/search/search",
@@ -8,11 +9,15 @@
     "t-button": "tdesign-miniprogram/button/button",
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-loading": "tdesign-miniprogram/loading/loading",
-    "t-empty": "tdesign-miniprogram/empty/empty",
+    "fun-empty": "/components/fun-empty/index",
     "t-popup": "tdesign-miniprogram/popup/popup",
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-avatar": "tdesign-miniprogram/avatar/avatar",
+    "t-cell": "tdesign-miniprogram/cell/cell",
+    "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
+    "t-collapse": "tdesign-miniprogram/collapse/collapse",
+    "t-collapse-panel": "tdesign-miniprogram/collapse-panel/collapse-panel",
     "lottery-host": "/components/lottery-host/index"
   }
 }

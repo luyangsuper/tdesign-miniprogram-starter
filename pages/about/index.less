@@ -1,0 +1,132 @@
+@import '/variable.less';
+
+.about {
+  min-height: 100vh;
+  background: var(--td-bg-color-page);
+  padding: 16rpx 0 calc(48rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.about__hero {
+  margin: 0 16rpx 16rpx;
+  padding: 40rpx 32rpx 36rpx;
+  background: var(--td-bg-color-container);
+  border-radius: 16rpx;
+  text-align: center;
+}
+
+.about__logo {
+  width: 96rpx;
+  height: 96rpx;
+  margin: 0 auto 12rpx;
+  display: block;
+}
+
+.about__name {
+  .ui-title();
+}
+
+.about__ver {
+  .ui-caption();
+  margin-top: 8rpx;
+}
+
+.about__intro {
+  .ui-body();
+  font-weight: 400;
+  color: var(--td-text-color-secondary);
+  margin-top: 20rpx;
+  text-align: left;
+  line-height: 1.55;
+}
+
+.about__card {
+  margin: 0 16rpx 16rpx;
+  padding: 28rpx 32rpx;
+  background: var(--td-bg-color-container);
+  border-radius: 16rpx;
+}
+
+.about__card-title {
+  .ui-strong();
+  margin-bottom: 16rpx;
+}
+
+.about__tip {
+  .ui-body();
+  font-weight: 400;
+  color: var(--td-text-color-secondary);
+  line-height: 1.55;
+  margin-top: 8rpx;
+}
+
+.about__group {
+  margin: 0 16rpx !important;
+}
+
+.about__icon {
+  width: 40rpx;
+  height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about__foot {
+  .ui-caption();
+  text-align: center;
+  margin-top: 32rpx;
+  padding: 0 32rpx;
+}
+
+.about__legal {
+  background: var(--td-bg-color-container);
+  border-radius: 24rpx 24rpx 0 0;
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.about__legal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 28rpx 28rpx 12rpx;
+  flex-shrink: 0;
+}
+
+.about__legal-title {
+  .ui-title();
+  flex: 1;
+  min-width: 0;
+}
+
+.about__legal-scroll {
+  max-height: 62vh;
+  padding: 0 28rpx 32rpx;
+  box-sizing: border-box;
+}
+
+.about__legal-updated {
+  .ui-caption();
+  margin-bottom: 20rpx;
+}
+
+.about__legal-sec {
+  margin-bottom: 24rpx;
+}
+
+.about__legal-h {
+  .ui-strong();
+  margin-bottom: 8rpx;
+}
+
+.about__legal-p {
+  .ui-body();
+  font-weight: 400;
+  color: var(--td-text-color-secondary);
+  line-height: 1.6;
+  margin-top: 8rpx;
+}

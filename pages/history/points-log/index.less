@@ -17,29 +17,25 @@
   }
 
   &__balance-label {
-    font-size: 30rpx;
+    .ui-strong();
     font-weight: 500;
     line-height: 1.2;
-    color: var(--td-text-color-primary);
   }
 
   &__balance-num {
-    font-size: 44rpx;
-    font-weight: 700;
-    line-height: 1.2;
-    color: var(--td-brand-color);
+    .ui-display();
   }
 
   &__tip {
+    .ui-caption();
     margin: 0 24rpx 16rpx;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
-    line-height: 1.5;
   }
 
   &__state {
-    padding: 120rpx 0;
+    width: 100%;
+    min-height: 40vh;
     display: flex;
+    align-items: center;
     justify-content: center;
   }
 
@@ -69,19 +65,17 @@
   }
 
   &__title {
+    .ui-body();
     display: block;
-    font-size: 28rpx;
-    color: var(--td-text-color-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   &__time {
+    .ui-caption();
     display: block;
     margin-top: 6rpx;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__right {
@@ -90,9 +84,8 @@
   }
 
   &__delta {
+    .ui-strong();
     display: block;
-    font-size: 32rpx;
-    font-weight: 600;
 
     &--plus {
       color: var(--td-success-color);
@@ -104,17 +97,15 @@
   }
 
   &__after {
+    .ui-caption();
     display: block;
     margin-top: 4rpx;
-    font-size: 20rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__more,
   &__end {
+    .ui-caption();
     padding: 24rpx 0;
     text-align: center;
-    font-size: 24rpx;
-    color: var(--td-text-color-placeholder);
   }
 }

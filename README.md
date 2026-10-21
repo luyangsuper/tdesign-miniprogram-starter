@@ -62,6 +62,7 @@
 | `feedback` | 用户意见反馈（`content` / `contact` / `status`） |
 | `lotteries` | 抽奖活动（`title` / `poolPoints` / `winnerCount` / `drawAt` / `status` / `winners`） |
 | `lottery_entries` | 抽奖参与记录（文档 id：`{lotteryId}_{openid}`） |
+| `favorites` | 用户收藏（文档 id：`{openid}_{packId}`；`openid` / `packId` / `createdAt`） |
 
 建议索引：
 
@@ -74,6 +75,7 @@
 - 短缓存写在 `app_config`：`category_counts`（约 2 分钟）、`dashboard_cache`（约 3 分钟）；合集增删改会失效
 - `lotteries`：`status` + `drawAt`；`createdAt`（降序）；`status` + `drawnAt`（降序）
 - `lottery_entries`：`lotteryId` + `_id`
+- `favorites`：`openid` + `createdAt`（降序）
 
 **权限建议：** 集合对客户端「所有用户不可读写」，只走云函数。
 
@@ -110,6 +112,7 @@
 | `adminManagePoints` | 见面礼 / 签到规则 / 活动发积分 |
 | `userCheckin` | 每日签到 / 补签 |
 | `userHistory` | 积分流水 |
+| `userFavorite` | 收藏 / 取消 / 列表（集合 `favorites`） |
 | `adminDashboard` | 管理端数据看板（今日下载 / 成交 / 热门） |
 
 ### 3.1 抽奖定时触发器

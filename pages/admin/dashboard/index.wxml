@@ -1,6 +1,6 @@
 <view class="dash" style="{{themeStyle}}">
   <view class="dash__tip">
-    概览今日 / 近 7 日下载与付费。更新于 {{updatedText || '—'}}
+    今日实时；累计可切近七日 / 当月 / 全部。更新于 {{updatedText || '—'}}
   </view>
 
   <view wx:if="{{loading}}" class="dash__loading">
@@ -36,24 +36,51 @@
       </view>
     </view>
 
-    <view class="dash__section">累计</view>
+    <view class="dash__section dash__section--row">
+      <view class="dash__section-head">
+        <text>累计</text>
+        <text class="dash__section-extra">已发布 {{summary.packsPublished}}</text>
+      </view>
+      <view class="dash__tags">
+        <t-check-tag
+          wx:for="{{periodOptions}}"
+          wx:key="id"
+          size="medium"
+          variant="dark"
+          checked="{{period === item.id}}"
+          content="{{item.label}}"
+          data-period="{{item.id}}"
+          bind:change="onPeriodChange"
+        />
+      </view>
+    </view>
     <view class="dash__grid dash__grid--2">
       <view class="dash__stat">
-        <text class="dash__stat-num">{{summary.usersTotal}}</text>
-        <text class="dash__stat-label">注册用户</text>
+        <text class="dash__stat-num">{{periodSummary.users}}</text>
+        <text class="dash__stat-label">{{usersLabel}}</text>
       </view>
       <view class="dash__stat">
-        <text class="dash__stat-num">{{summary.packsPublished}}</text>
-        <text class="dash__stat-label">已发布合集</text>
+        <text class="dash__stat-num">{{periodSummary.downloads}}</text>
+        <text class="dash__stat-label">下载次数</text>
       </view>
       <view class="dash__stat">
-        <text class="dash__stat-num">{{summary.downloadsWeek}}</text>
-        <text class="dash__stat-label">近 7 日下载</text>
+        <text class="dash__stat-num">{{periodSummary.orders}}</text>
+        <text class="dash__stat-label">成交笔数</text>
       </view>
       <view class="dash__stat">
-        <text class="dash__stat-num">¥{{summary.revenueWeekYuan}}</text>
-        <text class="dash__stat-label">近 7 日成交</text>
+        <text class="dash__stat-num">¥{{periodSummary.revenueYuan}}</text>
+        <text class="dash__stat-label">成交额</text>
       </view>
+    </view>
+
+    <view class="dash__section">成交额走势</view>
+    <view class="dash__card dash__card--chart">
+      <fun-line-chart
+        wx:if="{{revenueTrend.length}}"
+        series="{{revenueTrend}}"
+        color="{{themeBrand}}"
+      />
+      <fun-empty wx:else size="small" description="暂无成交" />
     </view>
 
     <view class="dash__section">近 7 日下载</view>
@@ -67,12 +94,12 @@
           <text class="dash__bar-label">{{item.label}}</text>
         </view>
       </view>
-      <t-empty wx:else description="暂无数据" />
+      <fun-empty wx:else size="small" description="暂无数据" />
     </view>
 
     <view class="dash__section">今日热门合集</view>
     <view class="dash__card">
-      <t-empty wx:if="{{!todayHotPacks.length}}" description="今日暂无下载" />
+      <fun-empty wx:if="{{!todayHotPacks.length}}" size="small" description="今日暂无下载" />
       <block wx:else>
         <view
           class="dash__pack"
@@ -102,7 +129,7 @@
 
     <view class="dash__section">累计热门</view>
     <view class="dash__card">
-      <t-empty wx:if="{{!allTimeHot.length}}" description="暂无合集" />
+      <fun-empty wx:if="{{!allTimeHot.length}}" size="small" description="暂无合集" />
       <block wx:else>
         <view
           class="dash__pack"

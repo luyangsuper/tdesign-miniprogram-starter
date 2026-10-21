@@ -1,5 +1,5 @@
 <view class="my-page" style="{{themeStyle}}">
-<t-navbar title="我的" placeholder="{{true}}" z-index="{{500}}" />
+<t-navbar title="我的" fixed="{{true}}" placeholder="{{true}}" z-index="{{500}}" />
 <view class="my">
   <view class="my__profile">
     <view class="my__avatar-wrap">
@@ -176,6 +176,23 @@
       t-class-center="my-menu-cell__center"
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
+      title="我的收藏"
+      note="收藏的合集"
+      arrow
+      hover
+      bind:click="goFavorites"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="heart" size="40rpx" color="#EB5757" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
       title="积分流水"
       note="收入 / 消耗明细"
       arrow
@@ -210,11 +227,15 @@
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
       title="抽奖活动"
-      note="参与抽奖 · 看开奖名单"
       arrow
       hover
       bind:click="goLottery"
     >
+      <view slot="note" class="my-lottery-note">
+        <t-tag wx:if="{{gridLotteryOn}}" size="small" variant="light" theme="success">九宫格</t-tag>
+        <t-tag wx:if="{{lotteryOpenCount > 0}}" size="small" variant="light" theme="primary">报名中 {{lotteryOpenCount}}</t-tag>
+        <text wx:if="{{!gridLotteryOn && lotteryOpenCount <= 0}}" class="my-menu-cell__note">暂无活动</text>
+      </view>
       <view slot="left-icon" class="my-menu-icon">
         <t-icon name="star" size="40rpx" color="#F2C94C" />
       </view>
@@ -463,7 +484,10 @@
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
       title="关于趣集"
-      note="表情 / 壁纸合集"
+      note="说明 / 协议 / 版本"
+      arrow
+      hover
+      bind:click="goAbout"
     >
       <view slot="left-icon" class="my-menu-icon">
         <t-icon name="info-circle" size="40rpx" color="#828282" />
@@ -586,6 +610,7 @@
       media-type="{{['image']}}"
       files="{{feedbackFiles}}"
       gridConfig="{{feedbackGridConfig}}"
+      config="{{feedbackPickConfig}}"
       max="3"
       bind:success="onFeedbackUploadSuccess"
       bind:remove="onFeedbackUploadRemove"

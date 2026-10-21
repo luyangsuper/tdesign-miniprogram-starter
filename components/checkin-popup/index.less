@@ -1,3 +1,5 @@
+@import '/variable.less';
+
 .ckp {
   width: 620rpx;
   max-width: 90vw;
@@ -43,10 +45,10 @@
     min-width: 0 !important;
     height: 44rpx !important;
     padding: 0 18rpx !important;
-    font-size: 22rpx !important;
+    font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
     line-height: 44rpx !important;
     --td-button-extra-small-height: 44rpx;
-    --td-button-extra-small-font-size: 22rpx;
+    --td-button-extra-small-font-size: var(--ui-fs-caption, @ui-fs-caption);
     --td-button-extra-small-padding-horizontal: 18rpx;
   }
 
@@ -72,14 +74,13 @@
   }
 
   &__hero-title {
-    font-size: 32rpx;
+    .ui-title();
     font-weight: 700;
     line-height: 1.2;
   }
 
   &__hero-sub {
-    font-size: 22rpx;
-    line-height: 1.3;
+    .ui-caption();
     color: var(--td-text-color-secondary);
   }
 
@@ -91,7 +92,7 @@
   }
 
   &__month-title {
-    font-size: 26rpx;
+    .ui-body();
     font-weight: 600;
   }
 
@@ -103,8 +104,7 @@
   &__week-label {
     flex: 1;
     text-align: center;
-    font-size: 20rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     line-height: 40rpx;
   }
 
@@ -197,10 +197,9 @@
   }
 
   &__day {
-    font-size: 26rpx;
+    .ui-body();
     font-weight: 600;
     line-height: 1.2;
-    color: var(--td-text-color-primary);
   }
 
   &__dot {

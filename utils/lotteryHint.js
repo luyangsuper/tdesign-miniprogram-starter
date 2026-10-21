@@ -220,7 +220,13 @@ export function showLotteryResultModal(result, onClose) {
   const title = String(result.title || '开奖结果').slice(0, 16);
   wx.showModal({
     title: title || '开奖结果',
-    content: won ? `恭喜中奖 +${pts} 积分，已发放到账户` : '很遗憾，这次未中奖',
+    content: result.refunded
+      ? '人数不足，报名费已退回账户'
+      : won
+        ? `恭喜中奖 +${pts} 积分，已发放到账户`
+        : result.paid
+          ? '很遗憾，这次未中奖，报名费不退回'
+          : '很遗憾，这次未中奖',
     showCancel: false,
     confirmText: '好的',
     success: () => {

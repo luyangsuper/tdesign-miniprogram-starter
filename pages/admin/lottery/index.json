@@ -1,12 +1,15 @@
 {
   "navigationBarTitleText": "抽奖活动",
+  "navigationStyle": "default",
   "usingComponents": {
     "t-input": "tdesign-miniprogram/input/input",
     "t-button": "tdesign-miniprogram/button/button",
     "t-loading": "tdesign-miniprogram/loading/loading",
     "t-tag": "tdesign-miniprogram/tag/tag",
-    "t-empty": "tdesign-miniprogram/empty/empty",
+    "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
+    "fun-empty": "/components/fun-empty/index",
     "t-icon": "tdesign-miniprogram/icon/icon",
+    "t-switch": "tdesign-miniprogram/switch/switch",
     "t-date-time-picker": "tdesign-miniprogram/date-time-picker/date-time-picker",
     "lottery-host": "/components/lottery-host/index"
   }

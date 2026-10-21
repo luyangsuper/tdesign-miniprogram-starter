@@ -3,6 +3,7 @@
  */
 const { sendLotteryWinNotice } = require('./notify');
 const { recordPointsLog } = require('./pointsLog');
+const { lotteryCost, planPaidDraw, refundPaidEntries, refundOneEntry } = require('./lotteryPaid');
 
 function toMs(v) {
   if (!v) return 0;
@@ -73,6 +74,27 @@ function splitPoolRandomly(total, k) {
   return floors;
 }
 
+/** 每人至少 minEach，剩余再随机拆 */
+function splitPoolWithFloor(total, k, minEach) {
+  const n = Math.max(0, Math.floor(Number(k) || 0));
+  const T = Math.max(0, Math.floor(Number(total) || 0));
+  const min = Math.max(1, Math.floor(Number(minEach) || 1));
+  if (n <= 0 || T < n * min) return [];
+  const rest = T - n * min;
+  if (rest <= 0) return Array.from({ length: n }, () => min);
+  const extra = splitPoolRandomly(rest, n);
+  if (!extra.length || extra.length !== n) {
+    const base = Array.from({ length: n }, () => min);
+    let rem = rest;
+    for (let i = 0; i < n && rem > 0; i += 1) {
+      base[i] += 1;
+      rem -= 1;
+    }
+    return base;
+  }
+  return extra.map((x) => min + Math.max(0, Math.floor(Number(x) || 0)));
+}
+
 async function ensureCollection(db, name) {
   try {
     await db.createCollection(name);
@@ -112,12 +134,25 @@ async function loadAllEntries(db, lotteryId) {
     return list;
   } catch (e) {
     console.warn('[draw] loadAllEntries fallback', e.message || e);
-    const res = await db
-      .collection('lottery_entries')
-      .where({ lotteryId })
-      .limit(PAGE)
-      .get();
-    return (res && res.data) || [];
+    const list = [];
+    let lastId = '';
+    while (true) {
+      let query = db.collection('lottery_entries').where({ lotteryId }).limit(PAGE);
+      if (lastId) {
+        query = db
+          .collection('lottery_entries')
+          .where({ lotteryId, _id: _.gt(lastId) })
+          .limit(PAGE);
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const res = await query.get();
+      const rows = (res && res.data) || [];
+      if (!rows.length) break;
+      list.push(...rows);
+      lastId = String(rows[rows.length - 1]._id || '');
+      if (!lastId || rows.length < PAGE) break;
+    }
+    return list;
   }
 }
 
@@ -179,6 +214,8 @@ async function creditAndPushResult(db, _, {
   won,
   prizePoints,
   drawAtMs,
+  refunded,
+  paid,
 }) {
   if (!openid || !lotteryId) return;
   const userRef = db.collection('users').doc(openid);
@@ -252,6 +289,8 @@ async function creditAndPushResult(db, _, {
           lotteryId,
           title,
           won: !!won,
+          refunded: !!refunded,
+          paid: !!paid,
           prizePoints: pts,
           drawAt: drawAtMs || 0,
           at: Date.now(),
@@ -346,6 +385,60 @@ async function repairMyLotteryCredits(db, _, openid) {
 }
 
 /**
+ * 投入型：取消 / 人数不足退费未到账时补退，并补开奖结果弹窗。
+ */
+async function repairMyPaidLottery(db, _, openid) {
+  if (!openid) return { repaired: 0 };
+  let entries = [];
+  try {
+    const res = await db.collection('lottery_entries').where({ openid }).limit(50).get();
+    entries = (res && res.data) || [];
+  } catch (e) {
+    return { repaired: 0 };
+  }
+  let repaired = 0;
+  // eslint-disable-next-line no-restricted-syntax
+  for (const entry of entries) {
+    const cost = Math.max(0, Math.floor(Number(entry.costPoints) || 0));
+    const lotteryId = String(entry.lotteryId || '').trim();
+    if (!lotteryId || cost <= 0) continue;
+    let lot = null;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      lot = (await db.collection('lotteries').doc(lotteryId).get()).data;
+    } catch (e) {
+      lot = null;
+    }
+    if (!lot) continue;
+    const needRefund = lot.status === 'cancelled' || lot.drawOutcome === 'refunded';
+    if (!needRefund) continue;
+    const entryId = entry._id || `${lotteryId}_${openid}`;
+    if (!entry.refunded) {
+      // eslint-disable-next-line no-await-in-loop
+      await refundOneEntry(db, _, {
+        openid,
+        entryId,
+        lotteryId,
+        title: lot.title,
+        cost,
+      });
+      repaired += 1;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await creditAndPushResult(db, _, {
+      openid,
+      lotteryId,
+      title: String(lot.title || '抽奖活动'),
+      won: false,
+      prizePoints: 0,
+      drawAtMs: toMs(lot.drawAt || lot.drawnAt),
+      refunded: true,
+    });
+  }
+  return { repaired };
+}
+
+/**
  * 执行开奖。可被定时器 / 懒开奖调用。
  * @returns {{ ok: boolean, code?: string, message?: string, data?: object }}
  */
@@ -372,55 +465,109 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
   if (lot.status === 'cancelled') {
     return { ok: false, code: 'CANCELLED', message: '活动已取消' };
   }
+  const drawAtMs = toMs(lot.drawAt);
+
   if (lot.status === 'drawing') {
     const drawingAt = toMs(lot.drawingAt || lot.updatedAt);
     const stale = !drawingAt || Date.now() - drawingAt > 45 * 1000;
     if (!stale) {
       return { ok: false, code: 'BUSY', message: '正在开奖' };
     }
-    // 卡住的 drawing 回收后再开
+    // 卡住的 drawing 直接续开，不要打回 open（否则投入型会在窗口期继续扣费报名）
     try {
       await lotRef.update({
-        data: { status: 'open', updatedAt: db.serverDate() },
+        data: { drawingAt: db.serverDate(), updatedAt: db.serverDate() },
       });
-      lot.status = 'open';
     } catch (e) {
       return { ok: false, code: 'BUSY', message: '正在开奖' };
     }
-  }
-  if (lot.status !== 'open') {
+  } else if (lot.status !== 'open') {
     return { ok: false, code: 'BAD_STATUS', message: '活动状态不可开奖' };
-  }
-
-  const drawAtMs = toMs(lot.drawAt);
-  if (!force && drawAtMs > Date.now()) {
-    return { ok: false, code: 'TOO_EARLY', message: '尚未到开奖时间' };
-  }
-
-  // 单飞：open → drawing
-  try {
-    await lotRef.update({
-      data: {
-        status: 'drawing',
-        drawingAt: db.serverDate(),
-        updatedAt: db.serverDate(),
-      },
-    });
-  } catch (e) {
-    return { ok: false, code: 'BUSY', message: '开奖冲突，请稍后' };
+  } else {
+    if (!force && drawAtMs > Date.now()) {
+      return { ok: false, code: 'TOO_EARLY', message: '尚未到开奖时间' };
+    }
+    try {
+      await lotRef.update({
+        data: {
+          status: 'drawing',
+          drawingAt: db.serverDate(),
+          updatedAt: db.serverDate(),
+        },
+      });
+    } catch (e) {
+      return { ok: false, code: 'BUSY', message: '开奖冲突，请稍后' };
+    }
   }
 
   try {
     const entries = await loadAllEntries(db, id);
-    const poolPoints = Math.max(0, Math.floor(Number(lot.poolPoints) || 0));
-    const winnerCount = Math.max(1, Math.floor(Number(lot.winnerCount) || 1));
     const title = String(lot.title || '抽奖活动');
+    const plan = planPaidDraw(lot, entries.length);
 
+    if (plan.paid && plan.refundAll) {
+      await refundPaidEntries(db, _, {
+        lotteryId: id,
+        title,
+        costFallback: plan.cost || lotteryCost(lot),
+        entries,
+      });
+      // eslint-disable-next-line no-restricted-syntax
+      for (const entry of entries) {
+        // eslint-disable-next-line no-await-in-loop
+        await creditAndPushResult(db, _, {
+          openid: entry.openid,
+          lotteryId: id,
+          title,
+          won: false,
+          prizePoints: 0,
+          drawAtMs,
+          refunded: true,
+          paid: true,
+        });
+      }
+      await lotRef.update({
+        data: {
+          status: 'drawn',
+          drawOutcome: 'refunded',
+          winners: [],
+          collectedPoints: plan.collected,
+          actualPool: 0,
+          drawnAt: db.serverDate(),
+          participantCount: entries.length,
+          updatedAt: db.serverDate(),
+        },
+      });
+      try {
+        await clearInvitesForLottery(db, _, id);
+      } catch (e) {
+        console.warn('[draw] clear invites', e.message || e);
+      }
+      return {
+        ok: true,
+        data: {
+          lotteryId: id,
+          winners: [],
+          participantCount: entries.length,
+          drawOutcome: 'refunded',
+          collectedPoints: plan.collected,
+        },
+      };
+    }
+
+    const poolPoints = plan.paid
+      ? plan.actualPool
+      : Math.max(0, Math.floor(Number(lot.poolPoints) || 0));
     const shuffled = shuffle(entries);
-    const k = Math.min(winnerCount, shuffled.length);
+    const k = plan.paid
+      ? plan.k
+      : Math.min(Math.max(1, Math.floor(Number(lot.winnerCount) || 1)), shuffled.length);
     const picked = shuffled.slice(0, k);
-    let amounts = splitPoolRandomly(poolPoints, k).filter((n) => n > 0);
-    // 若 T < k，amounts 可能短于 picked
+    const amounts = (
+      plan.paid
+        ? splitPoolWithFloor(poolPoints, k, plan.minPrize)
+        : splitPoolRandomly(poolPoints, k)
+    ).filter((n) => n > 0);
     const winners = [];
     for (let i = 0; i < amounts.length; i += 1) {
       const row = picked[i];
@@ -431,7 +578,6 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
         points: amounts[i],
       });
     }
-    // 按积分降序方便展示
     winners.sort((a, b) => b.points - a.points);
     winners.forEach((w, idx) => {
       w.rank = idx + 1;
@@ -469,6 +615,7 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
         won,
         prizePoints,
         drawAtMs,
+        paid: !!plan.paid,
       });
 
       if (won && prizePoints > 0) {
@@ -490,7 +637,10 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
     await lotRef.update({
       data: {
         status: 'drawn',
+        drawOutcome: 'drawn',
         winners,
+        collectedPoints: plan.paid ? plan.collected : 0,
+        actualPool: poolPoints,
         drawnAt: db.serverDate(),
         participantCount: entries.length,
         updatedAt: db.serverDate(),
@@ -517,7 +667,8 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
     try {
       await lotRef.update({
         data: {
-          status: 'open',
+          status: 'drawing',
+          drawingAt: db.serverDate(),
           updatedAt: db.serverDate(),
         },
       });
@@ -566,15 +717,36 @@ async function ensureDrawn(cloud, db, lotteryOrId) {
 }
 
 async function scanAndDrawDue(cloud, db, limit = 10) {
-  const res = await db
-    .collection('lotteries')
-    .where({
-      status: 'open',
-      drawAt: db.command.lte(new Date()),
-    })
-    .limit(Math.min(20, Math.max(1, limit)))
-    .get();
-  const rows = (res && res.data) || [];
+  const cap = Math.min(20, Math.max(1, limit));
+  const cmd = db.command;
+  let rows = [];
+  try {
+    const openRes = await db
+      .collection('lotteries')
+      .where({
+        status: 'open',
+        drawAt: cmd.lte(new Date()),
+      })
+      .limit(cap)
+      .get();
+    rows = (openRes && openRes.data) || [];
+  } catch (e) {
+    rows = [];
+  }
+  try {
+    const drawingRes = await db
+      .collection('lotteries')
+      .where({ status: 'drawing' })
+      .limit(cap)
+      .get();
+    const extra = (drawingRes && drawingRes.data) || [];
+    const seen = new Set(rows.map((r) => r && r._id).filter(Boolean));
+    extra.forEach((r) => {
+      if (r && r._id && !seen.has(r._id)) rows.push(r);
+    });
+  } catch (e) {
+    /* ignore */
+  }
   const results = [];
   // eslint-disable-next-line no-restricted-syntax
   for (const row of rows) {
@@ -590,6 +762,7 @@ module.exports = {
   toMs,
   shuffle,
   splitPoolRandomly,
+  splitPoolWithFloor,
   runDraw,
   ensureDrawn,
   scanAndDrawDue,
@@ -597,5 +770,6 @@ module.exports = {
   loadAllEntries,
   creditAndPushResult,
   repairMyLotteryCredits,
+  repairMyPaidLottery,
   clearInvitesForLottery,
 };

@@ -7,7 +7,7 @@
 
   &--select &__body {
     padding-bottom: calc(
-      @tab-bar-height + 168rpx + env(safe-area-inset-bottom)
+      @tab-bar-height + @tab-bar-page-gap + 168rpx + env(safe-area-inset-bottom)
     );
   }
 
@@ -18,7 +18,7 @@
     align-items: center;
     justify-content: center;
     padding: 0 12rpx;
-    font-size: 28rpx;
+    .ui-strong();
     color: var(--td-brand-color);
     font-weight: 500;
     box-sizing: border-box;
@@ -181,7 +181,7 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 24rpx !important;
+    font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
     line-height: 1 !important;
     overflow: hidden;
     transition: background-color 0.22s ease, color 0.22s ease, transform 0.16s ease;
@@ -210,7 +210,7 @@
 
   &__cat-name {
     display: inline-block;
-    font-size: 24rpx;
+    font-size: var(--ui-fs-caption, @ui-fs-caption);
     line-height: 28rpx;
     height: 28rpx;
   }
@@ -226,7 +226,7 @@
     overflow: hidden;
     opacity: 0;
     border-radius: 14rpx;
-    font-size: 20rpx;
+    font-size: var(--ui-fs-caption, @ui-fs-caption);
     font-weight: 600;
     line-height: 28rpx;
     color: var(--home-cat-accent, var(--td-brand-color));
@@ -251,7 +251,7 @@
 
   &__body {
     position: relative;
-    padding: 0 0 calc(@tab-bar-height + env(safe-area-inset-bottom));
+    padding: 0 0 calc(@tab-bar-height + @tab-bar-page-gap + env(safe-area-inset-bottom));
     box-sizing: border-box;
     overflow: hidden;
     background: var(--td-bg-color-page);
@@ -284,9 +284,7 @@
   }
 
   &__refresher-text {
-    font-size: 22rpx;
-    line-height: 1.2;
-    color: var(--td-text-color-placeholder, rgba(0, 0, 0, 0.4));
+    .ui-caption();
   }
 
   /* 露白条：fixed 对齐屏幕可视区，宽=跟手位移，条内水平垂直居中 */
@@ -323,17 +321,14 @@
   }
 
   &__swipe-hint-title {
-    font-size: 22rpx;
-    line-height: 1.2;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     text-align: center;
   }
 
   &__swipe-hint-name {
     max-width: 100%;
-    font-size: 26rpx;
+    .ui-body();
     font-weight: 600;
-    line-height: 1.25;
     color: var(--td-brand-color);
     text-align: center;
     overflow: hidden;
@@ -398,8 +393,7 @@
 
   &__footer {
     text-align: center;
-    color: var(--td-text-color-placeholder);
-    font-size: 24rpx;
+    .ui-caption();
     padding: 24rpx 0 64rpx;
     min-height: 80rpx;
     display: flex;
@@ -408,21 +402,12 @@
   }
 
   &__state {
-    padding-top: 160rpx;
+    width: 100%;
+    min-height: 52vh;
     display: flex;
+    align-items: center;
     justify-content: center;
     animation: home-fade-in 0.22s ease both;
-  }
-
-  &__empty {
-    --td-empty-icon-size: 180rpx;
-    --td-empty-description-color: var(--td-text-color-placeholder);
-    padding: 80rpx 48rpx 48rpx;
-  }
-
-  &__empty-img {
-    width: 180rpx !important;
-    height: 180rpx !important;
   }
 
   &__gift {
@@ -446,14 +431,13 @@
   }
 
   &__gift-title {
-    font-size: 36rpx;
+    .ui-title();
     font-weight: 700;
-    color: var(--td-text-color-primary);
   }
 
   &__gift-points {
     margin-top: 12rpx;
-    font-size: 48rpx;
+    .ui-display();
     font-weight: 800;
     color: #10b981;
     letter-spacing: 1rpx;
@@ -466,8 +450,7 @@
     flex-direction: column;
     align-items: center;
     gap: 4rpx;
-    font-size: 26rpx;
-    line-height: 1.4;
+    .ui-body();
     color: var(--td-text-color-secondary);
   }
 
@@ -481,8 +464,7 @@
 
   &__gift-tip {
     margin: 10rpx 0 28rpx;
-    font-size: 24rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
   }
 
   &__subscribe {
@@ -492,14 +474,12 @@
   }
 
   &__subscribe-title {
-    font-size: 34rpx;
-    font-weight: 600;
-    color: var(--td-text-color-primary);
+    .ui-title();
   }
 
   &__subscribe-desc {
     margin: 16rpx 0 32rpx;
-    font-size: 26rpx;
+    .ui-body();
     line-height: 1.5;
     color: var(--td-text-color-secondary);
   }
@@ -530,7 +510,7 @@
   }
 
   &__batch-meta {
-    font-size: 24rpx;
+    .ui-caption();
     color: var(--td-text-color-secondary);
     margin-bottom: 14rpx;
   }
@@ -550,7 +530,7 @@
     /* 与右侧下载按钮同高 */
     --td-tag-medium-height: 64rpx;
     --td-tag-medium-padding: 0 28rpx;
-    --td-tag-medium-font-size: 26rpx;
+    --td-tag-medium-font-size: var(--ui-fs-body, @ui-fs-body);
   }
 
   &__batch-btn {
@@ -558,10 +538,10 @@
     min-width: 168rpx !important;
     height: 64rpx !important;
     line-height: 64rpx !important;
-    font-size: 26rpx !important;
+    font-size: var(--ui-fs-body, @ui-fs-body) !important;
     padding: 0 32rpx !important;
     --td-button-small-height: 64rpx;
-    --td-button-small-font-size: 26rpx;
+    --td-button-small-font-size: var(--ui-fs-body, @ui-fs-body);
     --td-button-small-padding-horizontal: 32rpx;
   }
 
@@ -579,7 +559,8 @@
   }
 
   &__confirm-text {
-    font-size: 28rpx;
+    .ui-strong();
+    font-weight: 400;
     line-height: 1.5;
     color: var(--td-text-color-secondary);
     text-align: center;

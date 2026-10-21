@@ -29,6 +29,7 @@ exports.main = async (event) => {
   const categoryId = String(event.categoryId || '').trim();
   const coverFileID = event.coverFileID;
   const previewFileIDs = Array.isArray(event.previewFileIDs) ? event.previewFileIDs.filter(Boolean) : [];
+  const previewVideoFileID = String(event.previewVideoFileID || '').trim();
   const emojiFileIDs = Array.isArray(event.emojiFileIDs) ? event.emojiFileIDs.filter(Boolean) : [];
   const rawAnim = Array.isArray(event.emojiAnimFileIDs) ? event.emojiAnimFileIDs : [];
   const emojiAnimFileIDs = emojiFileIDs.map((_, i) => {
@@ -40,7 +41,6 @@ exports.main = async (event) => {
   if (!title) return { ok: false, code: 'BAD_PARAM', message: '请填写标题' };
   if (!categoryId) return { ok: false, code: 'BAD_PARAM', message: '请选择分类' };
   if (!coverFileID) return { ok: false, code: 'BAD_PARAM', message: '请上传封面' };
-  if (!previewFileIDs.length) return { ok: false, code: 'BAD_PARAM', message: '请至少上传一张预览图' };
   if (!emojiFileIDs.length) return { ok: false, code: 'BAD_PARAM', message: '请至少上传一张静态原图' };
 
   try {
@@ -53,16 +53,18 @@ exports.main = async (event) => {
     const old = doc.data;
     const oldFiles = [
       old.coverFileID,
+      old.previewVideoFileID,
       ...(old.previewFileIDs || []),
       ...(old.emojiFileIDs || []),
       ...(old.emojiAnimFileIDs || []),
     ].filter(Boolean);
     const newFiles = [
       coverFileID,
+      previewVideoFileID,
       ...previewFileIDs,
       ...emojiFileIDs,
       ...emojiAnimFileIDs.filter(Boolean),
-    ];
+    ].filter(Boolean);
     const removed = oldFiles.filter((id) => !newFiles.includes(id));
 
     const pairKeys = Array.isArray(event.pairKeys) ? event.pairKeys.filter(Boolean) : [];
@@ -79,10 +81,11 @@ exports.main = async (event) => {
         coverWidth: Math.max(0, Number(event.coverWidth) || 0),
         coverHeight: Math.max(0, Number(event.coverHeight) || 0),
         previewFileIDs,
+        previewVideoFileID,
         emojiFileIDs,
         emojiAnimFileIDs,
         pairKeys,
-        previewCount: previewFileIDs.length,
+        previewCount: previewFileIDs.length + (previewVideoFileID ? 1 : 0),
         emojiCount: emojiFileIDs.length,
         updatedAt: db.serverDate(),
       },

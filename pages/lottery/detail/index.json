@@ -1,12 +1,15 @@
 {
   "navigationBarTitleText": "抽奖详情",
+  "navigationStyle": "default",
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
   "usingComponents": {
     "t-loading": "tdesign-miniprogram/loading/loading",
     "t-button": "tdesign-miniprogram/button/button",
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-cell": "tdesign-miniprogram/cell/cell",
     "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
-    "t-empty": "tdesign-miniprogram/empty/empty",
+    "fun-empty": "/components/fun-empty/index",
     "lottery-host": "/components/lottery-host/index"
   }
 }

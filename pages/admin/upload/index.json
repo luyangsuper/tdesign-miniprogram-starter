@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "上传合集",
+  "navigationStyle": "default",
   "styleIsolation": "shared",
   "usingComponents": {
     "t-input": "tdesign-miniprogram/input/input",

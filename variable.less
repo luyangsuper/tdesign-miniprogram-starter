@@ -1,8 +1,11 @@
 // 布局尺寸（与主题无关）
 @navbar-padding-top: 20px;
 @nav-bar-height: 60px;
-/* 固定底栏内容区高度（不含安全区）；页面底部需留 @tab-bar-height + safe-area */
-@tab-bar-height: 100rpx;
+/* 固定底栏内容区高度（不含安全区）= item 高度 + 上下 margin；页面再加 @tab-bar-page-gap + safe-area */
+@tab-bar-item-height: 80rpx;
+@tab-bar-item-margin-y: 8rpx;
+@tab-bar-height: @tab-bar-item-height + @tab-bar-item-margin-y * 2;
+@tab-bar-page-gap: 24rpx;
 
 // font-size
 @font-size-default: 16px;
@@ -12,6 +15,57 @@
 @headline-medium: 28px;
 @body-large: 16px;
 @body-small: 12px;
+
+// 文案层级（全站统一；改这里即可全局生效，页面用 mixin 不要再写死字号）
+// display 大数字 → title 页标题 → strong 栏目标题/昵称 → body 列表主文 → caption 辅助说明
+@ui-fs-display: 44rpx;
+@ui-fs-title: 32rpx;
+@ui-fs-strong: 28rpx;
+@ui-fs-body: 26rpx;
+@ui-fs-caption: 22rpx;
+
+.ui-type-tokens() {
+  --ui-fs-display: @ui-fs-display;
+  --ui-fs-title: @ui-fs-title;
+  --ui-fs-strong: @ui-fs-strong;
+  --ui-fs-body: @ui-fs-body;
+  --ui-fs-caption: @ui-fs-caption;
+}
+
+.ui-display() {
+  font-size: var(--ui-fs-display, @ui-fs-display);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--td-brand-color);
+}
+
+.ui-title() {
+  font-size: var(--ui-fs-title, @ui-fs-title);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--td-text-color-primary);
+}
+
+.ui-strong() {
+  font-size: var(--ui-fs-strong, @ui-fs-strong);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--td-text-color-primary);
+}
+
+.ui-body() {
+  font-size: var(--ui-fs-body, @ui-fs-body);
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--td-text-color-primary);
+}
+
+.ui-caption() {
+  font-size: var(--ui-fs-caption, @ui-fs-caption);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--td-text-color-placeholder);
+}
 
 // 表单密度（管理端 / 弹窗 t-input 统一；改这里即可全局生效）
 @form-card-padding: 20rpx 28rpx;
@@ -55,17 +109,12 @@
 }
 
 .form-label() {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
-  line-height: 1.3;
+  .ui-strong();
 }
 
 .form-hint() {
+  .ui-caption();
   margin-top: @form-hint-gap;
-  font-size: 22rpx;
-  line-height: 1.4;
-  color: var(--td-text-color-placeholder);
 }
 
 .form-row() {

@@ -8,7 +8,8 @@
 
     <view class="lottery-detail__hero">
       <view class="lottery-detail__title">{{title}}</view>
-      <view class="lottery-detail__pool">奖池 {{poolPoints}} 积分</view>
+      <view class="lottery-detail__pool">{{type === 'paid' ? ('奖池上限 ' + poolPoints + ' 积分') : ('奖池 ' + poolPoints + ' 积分')}}</view>
+      <view wx:if="{{type === 'paid'}}" class="lottery-detail__meta">投入 {{costPoints}} 分即可参与 · 少数人中奖</view>
       <view class="lottery-detail__meta">{{winnerCount}} 人中奖 · 已参与 {{participantCount}} 人</view>
       <view class="lottery-detail__meta">开奖时间 {{drawAtText || '—'}}</view>
       <view
@@ -18,10 +19,12 @@
         {{status === 'drawing' || countdown === '开奖中…' ? countdown : ('距开奖 ' + countdown)}}
       </view>
       <view wx:if="{{joined && status === 'open'}}" class="lottery-detail__joined">
-        你已参与，坐等开奖
+        {{type === 'paid' ? ('已投入 ' + (paidCost || costPoints) + ' 分，坐等开奖') : '你已参与，坐等开奖'}}
       </view>
       <view wx:if="{{isDrawn}}" class="lottery-detail__result {{won ? 'is-win' : ''}}">
-        {{won ? '恭喜中奖 +' + prizePoints + ' 积分' : (joined ? '很遗憾，未中奖' : '你未参与本次抽奖')}}
+        {{drawOutcome === 'refunded'
+          ? (joined ? '人数不足，投入已退回' : '人数不足，活动已退费')
+          : (won ? '恭喜中奖 +' + prizePoints + ' 积分' : (joined ? (type === 'paid' ? '很遗憾，未中奖，报名费不退回' : '很遗憾，未中奖') : '你未参与本次抽奖'))}}
       </view>
     </view>
 
@@ -32,7 +35,7 @@
         block
         loading="{{joining}}"
         disabled="{{joining}}"
-        content="参与抽奖"
+        content="{{joinLabel}}"
         bind:tap="onJoin"
       />
     </view>
@@ -63,7 +66,7 @@
       </t-cell-group>
     </block>
     <view wx:elif="{{isDrawn}}" class="lottery-detail__empty">
-      <t-empty description="暂无中奖者" />
+      <fun-empty size="small" description="暂无中奖者" />
     </view>
     <view wx:else class="lottery-detail__hint">开奖后在此展示名单</view>
   </block>

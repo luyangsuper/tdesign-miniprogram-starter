@@ -12,6 +12,8 @@ import {
   requestLotterySubscribe,
 } from '~/utils/subscribe';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
+import { shareAppMessage, shareTimeline } from '~/utils/share';
+import { destroyLotteryAudio } from '~/utils/lotteryAudio';
 
 function statusMeta(item) {
   const status = item.status || 'open';
@@ -26,15 +28,25 @@ function statusMeta(item) {
     return {
       statusLabel: '已开奖',
       statusTheme: 'success',
-      sub: item.joined
-        ? item.won
-          ? `你中了 +${item.prizePoints || 0} 积分`
-          : '你未中奖'
-        : '未参与',
+      sub: item.drawOutcome === 'refunded'
+        ? item.joined
+          ? '人数不足，投入已退回'
+          : '人数不足已退费'
+        : item.joined
+          ? item.won
+            ? `你中了 +${item.prizePoints || 0} 积分`
+            : item.type === 'paid'
+              ? '你未中奖，报名费不退回'
+              : '你未中奖'
+          : '未参与',
     };
   }
   if (status === 'cancelled') {
-    return { statusLabel: '已取消', statusTheme: 'danger', sub: '' };
+    return {
+      statusLabel: '已取消',
+      statusTheme: 'danger',
+      sub: item.type === 'paid' && item.joined ? '报名费已退回' : '',
+    };
   }
   return { statusLabel: status, statusTheme: 'default', sub: '' };
 }
@@ -74,6 +86,7 @@ Page({
 
   onUnload() {
     this.stopWatchPoll();
+    destroyLotteryAudio();
   },
 
   startWatchPoll() {
@@ -158,5 +171,16 @@ Page({
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '订阅失败', icon: 'none' });
     }
+  },
+
+  onShareAppMessage() {
+    return shareAppMessage({
+      title: '趣集抽奖',
+      path: '/pages/lottery/index/index',
+    });
+  },
+
+  onShareTimeline() {
+    return shareTimeline({ title: '趣集抽奖' });
   },
 });

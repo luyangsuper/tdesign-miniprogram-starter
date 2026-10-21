@@ -17,6 +17,12 @@ function assertAdmin(openid) {
   return getAdminList().includes(openid);
 }
 
+const VIDEO_EXT_RE = /\.(mp4|mov|m4v|avi|mkv|3gp|webm)$/i;
+
+function isVideoFileID(fileID = '') {
+  return VIDEO_EXT_RE.test(String(fileID || '').split('?')[0]);
+}
+
 function toMs(value) {
   if (!value) return 0;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -54,19 +60,24 @@ exports.main = async (event) => {
 
     const allIds = [
       pack.coverFileID,
+      pack.previewVideoFileID,
       ...(pack.previewFileIDs || []),
       ...(pack.emojiFileIDs || []),
       ...(pack.emojiAnimFileIDs || []),
     ];
     const urlMap = await toUrlMap(allIds);
 
-    const mapFiles = (ids) =>
-      (ids || []).filter(Boolean).map((fileID, index) => ({
-        url: urlMap[fileID] || '',
-        name: `file_${index}`,
-        type: 'image',
-        fileID,
-      }));
+    const mapFiles = (ids, kind = 'image') =>
+      (ids || []).filter(Boolean).map((fileID, index) => {
+        const video = kind === 'video' || isVideoFileID(fileID);
+        return {
+          url: urlMap[fileID] || '',
+          name: video ? `preview_video_${index}` : `file_${index}`,
+          type: video ? 'video' : 'image',
+          isVideo: video,
+          fileID,
+        };
+      });
 
     // 动态保留原槽位序号，便于编辑页与静态对齐（空槽不返回）
     const emojiAnimFiles = (pack.emojiAnimFileIDs || [])
@@ -99,7 +110,10 @@ exports.main = async (event) => {
         coverFiles: pack.coverFileID
           ? mapFiles([pack.coverFileID])
           : [],
-        previewFiles: mapFiles(pack.previewFileIDs),
+        previewFiles: [
+          ...mapFiles(pack.previewFileIDs),
+          ...mapFiles(pack.previewVideoFileID ? [pack.previewVideoFileID] : [], 'video'),
+        ],
         emojiFiles: mapFiles(pack.emojiFileIDs),
         emojiAnimFiles,
         notifiedAt: toMs(pack.notifiedAt),

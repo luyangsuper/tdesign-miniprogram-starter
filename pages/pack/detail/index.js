@@ -15,6 +15,8 @@ import { downloadCost } from '~/utils/pricing';
 import { resolveIsAdmin } from '~/utils/auth';
 import { applyThemeToPage, getThemeBrand, getThemeStyle } from '~/utils/theme';
 import { getWindowInfoSafe } from '~/utils/systemInfo';
+import { getFavoriteCached, queueFavorite, rememberFavorite } from '~/utils/favoriteQueue';
+import { shareAppMessage, shareTimeline } from '~/utils/share';
 
 function calcSwiperHeight() {
   try {
@@ -55,12 +57,16 @@ const SLOT_URL_BATCH = 20;
 function decorateSlots(slots, downloadReady, variant, hasAnimAny, canSaveStatic) {
   return (slots || []).map((s) => {
     const selectable = isSlotSelectable(s, downloadReady, variant);
+    const displayUrl = slotDisplayUrl(s, variant);
+    const prevUrl = s.displayUrl || '';
+    const imgReady = displayUrl && displayUrl === prevUrl ? !!s.imgReady : false;
     return {
       ...s,
       hasAnim: !!s.hasAnim,
       selectable,
       selected: selectable && !!s.selected,
-      displayUrl: slotDisplayUrl(s, variant),
+      displayUrl,
+      imgReady,
       saveLabel: buildSaveLabel(s, downloadReady, variant, hasAnimAny, canSaveStatic),
     };
   });
@@ -94,24 +100,16 @@ Page({
     saving: false,
     pack: null,
     emojiSlots: [],
-    heroList: [],
+    heroSlides: [],
     heroCurrent: 0,
+    heroVideoPlaying: false,
     swiperHeight: calcSwiperHeight(),
-    swiperNav: {
-      type: 'fraction',
-      paginationPosition: 'bottom-right',
-      minShowNum: 2,
-      showControls: true,
-    },
     viewerVisible: false,
     viewerImages: [],
     viewerIndex: 0,
     viewerImageProps: {
       mode: 'aspectFit',
       lazy: true,
-    },
-    swiperImageProps: {
-      mode: 'aspectFit',
     },
     downloadReady: false,
     canSaveStatic: false,
@@ -126,6 +124,7 @@ Page({
     isAdmin: false,
     staticDriveUrl: '',
     animDriveUrl: '',
+    favorited: false,
     redeemVisible: false,
     redeemCode: '',
     redeeming: false,
@@ -150,46 +149,137 @@ Page({
       themeBrand: getThemeBrand(),
     });
     this.refreshEntitlementUi();
+    this._onAdminViewChange = () => this.applyAdminView();
+    this._onFavoriteChange = (payload) => this.applyFavoriteChange(payload);
+    try {
+      const app = getApp();
+      if (app && app.eventBus) {
+        app.eventBus.on('adminViewChange', this._onAdminViewChange);
+        app.eventBus.on('favoriteChange', this._onFavoriteChange);
+      }
+    } catch (e) {
+      /* ignore */
+    }
     if (packId) this.loadDetail(packId);
   },
 
   onUnload() {
     this._slotUrlSeq = (this._slotUrlSeq || 0) + 1;
+    try {
+      const app = getApp();
+      if (app && app.eventBus) {
+        if (this._onAdminViewChange) app.eventBus.off('adminViewChange', this._onAdminViewChange);
+        if (this._onFavoriteChange) app.eventBus.off('favoriteChange', this._onFavoriteChange);
+      }
+    } catch (e) {
+      /* ignore */
+    }
   },
 
   onShow() {
     applyThemeToPage(this);
-    this.setData({ isAdmin: resolveIsAdmin() });
+    this.applyAdminView();
     this.refreshEntitlementUi();
     this.syncEntitlement();
+    this.refreshFavorite();
+  },
+
+  applyAdminView() {
+    const admin = resolveIsAdmin();
+    const pack = this.data.pack || {};
+    this.setData({
+      isAdmin: admin,
+      staticDriveUrl: admin ? pack.staticDriveUrl || '' : '',
+      animDriveUrl: admin ? pack.animDriveUrl || '' : '',
+    });
+  },
+
+  async refreshFavorite() {
+    const packId = this.data.packId;
+    if (!packId) return;
+    const cached = getFavoriteCached(packId);
+    if (cached !== undefined) {
+      if (this.data.favorited !== cached) this.setData({ favorited: cached });
+      return;
+    }
+    try {
+      const res = await callFunction('userFavorite', { action: 'status', packId });
+      const favorited = !!(res.data && res.data.favorited);
+      rememberFavorite(packId, favorited);
+      if (this.data.favorited !== favorited) {
+        this.setData({ favorited });
+      }
+    } catch (e) {
+      /* 云函数未部署时不影响详情 */
+    }
+  },
+
+  playHeartBurst(e, mode) {
+    const burst = this.selectComponent('#heartBurst');
+    if (!burst || typeof burst.burst !== 'function') return;
+    if (typeof burst.burstFromEvent === 'function') {
+      const t =
+        (e && e.touches && e.touches[0]) ||
+        (e && e.changedTouches && e.changedTouches[0]);
+      const d = e && e.detail;
+      if ((t && typeof t.clientX === 'number') || (d && typeof d.x === 'number' && (d.x || d.y))) {
+        burst.burstFromEvent(e, { mode });
+        return;
+      }
+    }
+    this.createSelectorQuery()
+      .select('.detail__fav-wrap')
+      .boundingClientRect((rect) => {
+        if (rect) {
+          burst.burst({
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+            mode,
+          });
+          return;
+        }
+        burst.burst({ mode });
+      })
+      .exec();
+  },
+
+  applyFavoriteChange(payload) {
+    const packId = payload && payload.packId;
+    if (!packId || packId !== this.data.packId) return;
+    if (typeof payload.favorited !== 'boolean') return;
+    if (this.data.favorited === payload.favorited) return;
+    this.setData({ favorited: payload.favorited });
+  },
+
+  onToggleFavorite(e) {
+    const packId = this.data.packId;
+    if (!packId) return;
+    const favorited = !this.data.favorited;
+    this.setData({ favorited });
+    this.playHeartBurst(e, favorited ? 'in' : 'out');
+    queueFavorite(packId, favorited);
   },
 
   /** 分享给好友 / 点「分享」按钮 */
   onShareAppMessage() {
     const { pack, packId } = this.data;
     const title = (pack && pack.title) || '趣集合集';
-    const path = `/pages/pack/detail/index?id=${packId || ''}`;
-    const cover = pack && pack.coverUrl;
-    const payload = { title, path };
-    if (cover && /^https?:\/\//i.test(cover)) {
-      payload.imageUrl = cover;
-    }
-    return payload;
+    return shareAppMessage({
+      title,
+      path: `/pages/pack/detail/index?id=${packId || ''}`,
+      imageUrl: pack && pack.coverUrl,
+    });
   },
 
   /** 分享到朋友圈 */
   onShareTimeline() {
     const { pack, packId } = this.data;
     const title = (pack && pack.title) || '趣集合集';
-    const cover = pack && pack.coverUrl;
-    const payload = {
+    return shareTimeline({
       title,
       query: `id=${packId || ''}`,
-    };
-    if (cover && /^https?:\/\//i.test(cover)) {
-      payload.imageUrl = cover;
-    }
-    return payload;
+      imageUrl: pack && pack.coverUrl,
+    });
   },
 
   applySlots(slots) {
@@ -242,19 +332,61 @@ Page({
     }
   },
 
-  buildHeroList(pack) {
-    const list = [];
-    const push = (url) => {
-      if (url && list.indexOf(url) === -1) list.push(url);
+  buildHeroSlides(pack) {
+    const slides = [];
+    const seen = {};
+    const pushImage = (url) => {
+      if (!url || seen[url]) return;
+      seen[url] = true;
+      slides.push({ key: `img_${slides.length}`, type: 'image', url });
     };
-    push(pack.coverUrl);
-    (pack.previewUrls || []).forEach(push);
-    (pack.slots || []).forEach((s) => push(s && s.previewUrl));
-    return list;
+    const pushVideo = (url) => {
+      if (!url || seen[url]) return;
+      seen[url] = true;
+      slides.push({
+        key: `video_${slides.length}`,
+        type: 'video',
+        url,
+      });
+    };
+    pushImage(pack.coverUrl);
+    pushVideo(pack.previewVideoUrl);
+    (pack.previewUrls || []).forEach(pushImage);
+    if (!pack.previewVideoUrl) {
+      (pack.slots || []).forEach((s) => pushImage(s && s.previewUrl));
+    }
+    return slides;
+  },
+
+  pauseHeroVideoIfNeeded(current) {
+    const slide = (this.data.heroSlides || [])[current];
+    if (slide && slide.type === 'video') return;
+    this.setData({ heroVideoPlaying: false });
+    try {
+      wx.createVideoContext('heroPreviewVideo', this).pause();
+    } catch (e) {
+      /* ignore */
+    }
+  },
+
+  onHeroVideoPlay() {
+    this.setData({ heroVideoPlaying: true });
+  },
+
+  onHeroVideoPause() {
+    this.setData({ heroVideoPlaying: false });
+  },
+
+  onHeroVideoPlayTap() {
+    try {
+      wx.createVideoContext('heroPreviewVideo', this).play();
+    } catch (e) {
+      /* ignore */
+    }
   },
 
   async loadDetail(packId) {
-    this.setData({ loading: true, heroList: [], heroCurrent: 0 });
+    this.setData({ loading: true, heroSlides: [], heroCurrent: 0, heroVideoPlaying: false });
     try {
       const res = await callFunction('getPackDetail', { packId });
       const pack = res.data;
@@ -284,11 +416,11 @@ Page({
         canSaveStatic,
       );
       const summary = summarizeSelection(emojiSlots, downloadVariant);
-      const heroList = this.buildHeroList(pack);
+      const heroSlides = this.buildHeroSlides(pack);
       this.setData({
         pack,
         emojiSlots,
-        heroList,
+        heroSlides,
         heroCurrent: 0,
         hasAnimAny,
         downloadVariant,
@@ -300,16 +432,14 @@ Page({
         selectedCount: summary.selectedCount,
         selectedCost: summary.selectedCost,
         allSelected: summary.allSelected,
-        staticDriveUrl: pack.staticDriveUrl || '',
-        animDriveUrl: pack.animDriveUrl || '',
-        isAdmin: resolveIsAdmin(),
         loading: false,
       });
+      this.applyAdminView();
       wx.setNavigationBarTitle({ title: pack.title || '合集详情' });
       // 原图临时链按批后台补齐，首屏先用预览占位
       this.prefetchSlotUrls(packId, emojiSlots);
     } catch (e) {
-      this.setData({ loading: false, heroList: [] });
+      this.setData({ loading: false, heroSlides: [] });
       wx.showToast({ title: e.message || '加载失败', icon: 'none' });
     }
   },
@@ -354,10 +484,12 @@ Page({
             hasAnim: row.hasAnim != null ? !!row.hasAnim : s.hasAnim,
             urlsReady: true,
           };
+          const displayUrl = slotDisplayUrl(merged, variant);
           return {
             ...merged,
             selectable: isSlotSelectable(merged, downloadReady, variant),
-            displayUrl: slotDisplayUrl(merged, variant),
+            displayUrl,
+            imgReady: displayUrl && displayUrl === s.displayUrl ? !!s.imgReady : false,
             saveLabel: buildSaveLabel(
               merged,
               downloadReady,
@@ -381,6 +513,7 @@ Page({
   },
 
   onCopyPackId() {
+    if (!resolveIsAdmin()) return;
     const { packId } = this.data;
     if (!packId) {
       wx.showToast({ title: '暂无作品 ID', icon: 'none' });
@@ -393,6 +526,7 @@ Page({
   },
 
   onCopyDrive(e) {
+    if (!resolveIsAdmin()) return;
     const kind = e.currentTarget.dataset.kind;
     const url =
       kind === 'anim' ? this.data.animDriveUrl : this.data.staticDriveUrl;
@@ -411,15 +545,27 @@ Page({
     const value = (e.currentTarget && e.currentTarget.dataset.value) || 'static';
     const downloadVariant = value === 'anim' ? 'anim' : 'static';
     if (downloadVariant === this.data.downloadVariant) return;
-    // 切换静/动时清空多选，并刷新展示图
-    const cleared = (this.data.emojiSlots || []).map((s) => ({
-      ...s,
-      selected: false,
-      displayUrl: slotDisplayUrl(s, downloadVariant),
-    }));
+    const cleared = (this.data.emojiSlots || []).map((s) => {
+      const displayUrl = slotDisplayUrl(s, downloadVariant);
+      return {
+        ...s,
+        selected: false,
+        displayUrl,
+        imgReady: displayUrl && displayUrl === s.displayUrl ? !!s.imgReady : false,
+      };
+    });
     this.setData({ downloadVariant, emojiSlots: cleared }, () =>
       this.refreshEntitlementUi(),
     );
+  },
+
+  onSlotImgLoad(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (Number.isNaN(index)) return;
+    const list = this.data.emojiSlots || [];
+    const i = list.findIndex((s) => s.index === index);
+    if (i < 0 || list[i].imgReady) return;
+    this.setData({ [`emojiSlots[${i}].imgReady`]: true });
   },
 
   onToggleSelect(e) {
@@ -433,7 +579,7 @@ Page({
     this.applySlots(next);
   },
 
-  /** 可下载时点封面勾选；否则打开预览。长按始终预览 */
+  /** 可下载时点封面勾选；静/动原图不允许看大图 */
   onCoverTap(e) {
     if (this.data.saving) return;
     const index = Number(e.currentTarget.dataset.index);
@@ -441,8 +587,12 @@ Page({
     const slot = (this.data.emojiSlots || []).find((s) => s.index === index);
     if (this.data.downloadReady && slot && slot.selectable) {
       this.onToggleSelect(e);
-      return;
     }
+  },
+
+  /** 仅管理员视图可长按看原图；预览普通用户与真实用户一致，不可看大图 */
+  onBlockPreview(e) {
+    if (!resolveIsAdmin()) return;
     this.onPreviewTap(e);
   },
 
@@ -498,6 +648,18 @@ Page({
     const current =
       e.detail && typeof e.detail.current === 'number' ? e.detail.current : 0;
     this.setData({ heroCurrent: current });
+    this.pauseHeroVideoIfNeeded(current);
+  },
+
+  onHeroNavBtn(e) {
+    const dir = (e.detail && e.detail.dir) || '';
+    const slides = this.data.heroSlides || [];
+    const n = slides.length;
+    if (n < 2) return;
+    const cur = this.data.heroCurrent || 0;
+    const next = dir === 'next' ? (cur + 1) % n : (cur - 1 + n) % n;
+    this.setData({ heroCurrent: next });
+    this.pauseHeroVideoIfNeeded(next);
   },
 
   openViewer(list, current) {
@@ -523,13 +685,13 @@ Page({
     });
   },
 
-  onHeroClick(e) {
-    const { heroList, heroCurrent } = this.data;
-    if (!heroList.length) return;
-    const fromEvent =
-      e && e.detail && typeof e.detail.index === 'number' ? e.detail.index : -1;
-    const index = fromEvent >= 0 ? fromEvent : heroCurrent;
-    this.openViewer(heroList, heroList[index] || heroList[0]);
+  onHeroImageTap(e) {
+    const url = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) || '';
+    const images = (this.data.heroSlides || [])
+      .filter((s) => s && s.type === 'image' && s.url)
+      .map((s) => s.url);
+    if (!images.length) return;
+    this.openViewer(images, url || images[0]);
   },
 
   onPreviewTap(e) {

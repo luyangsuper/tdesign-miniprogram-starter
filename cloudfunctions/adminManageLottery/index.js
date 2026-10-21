@@ -1,5 +1,12 @@
 const cloud = require('wx-server-sdk');
 const { sendLotteryInviteNotices, resolveMpState } = require('./notify');
+const {
+  lotteryType,
+  lotteryCost,
+  lotteryPayoutRate,
+  lotteryFields,
+  refundPaidEntries,
+} = require('./lotteryPaid');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -47,7 +54,15 @@ async function countUsers() {
 }
 
 /** 给已有用户推邀请，不预建账号 */
-async function pushInvites({ lotteryId, title, drawAtMs, poolPoints, winnerCount }) {
+async function pushInvites({
+  lotteryId,
+  title,
+  drawAtMs,
+  poolPoints,
+  winnerCount,
+  type,
+  costPoints,
+}) {
   let lastId = '';
   let notified = 0;
   let failed = 0;
@@ -57,6 +72,8 @@ async function pushInvites({ lotteryId, title, drawAtMs, poolPoints, winnerCount
     drawAt: drawAtMs,
     poolPoints,
     winnerCount,
+    type: type || 'free',
+    costPoints: Number(costPoints) || 0,
     at: Date.now(),
   };
 
@@ -153,6 +170,7 @@ async function clearInvitesForLottery(lotteryId) {
 }
 
 function mapLottery(row) {
+  const extra = lotteryFields(row);
   return {
     id: row._id,
     title: row.title || '',
@@ -164,7 +182,45 @@ function mapLottery(row) {
     winners: Array.isArray(row.winners) ? row.winners : [],
     createdAt: toMs(row.createdAt),
     drawnAt: toMs(row.drawnAt),
+    ...extra,
   };
+}
+
+async function loadAllEntries(lotteryId) {
+  const PAGE = 100;
+  try {
+    const list = [];
+    let lastId = '';
+    while (true) {
+      let query = db
+        .collection('lottery_entries')
+        .where({ lotteryId })
+        .orderBy('_id', 'asc')
+        .limit(PAGE);
+      if (lastId) {
+        query = db
+          .collection('lottery_entries')
+          .where({ lotteryId, _id: _.gt(lastId) })
+          .orderBy('_id', 'asc')
+          .limit(PAGE);
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const res = await query.get();
+      const rows = (res && res.data) || [];
+      if (!rows.length) break;
+      list.push(...rows);
+      lastId = String(rows[rows.length - 1]._id || '');
+      if (!lastId || rows.length < PAGE) break;
+    }
+    return list;
+  } catch (e) {
+    const res = await db
+      .collection('lottery_entries')
+      .where({ lotteryId })
+      .limit(PAGE)
+      .get();
+    return (res && res.data) || [];
+  }
 }
 
 exports.main = async (event = {}) => {
@@ -208,6 +264,7 @@ exports.main = async (event = {}) => {
       const title = String(event.title || '')
         .trim()
         .slice(0, 40);
+      const type = lotteryType({ type: event.type });
       const poolPoints = Math.max(
         1,
         Math.min(999999, Math.floor(Number(event.poolPoints) || 0)),
@@ -216,6 +273,9 @@ exports.main = async (event = {}) => {
         1,
         Math.min(1000, Math.floor(Number(event.winnerCount) || 0)),
       );
+      const costPoints = type === 'paid' ? lotteryCost({ type: 'paid', costPoints: event.costPoints }) : 0;
+      const payoutRate =
+        type === 'paid' ? lotteryPayoutRate({ payoutRate: event.payoutRate }) : 0;
       const drawAtMs = toMs(event.drawAt);
       if (!title) {
         return { ok: false, code: 'BAD_PARAM', message: '请填写活动标题' };
@@ -234,11 +294,24 @@ exports.main = async (event = {}) => {
           message: '总奖池积分不能小于中奖人数（每人至少 1 积分）',
         };
       }
+      if (type === 'paid') {
+        const rawCost = Math.floor(Number(event.costPoints) || 0);
+        if (rawCost < 1 || rawCost > 999) {
+          return { ok: false, code: 'BAD_PARAM', message: '报名费须为 1–999 的整数' };
+        }
+        const rawRate = Number(event.payoutRate);
+        if (!Number.isFinite(rawRate) || rawRate < 0.1 || rawRate > 0.9) {
+          return { ok: false, code: 'BAD_PARAM', message: '返还比例须在 10%–90%' };
+        }
+      }
 
       const subscribeMpState = resolveMpState(event.miniprogramState);
       const addRes = await db.collection('lotteries').add({
         data: {
           title,
+          type,
+          costPoints,
+          payoutRate,
           poolPoints,
           winnerCount,
           drawAt: new Date(drawAtMs),
@@ -260,6 +333,8 @@ exports.main = async (event = {}) => {
         drawAtMs,
         poolPoints,
         winnerCount,
+        type,
+        costPoints,
       });
 
       let subscribeSent = 0;
@@ -272,6 +347,7 @@ exports.main = async (event = {}) => {
           lotteryId,
           title,
           miniprogramState: subscribeMpState,
+          costPoints,
         });
         subscribeSent = (sub && sub.sent) || 0;
         subscribeSkipped = (sub && sub.skipped) || 0;
@@ -325,6 +401,9 @@ exports.main = async (event = {}) => {
           subscribeCreditUsers,
           subscribeWinOnlyUsers,
           title,
+          type,
+          costPoints,
+          payoutRate,
           poolPoints,
           winnerCount,
           drawAt: drawAtMs,
@@ -355,12 +434,30 @@ exports.main = async (event = {}) => {
             updatedAt: db.serverDate(),
           },
         });
+      let refunded = 0;
+      if (lotteryType(lot) === 'paid') {
+        try {
+          const entries = await loadAllEntries(lotteryId);
+          const r = await refundPaidEntries(db, _, {
+            lotteryId,
+            title: lot.title,
+            costFallback: lotteryCost(lot),
+            entries,
+          });
+          refunded = (r && r.refunded) || 0;
+        } catch (e) {
+          console.warn('[cancel] refund', e.message || e);
+        }
+      }
       try {
         await clearInvitesForLottery(lotteryId);
       } catch (e) {
         console.warn('[cancel] clear invites', e.message || e);
       }
-      return { ok: true, message: '已取消' };
+      return {
+        ok: true,
+        message: refunded ? `已取消，已退回 ${refunded} 人报名费` : '已取消',
+      };
     }
 
     return { ok: false, code: 'BAD_ACTION', message: '未知操作' };

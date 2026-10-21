@@ -1,4 +1,5 @@
 import { callFunction } from '~/utils/cloud';
+import { guardAdminPage } from '~/utils/auth';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 
 Page({
@@ -21,6 +22,7 @@ Page({
   },
 
   onShow() {
+    if (!guardAdminPage()) return;
     applyThemeToPage(this);
     this.loadList();
   },

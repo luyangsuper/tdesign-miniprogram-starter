@@ -9,6 +9,8 @@ import {
 } from './utils/lotteryHint';
 import { setCachedEntitlement } from './utils/entitlement';
 import { initTheme } from './utils/theme';
+import * as favoriteQueue from './utils/favoriteQueue';
+import { showShareMenu } from './utils/share';
 
 /** 公众号动态入口 oaId：字母数字 _ -，1～64 */
 function normalizeOaId(raw) {
@@ -182,6 +184,7 @@ App({
   },
 
   onShow(options) {
+    showShareMenu();
     this.captureOaEntry(options);
     this.claimPendingOaBonus();
     this.startLotteryPoll();
@@ -250,4 +253,5 @@ App({
   },
 
   eventBus: createBus(),
+  favoriteQueue,
 });

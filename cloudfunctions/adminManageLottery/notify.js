@@ -118,7 +118,7 @@ async function loadInviteCreditUsers(db) {
 async function sendLotteryInviteNotices(
   cloud,
   db,
-  { lotteryId, title, miniprogramState },
+  { lotteryId, title, miniprogramState, costPoints },
 ) {
   const mpState = resolveMpState(miniprogramState);
   let sent = 0;
@@ -167,7 +167,12 @@ async function sendLotteryInviteNotices(
           // number 类字段须传数字字符串，否则易 47003
           number1: { value: '1' },
           thing3: {
-            value: clipThing(`「${title}」可参与抽奖`, '打开趣集参与抽奖'),
+            value: clipThing(
+              Number(costPoints) > 0
+                ? `投入${Number(costPoints)}分可抽「${title}」`
+                : `「${title}」可参与抽奖`,
+              '打开趣集参与抽奖',
+            ),
           },
         },
       });

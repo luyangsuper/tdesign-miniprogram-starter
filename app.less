@@ -1,5 +1,6 @@
 /** 全局样式：引入 TDesign Design Token，组件与页面随系统深浅色自动切换 */
 @import 'miniprogram_npm/tdesign-miniprogram/common/style/theme/_index.wxss';
+@import 'variable.less';
 
 /* 主题色对齐微信绿 #07C160，覆盖 TDesign 默认品牌蓝 */
 page,
@@ -47,6 +48,7 @@ page,
 }
 
 page {
+  .ui-type-tokens();
   background-color: var(--td-bg-color-page);
   color: var(--td-text-color-primary);
   --app-page-bg: var(--td-bg-color-page);
@@ -63,6 +65,7 @@ page {
 
 /* custom-tab-bar / 组件内需挂 .page 才能吃到同一套 token */
 .page {
+  .ui-type-tokens();
   background-color: var(--td-bg-color-page);
   color: var(--td-text-color-primary);
 }

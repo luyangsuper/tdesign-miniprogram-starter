@@ -6,9 +6,7 @@
   padding: 16rpx 0 80rpx;
 
   &__tip {
-    font-size: 24rpx;
-    color: var(--td-text-color-placeholder);
-    line-height: 1.5;
+    .ui-caption();
     margin: 0 24rpx 16rpx;
   }
 
@@ -77,26 +75,25 @@
   }
 
   &__plan-title {
-    font-size: 24rpx;
+    .ui-caption();
     font-weight: 600;
     color: inherit;
   }
 
   &__plan-price {
-    font-size: 28rpx;
+    .ui-strong();
     font-weight: 700;
     color: inherit;
   }
 
   &__plan-meta {
-    font-size: 18rpx;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
     line-height: 1.3;
   }
 
   &__plan-action {
+    .ui-caption();
     margin-top: 6rpx;
-    font-size: 20rpx;
     font-weight: 600;
     color: inherit;
   }
@@ -115,7 +112,7 @@
     padding: 20rpx 24rpx;
     background: var(--td-bg-color-secondarycontainer, var(--td-bg-color-page));
     border-radius: 12rpx;
-    font-size: 30rpx;
+    .ui-strong();
     font-family: monospace;
     color: var(--td-text-color-primary);
     letter-spacing: 2rpx;
@@ -136,16 +133,15 @@
   }
 
   &__code {
-    font-size: 28rpx;
+    .ui-strong();
     font-family: monospace;
     letter-spacing: 1rpx;
     color: var(--td-text-color-primary);
   }
 
   &__card-meta {
+    .ui-caption();
     margin-top: 8rpx;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
     word-break: break-all;
   }
 
@@ -158,16 +154,17 @@
   }
 
   &__state {
-    padding: 48rpx 0;
+    width: 100%;
+    min-height: 52vh;
     display: flex;
+    align-items: center;
     justify-content: center;
   }
 
   &__footer {
+    .ui-caption();
     margin-top: 16rpx;
     text-align: center;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
   }
 }
 
@@ -178,9 +175,7 @@
   padding: 16rpx 20rpx;
 
   &__label {
-    font-size: 26rpx;
-    font-weight: 600;
-    color: var(--td-text-color-primary);
+    .ui-strong();
     margin-bottom: 8rpx;
   }
 

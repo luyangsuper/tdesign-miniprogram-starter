@@ -1,9 +1,12 @@
 {
   "navigationBarTitleText": "数据看板",
+  "navigationStyle": "default",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "t-loading": "tdesign-miniprogram/loading/loading",
-    "t-empty": "tdesign-miniprogram/empty/empty",
+    "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
+    "fun-empty": "/components/fun-empty/index",
+    "fun-line-chart": "/components/fun-line-chart/index",
     "t-button": "tdesign-miniprogram/button/button",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "lottery-host": "/components/lottery-host/index"

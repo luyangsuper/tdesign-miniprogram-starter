@@ -1,0 +1,10 @@
+<view wx:if="{{active}}" class="heart-burst" style="{{origin}}" catchtouchmove="noop">
+  <view
+    wx:for="{{items}}"
+    wx:key="id"
+    class="heart-burst__item heart-burst__item--{{item.kind}} heart-burst__item--{{item.tone}}"
+    style="{{item.style}}"
+  >
+    <view wx:if="{{item.kind === 'pop' || item.kind === 'spark'}}" class="heart-burst__glyph" />
+  </view>
+</view>

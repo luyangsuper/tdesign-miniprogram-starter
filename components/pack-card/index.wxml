@@ -5,6 +5,7 @@
   hover-start-time="20"
   hover-stay-time="80"
   bindtap="onTap"
+  bindlongpress="onLongPress"
 >
   <view class="pack-card__media" style="height: {{mediaHeight}}px;">
     <t-image
@@ -47,7 +48,7 @@
         {{item.text}}
       </t-tag>
     </view>
-    <view class="pack-card__admin" wx:if="{{showAdmin && !selectMode}}" catchtap="noop">
+    <view class="pack-card__admin" wx:if="{{showAdmin && !selectMode && adminActionsVisible}}" catchtap="noop">
       <t-button
         t-class="pack-card__admin-btn"
         size="extra-small"

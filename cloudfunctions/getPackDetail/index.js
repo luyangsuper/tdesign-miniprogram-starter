@@ -7,6 +7,20 @@ const db = cloud.database();
 
 const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
 
+const VIDEO_EXT_RE = /\.(mp4|mov|m4v|avi|mkv|3gp|webm)$/i;
+
+function isVideoFileID(fileID = '') {
+  return VIDEO_EXT_RE.test(String(fileID || '').split('?')[0]);
+}
+
+function splitPreviewFileIDs(pack = {}) {
+  const raw = pack.previewFileIDs || [];
+  const images = raw.filter((id) => id && !isVideoFileID(id));
+  const fromList = raw.find((id) => id && isVideoFileID(id)) || '';
+  const previewVideoFileID = String(pack.previewVideoFileID || fromList || '').trim();
+  return { previewFileIDs: images, previewVideoFileID };
+}
+
 function getAdminList() {
   const fromEnv = process.env.ADMIN_OPENIDS || '';
   if (fromEnv.trim()) {
@@ -31,16 +45,18 @@ async function getDetail(packId, OPENID) {
 
   const emojiFileIDs = pack.emojiFileIDs || [];
   const emojiCount = emojiFileIDs.length;
-  const previewFileIDs = pack.previewFileIDs || [];
+  const { previewFileIDs, previewVideoFileID } = splitPreviewFileIDs(pack);
   const emojiAnimFileIDs = pack.emojiAnimFileIDs || [];
   const pairKeys = Array.isArray(pack.pairKeys) ? pack.pairKeys : [];
 
   const urlMap = await resolveTempUrls(cloud, [
     pack.coverFileID,
+    previewVideoFileID,
     ...previewFileIDs,
   ]);
 
   const previewUrls = previewFileIDs.map((id) => urlMap[id] || '');
+  const previewVideoUrl = (previewVideoFileID && urlMap[previewVideoFileID]) || '';
   const hasAnimAny = emojiAnimFileIDs.some((id) => String(id || '').trim());
   const slots = Array.from({ length: emojiCount }, (_, i) => {
     const animId = String(emojiAnimFileIDs[i] || '').trim();
@@ -65,6 +81,7 @@ async function getDetail(packId, OPENID) {
     categoryName: pack.categoryName || '',
     coverUrl: urlMap[pack.coverFileID] || '',
     previewUrls,
+    previewVideoUrl,
     pairKeys,
     slots,
     hasAnimAny,

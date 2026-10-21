@@ -1,6 +1,8 @@
 {
   "navigationStyle": "custom",
   "styleIsolation": "shared",
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
   "usingComponents": {
     "t-navbar": "tdesign-miniprogram/navbar/navbar",
     "t-cell": "tdesign-miniprogram/cell/cell",

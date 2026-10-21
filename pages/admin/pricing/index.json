@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "定价方案",
+  "navigationStyle": "default",
   "usingComponents": {
     "t-input": "tdesign-miniprogram/input/input",
     "t-button": "tdesign-miniprogram/button/button",

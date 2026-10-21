@@ -1,5 +1,6 @@
 import { callFunction } from '~/utils/cloud';
-import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
+import { guardAdminPage } from '~/utils/auth';
+import { applyThemeToPage, getThemeBrand, getThemeStyle } from '~/utils/theme';
 
 const EMPTY_SUMMARY = {
   usersTotal: 0,
@@ -16,22 +17,57 @@ const EMPTY_SUMMARY = {
   revenueWeekYuan: '0.00',
 };
 
+const EMPTY_PERIOD = {
+  users: 0,
+  downloads: 0,
+  orders: 0,
+  revenueYuan: '0.00',
+};
+
+const PERIOD_OPTIONS = [
+  { id: 'week', label: '近七日' },
+  { id: 'month', label: '当月' },
+  { id: 'all', label: '全部' },
+];
+
+function periodView(period, periods) {
+  const id = PERIOD_OPTIONS.some((p) => p.id === period) ? period : 'week';
+  const block = (periods && periods[id]) || {};
+  return {
+    period: id,
+    periodSummary: { ...EMPTY_PERIOD, ...(block.summary || {}) },
+    revenueTrend: block.revenueTrend || [],
+    usersLabel: id === 'all' ? '注册用户' : '新增用户',
+  };
+}
+
 Page({
   data: {
     themeStyle: '',
+    themeBrand: '',
     loading: true,
     updatedText: '',
     summary: EMPTY_SUMMARY,
     trend: [],
     todayHotPacks: [],
     allTimeHot: [],
+    periodOptions: PERIOD_OPTIONS,
+    period: 'week',
+    periods: {},
+    periodSummary: EMPTY_PERIOD,
+    revenueTrend: [],
+    usersLabel: '新增用户',
   },
 
   onLoad() {
-    this.setData({ themeStyle: getThemeStyle() });
+    this.setData({
+      themeStyle: getThemeStyle(),
+      themeBrand: getThemeBrand(),
+    });
   },
 
   onShow() {
+    if (!guardAdminPage()) return;
     applyThemeToPage(this);
     this.load();
   },
@@ -44,6 +80,12 @@ Page({
     this.load({ force: true });
   },
 
+  onPeriodChange(e) {
+    const period = e.currentTarget.dataset.period;
+    if (!period) return;
+    this.setData(periodView(period, this.data.periods));
+  },
+
   async load(options = {}) {
     this.setData({ loading: true });
     try {
@@ -54,6 +96,7 @@ Page({
       const tip = data.cached
         ? `${data.updatedText || ''} · 缓存`
         : data.updatedText || '';
+      const periods = data.periods || {};
       this.setData({
         loading: false,
         updatedText: tip,
@@ -61,6 +104,8 @@ Page({
         trend: data.trend || [],
         todayHotPacks: data.todayHotPacks || [],
         allTimeHot: data.allTimeHot || [],
+        periods,
+        ...periodView(this.data.period, periods),
       });
     } catch (e) {
       this.setData({ loading: false });

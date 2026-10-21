@@ -5,12 +5,53 @@ const {
   ensureDrawn,
   ensureCollection,
   repairMyLotteryCredits,
+  repairMyPaidLottery,
 } = require('./draw');
+const { lotteryType, lotteryCost, lotteryFields } = require('./lotteryPaid');
+const { recordPointsLog } = require('./pointsLog');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
 const _ = db.command;
+
+async function lazyDrawDue() {
+  const rows = [];
+  const seen = new Set();
+  const pushRows = (list) => {
+    (list || []).forEach((row) => {
+      if (row && row._id && !seen.has(row._id)) {
+        seen.add(row._id);
+        rows.push(row);
+      }
+    });
+  };
+  try {
+    const due = await db
+      .collection('lotteries')
+      .where({ status: 'open', drawAt: _.lte(new Date()) })
+      .limit(5)
+      .get();
+    pushRows(due && due.data);
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    const drawing = await db
+      .collection('lotteries')
+      .where({ status: 'drawing' })
+      .limit(5)
+      .get();
+    pushRows(drawing && drawing.data);
+  } catch (e) {
+    /* ignore */
+  }
+  // eslint-disable-next-line no-restricted-syntax
+  for (const row of rows) {
+    // eslint-disable-next-line no-await-in-loop
+    await runDraw(cloud, db, row._id);
+  }
+}
 
 function mapLottery(row, openid, entry) {
   if (!row) return null;
@@ -41,6 +82,8 @@ function mapLottery(row, openid, entry) {
       isMe: !!(openid && w.openid === openid),
     })),
     drawnAt: toMs(row.drawnAt),
+    ...lotteryFields(row),
+    paidCost: entry ? Math.max(0, Number(entry.costPoints) || 0) : 0,
   };
 }
 
@@ -170,19 +213,9 @@ exports.main = async (event = {}) => {
     await ensureCollection(db, 'lottery_entries');
 
     if (action === 'pending') {
-      // 拉队列前先扫到期开奖，避免首页只读 entitlement 时永远不开奖
+      // 拉队列前先扫到期 / 卡住的开奖
       try {
-        const due = await db
-          .collection('lotteries')
-          .where({ status: 'open', drawAt: _.lte(new Date()) })
-          .limit(5)
-          .get();
-        const rows = (due && due.data) || [];
-        // eslint-disable-next-line no-restricted-syntax
-        for (const row of rows) {
-          // eslint-disable-next-line no-await-in-loop
-          await runDraw(cloud, db, row._id);
-        }
+        await lazyDrawDue();
       } catch (e) {
         /* ignore */
       }
@@ -190,6 +223,11 @@ exports.main = async (event = {}) => {
       // 历史中奖未到账 / 未入弹窗队列时补发
       try {
         await repairMyLotteryCredits(db, _, OPENID);
+      } catch (e) {
+        /* ignore */
+      }
+      try {
+        await repairMyPaidLottery(db, _, OPENID);
       } catch (e) {
         /* ignore */
       }
@@ -211,25 +249,19 @@ exports.main = async (event = {}) => {
     }
 
     if (action === 'list') {
-      // 懒开奖：扫少量到期
       try {
-        const due = await db
-          .collection('lotteries')
-          .where({ status: 'open', drawAt: _.lte(new Date()) })
-          .limit(5)
-          .get();
-        const rows = (due && due.data) || [];
-        // eslint-disable-next-line no-restricted-syntax
-        for (const row of rows) {
-          // eslint-disable-next-line no-await-in-loop
-          await runDraw(cloud, db, row._id);
-        }
+        await lazyDrawDue();
       } catch (e) {
         /* ignore */
       }
 
       try {
         await repairMyLotteryCredits(db, _, OPENID);
+      } catch (e) {
+        /* ignore */
+      }
+      try {
+        await repairMyPaidLottery(db, _, OPENID);
       } catch (e) {
         /* ignore */
       }
@@ -307,6 +339,11 @@ exports.main = async (event = {}) => {
       } catch (e) {
         /* ignore */
       }
+      try {
+        await repairMyPaidLottery(db, _, OPENID);
+      } catch (e) {
+        /* ignore */
+      }
       const entry = await getEntry(lotteryId, OPENID);
       const mapped = mapLottery(lot, OPENID, entry);
       let pendingLotteryResults = [];
@@ -367,38 +404,143 @@ exports.main = async (event = {}) => {
       }
 
       const entryId = `${lotteryId}_${OPENID}`;
-      const entryRef = db.collection('lottery_entries').doc(entryId);
-      try {
-        await entryRef.get();
-        // 已存在
-        await db
-          .collection('users')
-          .doc(OPENID)
-          .update({
-            data: {
-              pendingLotteryInvites: _.pull({ lotteryId }),
-              updatedAt: db.serverDate(),
-            },
-          })
-          .catch(() => {});
-        return { ok: true, message: '已参与', data: { joined: true, already: true } };
-      } catch (e) {
-        /* not exists → create */
-      }
+      const paid = lotteryType(lot) === 'paid';
+      const cost = paid ? lotteryCost(lot) : 0;
+      const entryPayload = {
+        lotteryId,
+        openid: OPENID,
+        nickName: nickName || '趣集用户',
+        joinedAt: db.serverDate(),
+        won: false,
+        prizePoints: 0,
+        costPoints: cost,
+      };
 
-      try {
-        await entryRef.set({
-          data: {
-            lotteryId,
-            openid: OPENID,
-            nickName: nickName || '趣集用户',
-            joinedAt: db.serverDate(),
-            won: false,
-            prizePoints: 0,
-          },
-        });
-      } catch (err) {
-        return { ok: true, message: '已参与', data: { joined: true, already: true } };
+      if (paid) {
+        let joinRes;
+        try {
+          joinRes = await db.runTransaction(async (transaction) => {
+            const lotSnap = await transaction.collection('lotteries').doc(lotteryId).get();
+            const lotNow = (lotSnap && lotSnap.data) || null;
+            if (!lotNow || lotNow.status !== 'open' || toMs(lotNow.drawAt) <= Date.now()) {
+              return { closed: true };
+            }
+            const userSnap = await transaction.collection('users').doc(OPENID).get();
+            const user = (userSnap && userSnap.data) || null;
+            if (!user) return { noUser: true };
+            let exists = false;
+            try {
+              const existSnap = await transaction
+                .collection('lottery_entries')
+                .doc(entryId)
+                .get();
+              exists = !!(existSnap && existSnap.data);
+            } catch (e) {
+              exists = false;
+            }
+            if (exists) return { already: true, deducted: false, prev: 0, next: 0 };
+
+            const prev = Math.max(0, Number(user.points) || 0);
+            if (prev < cost) return { noPoints: true, prev };
+            await transaction.collection('lottery_entries').doc(entryId).set({
+              data: entryPayload,
+            });
+            // 只扣积分，不在同一次 update 里 _.inc + _.pull（云库易整段失败）
+            await transaction.collection('users').doc(OPENID).update({
+              data: {
+                points: _.inc(-cost),
+                updatedAt: db.serverDate(),
+              },
+            });
+            return { already: false, deducted: true, prev, next: prev - cost };
+          });
+        } catch (e) {
+          const msg = (e && e.message) || '参与失败';
+          return { ok: false, code: 'FAIL', message: msg };
+        }
+
+        if (!joinRes) {
+          return { ok: false, code: 'FAIL', message: '参与失败' };
+        }
+        if (joinRes && joinRes.closed) {
+          return { ok: false, code: 'CLOSED', message: '已无法参与' };
+        }
+        if (joinRes && joinRes.noUser) {
+          return { ok: false, code: 'NO_USER', message: '请先登录' };
+        }
+        if (joinRes && joinRes.noPoints) {
+          return { ok: false, code: 'NO_POINTS', message: `积分不足，需 ${cost} 分` };
+        }
+        if (joinRes && joinRes.already) {
+          return { ok: true, message: '已参与', data: { joined: true, already: true } };
+        }
+        if (joinRes && joinRes.deducted) {
+          try {
+            await db
+              .collection('users')
+              .doc(OPENID)
+              .update({
+                data: {
+                  pendingLotteryInvites: _.pull({ lotteryId }),
+                  updatedAt: db.serverDate(),
+                },
+              });
+          } catch (e) {
+            /* ignore */
+          }
+        }
+        if (joinRes && joinRes.deducted && cost > 0) {
+          try {
+            await recordPointsLog(db, {
+              openid: OPENID,
+              delta: -cost,
+              balance: joinRes.next,
+              reason: 'lottery_entry',
+              title: `抽奖「${String(lot.title || '').slice(0, 20)}」投入`,
+              meta: { lotteryId, costPoints: cost },
+            });
+          } catch (e) {
+            /* ignore */
+          }
+        }
+      } else {
+        const entryRef = db.collection('lottery_entries').doc(entryId);
+        try {
+          await entryRef.get();
+          await db
+            .collection('users')
+            .doc(OPENID)
+            .update({
+              data: {
+                pendingLotteryInvites: _.pull({ lotteryId }),
+                updatedAt: db.serverDate(),
+              },
+            })
+            .catch(() => {});
+          return { ok: true, message: '已参与', data: { joined: true, already: true } };
+        } catch (e) {
+          /* not exists → create */
+        }
+
+        try {
+          await entryRef.set({ data: entryPayload });
+        } catch (err) {
+          return { ok: true, message: '已参与', data: { joined: true, already: true } };
+        }
+
+        try {
+          await db
+            .collection('users')
+            .doc(OPENID)
+            .update({
+              data: {
+                pendingLotteryInvites: _.pull({ lotteryId }),
+                updatedAt: db.serverDate(),
+              },
+            });
+        } catch (e) {
+          /* ignore */
+        }
       }
 
       try {
@@ -415,21 +557,11 @@ exports.main = async (event = {}) => {
         /* ignore */
       }
 
-      try {
-        await db
-          .collection('users')
-          .doc(OPENID)
-          .update({
-            data: {
-              pendingLotteryInvites: _.pull({ lotteryId }),
-              updatedAt: db.serverDate(),
-            },
-          });
-      } catch (e) {
-        /* ignore */
-      }
-
-      return { ok: true, message: '参与成功，等待开奖', data: { joined: true } };
+      return {
+        ok: true,
+        message: paid ? `已投入 ${cost} 分，等待开奖` : '参与成功，等待开奖',
+        data: { joined: true, costPoints: cost },
+      };
     }
 
     if (action === 'ackInvite') {

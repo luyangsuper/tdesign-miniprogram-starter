@@ -42,6 +42,21 @@ export function isPreviewAsUser() {
 
 export function setPreviewAsUser(on) {
   wx.setStorageSync(PREVIEW_AS_USER_KEY, !!on);
+  try {
+    const app = getApp();
+    if (app && app.eventBus) app.eventBus.emit('adminViewChange', resolveIsAdmin());
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+/** 管理页：预览普通用户时退回，避免带着管理能力测用户路径 */
+export function guardAdminPage() {
+  if (resolveIsAdmin()) return true;
+  wx.navigateBack({
+    fail: () => wx.switchTab({ url: '/pages/my/index' }),
+  });
+  return false;
 }
 
 /** 客户端入口是否按管理员展示（受预览开关影响） */

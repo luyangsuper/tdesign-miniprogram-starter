@@ -1,0 +1,170 @@
+.heart-burst {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12000;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.heart-burst__item {
+  position: absolute;
+  left: var(--x, 50%);
+  top: var(--y, 38%);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.heart-burst__glyph {
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  transform: rotate(45deg);
+  position: relative;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &::before {
+    left: -50%;
+    top: 0;
+  }
+
+  &::after {
+    left: 0;
+    top: -50%;
+  }
+}
+
+.heart-burst__item--pop {
+  width: 72rpx;
+  height: 72rpx;
+  margin-left: -36rpx;
+  margin-top: -36rpx;
+  color: #eb5757;
+  filter: drop-shadow(0 8rpx 16rpx rgba(235, 87, 87, 0.35));
+  animation: heart-pop 0.82s cubic-bezier(0.22, 1.4, 0.36, 1) forwards;
+
+  &.heart-burst__item--out {
+    color: #9a9a9a;
+    filter: none;
+    animation-name: heart-pop-out;
+    animation-duration: 0.62s;
+    animation-timing-function: ease-in;
+  }
+}
+
+.heart-burst__item--ring {
+  width: 48rpx;
+  height: 48rpx;
+  margin-left: -24rpx;
+  margin-top: -24rpx;
+  border: 4rpx solid rgba(235, 87, 87, 0.55);
+  border-radius: 50%;
+  box-sizing: border-box;
+  animation: heart-ring 0.62s ease-out forwards;
+  animation-delay: var(--d, 0s);
+
+  &.heart-burst__item--out {
+    border-color: rgba(154, 154, 154, 0.5);
+    animation-name: heart-ring-out;
+  }
+}
+
+.heart-burst__item--spark {
+  width: 22rpx;
+  height: 22rpx;
+  margin-left: -11rpx;
+  margin-top: -11rpx;
+  color: var(--c, #eb5757);
+  opacity: 0;
+  animation: heart-spark 0.7s cubic-bezier(0.12, 0.72, 0.28, 1) forwards;
+  animation-delay: var(--d, 0s);
+}
+
+.heart-burst__item--dot {
+  width: 12rpx;
+  height: 12rpx;
+  margin-left: -6rpx;
+  margin-top: -6rpx;
+  border-radius: 50%;
+  background: var(--c, #eb5757);
+  opacity: 0;
+  animation: heart-spark 0.66s cubic-bezier(0.12, 0.72, 0.28, 1) forwards;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes heart-pop {
+  0% {
+    transform: rotate(var(--r, 0deg)) scale(0.18);
+    opacity: 0;
+  }
+  28% {
+    transform: rotate(var(--r, 0deg)) scale(1.28);
+    opacity: 1;
+  }
+  55% {
+    transform: rotate(var(--r, 0deg)) scale(0.96);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--r, 0deg)) translate3d(0, -28rpx, 0) scale(1.08);
+    opacity: 0;
+  }
+}
+
+@keyframes heart-pop-out {
+  0% {
+    transform: rotate(var(--r, 0deg)) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(calc(var(--r, 0deg) + 12deg)) translate3d(0, 24rpx, 0) scale(0.35);
+    opacity: 0;
+  }
+}
+
+@keyframes heart-ring {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.15);
+    opacity: 0;
+  }
+}
+
+@keyframes heart-ring-out {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+@keyframes heart-spark {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(var(--s, 1));
+    opacity: 0;
+  }
+  16% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--dx, 0), var(--dy, 0), 0) rotate(var(--r, 0deg)) scale(0.2);
+    opacity: 0;
+  }
+}

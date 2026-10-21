@@ -1,4 +1,6 @@
 <view class="lottery-list" style="{{themeStyle}}">
+  <grid-lottery />
+
   <view class="lottery-list__subscribe">
     <t-button
       theme="primary"
@@ -11,7 +13,9 @@
     <view class="lottery-list__subscribe-hint">{{lotteryNotifyHint}}</view>
   </view>
 
-  <view wx:if="{{loading}}" class="lottery-list__loading">
+  <view class="lottery-list__section">限时活动</view>
+
+  <view wx:if="{{loading}}" class="lottery-list__loading lottery-list__loading--list">
     <t-loading theme="circular" size="40rpx" text="加载中" />
   </view>
 
@@ -28,16 +32,16 @@
         <t-tag size="small" variant="light" theme="{{item.statusTheme}}">{{item.statusLabel}}</t-tag>
       </view>
       <view class="lottery-list__meta">
-        奖池 {{item.poolPoints}} 积分 · {{item.winnerCount}} 人中奖 · 参与 {{item.participantCount}}
+        {{item.type === 'paid' ? ('投入 ' + item.costPoints + ' 分 · 奖池上限 ' + item.poolPoints) : ('奖池 ' + item.poolPoints + ' 积分')}} · {{item.winnerCount}} 人中奖 · 参与 {{item.participantCount}}
       </view>
       <view class="lottery-list__meta">开奖 {{item.drawAtText || '—'}}</view>
-      <view wx:if="{{item.joined && item.status === 'open'}}" class="lottery-list__sub">已参与，等待开奖</view>
+      <view wx:if="{{item.joined && item.status === 'open'}}" class="lottery-list__sub">{{item.type === 'paid' ? ('已投入 ' + (item.paidCost || item.costPoints) + ' 分，等待开奖') : '已参与，等待开奖'}}</view>
       <view wx:elif="{{item.sub}}" class="lottery-list__sub">{{item.sub}}</view>
     </view>
   </block>
 
   <view wx:else class="lottery-list__empty">
-    <t-empty description="暂无抽奖活动" />
+    <fun-empty description="暂无抽奖活动" />
   </view>
 
   <lottery-host />

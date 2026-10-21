@@ -1,3 +1,5 @@
+@import '/variable.less';
+
 .upload-page {
   min-height: 100vh;
   background: var(--td-bg-color-page);
@@ -21,8 +23,8 @@
 
   &__ai-label {
     display: block;
+    .ui-caption();
     margin: 16rpx 0 8rpx;
-    font-size: 24rpx;
     font-weight: 600;
     color: var(--td-text-color-secondary);
 
@@ -51,21 +53,17 @@
   &__ai-copy-btn {
     flex-shrink: 0 !important;
     margin-left: auto !important;
-    --td-button-medium-font-size: 24rpx;
+    --td-button-medium-font-size: var(--ui-fs-caption, @ui-fs-caption);
   }
 
   &__ai-title {
+    .ui-strong();
     display: block;
-    font-size: 30rpx;
-    font-weight: 600;
-    color: var(--td-text-color-primary);
-    line-height: 1.4;
   }
 
   &__ai-desc {
+    .ui-body();
     display: block;
-    font-size: 26rpx;
-    color: var(--td-text-color-primary);
     line-height: 1.5;
     white-space: pre-wrap;
   }
@@ -88,8 +86,7 @@
   &__ai-article {
     display: block;
     width: 100%;
-    font-size: 26rpx;
-    color: var(--td-text-color-primary);
+    .ui-body();
     line-height: 1.55;
     white-space: pre-wrap;
     word-break: break-word;
@@ -125,10 +122,8 @@
     }
 
     &__label {
-      font-size: 28rpx;
-      font-weight: 600;
+      .ui-strong();
       margin-bottom: 16rpx;
-      color: var(--td-text-color-primary);
 
       &--inline {
         margin-bottom: 0;
@@ -138,10 +133,9 @@
     }
 
     &__tip {
-      font-size: 22rpx;
+      .ui-caption();
       color: var(--td-text-color-secondary);
       margin: 0 0 20rpx;
-      line-height: 1.5;
 
       &--tight {
         margin-bottom: 8rpx;
@@ -186,7 +180,7 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 24rpx !important;
+    font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
     line-height: 1 !important;
     font-family: var(--td-font-family, PingFang SC, Microsoft YaHei, Arial Regular) !important;
 
@@ -269,14 +263,44 @@
       height: 100%;
     }
 
+    &__video {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: #1a1a1a;
+    }
+
+    &__video-thumb {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    &__play {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    &__play-icon {
+      width: 56rpx;
+      height: 56rpx;
+      display: block;
+      filter: drop-shadow(0 4rpx 10rpx rgba(0, 0, 0, 0.4));
+    }
+
     &__seq {
       position: absolute;
       left: 8rpx;
       bottom: 8rpx;
       min-width: 36rpx;
       padding: 2rpx 10rpx;
-      font-size: 22rpx;
-      line-height: 1.4;
+      .ui-caption();
       text-align: center;
       color: #fff;
       background: rgba(0, 0, 0, 0.55);
@@ -320,9 +344,7 @@
     }
 
     &__empty-text {
-      font-size: 24rpx;
-      line-height: 1.4;
-      color: var(--td-text-color-placeholder);
+      .ui-caption();
     }
   }
 
@@ -345,10 +367,8 @@
   &__notify-label {
     flex: 1;
     min-width: 0;
-    font-size: 26rpx;
+    .ui-body();
     font-weight: 400;
-    line-height: 1.4;
-    color: var(--td-text-color-primary);
   }
 
   &__ai-opt {
@@ -356,11 +376,16 @@
   }
 
   &__ai-opt-tip {
-    font-size: 22rpx;
-    line-height: 1.35;
-    color: var(--td-text-color-placeholder);
+    .ui-caption();
   }
 }
+
+
+
+
+
+
+
 
 
 

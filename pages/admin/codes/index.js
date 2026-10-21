@@ -1,4 +1,5 @@
 import { callFunction } from '~/utils/cloud';
+import { guardAdminPage } from '~/utils/auth';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 import { getPricingPlans, loadPricingPlans } from '~/utils/pricing';
 import {
@@ -44,6 +45,7 @@ Page({
   },
 
   onShow() {
+    if (!guardAdminPage()) return;
     applyThemeToPage(this);
     this.hydratePricing();
     this.loadList(true);

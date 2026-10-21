@@ -1,9 +1,12 @@
 {
   "navigationBarTitleText": "积分流水",
+  "navigationStyle": "default",
   "enablePullDownRefresh": true,
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
   "usingComponents": {
     "t-loading": "tdesign-miniprogram/loading/loading",
-    "t-empty": "tdesign-miniprogram/empty/empty",
+    "fun-empty": "/components/fun-empty/index",
     "lottery-host": "/components/lottery-host/index"
   }
 }

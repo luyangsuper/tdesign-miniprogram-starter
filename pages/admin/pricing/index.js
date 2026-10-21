@@ -1,4 +1,5 @@
 import { callFunction, getTempFileURLs, uploadFile } from '~/utils/cloud';
+import { guardAdminPage } from '~/utils/auth';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 
 const PRODUCT_ORDER = [
@@ -197,6 +198,7 @@ Page({
   },
 
   onShow() {
+    if (!guardAdminPage()) return;
     applyThemeToPage(this);
     this.load();
   },
@@ -420,6 +422,7 @@ Page({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
+      sizeType: ['original'],
       success: async (res) => {
         const file = (res.tempFiles && res.tempFiles[0]) || {};
         const local = file.tempFilePath || '';

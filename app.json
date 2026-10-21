@@ -1,5 +1,16 @@
 {
-  "pages": ["pages/home/index", "pages/my/index"],
+  "pages": [
+    "pages/home/index",
+    "pages/my/index",
+    "pages/admin/upload/index",
+    "pages/admin/categories/index",
+    "pages/admin/codes/index",
+    "pages/admin/users/index",
+    "pages/admin/points/index",
+    "pages/admin/pricing/index",
+    "pages/admin/lottery/index",
+    "pages/admin/dashboard/index"
+  ],
   "subpackages": [
     {
       "root": "pages/pack",
@@ -14,21 +25,12 @@
     {
       "root": "pages/history",
       "name": "history",
-      "pages": ["points-log/index"]
+      "pages": ["points-log/index", "favorites/index"]
     },
     {
-      "root": "pages/admin",
-      "name": "admin",
-      "pages": [
-        "upload/index",
-        "categories/index",
-        "codes/index",
-        "users/index",
-        "points/index",
-        "pricing/index",
-        "lottery/index",
-        "dashboard/index"
-      ]
+      "root": "pages/about",
+      "name": "about",
+      "pages": ["index"]
     }
   ],
   "darkmode": true,
@@ -38,6 +40,7 @@
     "navigationBarBackgroundColor": "@navBgColor",
     "navigationBarTitleText": "趣集",
     "navigationBarTextStyle": "@navTextStyle",
+    "navigationStyle": "custom",
     "backgroundColor": "@bgColor"
   },
   "tabBar": {
