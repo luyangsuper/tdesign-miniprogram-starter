@@ -29,9 +29,6 @@
       class="grid-lot__cell tone-{{item.tone}} {{item.active ? 'is-active' : ''}} {{item.win ? 'is-win' : ''}} {{item.miss ? 'is-miss' : ''}}"
       style="grid-column: {{item.x + 1}}; grid-row: {{item.y + 1}};"
     >
-      <view wx:if="{{item.badge}}" class="grid-lot__badge">
-        <t-tag size="small" theme="danger" variant="light">惊喜奖励</t-tag>
-      </view>
       <image
         class="grid-lot__art {{item.drawPulse ? 'is-draw-' + item.drawPulse : ''}}"
         src="{{item.art}}"
@@ -94,7 +91,6 @@
     disabled="{{resetting}}"
     bind:tap="onResetToday"
   />
-  <text wx:if="{{isAdmin}}" class="grid-lot__reset-hint">仅管理员可见，只清你自己的次数</text>
   <confetti-burst id="gridConfetti" />
 </view>
 <view class="grid-lot grid-lot--off" wx:elif="{{ready && !enabled}}">

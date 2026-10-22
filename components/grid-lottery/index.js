@@ -39,7 +39,6 @@ function decorate(p) {
     points: pts,
     art: artFor(pts),
     tone,
-    badge: pts >= 18,
     cellLabel: String(p.name || '').trim() || (pts > 0 ? `+${pts} 积分` : '谢谢参与'),
     label: String(p.name || '').trim() || (pts > 0 ? `${pts} 积分` : '谢谢参与'),
   };
@@ -310,6 +309,7 @@ Component({
           goLiveArt: '/static/lottery/go.png',
           goArtPulse: '',
         });
+        this._paint(-1, -1, -1);
         this._fxTimer = null;
       }, won ? 1400 : 1100);
     },
