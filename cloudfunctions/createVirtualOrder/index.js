@@ -109,7 +109,7 @@ exports.main = async (event = {}) => {
       if (order.status === 'delivered') {
         const uref = db.collection('users').doc(OPENID);
         const u = (await uref.get()).data || {};
-        const synced = await syncVipMonthQuota(uref, u, db.serverDate());
+        const synced = await syncVipMonthQuota(uref, u, db.serverDate(), db);
         entitlement = buildEntitlement(synced);
       }
       return {
@@ -135,7 +135,7 @@ exports.main = async (event = {}) => {
       if (order.status === 'delivered') {
         const uref = db.collection('users').doc(OPENID);
         const u = (await uref.get()).data || {};
-        const synced = await syncVipMonthQuota(uref, u, db.serverDate());
+        const synced = await syncVipMonthQuota(uref, u, db.serverDate(), db);
         return {
           ok: true,
           delivered: true,

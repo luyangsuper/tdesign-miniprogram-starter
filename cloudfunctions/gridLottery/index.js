@@ -1,7 +1,12 @@
 const cloud = require('wx-server-sdk');
 const { dayjs, TZ, toMs } = require('./time');
 const { recordPointsLog } = require('./pointsLog');
-const { MONTHLY_QUOTA, periodKey, buildEntitlement } = require('./membership');
+const {
+  MONTHLY_QUOTA,
+  periodKey,
+  buildEntitlement,
+  syncVipMonthQuota,
+} = require('./membership');
 const {
   DEFAULT_COST,
   DEFAULT_DAILY_LIMIT,
@@ -119,7 +124,12 @@ exports.main = async (event = {}) => {
       const cfg = await loadConfig();
       let user = {};
       try {
-        user = (await db.collection('users').doc(OPENID).get()).data || {};
+        const uref = db.collection('users').doc(OPENID);
+        const snap = await uref.get();
+        user = (snap && snap.data) || {};
+        if (user && (user._id || user.openid || OPENID)) {
+          user = await syncVipMonthQuota(uref, { ...user, _id: OPENID }, db.serverDate(), db);
+        }
       } catch (e) {
         user = {};
       }
@@ -128,6 +138,20 @@ exports.main = async (event = {}) => {
 
     if (action === 'draw') {
       await loadConfig();
+      try {
+        const uref = db.collection('users').doc(OPENID);
+        const snap = await uref.get();
+        if (snap && snap.data) {
+          await syncVipMonthQuota(
+            uref,
+            { ...snap.data, _id: OPENID },
+            db.serverDate(),
+            db,
+          );
+        }
+      } catch (e) {
+        /* sync best-effort */
+      }
       const today = todayKey();
       let drawRes;
       try {
@@ -230,17 +254,20 @@ exports.main = async (event = {}) => {
       const cost = Number(drawRes.cost) || 0;
       const gain = Number(drawRes.prize && drawRes.prize.points) || 0;
       try {
+        const fromVip = Math.max(0, Number(drawRes.fromVip) || 0);
         const fromPoints = Math.max(0, Number(drawRes.fromPoints) || 0);
-        if (fromPoints > 0) {
+        const totalCost = fromVip + fromPoints;
+        const nextVip = Math.max(0, Number(drawRes.vipMonthQuota) || 0);
+        if (totalCost > 0) {
           await recordPointsLog(db, {
             openid: OPENID,
-            delta: -fromPoints,
-            balance: drawRes.prev - fromPoints,
+            delta: -totalCost,
+            balance: Math.max(0, Number(drawRes.prev) || 0) - fromPoints + nextVip,
             reason: 'grid_cost',
             title: '九宫格抽奖',
             meta: {
               prizeId: drawRes.prize && drawRes.prize.id,
-              fromVip: drawRes.fromVip,
+              fromVip,
               fromPoints,
             },
           });
@@ -249,7 +276,7 @@ exports.main = async (event = {}) => {
           await recordPointsLog(db, {
             openid: OPENID,
             delta: gain,
-            balance: drawRes.next,
+            balance: Math.max(0, Number(drawRes.next) || 0) + nextVip,
             reason: 'grid_prize',
             title: `九宫格「${prizeName}」`,
             meta: { prizeId: drawRes.prize && drawRes.prize.id, index: drawRes.index },

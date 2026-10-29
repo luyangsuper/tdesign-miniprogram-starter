@@ -65,11 +65,20 @@ function pickLabels(series) {
   const n = series.length;
   if (!n) return [];
   if (n <= 8) return series.map((s) => s.label || '');
-  const keep = new Set([0, n - 1]);
+  // 只保留均匀抽样的标签；空位若仍 flex:1 会把日期挤窄裁切
+  const keep = [0];
   for (let i = 1; i < 4; i += 1) {
-    keep.add(Math.round((i * (n - 1)) / 4));
+    keep.push(Math.round((i * (n - 1)) / 4));
   }
-  return series.map((s, i) => (keep.has(i) ? s.label || '' : ''));
+  keep.push(n - 1);
+  const seen = new Set();
+  return keep
+    .filter((i) => {
+      if (seen.has(i)) return false;
+      seen.add(i);
+      return true;
+    })
+    .map((i) => series[i].label || '');
 }
 
 function hintFor(item) {

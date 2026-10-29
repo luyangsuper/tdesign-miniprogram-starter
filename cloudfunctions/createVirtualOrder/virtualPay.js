@@ -4,7 +4,7 @@ const { getProduct } = require('./products');
 const { resolveLiveProduct } = require('./pricingSettings');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { toMs, dayjs } = require('./time');
-const { recordPointsLog } = require('./pointsLog');
+const { recordPointsLog, walletBalanceOf } = require('./pointsLog');
 
 const APPID = process.env.WX_APPID || 'wxc53da678dce0b8d1';
 /** 沙箱 OfferId；现网一般相同，可用 VIRTUAL_PAY_OFFER_ID 覆盖 */
@@ -269,7 +269,7 @@ async function deliverOrderDirect(db, order, meta = {}, presetGrant = null) {
   if (fresh.status === 'delivered') {
     const uref = db.collection('users').doc(fresh.openid);
     const u = (await uref.get()).data || {};
-    const synced = await syncVipMonthQuota(uref, u, db.serverDate());
+    const synced = await syncVipMonthQuota(uref, u, db.serverDate(), db);
     return {
       ok: true,
       already: true,
@@ -330,13 +330,13 @@ async function deliverOrderDirect(db, order, meta = {}, presetGrant = null) {
     await recordPointsLog(db, {
       openid,
       delta: computed.pointsInc,
-      balance: Math.max(0, Number(after.points) || 0),
+      balance: walletBalanceOf(after),
       reason: 'purchase',
       title: '购买积分',
       meta: { orderId, productId: order.productId || '' },
     });
   }
-  const synced = await syncVipMonthQuota(userRef, after, db.serverDate());
+  const synced = await syncVipMonthQuota(userRef, after, db.serverDate(), db);
   return {
     ok: true,
     already: false,
@@ -369,7 +369,7 @@ async function deliverOrder(db, cloud, order, meta = {}) {
       }
       const uref = db.collection('users').doc(dup.openid || order.openid);
       const u = (await uref.get()).data || {};
-      const synced = await syncVipMonthQuota(uref, u, db.serverDate());
+      const synced = await syncVipMonthQuota(uref, u, db.serverDate(), db);
       return {
         ok: true,
         already: true,
@@ -433,7 +433,7 @@ async function reclaimOrderGrant(db, order) {
         await recordPointsLog(db, {
           openid,
           delta: -add,
-          balance: nextPts,
+          balance: nextPts + Math.max(0, Number(user.vipMonthQuota) || 0),
           reason: 'purchase_refund',
           title: '订单退款回收',
           meta: { orderId: order._id },

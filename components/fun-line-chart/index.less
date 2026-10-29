@@ -3,7 +3,7 @@
 .fun-line {
   width: 100%;
   box-sizing: border-box;
-  padding: 4rpx 4rpx 0 0;
+  padding: 4rpx 4rpx 4rpx 0;
 }
 
 .fun-line__hint {
@@ -52,14 +52,16 @@
 .fun-line__axis {
   display: flex;
   justify-content: space-between;
-  padding: 8rpx 0 0;
+  align-items: flex-start;
+  padding: 10rpx 0 2rpx;
+  box-sizing: border-box;
 }
 
 .fun-line__tick {
   .ui-caption();
   flex: 1;
+  min-width: 0;
   text-align: center;
-  overflow: hidden;
-  text-overflow: clip;
   white-space: nowrap;
+  line-height: 1.4;
 }

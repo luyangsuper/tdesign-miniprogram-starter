@@ -1,10 +1,10 @@
 <view class="points-log" style="{{themeStyle}}">
   <view class="points-log__balance">
-    <text class="points-log__balance-label">当前积分</text>
+    <text class="points-log__balance-label">可用总额</text>
     <text class="points-log__balance-num">{{balance}}</text>
   </view>
 
-  <view class="points-log__tip">仅记录购买积分变动；包月月额度消耗不计入</view>
+  <view class="points-log__tip">记录购买积分与包月额度变动；余额为可用总额</view>
 
   <view wx:if="{{loading && !list.length}}" class="points-log__state">
     <t-loading theme="circular" size="40rpx" text="加载中" />

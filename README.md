@@ -58,7 +58,7 @@
 | `redeem_codes` | 兑换码（`vip_days` / `points`；`unused` / `used` / `disabled`） |
 | `orders` | 虚拟支付订单（`outTradeNo` / `productId` / `status` / `wxOrderId`） |
 | `download_logs` | 下载记录：`openid` / `packId` / `packTitle` / `emojiIndex` / `variant`(static\|anim) / `fileID` / `thumbFileID` / `grantType` |
-| `points_logs` | 积分流水：`openid` / `delta` / `balance` / `reason` / `title` / `meta` / `createdAt`（仅 `users.points`，不含月额度） |
+| `points_logs` | 积分流水：`openid` / `delta` / `balance`（可用总额） / `reason` / `title` / `meta`（含 `fromVip`/`fromPoints`） / `createdAt` |
 | `feedback` | 用户意见反馈（`content` / `contact` / `status`） |
 | `lotteries` | 抽奖活动（`title` / `poolPoints` / `winnerCount` / `drawAt` / `status` / `winners`） |
 | `lottery_entries` | 抽奖参与记录（文档 id：`{lotteryId}_{openid}`） |

@@ -62,7 +62,7 @@ async function handleRefund(openid, event) {
   const fromVip = Number(event.fromVip) || 0;
   const fromPoints = Number(event.fromPoints) || 0;
   const { ref, data: user } = await ensureUser(openid);
-  const synced = await syncVipMonthQuota(ref, user, db.serverDate());
+  const synced = await syncVipMonthQuota(ref, user, db.serverDate(), db);
   const result = await refundDownload(
     ref,
     synced,
@@ -71,21 +71,23 @@ async function handleRefund(openid, event) {
     _,
     db.serverDate(),
   );
+  const vip = Math.max(0, Math.floor(Number(fromVip) || 0));
   const pts = Math.max(0, Math.floor(Number(fromPoints) || 0));
-  if (pts > 0) {
+  const total = vip + pts;
+  if (total > 0) {
+    const ent = (result && result.entitlement) || {};
     const balance =
-      result && result.entitlement
-        ? result.entitlement.points
-        : Math.max(0, Number(synced.points) || 0) + pts;
+      Math.max(0, Number(ent.points) || 0) +
+      Math.max(0, Number(ent.vipMonthQuota) || 0);
     await recordPointsLog(db, {
       openid,
-      delta: pts,
+      delta: total,
       balance,
       reason: 'download_refund',
       title: '保存失败退回',
       meta: {
         packId: String(event.packId || '').trim(),
-        fromVip: Math.max(0, Math.floor(Number(fromVip) || 0)),
+        fromVip: vip,
         fromPoints: pts,
       },
     });
@@ -119,7 +121,7 @@ exports.main = async (event) => {
 
   try {
     const { ref, data: user } = await ensureUser(OPENID);
-    const synced = await syncVipMonthQuota(ref, user, db.serverDate());
+    const synced = await syncVipMonthQuota(ref, user, db.serverDate(), db);
     if (!canAfford(synced, variant)) {
       return denyGrant(synced, variant);
     }
@@ -157,13 +159,18 @@ exports.main = async (event) => {
       return auth;
     }
 
+    const fromVip = Math.max(0, Number(auth.fromVip) || 0);
     const fromPoints = Math.max(0, Number(auth.fromPoints) || 0);
-    if (fromPoints > 0) {
+    const total = fromVip + fromPoints;
+    if (total > 0) {
       const packTitle = String(pack.title || pack.name || '').trim().slice(0, 40);
+      const ent = auth.entitlement || {};
       await recordPointsLog(db, {
         openid: OPENID,
-        delta: -fromPoints,
-        balance: auth.entitlement && auth.entitlement.points,
+        delta: -total,
+        balance:
+          Math.max(0, Number(ent.points) || 0) +
+          Math.max(0, Number(ent.vipMonthQuota) || 0),
         reason: 'download',
         title: packTitle ? `保存「${packTitle}」` : '保存原图',
         meta: {
@@ -171,7 +178,7 @@ exports.main = async (event) => {
           packTitle,
           index,
           variant,
-          fromVip: auth.fromVip || 0,
+          fromVip,
           fromPoints,
         },
       });

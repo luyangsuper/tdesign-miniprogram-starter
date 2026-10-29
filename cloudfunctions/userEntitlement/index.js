@@ -102,7 +102,7 @@ exports.main = async (event = {}) => {
   try {
     if (action === 'get') {
       const { ref, data } = await ensureUser(OPENID);
-      const synced = await syncVipMonthQuota(ref, data, db.serverDate());
+      const synced = await syncVipMonthQuota(ref, data, db.serverDate(), db);
       const pendingPointGifts = Array.isArray(synced.pendingPointGifts)
         ? synced.pendingPointGifts.slice(0, 50)
         : [];
@@ -208,6 +208,7 @@ exports.main = async (event = {}) => {
           userRef,
           freshSkip,
           db.serverDate(),
+          db,
         );
         return {
           ok: true,
@@ -295,7 +296,7 @@ exports.main = async (event = {}) => {
       }
 
       const fresh = (await userRef.get()).data || {};
-      const synced = await syncVipMonthQuota(userRef, fresh, db.serverDate());
+      const synced = await syncVipMonthQuota(userRef, fresh, db.serverDate(), db);
       const pendingPointGifts = Array.isArray(synced.pendingPointGifts)
         ? synced.pendingPointGifts.slice(0, 50)
         : [];
@@ -360,7 +361,7 @@ exports.main = async (event = {}) => {
         });
 
       const fresh = (await ref.get()).data || {};
-      const synced = await syncVipMonthQuota(ref, fresh, db.serverDate());
+      const synced = await syncVipMonthQuota(ref, fresh, db.serverDate(), db);
       return {
         ok: true,
         message:

@@ -426,6 +426,7 @@ exports.main = async (event = {}) => {
           db.collection('users').doc(uid),
           user,
           db.serverDate(),
+          db,
         );
       }
       return { ok: true, data: await formatUserAsync(user) };
@@ -647,7 +648,7 @@ exports.main = async (event = {}) => {
         },
       });
       let fresh = await getUserByOpenid(targetOpenid);
-      fresh = await syncVipMonthQuota(ref, fresh, db.serverDate());
+      fresh = await syncVipMonthQuota(ref, fresh, db.serverDate(), db);
       return {
         ok: true,
         message: `包月+${days}天`,
@@ -711,7 +712,7 @@ exports.main = async (event = {}) => {
       const lottery = await repairLotteryCredits(targetOpenid, freshUser);
       freshUser = await getUserByOpenid(targetOpenid);
       if (freshUser) {
-        freshUser = await syncVipMonthQuota(ref, freshUser, db.serverDate());
+        freshUser = await syncVipMonthQuota(ref, freshUser, db.serverDate(), db);
       }
       const lines = [];
       if (welcome.granted) lines.push(welcome.message);

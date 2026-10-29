@@ -219,7 +219,7 @@
               header-right-content="{{pointsLogsLoading && !pointsLogs.length ? '加载中' : (pointsLogsTotal ? pointsLogsTotal + ' 条' : '')}}"
             >
               <view slot="header" class="users-panel__label">积分流水</view>
-              <view class="users-panel__hint users-panel__hint--block">仅记录积分变动；包月月额度消耗不计入</view>
+              <view class="users-panel__hint users-panel__hint--block">记录购买积分与包月额度变动；余额为可用总额</view>
               <view class="users-page__dl-state" wx:if="{{pointsLogsLoading && !pointsLogs.length}}">
                 <t-loading theme="circular" size="40rpx" />
               </view>

@@ -69,7 +69,7 @@ async function getOrCreateUser(openid, isAdmin) {
     }
     try {
       await ref.set({ data: blank });
-      const synced = await syncVipMonthQuota(ref, blank, db.serverDate());
+      const synced = await syncVipMonthQuota(ref, blank, db.serverDate(), db);
       if (giftPoints > 0) {
         await recordPointsLog(db, {
           openid,
@@ -134,7 +134,7 @@ async function getOrCreateUser(openid, isAdmin) {
       title: '新用户见面礼',
     });
   }
-  const synced = await syncVipMonthQuota(ref, fresh, db.serverDate());
+  const synced = await syncVipMonthQuota(ref, fresh, db.serverDate(), db);
   return { user: synced, welcomeGift };
 }
 
@@ -179,7 +179,7 @@ exports.main = async (event = {}) => {
     let user = {};
     try {
       user = (await ref.get()).data || {};
-      user = await syncVipMonthQuota(ref, user, db.serverDate());
+      user = await syncVipMonthQuota(ref, user, db.serverDate(), db);
     } catch (err) {
       user = patch;
     }

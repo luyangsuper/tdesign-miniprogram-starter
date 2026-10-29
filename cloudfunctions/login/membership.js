@@ -1,4 +1,5 @@
 const { dayjs, toMs, formatDate } = require('./time');
+const { recordPointsLog } = require('./pointsLog');
 
 const TZ = 'Asia/Shanghai';
 const MONTHLY_QUOTA = 36;
@@ -42,22 +43,45 @@ function buildEntitlement(user = {}) {
 
 /**
  * 包月按自然月（上海）重置额度；未用完不滚存。到期清零月额度。
+ * 传入 db 时：发放 / 到期清零会写入积分流水。
+ * @param {object} [db] cloud.database()，用于记流水；缺省则只改用户字段
  */
-async function syncVipMonthQuota(ref, user, serverDate) {
+async function syncVipMonthQuota(ref, user, serverDate, db) {
   const now = Date.now();
   const isVip = toMs(user.vipExpireAt) > now;
   const period = periodKey(now);
   const lastPeriod = String(user.vipQuotaPeriod || '');
   let vipMonthQuota = Math.max(0, Number(user.vipMonthQuota) || 0);
+  const points = Math.max(0, Number(user.points) || 0);
   const patch = {};
+  let quotaLog = null;
 
   if (!isVip) {
     if (vipMonthQuota !== 0 || lastPeriod) {
+      if (vipMonthQuota > 0) {
+        quotaLog = {
+          delta: -vipMonthQuota,
+          reason: 'vip_expire',
+          title: '包月到期清零',
+          meta: { fromVip: vipMonthQuota, fromPoints: 0, period: lastPeriod },
+        };
+      }
       patch.vipMonthQuota = 0;
       patch.vipQuotaPeriod = '';
       vipMonthQuota = 0;
     }
   } else if (lastPeriod !== period) {
+    quotaLog = {
+      delta: MONTHLY_QUOTA,
+      reason: 'vip_month',
+      title: '包月本月额度',
+      meta: {
+        fromVip: MONTHLY_QUOTA,
+        fromPoints: 0,
+        period,
+        prevPeriod: lastPeriod || '',
+      },
+    };
     patch.vipMonthQuota = MONTHLY_QUOTA;
     patch.vipQuotaPeriod = period;
     vipMonthQuota = MONTHLY_QUOTA;
@@ -68,9 +92,28 @@ async function syncVipMonthQuota(ref, user, serverDate) {
     await ref.update({ data: patch });
   }
 
+  const nextVip = isVip ? vipMonthQuota : 0;
+  if (quotaLog && db) {
+    const openid = String(
+      (user && (user._id || user.openid || user._openid)) ||
+        (ref && ref.id) ||
+        '',
+    ).trim();
+    if (openid) {
+      await recordPointsLog(db, {
+        openid,
+        delta: quotaLog.delta,
+        balance: points + nextVip,
+        reason: quotaLog.reason,
+        title: quotaLog.title,
+        meta: quotaLog.meta,
+      });
+    }
+  }
+
   return {
     ...user,
-    vipMonthQuota: isVip ? vipMonthQuota : 0,
+    vipMonthQuota: nextVip,
     vipQuotaPeriod: isVip ? period : '',
   };
 }
