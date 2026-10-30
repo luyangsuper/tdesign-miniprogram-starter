@@ -36,6 +36,11 @@ import {
   writeHomeSnapshot,
 } from '~/utils/homeSnapshot';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
+import {
+  getActiveFestival,
+  getFestivalAssets,
+  loadFestivalConfig,
+} from '~/utils/festival';
 
 const CONFIRM_ICONS = {
   warn: '/static/emoji/warn.png',
@@ -138,6 +143,11 @@ Page({
     fixedOffset: 80,
     subscribeGuideVisible: false,
     themeStyle: '',
+    festivalActive: true,
+    festivalId: '',
+    festivalClass: '',
+    festivalStyle: '',
+    festHeaderPx: 88,
     selectMode: false,
     selectedMap: {},
     selectedCount: 0,
@@ -216,12 +226,23 @@ Page({
   onShow() {
     applyThemeToPage(this);
     applyThemeToTabBar();
+    this.setData({ festivalActive: true });
+    this.refreshFestivalDecor();
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
       if (typeof bar.setSelected === 'function') bar.setSelected('home');
       else bar.setData({ value: 'home' });
       if (typeof bar.syncTheme === 'function') bar.syncTheme();
+      /* 各 tab 页自带一份 custom-tab-bar，必须在首页也 sync，否则切春节仍显示积雪 */
+      if (typeof bar.syncFestival === 'function') bar.syncFestival();
     }
+    loadFestivalConfig({ silent: true }).then(() => {
+      this.refreshFestivalDecor();
+      if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+        const bar = this.getTabBar();
+        if (bar && typeof bar.syncFestival === 'function') bar.syncFestival();
+      }
+    });
     this.refreshAdmin();
     this.maybeShowWelcomeGift();
     this.maybeShowActivityGift();
@@ -242,7 +263,41 @@ Page({
   },
 
   onHide() {
+    this.setData({ festivalActive: false });
     this.stopActivityGiftPoll();
+  },
+
+  refreshFestivalDecor() {
+    const fest = getActiveFestival();
+    const nav = Number(this.data.navHeight) || 64;
+    /* 顶栏图只盖导航（含状态栏），不延伸进分类条 */
+    const festHeaderPx = Math.max(48, Math.round(nav));
+    const assets = fest ? getFestivalAssets(fest.id) : {};
+    /* 无顶栏图时不要透明导航+白字，否则浅底上看不清 */
+    const hasBanner = !!(assets && assets.banner);
+    const festivalStyle = fest
+      ? [
+          `--fest-accent:${fest.accent || 'var(--td-brand-color)'}`,
+          hasBanner
+            ? `--fest-nav-color:${fest.navColor || '#ffffff'}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(';')
+      : '';
+    const festivalClass = fest
+      ? [hasBanner ? 'home--fest' : '', `home--fest-${fest.id}`]
+          .filter(Boolean)
+          .join(' ')
+      : '';
+    this.setData({
+      festivalId: fest ? fest.id : '',
+      festivalClass,
+      festivalStyle,
+      festHeaderPx,
+    });
+    const decor = this.selectComponent('#festivalDecor');
+    if (decor && typeof decor.refresh === 'function') decor.refresh();
   },
 
   onShareAppMessage() {
@@ -433,6 +488,13 @@ Page({
     this._onWelcomeGift = () => this.maybeShowWelcomeGift();
     this._onActivityGift = () => this.maybeShowActivityGift();
     this._onAdminViewChange = () => this.refreshAdmin();
+    this._onFestivalChange = () => {
+      this.refreshFestivalDecor();
+      if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+        const bar = this.getTabBar();
+        if (bar && typeof bar.syncFestival === 'function') bar.syncFestival();
+      }
+    };
     try {
       const app = getApp();
       if (app && typeof app.captureOaEntry === 'function') {
@@ -446,6 +508,7 @@ Page({
         app.eventBus.on('welcomeGift', this._onWelcomeGift);
         app.eventBus.on('activityGift', this._onActivityGift);
         app.eventBus.on('adminViewChange', this._onAdminViewChange);
+        app.eventBus.on('festivalChange', this._onFestivalChange);
       }
     } catch (e) {
       /* ignore */
@@ -488,6 +551,7 @@ Page({
         if (this._onWelcomeGift) app.eventBus.off('welcomeGift', this._onWelcomeGift);
         if (this._onActivityGift) app.eventBus.off('activityGift', this._onActivityGift);
         if (this._onAdminViewChange) app.eventBus.off('adminViewChange', this._onAdminViewChange);
+        if (this._onFestivalChange) app.eventBus.off('festivalChange', this._onFestivalChange);
       }
     } catch (e) {
       /* ignore */
@@ -603,27 +667,30 @@ Page({
       // 收起/展开共用图标尺寸
       const iconPx = Math.max(16, Math.round(searchBarHeight * 0.44));
       const searchIconSize = `${iconPx}px`;
-      this.setData({
-        navHeight,
-        menuButton: {
-          top: menu.top,
-          height: menu.height,
-          gap: menuGap,
-        },
-        navSearchLeft,
-        navSearchRight,
-        searchBarHeight,
-        searchTop,
-        searchIconSize,
-        searchBoxStyle: this.buildSearchBoxStyle({
-          searchExpanded: this.data.searchExpanded,
-          searchTop,
-          searchBarHeight,
+      this.setData(
+        {
+          navHeight,
+          menuButton: {
+            top: menu.top,
+            height: menu.height,
+            gap: menuGap,
+          },
           navSearchLeft,
           navSearchRight,
+          searchBarHeight,
+          searchTop,
           searchIconSize,
-        }),
-      });
+          searchBoxStyle: this.buildSearchBoxStyle({
+            searchExpanded: this.data.searchExpanded,
+            searchTop,
+            searchBarHeight,
+            navSearchLeft,
+            navSearchRight,
+            searchIconSize,
+          }),
+        },
+        () => this.refreshFestivalDecor(),
+      );
     } catch (e) {
       const fallback = {
         navHeight: 64,
@@ -634,13 +701,16 @@ Page({
         searchTop: 48,
         searchIconSize: '16px',
       };
-      this.setData({
-        ...fallback,
-        searchBoxStyle: this.buildSearchBoxStyle({
-          searchExpanded: this.data.searchExpanded,
+      this.setData(
+        {
           ...fallback,
-        }),
-      });
+          searchBoxStyle: this.buildSearchBoxStyle({
+            searchExpanded: this.data.searchExpanded,
+            ...fallback,
+          }),
+        },
+        () => this.refreshFestivalDecor(),
+      );
     }
   },
 
@@ -694,7 +764,10 @@ Page({
       if (!rect || !rect.height) return;
       // t-navbar（fixed + placeholder）已占位，这里只需给「吸顶搜索+分类」留高
       const fixedOffset = Math.ceil(rect.height) + 8;
-      this.setData({ fixedOffset }, () => this.updateScrollerHeight());
+      this.setData({ fixedOffset }, () => {
+        this.updateScrollerHeight();
+        this.refreshFestivalDecor();
+      });
     });
   },
 

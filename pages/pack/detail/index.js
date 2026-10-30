@@ -14,6 +14,7 @@ import {
 import { downloadCost } from '~/utils/pricing';
 import { resolveIsAdmin } from '~/utils/auth';
 import { applyThemeToPage, getThemeBrand, getThemeStyle } from '~/utils/theme';
+import { getFestivalConfettiColors } from '~/utils/festival';
 import { getWindowInfoSafe } from '~/utils/systemInfo';
 import { getFavoriteCached, queueFavorite, rememberFavorite } from '~/utils/favoriteQueue';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
@@ -831,6 +832,7 @@ Page({
       wx.showLoading({ title: '获取原图...', mask: true });
       const stat = await this.downloadOne(index);
       wx.showToast({ title: this.formatSaveTip(stat), icon: 'success' });
+      this.burstFestivalConfetti();
     } catch (err) {
       console.error(err);
       const msg = err.message || '保存失败';
@@ -843,6 +845,15 @@ Page({
     } finally {
       wx.hideLoading();
       this.setData({ saving: false });
+    }
+  },
+
+  burstFestivalConfetti() {
+    const colors = getFestivalConfettiColors();
+    if (!colors) return;
+    const burst = this.selectComponent('#festivalConfetti');
+    if (burst && typeof burst.burst === 'function') {
+      burst.burst({ count: 36, durationMs: 1000, colors });
     }
   },
 

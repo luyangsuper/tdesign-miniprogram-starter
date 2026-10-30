@@ -49,6 +49,33 @@ import {
   getThemeStyle,
   setThemeId,
 } from '~/utils/theme';
+import {
+  FESTIVAL_BANNER_SPEC,
+  FESTIVAL_BANK_SPEC,
+  clearFestivalBanner,
+  clearFestivalBank,
+  clearFestivalWindow,
+  ensureFestivalModeForRole,
+  getFestivalBannerAdminItems,
+  getFestivalBankAdminItems,
+  getFestivalMode,
+  getFestivalModeOptions,
+  getFestivalStatus,
+  getFestivalWindowInfo,
+  isCloudFileId,
+  isFestivalFallFull,
+  isFestivalFeatureEnabled,
+  isFestivalUserOn,
+  loadFestivalConfig,
+  resolveFestivalSrcs,
+  saveFestivalBanner,
+  saveFestivalBank,
+  saveFestivalWindow,
+  setFestivalFallFull,
+  setFestivalFeatureEnabled,
+  setFestivalMode,
+  setFestivalUserOn,
+} from '~/utils/festival';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
 
 /**
@@ -62,6 +89,16 @@ function buildRoleLabel({ isAdmin, isVip, points, vipMonthQuota, previewAsUser }
     return `积分 ${(points || 0) + (vipMonthQuota || 0)}`;
   }
   return '普通用户';
+}
+
+/** 节日氛围入口右侧文案：对用户不暴露后台；有生效节日时优先显示名称 */
+function festivalMenuNote(fest) {
+  if (!fest) return '敬请期待';
+  if (fest.activeName && fest.activeName !== '无') return fest.activeName;
+  if (!fest.userOn && fest.mode === 'auto') return '已关闭';
+  if (!fest.featureOn && fest.mode === 'auto') return '敬请期待';
+  if (fest.mode === 'off') return '已关闭';
+  return '已开启';
 }
 
 /** 头像角标：VIP 红色 user-vip；积分礼盒；管理员「管」（预览时不显示管） */
@@ -117,6 +154,37 @@ Page({
     themeName: '微信绿',
     themePresets: [],
     themePopupVisible: false,
+    festivalMode: 'auto',
+    festivalModeLabel: '跟随日期',
+    festivalActiveName: '无',
+    festivalMenuNote: '敬请期待',
+    festivalFeatureOn: false,
+    festivalUserOn: true,
+    festivalFallFull: false,
+    festivalPopupVisible: false,
+    festivalModeOptions: [],
+    festivalBannerItems: [],
+    festivalBankItems: [],
+    festivalAssetEdit: null,
+    festivalBannerSpecLabel: `${FESTIVAL_BANNER_SPEC.width}×${FESTIVAL_BANNER_SPEC.height}`,
+    festivalBankSpecLabel: `${FESTIVAL_BANK_SPEC.width}×${FESTIVAL_BANK_SPEC.height}`,
+    /** '' | banner-upload | banner-reset | bank-upload | bank-reset */
+    festivalAssetBusy: '',
+    festivalCropVisible: false,
+    festivalCropSrc: '',
+    festivalCropKind: 'banner',
+    festivalCropFestivalId: '',
+    festivalCropTitle: '',
+    festivalCropHint: '',
+    festivalCropOutW: FESTIVAL_BANNER_SPEC.width,
+    festivalCropOutH: FESTIVAL_BANNER_SPEC.height,
+    festivalFeatureSaving: false,
+    festivalWindowPickerVisible: false,
+    festivalWindowPickerTitle: '选择日期',
+    festivalWindowPickerMode: 'start',
+    festivalWindowPickerValue: '',
+    festivalWindowDraftStart: '',
+    festivalWindowDraftEnd: '',
     feedbackVisible: false,
     feedbackContent: '',
     feedbackContact: '',
@@ -164,14 +232,21 @@ Page({
       if (typeof bar.setSelected === 'function') bar.setSelected('my');
       else bar.setData({ value: 'my' });
       if (typeof bar.syncTheme === 'function') bar.syncTheme();
+      if (typeof bar.syncFestival === 'function') bar.syncFestival();
     }
     this.refreshIdentity();
+    ensureFestivalModeForRole(!!this.data.isAdmin);
     this.syncProfileFromCloud();
     this.syncEntitlement();
     this.refreshNotifyStatus();
     this.refreshFeedbackNotifyStatus();
     this.refreshLotteryHint();
     this.maybeOpenCheckinPopup();
+    loadFestivalConfig({ silent: true }).then(() => {
+      ensureFestivalModeForRole(!!this.data.isAdmin);
+      this.syncThemeUi();
+      this.syncTabBarFestival();
+    });
   },
 
   onShareAppMessage() {
@@ -274,12 +349,21 @@ Page({
     const presets = getThemePresets();
     const themeId = getThemeId();
     const hit = presets.find((p) => p.id === themeId);
+    const fest = getFestivalStatus();
     this.setData({
       themeStyle: getThemeStyle(),
       themeBrand: getThemeBrand(),
       themeId,
       themeName: (hit && hit.name) || '微信绿',
       themePresets: presets,
+      festivalMode: fest.mode,
+      festivalModeLabel: fest.modeLabel,
+      festivalActiveName: fest.activeName,
+      festivalMenuNote: festivalMenuNote(fest),
+      festivalFeatureOn: !!fest.featureOn,
+      festivalUserOn: !!fest.userOn,
+      festivalFallFull: isFestivalFallFull(),
+      festivalModeOptions: getFestivalModeOptions(),
     });
   },
 
@@ -515,6 +599,492 @@ Page({
       themePopupVisible: false,
     });
     wx.showToast({ title: '主题已更新', icon: 'success' });
+  },
+
+  openFestivalPicker() {
+    this.setData({
+      festivalPopupVisible: true,
+      festivalMode: getFestivalMode(),
+      festivalModeOptions: getFestivalModeOptions(),
+      festivalFeatureOn: isFestivalFeatureEnabled(),
+      festivalUserOn: isFestivalUserOn(),
+      festivalFallFull: isFestivalFallFull(),
+    });
+    /* 先用本地缓存渲染预览图，避免连点两次换签导致图片闪两次 */
+    if (this.data.isAdmin) this.refreshFestivalAssetItems();
+    loadFestivalConfig({ silent: true }).then(() => {
+      this.setData({
+        festivalFeatureOn: isFestivalFeatureEnabled(),
+        festivalUserOn: isFestivalUserOn(),
+        festivalFallFull: isFestivalFallFull(),
+      });
+      this.syncThemeUi();
+      if (this.data.isAdmin) this.refreshFestivalAssetItems();
+    });
+  },
+
+  onFestivalPopupChange(e) {
+    const visible = !!(e.detail && e.detail.visible);
+    this.setData({ festivalPopupVisible: visible });
+  },
+
+  /** 走节日临时链缓存，同 fileID 复用同一 URL，避免预览图反复换签重载 */
+  async _resolveCloudPreviewMap(ids) {
+    const list = (ids || []).filter(Boolean);
+    const urlMap = {};
+    if (!list.length) return urlMap;
+    try {
+      const urls = await resolveFestivalSrcs(list);
+      list.forEach((id, i) => {
+        if (id) urlMap[id] = urls[i] || '';
+      });
+    } catch (e) {
+      /* ignore */
+    }
+    return urlMap;
+  },
+
+  buildFestivalAssetEdit(banners, banks) {
+    const id = String(this.data.festivalMode || '').trim();
+    if (!id || id === 'auto' || id === 'off') return null;
+    const banner = (banners || []).find((it) => it.id === id);
+    const bank = (banks || []).find((it) => it.id === id);
+    if (!banner && !bank) return null;
+    const window = getFestivalWindowInfo(id);
+    return {
+      id,
+      name: (banner && banner.name) || (bank && bank.name) || id,
+      banner: banner || { hasCustom: false, previewUrl: '' },
+      bank: bank || { hasCustom: false, fallback: false, previewUrl: '' },
+      window,
+    };
+  },
+
+  async refreshFestivalAssetItems() {
+    const seq = (this._festAssetSeq = (this._festAssetSeq || 0) + 1);
+    const bannersRaw = getFestivalBannerAdminItems();
+    const banksRaw = getFestivalBankAdminItems();
+    const urlMap = await this._resolveCloudPreviewMap([
+      ...bannersRaw.map((it) => it.override),
+      ...banksRaw.map((it) => it.override),
+      ...banksRaw.map((it) => it.fallback),
+    ]);
+    if (seq !== this._festAssetSeq) return;
+    const prevBanner = {};
+    (this.data.festivalBannerItems || []).forEach((it) => {
+      if (it && it.id && it.previewUrl) prevBanner[it.id] = it.previewUrl;
+    });
+    const prevBank = {};
+    (this.data.festivalBankItems || []).forEach((it) => {
+      if (it && it.id && it.previewUrl) prevBank[it.id] = it.previewUrl;
+    });
+    const festivalBannerItems = bannersRaw.map((it) => {
+      let previewUrl = '';
+      if (it.hasCustom) {
+        previewUrl = isCloudFileId(it.override)
+          ? urlMap[it.override] || prevBanner[it.id] || ''
+          : it.override || '';
+      }
+      return {
+        id: it.id,
+        name: it.name,
+        hasCustom: it.hasCustom,
+        previewUrl,
+      };
+    });
+    const festivalBankItems = banksRaw.map((it) => {
+      let previewUrl = '';
+      if (it.hasCustom) {
+        previewUrl = isCloudFileId(it.override)
+          ? urlMap[it.override] || prevBank[it.id] || ''
+          : it.override || '';
+      } else if (it.fallback) {
+        previewUrl = isCloudFileId(it.fallback)
+          ? urlMap[it.fallback] || prevBank[it.id] || ''
+          : it.fallback;
+      }
+      return {
+        id: it.id,
+        name: it.name,
+        hasCustom: it.hasCustom,
+        fallback: !!it.fallback,
+        previewUrl,
+      };
+    });
+    this.setData({
+      festivalBannerItems,
+      festivalBankItems,
+      festivalAssetEdit: this.buildFestivalAssetEdit(
+        festivalBannerItems,
+        festivalBankItems,
+      ),
+    });
+  },
+
+  openFestivalCrop(kind, festivalId, localPath) {
+    const isBank = kind === 'bank';
+    const spec = isBank ? FESTIVAL_BANK_SPEC : FESTIVAL_BANNER_SPEC;
+    /* 先收起节日弹层，避免 t-popup 盖住裁剪全屏层 */
+    this._festivalPopupBeforeCrop = !!this.data.festivalPopupVisible;
+    this.setData({
+      festivalPopupVisible: false,
+      festivalCropVisible: true,
+      festivalCropSrc: localPath,
+      festivalCropKind: kind,
+      festivalCropFestivalId: festivalId,
+      festivalCropOutW: spec.width,
+      festivalCropOutH: spec.height,
+      festivalCropTitle: isBank ? '裁剪底栏背景' : '裁剪导航顶栏',
+      festivalCropHint: `单指拖动，双指缩放 · 导出 ${spec.width}×${spec.height}`,
+    });
+  },
+
+  closeFestivalCrop({ reopenPopup } = {}) {
+    const reopen =
+      reopenPopup !== false && this._festivalPopupBeforeCrop;
+    this._festivalPopupBeforeCrop = false;
+    this.setData({
+      festivalCropVisible: false,
+      festivalCropSrc: '',
+      festivalCropFestivalId: '',
+      festivalPopupVisible: reopen,
+    });
+    if (reopen && this.data.isAdmin) {
+      this.refreshFestivalAssetItems();
+    }
+  },
+
+  onFestivalCropCancel() {
+    this.closeFestivalCrop({ reopenPopup: true });
+  },
+
+  async onFestivalCropConfirm(e) {
+    const tempFilePath =
+      (e && e.detail && e.detail.tempFilePath) || '';
+    const id = this.data.festivalCropFestivalId;
+    const kind = this.data.festivalCropKind;
+    if (!tempFilePath || !id) {
+      this.closeFestivalCrop({ reopenPopup: true });
+      return;
+    }
+    const busyKey = kind === 'bank' ? 'bank-upload' : 'banner-upload';
+    this.setData({ festivalAssetBusy: busyKey });
+    this.closeFestivalCrop({ reopenPopup: true });
+    try {
+      const folder = kind === 'bank' ? 'banks' : 'banners';
+      const cloudPath = `festival/${folder}/${id}_${Date.now()}.png`;
+      const fileID = await uploadFile(cloudPath, tempFilePath);
+      if (kind === 'bank') await saveFestivalBank(id, fileID);
+      else await saveFestivalBanner(id, fileID);
+      await this.refreshFestivalAssetItems();
+      this.syncTabBarFestival();
+      wx.showToast({
+        title: kind === 'bank' ? '底栏图已更新' : '顶栏图已更新',
+        icon: 'success',
+      });
+    } catch (err) {
+      wx.showToast({
+        title: (err && err.message) || '上传失败',
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ festivalAssetBusy: '' });
+    }
+  },
+
+  onUploadFestivalBanner(e) {
+    if (!this.data.isAdmin || this.data.festivalAssetBusy) return;
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '';
+    if (!id) return;
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      sizeType: ['original'],
+      success: (res) => {
+        const file = (res.tempFiles && res.tempFiles[0]) || {};
+        const local = file.tempFilePath || '';
+        if (!local) return;
+        this.openFestivalCrop('banner', id, local);
+      },
+    });
+  },
+
+  async onResetFestivalBanner(e) {
+    if (!this.data.isAdmin || this.data.festivalAssetBusy) return;
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '';
+    if (!id) return;
+    this.setData({ festivalAssetBusy: 'banner-reset' });
+    try {
+      await clearFestivalBanner(id);
+      await this.refreshFestivalAssetItems();
+      this.syncTabBarFestival();
+      wx.showToast({ title: '已清除', icon: 'none' });
+    } catch (err) {
+      wx.showToast({
+        title: (err && err.message) || '清除失败',
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ festivalAssetBusy: '' });
+    }
+  },
+
+  onUploadFestivalBank(e) {
+    if (!this.data.isAdmin || this.data.festivalAssetBusy) return;
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '';
+    if (!id) return;
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      sizeType: ['original'],
+      success: (res) => {
+        const file = (res.tempFiles && res.tempFiles[0]) || {};
+        const local = file.tempFilePath || '';
+        if (!local) return;
+        this.openFestivalCrop('bank', id, local);
+      },
+    });
+  },
+
+  async onResetFestivalBank(e) {
+    if (!this.data.isAdmin || this.data.festivalAssetBusy) return;
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '';
+    if (!id) return;
+    this.setData({ festivalAssetBusy: 'bank-reset' });
+    try {
+      await clearFestivalBank(id);
+      await this.refreshFestivalAssetItems();
+      this.syncTabBarFestival();
+      wx.showToast({ title: '已清除', icon: 'none' });
+    } catch (err) {
+      wx.showToast({
+        title: (err && err.message) || '清除失败',
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ festivalAssetBusy: '' });
+    }
+  },
+
+  onPickFestivalMode(e) {
+    if (!this.data.isAdmin) return;
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      (e.target && e.target.dataset && e.target.dataset.id) ||
+      '';
+    if (!id) return;
+    /* check-tag 点已选项会取消勾选：强制保持选中 */
+    if (id === this.data.festivalMode) {
+      this.setData({ festivalMode: id });
+      return;
+    }
+    setFestivalMode(id);
+    this.syncThemeUi();
+    this.syncTabBarFestival();
+    /* 只用已解析好的预览列表切换，不再整表换签，避免顶栏/底栏图闪多次 */
+    this.setData({
+      festivalMode: id,
+      festivalAssetEdit: this.buildFestivalAssetEdit(
+        this.data.festivalBannerItems,
+        this.data.festivalBankItems,
+      ),
+    });
+    let toast = '预览已切换，回首页查看';
+    if (id === 'off') toast = '已关闭节日装饰';
+    else if (id === 'auto') {
+      if (!isFestivalFeatureEnabled()) {
+        toast = '跟随日期：本机可预览；用户需先开「全员可见」';
+      } else if (!isFestivalUserOn()) {
+        toast = '请先打开「开启节日效果」';
+      } else {
+        const active = getFestivalStatus().activeName;
+        toast =
+          active && active !== '无'
+            ? `今日：${active}，回首页查看`
+            : '今日不在节日窗口，回首页无装饰';
+      }
+    }
+    wx.showToast({ title: toast, icon: 'none' });
+  },
+
+  openFestivalWindowPicker(e) {
+    if (!this.data.isAdmin || this.data.festivalAssetBusy) return;
+    const which =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.which) ||
+      'start';
+    const edit = this.data.festivalAssetEdit;
+    if (!edit || !edit.window) return;
+    const win = edit.window;
+    const value =
+      which === 'end' ? win.pickerEnd || win.pickerStart : win.pickerStart || win.pickerEnd;
+    this.setData({
+      festivalWindowPickerMode: which === 'end' ? 'end' : 'start',
+      festivalWindowPickerTitle: which === 'end' ? '结束日期' : '开始日期',
+      festivalWindowPickerValue: value,
+      festivalWindowDraftStart: win.pickerStart || '',
+      festivalWindowDraftEnd: win.pickerEnd || '',
+      festivalWindowPickerVisible: true,
+    });
+  },
+
+  onCloseFestivalWindowPicker() {
+    this.setData({ festivalWindowPickerVisible: false });
+  },
+
+  async onFestivalWindowPickerConfirm(e) {
+    const raw =
+      (e && e.detail && (e.detail.value || e.detail)) ||
+      this.data.festivalWindowPickerValue ||
+      '';
+    const ymd = String(raw).trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      this.setData({ festivalWindowPickerVisible: false });
+      wx.showToast({ title: '日期无效', icon: 'none' });
+      return;
+    }
+    const mode = this.data.festivalWindowPickerMode;
+    let start = this.data.festivalWindowDraftStart || '';
+    let end = this.data.festivalWindowDraftEnd || '';
+    if (mode === 'end') end = ymd;
+    else start = ymd;
+    const id =
+      (this.data.festivalAssetEdit && this.data.festivalAssetEdit.id) || '';
+    this.setData({
+      festivalWindowPickerVisible: false,
+      festivalWindowDraftStart: start,
+      festivalWindowDraftEnd: end,
+    });
+    if (!id || !start || !end) {
+      /* 只改了一端：打开另一端继续选 */
+      const nextWhich = mode === 'start' ? 'end' : 'start';
+      const edit = this.data.festivalAssetEdit;
+      const win = (edit && edit.window) || {};
+      this.setData({
+        festivalWindowPickerMode: nextWhich,
+        festivalWindowPickerTitle: nextWhich === 'end' ? '结束日期' : '开始日期',
+        festivalWindowPickerValue:
+          nextWhich === 'end'
+            ? end || win.pickerEnd || start
+            : start || win.pickerStart || end,
+        festivalWindowPickerVisible: true,
+      });
+      return;
+    }
+    this.setData({ festivalAssetBusy: 'window-save' });
+    try {
+      await saveFestivalWindow(id, start, end);
+      this.setData({
+        festivalAssetEdit: this.buildFestivalAssetEdit(
+          this.data.festivalBannerItems,
+          this.data.festivalBankItems,
+        ),
+      });
+      this.syncThemeUi();
+      this.syncTabBarFestival();
+      wx.showToast({ title: '日期已更新', icon: 'success' });
+    } catch (err) {
+      wx.showToast({
+        title: (err && err.message) || '保存失败',
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ festivalAssetBusy: '' });
+    }
+  },
+
+  async onResetFestivalWindow() {
+    if (!this.data.isAdmin || this.data.festivalAssetBusy) return;
+    const id =
+      (this.data.festivalAssetEdit && this.data.festivalAssetEdit.id) || '';
+    if (!id) return;
+    this.setData({ festivalAssetBusy: 'window-reset' });
+    try {
+      await clearFestivalWindow(id);
+      this.setData({
+        festivalAssetEdit: this.buildFestivalAssetEdit(
+          this.data.festivalBannerItems,
+          this.data.festivalBankItems,
+        ),
+      });
+      this.syncThemeUi();
+      this.syncTabBarFestival();
+      wx.showToast({ title: '已恢复默认', icon: 'none' });
+    } catch (err) {
+      wx.showToast({
+        title: (err && err.message) || '恢复失败',
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ festivalAssetBusy: '' });
+    }
+  },
+
+  async onFestivalFeatureChange(e) {
+    if (!this.data.isAdmin || this.data.festivalFeatureSaving) return;
+    const on = !!(e.detail && e.detail.value);
+    this.setData({ festivalFeatureSaving: true, festivalFeatureOn: on });
+    try {
+      await setFestivalFeatureEnabled(on);
+      this.syncThemeUi();
+      this.syncTabBarFestival();
+      wx.showToast({
+        title: on ? '已开启全员可见' : '已改为仅本机预览',
+        icon: 'none',
+      });
+    } catch (err) {
+      this.setData({ festivalFeatureOn: isFestivalFeatureEnabled() });
+      wx.showToast({
+        title: (err && err.message) || '保存失败',
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ festivalFeatureSaving: false });
+    }
+  },
+
+  onFestivalUserChange(e) {
+    if (!isFestivalFeatureEnabled() && !this.data.isAdmin) {
+      this.setData({ festivalUserOn: isFestivalUserOn() });
+      wx.showToast({ title: '近期暂无节日活动', icon: 'none' });
+      return;
+    }
+    const on = !!(e.detail && e.detail.value);
+    setFestivalUserOn(on);
+    this.setData({ festivalUserOn: on });
+    this.syncThemeUi();
+    this.syncTabBarFestival();
+    wx.showToast({
+      title: on ? '已开启节日效果' : '已关闭节日效果',
+      icon: 'none',
+    });
+  },
+
+  onFestivalFallFullChange(e) {
+    const on = !!(e.detail && e.detail.value);
+    setFestivalFallFull(on);
+    this.setData({ festivalFallFull: on });
+    this.syncThemeUi();
+    wx.showToast({
+      title: on ? '已改为全屏飘落' : '已改为仅顶栏飘落',
+      icon: 'none',
+    });
+  },
+
+  syncTabBarFestival() {
+    try {
+      if (typeof this.getTabBar === 'function') {
+        const bar = this.getTabBar();
+        if (bar && typeof bar.syncFestival === 'function') bar.syncFestival();
+      }
+    } catch (err) {
+      /* ignore */
+    }
   },
 
   refreshIdentity() {

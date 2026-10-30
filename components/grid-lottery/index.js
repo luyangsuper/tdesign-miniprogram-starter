@@ -1,5 +1,6 @@
 import { callFunction } from '~/utils/cloud';
 import { canBeAdmin } from '~/utils/auth';
+import { getFestivalConfettiColors } from '~/utils/festival';
 import { getLotteryAudio } from '~/utils/lotteryAudio';
 
 const ART = {
@@ -278,7 +279,11 @@ Component({
         this._paint(-1, prizeIndex, -1);
         const burst = this.selectComponent('#gridConfetti');
         if (burst && typeof burst.burst === 'function') {
-          burst.burst({ count: gain >= 8 ? 56 : 36, durationMs: 1200 });
+          burst.burst({
+            count: gain >= 8 ? 56 : 36,
+            durationMs: 1200,
+            colors: getFestivalConfettiColors() || undefined,
+          });
         }
         this.setData({
           goPhase: 'win',

@@ -1,0 +1,9 @@
+{
+  "name": "festivalConfig",
+  "version": "1.0.0",
+  "description": "节日氛围：全局开关、顶栏/底栏图、持续日期窗口",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

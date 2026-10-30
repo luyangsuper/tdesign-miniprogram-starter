@@ -1,14 +1,27 @@
-<!-- 固定底栏：首页 | 我的 -->
-<view class="page custom-tab-bar" style="{{themeStyle}}">
-  <t-tab-bar
-    value="{{value}}"
-    bordered="{{false}}"
-    split="{{false}}"
-    fixed="{{false}}"
-    safe-area-inset-bottom="{{true}}"
-    bindchange="onChange"
+<!-- 固定底栏：节日背景限高裁切、原图显示；图标文字用描边保可读 -->
+<view
+  class="page custom-tab-bar {{festivalId ? 'custom-tab-bar--fest custom-tab-bar--' + festivalId : ''}} {{bankSrc ? 'custom-tab-bar--bank' : ''}}"
+  style="{{themeStyle}}"
+>
+  <view
+    wx:if="{{bankSrc}}"
+    class="custom-tab-bar__bg-wrap"
+    style="height: {{bankMaxPx}}px;"
+    aria-hidden="true"
   >
-    <t-tab-bar-item t-class="tab-bar-item" value="home" icon="home">首页</t-tab-bar-item>
-    <t-tab-bar-item t-class="tab-bar-item" value="my" icon="user">我的</t-tab-bar-item>
-  </t-tab-bar>
+    <image class="custom-tab-bar__bg" src="{{bankSrc}}" mode="aspectFill" />
+  </view>
+  <view class="custom-tab-bar__inner">
+    <t-tab-bar
+      value="{{value}}"
+      bordered="{{false}}"
+      split="{{false}}"
+      fixed="{{false}}"
+      safe-area-inset-bottom="{{true}}"
+      bindchange="onChange"
+    >
+      <t-tab-bar-item t-class="tab-bar-item" value="home" icon="home">首页</t-tab-bar-item>
+      <t-tab-bar-item t-class="tab-bar-item" value="my" icon="user">我的</t-tab-bar-item>
+    </t-tab-bar>
+  </view>
 </view>

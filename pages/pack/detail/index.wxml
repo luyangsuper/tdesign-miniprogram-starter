@@ -333,4 +333,5 @@
 
   <lottery-host />
   <heart-burst id="heartBurst" />
+  <confetti-burst id="festivalConfetti" />
 </view>

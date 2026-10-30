@@ -16,7 +16,11 @@
     "t-textarea": "tdesign-miniprogram/textarea/textarea",
     "t-upload": "tdesign-miniprogram/upload/upload",
     "t-popup": "tdesign-miniprogram/popup/popup",
+    "t-switch": "tdesign-miniprogram/switch/switch",
+    "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
+    "t-date-time-picker": "tdesign-miniprogram/date-time-picker/date-time-picker",
     "checkin-popup": "/components/checkin-popup/index",
-    "lottery-host": "/components/lottery-host/index"
+    "lottery-host": "/components/lottery-host/index",
+    "festival-image-crop": "/components/festival-image-crop/index"
   }
 }

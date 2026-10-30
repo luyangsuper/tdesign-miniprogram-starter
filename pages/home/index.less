@@ -5,6 +5,37 @@
   background: var(--td-bg-color-page);
   box-sizing: border-box;
 
+  /*
+   * 节日顶栏：
+   * - 导航透明 + 白字（氛围来自 fest-skin，仅导航区）
+   * - 分类条保持实底，不叠顶栏图
+   */
+  &--fest {
+    --td-navbar-bg-color: transparent;
+    --td-navbar-color: var(--fest-nav-color, #fff);
+  }
+
+  &--fest &__fixed {
+    background: var(--td-bg-color-container);
+    box-shadow: 0 6rpx 16rpx rgba(15, 40, 30, 0.04);
+  }
+
+  &--fest &__nav-action {
+    color: var(--fest-nav-color, #fff);
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(8px);
+  }
+
+  &--fest &__search-fab {
+    background: rgba(255, 255, 255, 0.22);
+    color: var(--fest-nav-color, #fff);
+    backdrop-filter: blur(8px);
+  }
+
+  &--fest &__search-dot {
+    box-shadow: 0 0 0 2rpx rgba(26, 61, 46, 0.35);
+  }
+
   &--select &__body {
     padding-bottom: calc(
       @tab-bar-height + @tab-bar-page-gap + 168rpx + env(safe-area-inset-bottom)
@@ -135,6 +166,7 @@
     position: fixed;
     left: 0;
     right: 0;
+    /* 高于 fest-skin(90)，分类区盖住顶栏图，避免叠色 */
     z-index: 100;
     padding: 12rpx 0 14rpx;
     background: var(--td-bg-color-container);

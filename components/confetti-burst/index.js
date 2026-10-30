@@ -30,10 +30,14 @@ Component({
       }
     },
 
-    /** @param {{ count?: number, durationMs?: number }} [opts] */
+    /**
+     * @param {{ count?: number, durationMs?: number, colors?: string[] }} [opts]
+     */
     burst(opts = {}) {
       const count = Math.max(16, Math.min(64, Number(opts.count) || 42));
       const durationMs = Math.max(600, Number(opts.durationMs) || 1100);
+      const palette =
+        Array.isArray(opts.colors) && opts.colors.length ? opts.colors : COLORS;
       const pieces = [];
       for (let i = 0; i < count; i += 1) {
         const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.55;
@@ -47,7 +51,7 @@ Component({
           style: [
             `--dx:${dx.toFixed(1)}rpx`,
             `--dy:${dy.toFixed(1)}rpx`,
-            `--c:${COLORS[i % COLORS.length]}`,
+            `--c:${palette[i % palette.length]}`,
             `--r:${Math.floor(Math.random() * 520)}deg`,
             `--d:${(Math.random() * 0.12).toFixed(2)}s`,
             `--s:${(0.75 + Math.random() * 0.7).toFixed(2)}`,

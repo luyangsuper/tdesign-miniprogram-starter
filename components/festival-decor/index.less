@@ -1,0 +1,262 @@
+/* 节日主题：仅首页顶栏背景图 + 灯带 + 飘落；底栏装饰在 custom-tab-bar */
+
+/* 仅导航区（含状态栏），高度由页面传入 = navHeight，不含分类条 */
+.fest-skin {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 90;
+  pointer-events: none;
+  overflow: hidden;
+  background: transparent;
+  /* 底缘软收，衔接下方实底分类条 */
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+}
+
+.fest-skin__img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.fest-chrome {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 480;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 导航区微光：分组闪烁，不另起灯绳 */
+.fest-sparkles {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 28%;
+  pointer-events: none;
+}
+
+.fest-sparkles__dot {
+  position: absolute;
+  width: 8rpx;
+  height: 8rpx;
+  margin: -4rpx 0 0 -4rpx;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8rpx rgba(255, 255, 255, 0.9), 0 0 16rpx rgba(251, 191, 36, 0.45);
+  animation: fest-sparkle-twinkle 2.4s ease-in-out infinite;
+}
+
+.fest-sparkles__dot--g0 {
+  animation-delay: 0s;
+}
+
+.fest-sparkles__dot--g1 {
+  animation-delay: 0.8s;
+}
+
+.fest-sparkles__dot--g2 {
+  animation-delay: 1.6s;
+}
+
+@keyframes fest-sparkle-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.15);
+  }
+}
+
+/* —— 矮灯带：贴导航底缘 —— */
+.fest-garland {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  line-height: 0;
+}
+
+.fest-garland__img {
+  width: 100%;
+  height: auto;
+  display: block;
+  opacity: 0.98;
+}
+
+.fest-garland__glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.fest-garland__bulb {
+  position: absolute;
+  width: 22rpx;
+  height: 28rpx;
+  border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+  transform: translate(-50%, -50%);
+  animation: fest-bulb-blink 1.7s ease-in-out infinite;
+}
+
+.fest-garland__bulb--r {
+  background: #ef4444;
+  color: #ef4444;
+  box-shadow: 0 0 10rpx #ef4444, 0 0 24rpx rgba(239, 68, 68, 0.65);
+}
+
+.fest-garland__bulb--g {
+  background: #22c55e;
+  color: #22c55e;
+  box-shadow: 0 0 10rpx #22c55e, 0 0 24rpx rgba(34, 197, 94, 0.6);
+}
+
+.fest-garland__bulb--y {
+  background: #fbbf24;
+  color: #fbbf24;
+  box-shadow: 0 0 10rpx #fbbf24, 0 0 24rpx rgba(251, 191, 36, 0.65);
+}
+
+.fest-garland__bulb--w {
+  background: #f8fafc;
+  color: #e2e8f0;
+  box-shadow: 0 0 10rpx #fff, 0 0 22rpx rgba(255, 255, 255, 0.75);
+}
+
+.fest-garland__bulb--g0 {
+  animation-delay: 0s;
+}
+
+.fest-garland__bulb--g1 {
+  animation-delay: 0.55s;
+}
+
+.fest-garland__bulb--g2 {
+  animation-delay: 1.1s;
+}
+
+@keyframes fest-bulb-blink {
+  0%,
+  100% {
+    opacity: 0.35;
+    filter: brightness(0.75);
+  }
+  45%,
+  55% {
+    opacity: 1;
+    filter: brightness(1.55);
+  }
+}
+
+/* —— 飘落：仅首页；默认裁切在顶栏，可切全屏 —— */
+.fest-ambient {
+  position: fixed;
+  z-index: 460;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fest-ambient--full {
+  inset: 0;
+}
+
+.fest-ambient--header {
+  top: 0;
+  left: 0;
+  right: 0;
+  /* height / --fest-fall-dist 由 inline style 写入 */
+}
+
+.fest-ambient__motion {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fest-ambient__flake {
+  position: absolute;
+  top: -12%;
+  width: var(--fest-size, 28px);
+  height: var(--fest-size, 28px);
+  animation: fest-fall-loop var(--fest-fall, 10s) linear infinite;
+  animation-delay: var(--fest-delay, 0s);
+  will-change: transform, opacity;
+  opacity: 0;
+}
+
+.fest-ambient--header .fest-ambient__flake {
+  animation-name: fest-fall-header;
+}
+
+.fest-ambient__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: fest-spin-only var(--fest-spin, 6s) linear infinite;
+}
+
+/* 全屏：穿越视口 */
+@keyframes fest-fall-loop {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, 115vh, 0);
+    opacity: 0;
+  }
+}
+
+/* 顶栏：只在导航高度内下落 */
+@keyframes fest-fall-header {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, var(--fest-fall-dist, 100px), 0);
+    opacity: 0;
+  }
+}
+
+@keyframes fest-spin-only {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(calc(var(--fest-spin-dir, 1) * 360deg));
+  }
+}
+
+.fest--paused .fest-garland__bulb,
+.fest--paused .fest-sparkles__dot,
+.fest--paused .fest-ambient__flake,
+.fest--paused .fest-ambient__img {
+  animation-play-state: paused !important;
+}

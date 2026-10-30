@@ -967,6 +967,237 @@
   margin-bottom: 28rpx;
 }
 
+.my__festival-sheet {
+  max-height: 78vh;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.my__festival-sheet-desc {
+  .ui-caption();
+  margin: 8rpx 0 8rpx;
+  line-height: 1.45;
+  color: var(--td-text-color-secondary);
+}
+
+.my__festival-fx {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  margin-top: 4rpx;
+  padding: 18rpx 4rpx;
+}
+
+.my__festival-fx--solo {
+  margin-top: 12rpx;
+  padding: 18rpx 4rpx 4rpx;
+}
+
+.my__festival-fx-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.my__festival-fx-label {
+  font-size: 28rpx;
+  line-height: 1.3;
+  color: var(--td-text-color-primary);
+}
+
+.my__festival-fx-hint {
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: var(--td-text-color-secondary);
+}
+
+.my__festival-section {
+  margin-top: 28rpx;
+}
+
+.my__festival-section-title {
+  margin: 0 4rpx 12rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--td-text-color-primary);
+}
+
+.my__festival-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin: 0 0 4rpx;
+  padding: 0 2rpx;
+}
+
+.my__festival-tag {
+  margin: 0 !important;
+}
+
+.my__festival-admin-desc {
+  margin: 0 4rpx 16rpx;
+  font-size: 22rpx;
+  line-height: 1.45;
+  color: var(--td-text-color-secondary);
+}
+
+.my__festival-window {
+  margin: 0 0 16rpx;
+  padding: 16rpx;
+  border-radius: 12rpx;
+  background: var(--td-bg-color-secondarycontainer);
+  box-sizing: border-box;
+}
+
+.my__festival-window-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8rpx;
+}
+
+.my__festival-window-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+}
+
+.my__festival-window-state {
+  font-size: 20rpx;
+  color: var(--td-text-color-secondary);
+}
+
+.my__festival-window-hint {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  line-height: 1.45;
+  color: var(--td-text-color-placeholder);
+}
+
+.my__festival-window-row {
+  margin-top: 14rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.my__festival-window-cell {
+  flex: 1;
+  min-width: 0;
+  padding: 12rpx 14rpx;
+  border-radius: 10rpx;
+  background: var(--td-bg-color-container);
+  box-sizing: border-box;
+}
+
+.my__festival-window-cell-label {
+  display: block;
+  font-size: 20rpx;
+  color: var(--td-text-color-secondary);
+}
+
+.my__festival-window-cell-value {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+}
+
+.my__festival-window-sep {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: var(--td-text-color-placeholder);
+}
+
+.my__festival-window-actions {
+  margin-top: 12rpx;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 当前选中节日：顶栏 / 底栏并排两卡 */
+.my__festival-asset-grid {
+  display: flex;
+  gap: 12rpx;
+}
+
+.my__festival-asset-card {
+  flex: 1;
+  min-width: 0;
+  padding: 12rpx;
+  border-radius: 12rpx;
+  background: var(--td-bg-color-secondarycontainer);
+  box-sizing: border-box;
+}
+
+.my__festival-asset-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8rpx;
+  margin-bottom: 10rpx;
+}
+
+.my__festival-asset-card-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+}
+
+.my__festival-asset-card-state {
+  font-size: 20rpx;
+  color: var(--td-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.my__festival-asset-card-preview {
+  width: 100%;
+  border-radius: 8rpx;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  image {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.my__festival-asset-card-preview--banner {
+  height: 72rpx;
+}
+
+.my__festival-asset-card-preview--bank {
+  height: 72rpx;
+  background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 12rpx 12rpx;
+}
+
+.my__festival-asset-card-empty {
+  font-size: 20rpx;
+  color: var(--td-text-color-placeholder);
+}
+
+.my__festival-asset-card-actions {
+  margin-top: 10rpx;
+  display: flex;
+  align-items: stretch;
+  gap: 8rpx;
+}
+
+.my__festival-asset-btn {
+  flex: 1 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+}
+
 .my__theme-grid {
   display: flex;
   flex-direction: column;

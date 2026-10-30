@@ -8,22 +8,64 @@
   z-index: 500;
   box-sizing: border-box;
   background: var(--td-bg-color-container);
-  /* 向上投影；勿 overflow:hidden，否则阴影会被裁掉 */
   box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.08);
   --td-tab-bar-height: @tab-bar-item-height;
-  --td-tab-bar-bg-color: var(--td-bg-color-container);
+  --td-tab-bar-bg-color: transparent;
   --td-tab-bar-color: var(--td-text-color-placeholder);
   --td-tab-bar-active-color: var(--td-brand-color);
+  overflow: hidden;
 }
 
-/* t-class 打到 item 根节点，压掉 TDesign 默认上下 16rpx margin */
+/* 限高容器：过高图 aspectFill 贴底裁切；图不降透明度、不加遮罩 */
+.custom-tab-bar__bg-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.custom-tab-bar__bg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+}
+
+.custom-tab-bar__inner {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+.custom-tab-bar:not(.custom-tab-bar--bank) .custom-tab-bar__inner {
+  background: var(--td-bg-color-container);
+}
+
+/* 有底图：整栏透明，只保留图标/文字本身 */
+.custom-tab-bar--bank {
+  background: transparent;
+  box-shadow: none;
+}
+
+.custom-tab-bar--bank .custom-tab-bar__inner {
+  background: transparent;
+}
+
 .tab-bar-item {
   height: @tab-bar-item-height !important;
   margin: @tab-bar-item-margin-y 0 !important;
 }
 
 @media (prefers-color-scheme: dark) {
-  .custom-tab-bar {
+  .custom-tab-bar:not(.custom-tab-bar--bank) {
     box-shadow: 0 -8rpx 28rpx rgba(0, 0, 0, 0.4);
+  }
+
+  .custom-tab-bar:not(.custom-tab-bar--bank) .custom-tab-bar__inner {
+    background: var(--td-bg-color-container);
   }
 }

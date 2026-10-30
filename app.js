@@ -9,6 +9,10 @@ import {
 } from './utils/lotteryHint';
 import { setCachedEntitlement } from './utils/entitlement';
 import { initTheme } from './utils/theme';
+import {
+  ensureFestivalModeForRole,
+  loadFestivalConfig,
+} from './utils/festival';
 import * as favoriteQueue from './utils/favoriteQueue';
 import { showShareMenu } from './utils/share';
 
@@ -55,6 +59,7 @@ App({
         traceUser: true,
       });
       this.login();
+      loadFestivalConfig({ silent: true }).catch(() => {});
     }
 
     const updateManager = wx.getUpdateManager();
@@ -166,6 +171,8 @@ App({
         // login 不下发开奖结果，避免 replace 清空
         applyPendingLotteryResults(res.pendingLotteryResults);
         console.log('[login] openid ok, isAdmin =', res.isAdmin, 'nick =', res.nickName || '');
+        ensureFestivalModeForRole(!!res.isAdmin);
+        await loadFestivalConfig({ silent: true }).catch(() => {});
         await this.claimPendingOaBonus();
       }
     } catch (e) {

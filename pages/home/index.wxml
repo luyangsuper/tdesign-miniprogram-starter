@@ -1,5 +1,15 @@
 <wxs src="./refresher.wxs" module="rf" />
-<view class="home {{selectMode ? 'home--select' : ''}}" style="{{themeStyle}}">
+<view
+  class="home {{selectMode ? 'home--select' : ''}} {{festivalClass}}"
+  style="{{themeStyle}};{{festivalStyle}}"
+>
+  <festival-decor
+    id="festivalDecor"
+    mode="home"
+    active="{{festivalActive}}"
+    header-height="{{festHeaderPx}}"
+    nav-height="{{navHeight}}"
+  />
   <t-navbar
     title="{{searchExpanded ? '' : '趣集'}}"
     fixed="{{true}}"

@@ -32,6 +32,10 @@ const PALETTE = {
   anim: ['#1f2937', '#ec4899', '#ffffff', '#f9a8d4'],
   guide: ['#1f2937', '#f59e0b', '#ffffff', '#fcd34d'],
   mail: ['#1f2937', '#3b82f6', '#ffffff', '#93c5fd'],
+  xmas: ['#1f2937', '#c41e3a', '#ffffff', '#166534'],
+  xmasTree: ['#1f2937', '#166534', '#ffffff', '#86efac'],
+  xmasGift: ['#1f2937', '#c41e3a', '#ffffff', '#fbbf24'],
+  cny: ['#1f2937', '#e34d59', '#ffffff', '#fde68a'],
 };
 
 /**
@@ -71,6 +75,13 @@ const ASSETS = [
   { dir: 'static/pricing', file: 'points.png', icon: 'Ticket', palette: 'points', note: '积分包1' },
   { dir: 'static/pricing', file: 'points2.png', icon: 'Gift', palette: 'points2', note: '积分包2' },
   { dir: 'static/pricing', file: 'points3.png', icon: 'Lightning', palette: 'points3', note: '积分包3' },
+  // 节日装饰角标
+  { dir: 'static/festival/christmas', file: 'tree.png', icon: 'ChristmasTree', palette: 'xmasTree', note: '圣诞树角标' },
+  { dir: 'static/festival/christmas', file: 'hat.png', icon: 'WoolenHat', palette: 'xmas', note: '圣诞帽角标' },
+  { dir: 'static/festival/christmas', file: 'gift.png', icon: 'Gift', palette: 'xmasGift', note: '礼物角标' },
+  { dir: 'static/festival/christmas', file: 'snow.png', icon: 'Snowflake', palette: 'soft', note: '雪花' },
+  { dir: 'static/festival/cny', file: 'lantern.png', icon: 'Fireworks', palette: 'cny', note: '春节角标' },
+  { dir: 'static/festival/cny', file: 'fu.png', icon: 'GiftBox', palette: 'cny', note: '福礼角标' },
 ];
 
 /** 底栏：未选中 outline / 选中 filled（实心） */
@@ -196,10 +207,29 @@ ${tabRows.join('\n')}
 ${rows.filter((_, i) => ASSETS[i].dir.includes('lottery')).join('\n')}
 `;
 
+  const festivalRows = rows
+    .map((row, i) => ({ row, dir: ASSETS[i].dir }))
+    .filter((x) => x.dir.includes('festival'))
+    .map((x) => x.row);
+
+  const festivalReadme = `# 节日装饰素材
+
+来自 [IconPark](https://iconpark.oceanengine.com/)（\`@icon-park/svg\` two-tone）。
+
+- 许可：**Apache-2.0**
+- 生成：\`npm run icons:gen\`
+- 配置：\`utils/festival.js\`
+
+| File | IconPark | Use |
+|------|----------|-----|
+${festivalRows.join('\n')}
+`;
+
   fs.writeFileSync(path.join(ROOT, 'static/emoji/README.md'), emojiReadme, 'utf8');
   fs.writeFileSync(path.join(ROOT, 'static/pricing/README.md'), pricingReadme, 'utf8');
   fs.writeFileSync(path.join(ROOT, 'static/lottery/README.md'), lotteryReadme, 'utf8');
   fs.writeFileSync(path.join(ROOT, 'static/tab/README.md'), tabReadme, 'utf8');
+  fs.writeFileSync(path.join(ROOT, 'static/festival/README.md'), festivalReadme, 'utf8');
   console.log('READMEs updated');
 }
 

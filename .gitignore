@@ -105,6 +105,8 @@ dist
 
 # Wechat miniprogram
 miniprogram_npm
+.miniprogram_npm_build
+miniprogram_npm.bak_*
 
 .idea
 

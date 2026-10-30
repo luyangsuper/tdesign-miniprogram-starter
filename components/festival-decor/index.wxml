@@ -1,0 +1,61 @@
+<!-- ① 仅首页：顶栏背景图 -->
+<view
+  wx:if="{{visible && showSkin && assets.banner}}"
+  class="fest-skin fest-skin--{{festivalId}}"
+  style="height: {{skinHeightPx}}px;"
+  aria-hidden="true"
+>
+  <image class="fest-skin__img" src="{{assets.banner}}" mode="aspectFill" />
+</view>
+
+<!-- ② 仅首页：灯带 + 微光（春节/圣诞） -->
+<view
+  wx:if="{{visible && showChrome}}"
+  class="fest-chrome fest-chrome--{{festivalId}} {{paused ? 'fest--paused' : ''}}"
+  style="height: {{chromeHeightPx}}px;"
+  aria-hidden="true"
+>
+  <view wx:if="{{sparkles.length}}" class="fest-sparkles">
+    <view
+      wx:for="{{sparkles}}"
+      wx:key="id"
+      class="fest-sparkles__dot fest-sparkles__dot--g{{item.group}}"
+      style="{{item.style}}"
+    />
+  </view>
+
+  <view wx:if="{{showLights && (assets.header || bulbs.length)}}" class="fest-garland">
+    <image
+      wx:if="{{assets.header}}"
+      class="fest-garland__img"
+      src="{{assets.header}}"
+      mode="widthFix"
+    />
+    <view wx:if="{{showLights}}" class="fest-garland__glow">
+      <view
+        wx:for="{{bulbs}}"
+        wx:key="id"
+        class="fest-garland__bulb fest-garland__bulb--{{item.color}} fest-garland__bulb--g{{item.group}}"
+        style="{{item.style}}"
+      />
+    </view>
+  </view>
+</view>
+
+<!-- ③ 仅首页：循环飘落；默认顶栏，可开全屏 -->
+<view
+  wx:if="{{visible && showAmbient}}"
+  class="fest-ambient fest-ambient--{{fallScope}} fest-ambient--{{festivalId}} {{paused ? 'fest--paused' : ''}}"
+  style="{{ambientStyle}}"
+>
+  <view wx:if="{{showMotion}}" class="fest-ambient__motion" aria-hidden="true">
+    <view
+      wx:for="{{flakes}}"
+      wx:key="id"
+      class="fest-ambient__flake"
+      style="{{item.wrapStyle}}"
+    >
+      <image class="fest-ambient__img" src="{{item.src}}" mode="aspectFit" />
+    </view>
+  </view>
+</view>

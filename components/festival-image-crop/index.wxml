@@ -1,0 +1,56 @@
+<view wx:if="{{visible}}" class="ficrop" catchtouchmove="noop">
+  <view class="ficrop__head" style="padding-top: {{statusBarPx + 12}}px;">
+    <text class="ficrop__title">{{title}}</text>
+    <text class="ficrop__hint">{{hint}}</text>
+  </view>
+
+  <view
+    class="ficrop__stage"
+    style="height: {{stageH}}px;"
+    catchtouchstart="onTouchStart"
+    catchtouchmove="onTouchMove"
+    catchtouchend="onTouchEnd"
+    catchtouchcancel="onTouchEnd"
+  >
+    <image
+      class="ficrop__img"
+      src="{{src}}"
+      mode="scaleToFill"
+      style="width: {{drawW}}px; height: {{drawH}}px; transform: translate3d({{tx}}px, {{ty}}px, 0);"
+    />
+    <view
+      class="ficrop__frame"
+      style="left: {{frameL}}px; top: {{frameT}}px; width: {{frameW}}px; height: {{frameH}}px;"
+    />
+  </view>
+
+  <view class="ficrop__foot">
+    <t-button
+      t-class="ficrop__btn"
+      size="medium"
+      variant="outline"
+      theme="default"
+      block
+      content="取消"
+      disabled="{{exporting}}"
+      bind:tap="onCancel"
+    />
+    <t-button
+      t-class="ficrop__btn"
+      size="medium"
+      theme="primary"
+      block
+      content="完成裁剪"
+      loading="{{exporting}}"
+      disabled="{{exporting || !ready}}"
+      bind:tap="onConfirm"
+    />
+  </view>
+
+  <canvas
+    type="2d"
+    id="ficropCanvas"
+    class="ficrop__canvas"
+    style="width: {{outWidth}}px; height: {{outHeight}}px;"
+  />
+</view>

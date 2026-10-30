@@ -1,5 +1,6 @@
 import { callFunction } from '~/utils/cloud';
 import { setCachedEntitlement } from '~/utils/entitlement';
+import { getFestivalConfettiColors } from '~/utils/festival';
 import { getThemeStyle } from '~/utils/theme';
 import { defaultCheckinPoints } from '~/utils/giftHint';
 
@@ -190,7 +191,8 @@ Component({
     playConfetti() {
       const confetti = this.selectComponent('#confetti');
       if (confetti && typeof confetti.burst === 'function') {
-        confetti.burst({ count: 48 });
+        const colors = getFestivalConfettiColors();
+        confetti.burst({ count: 48, colors: colors || undefined });
       }
     },
 

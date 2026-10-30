@@ -13,13 +13,14 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const npmDir = path.join(root, 'miniprogram_npm');
+/** 先写到临时目录再整体替换，避免 IDE 编译撞上半清空的 miniprogram_npm */
+const npmStaging = path.join(root, '.miniprogram_npm_build');
 const tdesignDist = path.join(
   root,
   'node_modules',
   'tdesign-miniprogram',
   'miniprogram_dist',
 );
-const tdesignDest = path.join(npmDir, 'tdesign-miniprogram');
 const nestedNpm = path.join(tdesignDist, 'miniprogram_npm');
 
 /** IDE 上传时报 ENOENT 的 lodash 模块清单 */
@@ -42,12 +43,18 @@ function rmrf(p) {
   if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true });
 }
 
+/** 微信保留目录：以 __ 开头且以 __ 结尾（如 __tests__），拷入 miniprogram_npm 会告警并被忽略 */
+function isWxReservedDir(name) {
+  return name.length >= 4 && name.startsWith('__') && name.endsWith('__');
+}
+
 function copyDir(src, dest) {
   if (!fs.existsSync(src)) {
     throw new Error(`源目录不存在: ${src}`);
   }
   fs.mkdirSync(dest, { recursive: true });
   for (const name of fs.readdirSync(src)) {
+    if (isWxReservedDir(name)) continue;
     const s = path.join(src, name);
     const d = path.join(dest, name);
     if (fs.statSync(s).isDirectory()) copyDir(s, d);
@@ -110,9 +117,10 @@ if (!fs.existsSync(tdesignDist)) {
   process.exit(1);
 }
 
-rmrf(npmDir);
-fs.mkdirSync(npmDir, { recursive: true });
+rmrf(npmStaging);
+fs.mkdirSync(npmStaging, { recursive: true });
 
+const tdesignDest = path.join(npmStaging, 'tdesign-miniprogram');
 copyDir(tdesignDist, tdesignDest);
 console.log('copied tdesign-miniprogram');
 
@@ -123,16 +131,16 @@ for (const name of hoist) {
     console.warn('skip missing nested dep', name);
     continue;
   }
-  copyDir(src, path.join(npmDir, name));
+  copyDir(src, path.join(npmStaging, name));
   console.log('hoisted', name);
 }
 
 // 嵌套路径（IDE 报错路径）+ 顶层兜底
 ensureLodash(path.join(tdesignDest, 'miniprogram_npm', 'lodash'));
-ensureLodash(path.join(npmDir, 'lodash'));
+ensureLodash(path.join(npmStaging, 'lodash'));
 
 // tinycolor2 顶层若被扫到完整包路径，补常见入口，避免 ENOENT
-const tinyTop = path.join(npmDir, 'tinycolor2');
+const tinyTop = path.join(npmStaging, 'tinycolor2');
 const tinySrc = path.join(nestedNpm, 'tinycolor2', 'esm', 'tinycolor.js');
 if (fs.existsSync(tinySrc)) {
   const extras = [
@@ -155,15 +163,67 @@ if (fs.existsSync(tinySrc)) {
   console.log('patched tinycolor2 entry aliases');
 }
 
+/**
+ * 节日农历：运行时 + __tests__ 空占位。
+ * 整包拷会触发「保留目录」告警；删掉测试文件又会 ENOENT（IDE 仍按清单 open）。
+ * 与 tinycolor2 一样：目录保留、文件写成空模块即可。
+ */
+const lunarSrc = path.join(root, 'node_modules', 'lunar-javascript');
+const lunarDest = path.join(npmStaging, 'lunar-javascript');
+if (!fs.existsSync(path.join(lunarSrc, 'index.js'))) {
+  console.error('缺少 lunar-javascript，请先执行 npm install');
+  process.exit(1);
+}
+fs.mkdirSync(lunarDest, { recursive: true });
+for (const name of ['index.js', 'lunar.js', 'package.json']) {
+  const s = path.join(lunarSrc, name);
+  if (!fs.existsSync(s)) {
+    console.error(`缺少 lunar-javascript/${name}`);
+    process.exit(1);
+  }
+  fs.copyFileSync(s, path.join(lunarDest, name));
+}
+const lunarTestsSrc = path.join(lunarSrc, '__tests__');
+const lunarTestsDest = path.join(lunarDest, '__tests__');
+if (fs.existsSync(lunarTestsSrc)) {
+  fs.mkdirSync(lunarTestsDest, { recursive: true });
+  for (const name of fs.readdirSync(lunarTestsSrc)) {
+    if (!name.endsWith('.js')) continue;
+    fs.writeFileSync(path.join(lunarTestsDest, name), 'module.exports = {};\n', 'utf8');
+  }
+  console.log('stubbed lunar-javascript/__tests__');
+}
+console.log('copied lunar-javascript');
+
 mustExist(path.join(tdesignDest, 'navbar', 'navbar.js'), 'navbar');
-mustExist(path.join(npmDir, 'dayjs', 'index.js'), 'dayjs/index.js');
+mustExist(path.join(tdesignDest, 'search', 'search.wxml'), 'search.wxml');
+mustExist(path.join(npmStaging, 'dayjs', 'index.js'), 'dayjs/index.js');
 mustExist(
-  path.join(npmDir, 'tinycolor2', 'esm', 'tinycolor.js'),
+  path.join(npmStaging, 'tinycolor2', 'esm', 'tinycolor.js'),
   'tinycolor2/esm/tinycolor.js',
 );
 mustExist(
   path.join(tdesignDest, 'miniprogram_npm', 'lodash', 'isArray.js'),
   'nested lodash/isArray.js',
 );
+mustExist(path.join(lunarDest, 'index.js'), 'lunar-javascript/index.js');
+
+/* 原子替换：旧目录挪走 → staging 就位 → 删旧 */
+const npmBackup = `${npmDir}.bak_${Date.now()}`;
+if (fs.existsSync(npmDir)) {
+  try {
+    fs.renameSync(npmDir, npmBackup);
+  } catch (e) {
+    rmrf(npmDir);
+  }
+}
+try {
+  fs.renameSync(npmStaging, npmDir);
+} catch (e) {
+  /* Windows 偶发跨盘/占用：退回拷贝 */
+  copyDir(npmStaging, npmDir);
+  rmrf(npmStaging);
+}
+rmrf(npmBackup);
 
 console.log('OK miniprogram_npm ready');

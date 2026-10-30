@@ -176,6 +176,23 @@
       t-class-center="my-menu-cell__center"
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
+      title="节日氛围"
+      note="{{festivalMenuNote}}"
+      arrow
+      hover
+      bind:click="openFestivalPicker"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="gift" size="40rpx" color="#c41e3a" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
       title="我的收藏"
       note="收藏的合集"
       arrow
@@ -829,11 +846,245 @@
   </view>
 </t-popup>
 
+<t-popup
+  visible="{{festivalPopupVisible}}"
+  placement="bottom"
+  bind:visible-change="onFestivalPopupChange"
+>
+  <scroll-view scroll-y class="my__theme-sheet my__festival-sheet" enhanced show-scrollbar="{{false}}">
+    <view class="my__theme-sheet-title">节日氛围</view>
+    <view class="my__festival-sheet-desc">跟随日期会在节日前后窗口内自动换肤（不只当天），可随时关闭</view>
+
+    <!-- 管理员：向全员开放 -->
+    <view wx:if="{{isAdmin}}" class="my__festival-fx">
+      <view class="my__festival-fx-text">
+        <text class="my__festival-fx-label">全员可见</text>
+        <text class="my__festival-fx-hint">关闭后用户不可见；本机请点下方节日预览</text>
+      </view>
+      <t-switch
+        value="{{festivalFeatureOn}}"
+        disabled="{{festivalFeatureSaving}}"
+        bind:change="onFestivalFeatureChange"
+      />
+    </view>
+
+    <!-- 本机开关（普通用户仅此项） -->
+    <view class="my__festival-fx {{isAdmin ? '' : 'my__festival-fx--solo'}}">
+      <view class="my__festival-fx-text">
+        <text class="my__festival-fx-label">开启节日效果</text>
+        <text class="my__festival-fx-hint">{{festivalFeatureOn ? '节日前后几天自动换肤，不只当天' : '近期暂无节日活动'}}</text>
+      </view>
+      <t-switch
+        value="{{festivalUserOn}}"
+        disabled="{{!isAdmin && !festivalFeatureOn}}"
+        bind:change="onFestivalUserChange"
+      />
+    </view>
+
+    <view class="my__festival-fx">
+      <view class="my__festival-fx-text">
+        <text class="my__festival-fx-label">全屏飘落</text>
+        <text class="my__festival-fx-hint">默认只在顶栏飘；打开后铺满首页</text>
+      </view>
+      <t-switch
+        value="{{festivalFallFull}}"
+        disabled="{{!festivalUserOn && !isAdmin}}"
+        bind:change="onFestivalFallFullChange"
+      />
+    </view>
+
+    <!-- 管理员：预览标签 + 顶栏上传 -->
+    <block wx:if="{{isAdmin}}">
+      <view class="my__festival-section">
+        <view class="my__festival-section-title">效果预览</view>
+        <view class="my__festival-admin-desc">「跟随日期」按各节日窗口生效（窗口已错开；同日优先列表靠前的，如中秋优先于国庆）；点具体节日可强制预览，亦可改持续日期</view>
+        <view class="my__festival-tags">
+          <t-check-tag
+            wx:for="{{festivalModeOptions}}"
+            wx:key="id"
+            t-class="my__festival-tag"
+            size="medium"
+            shape="round"
+            variant="light"
+            content="{{item.name}}"
+            checked="{{festivalMode === item.id}}"
+            data-id="{{item.id}}"
+            bind:change="onPickFestivalMode"
+          />
+        </view>
+      </view>
+
+      <view class="my__festival-section">
+        <view class="my__festival-section-title">节日素材</view>
+        <view wx:if="{{!festivalAssetEdit}}" class="my__festival-admin-desc">
+          点上方具体节日后，可上传该节日顶栏 / 底栏图
+        </view>
+        <block wx:else>
+          <view class="my__festival-admin-desc">
+            {{festivalAssetEdit.name}} · 顶栏 {{festivalBannerSpecLabel}} · 底栏 {{festivalBankSpecLabel}}；选图后先裁剪再上传
+          </view>
+
+          <view class="my__festival-window">
+            <view class="my__festival-window-head">
+              <text class="my__festival-window-title">持续日期</text>
+              <text class="my__festival-window-state">{{festivalAssetEdit.window.custom ? '已自定义' : '规则默认'}}</text>
+            </view>
+            <view class="my__festival-window-hint">
+              每年按月日循环生效；结束早于开始则视为跨年。{{festivalAssetEdit.window.defaultLabel ? '规则默认 ' + festivalAssetEdit.window.defaultLabel : ''}}
+            </view>
+            <view class="my__festival-window-row">
+              <view
+                class="my__festival-window-cell"
+                data-which="start"
+                bind:tap="openFestivalWindowPicker"
+              >
+                <text class="my__festival-window-cell-label">开始</text>
+                <text class="my__festival-window-cell-value">{{festivalAssetEdit.window.startLabel}}</text>
+              </view>
+              <text class="my__festival-window-sep">至</text>
+              <view
+                class="my__festival-window-cell"
+                data-which="end"
+                bind:tap="openFestivalWindowPicker"
+              >
+                <text class="my__festival-window-cell-label">结束</text>
+                <text class="my__festival-window-cell-value">{{festivalAssetEdit.window.endLabel}}</text>
+              </view>
+            </view>
+            <view class="my__festival-window-actions">
+              <t-button
+                wx:if="{{festivalAssetEdit.window.custom}}"
+                t-class="my__festival-asset-btn"
+                size="extra-small"
+                variant="outline"
+                theme="default"
+                content="恢复默认"
+                bind:tap="onResetFestivalWindow"
+                loading="{{festivalAssetBusy === 'window-reset'}}"
+                disabled="{{!!festivalAssetBusy}}"
+              />
+            </view>
+          </view>
+
+          <view class="my__festival-asset-grid">
+            <view class="my__festival-asset-card">
+              <view class="my__festival-asset-card-head">
+                <text class="my__festival-asset-card-label">顶栏</text>
+                <text class="my__festival-asset-card-state">{{festivalAssetEdit.banner.hasCustom ? '已上传' : '未上传'}}</text>
+              </view>
+              <view class="my__festival-asset-card-preview my__festival-asset-card-preview--banner">
+                <image
+                  wx:if="{{festivalAssetEdit.banner.previewUrl}}"
+                  src="{{festivalAssetEdit.banner.previewUrl}}"
+                  mode="aspectFill"
+                />
+                <text wx:else class="my__festival-asset-card-empty">750×200</text>
+              </view>
+              <view class="my__festival-asset-card-actions">
+                <t-button
+                  wx:if="{{festivalAssetEdit.banner.hasCustom}}"
+                  t-class="my__festival-asset-btn"
+                  size="extra-small"
+                  variant="outline"
+                  theme="default"
+                  block
+                  content="清除"
+                  data-id="{{festivalAssetEdit.id}}"
+                  catch:tap="onResetFestivalBanner"
+                  loading="{{festivalAssetBusy === 'banner-reset'}}"
+                  disabled="{{!!festivalAssetBusy}}"
+                />
+                <t-button
+                  t-class="my__festival-asset-btn"
+                  size="extra-small"
+                  theme="primary"
+                  variant="outline"
+                  block
+                  content="上传"
+                  data-id="{{festivalAssetEdit.id}}"
+                  catch:tap="onUploadFestivalBanner"
+                  loading="{{festivalAssetBusy === 'banner-upload'}}"
+                  disabled="{{!!festivalAssetBusy}}"
+                />
+              </view>
+            </view>
+            <view class="my__festival-asset-card">
+              <view class="my__festival-asset-card-head">
+                <text class="my__festival-asset-card-label">底栏</text>
+                <text class="my__festival-asset-card-state">{{festivalAssetEdit.bank.hasCustom ? '已上传' : (festivalAssetEdit.bank.fallback ? '默认' : '未上传')}}</text>
+              </view>
+              <view class="my__festival-asset-card-preview my__festival-asset-card-preview--bank">
+                <image
+                  wx:if="{{festivalAssetEdit.bank.previewUrl}}"
+                  src="{{festivalAssetEdit.bank.previewUrl}}"
+                  mode="aspectFit"
+                />
+                <text wx:else class="my__festival-asset-card-empty">750×160</text>
+              </view>
+              <view class="my__festival-asset-card-actions">
+                <t-button
+                  wx:if="{{festivalAssetEdit.bank.hasCustom}}"
+                  t-class="my__festival-asset-btn"
+                  size="extra-small"
+                  variant="outline"
+                  theme="default"
+                  block
+                  content="清除"
+                  data-id="{{festivalAssetEdit.id}}"
+                  catch:tap="onResetFestivalBank"
+                  loading="{{festivalAssetBusy === 'bank-reset'}}"
+                  disabled="{{!!festivalAssetBusy}}"
+                />
+                <t-button
+                  t-class="my__festival-asset-btn"
+                  size="extra-small"
+                  theme="primary"
+                  variant="outline"
+                  block
+                  content="上传"
+                  data-id="{{festivalAssetEdit.id}}"
+                  catch:tap="onUploadFestivalBank"
+                  loading="{{festivalAssetBusy === 'bank-upload'}}"
+                  disabled="{{!!festivalAssetBusy}}"
+                />
+              </view>
+            </view>
+          </view>
+        </block>
+      </view>
+    </block>
+  </scroll-view>
+</t-popup>
+
+<t-date-time-picker
+  title="{{festivalWindowPickerTitle}}"
+  visible="{{festivalWindowPickerVisible}}"
+  mode="date"
+  format="YYYY-MM-DD"
+  value="{{festivalWindowPickerValue}}"
+  auto-close
+  bind:change="onFestivalWindowPickerConfirm"
+  bind:confirm="onFestivalWindowPickerConfirm"
+  bind:cancel="onCloseFestivalWindowPicker"
+  bind:close="onCloseFestivalWindowPicker"
+/>
+
 <checkin-popup
   visible="{{checkinVisible}}"
   bind:visible-change="onCheckinVisibleChange"
   bind:close="onCheckinClose"
   bind:success="onCheckinSuccess"
+/>
+
+<festival-image-crop
+  visible="{{festivalCropVisible}}"
+  src="{{festivalCropSrc}}"
+  out-width="{{festivalCropOutW}}"
+  out-height="{{festivalCropOutH}}"
+  title="{{festivalCropTitle}}"
+  hint="{{festivalCropHint}}"
+  bind:cancel="onFestivalCropCancel"
+  bind:confirm="onFestivalCropConfirm"
 />
 
 <lottery-host />
