@@ -5,6 +5,14 @@ import {
   runBatchDownload,
 } from '~/utils/batchDownload';
 import {
+  packCoverCacheKey,
+  packPreviewCacheKey,
+  packSlotCacheKey,
+  peekTempUrl,
+  rememberTempUrl,
+  reuseTempUrl,
+} from '~/utils/tempUrlCache';
+import {
   canAttemptDownload,
   estimateBatchAffordable,
   formatEntitlementHint,
@@ -44,16 +52,25 @@ function isSlotSelectable(slot, downloadReady, variant) {
   return true;
 }
 
-/** 保存区展示：优先原图临时链，未就绪时用预览占位 */
+/** 保存区只展示当前变体原图；未就绪不回落 preview，避免双倍 CDN */
 function slotDisplayUrl(slot, variant) {
   if (!slot) return '';
-  if (variant === 'anim') {
-    return slot.animUrl || slot.previewUrl || '';
-  }
-  return slot.staticUrl || slot.previewUrl || '';
+  if (variant === 'anim') return slot.animUrl || '';
+  return slot.staticUrl || '';
 }
 
-const SLOT_URL_BATCH = 20;
+function slotUrlPending(slot, variant) {
+  if (!slot) return false;
+  if (variant === 'anim') {
+    if (!slot.hasAnim) return false;
+    return !slot.animReady;
+  }
+  return !slot.staticReady;
+}
+
+/** 首屏一批；滚动后再补 */
+const SLOT_URL_FIRST = 16;
+const SLOT_URL_BATCH = 16;
 
 function decorateSlots(slots, downloadReady, variant, hasAnimAny, canSaveStatic) {
   return (slots || []).map((s) => {
@@ -64,9 +81,12 @@ function decorateSlots(slots, downloadReady, variant, hasAnimAny, canSaveStatic)
     return {
       ...s,
       hasAnim: !!s.hasAnim,
+      staticReady: !!s.staticReady,
+      animReady: !!s.animReady,
       selectable,
       selected: selectable && !!s.selected,
       displayUrl,
+      urlPending: slotUrlPending(s, variant),
       imgReady,
       saveLabel: buildSaveLabel(s, downloadReady, variant, hasAnimAny, canSaveStatic),
     };
@@ -391,6 +411,14 @@ Page({
     try {
       const res = await callFunction('getPackDetail', { packId });
       const pack = res.data;
+      if (pack && pack._id && pack.coverUrl) {
+        pack.coverUrl = reuseTempUrl(packCoverCacheKey(pack._id), pack.coverUrl);
+      }
+      if (pack && pack._id && Array.isArray(pack.previewUrls)) {
+        pack.previewUrls = pack.previewUrls.map((url, i) =>
+          url ? reuseTempUrl(packPreviewCacheKey(pack._id, i), url) : '',
+        );
+      }
       const hasAnimAny = !!pack.hasAnimAny;
       const downloadVariant = 'static';
       const entitlement = getCachedEntitlement();
@@ -408,9 +436,24 @@ Page({
               animUrl: '',
               pairKey: '',
               hasAnim: false,
+              staticReady: false,
+              animReady: false,
             }));
+      // 本地缓存仅作占位展示；不标记 Ready，仍走 prefetch 换新签，避免沿用失效链裂图
+      const hydratedSlots = (rawSlots || []).map((s) => {
+        const idx = s.index;
+        const staticCached = peekTempUrl(packSlotCacheKey(packId, idx, 'static'));
+        const animCached = peekTempUrl(packSlotCacheKey(packId, idx, 'anim'));
+        return {
+          ...s,
+          staticUrl: staticCached || s.staticUrl || '',
+          animUrl: animCached || s.animUrl || '',
+          staticReady: false,
+          animReady: false,
+        };
+      });
       const emojiSlots = decorateSlots(
-        rawSlots,
+        hydratedSlots,
         downloadReady,
         downloadVariant,
         hasAnimAny,
@@ -418,6 +461,8 @@ Page({
       );
       const summary = summarizeSelection(emojiSlots, downloadVariant);
       const heroSlides = this.buildHeroSlides(pack);
+      this._slotUrlPrefetching = false;
+      this._lastPrefetchScroll = 0;
       this.setData({
         pack,
         emojiSlots,
@@ -437,80 +482,126 @@ Page({
       });
       this.applyAdminView();
       wx.setNavigationBarTitle({ title: pack.title || '合集详情' });
-      // 原图临时链按批后台补齐，首屏先用预览占位
-      this.prefetchSlotUrls(packId, emojiSlots);
+      // 只拉当前变体原图；首屏一批，滚动再补（不用 preview 顶原图）
+      this.prefetchSlotUrls(packId, { limit: SLOT_URL_FIRST });
     } catch (e) {
       this.setData({ loading: false, heroSlides: [] });
       wx.showToast({ title: e.message || '加载失败', icon: 'none' });
     }
   },
 
+  slotNeedsUrl(slot, variant) {
+    if (!slot) return false;
+    if (variant === 'anim') return !!slot.hasAnim && !slot.animReady;
+    return !slot.staticReady;
+  },
+
   /**
-   * 分批拉取静/动原图临时链；已就绪的槽位跳过
+   * 按当前静/动变体分批换原图临时链
+   * @param {string} packId
+   * @param {{ limit?: number }} [opts]
    */
-  async prefetchSlotUrls(packId, slots) {
+  async prefetchSlotUrls(packId, opts = {}) {
     const id = packId || this.data.packId;
-    if (!id) return;
+    if (!id || this._slotUrlPrefetching) return;
+    const variant = this.data.downloadVariant === 'anim' ? 'anim' : 'static';
+    const limit = Math.max(1, Number(opts.limit) || SLOT_URL_BATCH);
+    const pending = (this.data.emojiSlots || [])
+      .filter((s) => this.slotNeedsUrl(s, variant))
+      .map((s) => s.index)
+      .slice(0, limit);
+    if (!pending.length) return;
+
     const seq = (this._slotUrlSeq = (this._slotUrlSeq || 0) + 1);
-    const pending = (slots || this.data.emojiSlots || [])
-      .filter((s) => s && !s.urlsReady)
-      .map((s) => s.index);
-    for (let i = 0; i < pending.length; i += SLOT_URL_BATCH) {
+    this._slotUrlPrefetching = true;
+    try {
+      const res = await callFunction('getPackDetail', {
+        action: 'resolveSlotUrls',
+        packId: id,
+        indexes: pending,
+        variant,
+      });
       if (seq !== this._slotUrlSeq || this.data.packId !== id) return;
-      const indexes = pending.slice(i, i + SLOT_URL_BATCH);
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const res = await callFunction('getPackDetail', {
-          action: 'resolveSlotUrls',
-          packId: id,
-          indexes,
-        });
-        if (seq !== this._slotUrlSeq || this.data.packId !== id) return;
-        const patchMap = {};
-        ((res.data && res.data.slots) || []).forEach((row) => {
-          if (row && typeof row.index === 'number') patchMap[row.index] = row;
-        });
-        if (!Object.keys(patchMap).length) continue;
-        const variant = this.data.downloadVariant;
-        const downloadReady = this.data.downloadReady;
-        const hasAnimAny = this.data.hasAnimAny;
-        const canSaveStatic = this.data.canSaveStatic;
-        const next = (this.data.emojiSlots || []).map((s) => {
-          const row = patchMap[s.index];
-          if (!row) return s;
-          const merged = {
+      if (this.data.downloadVariant !== variant) return;
+
+      const patchMap = {};
+      ((res.data && res.data.slots) || []).forEach((row) => {
+        if (row && typeof row.index === 'number') patchMap[row.index] = row;
+      });
+      if (!Object.keys(patchMap).length) return;
+
+      const downloadReady = this.data.downloadReady;
+      const hasAnimAny = this.data.hasAnimAny;
+      const canSaveStatic = this.data.canSaveStatic;
+      const next = (this.data.emojiSlots || []).map((s) => {
+        const row = patchMap[s.index];
+        if (!row) return s;
+        let merged;
+        if (variant === 'anim') {
+          const animUrl = row.animUrl || s.animUrl || '';
+          if (animUrl) rememberTempUrl(packSlotCacheKey(id, s.index, 'anim'), animUrl);
+          merged = {
             ...s,
-            staticUrl: row.staticUrl || s.staticUrl || '',
-            animUrl: row.animUrl || s.animUrl || '',
+            animUrl,
             hasAnim: row.hasAnim != null ? !!row.hasAnim : s.hasAnim,
-            urlsReady: true,
+            animReady: true,
           };
-          const displayUrl = slotDisplayUrl(merged, variant);
-          return {
-            ...merged,
-            selectable: isSlotSelectable(merged, downloadReady, variant),
-            displayUrl,
-            imgReady: displayUrl && displayUrl === s.displayUrl ? !!s.imgReady : false,
-            saveLabel: buildSaveLabel(
-              merged,
-              downloadReady,
-              variant,
-              hasAnimAny,
-              canSaveStatic,
-            ),
+        } else {
+          const staticUrl = row.staticUrl || s.staticUrl || '';
+          if (staticUrl) {
+            rememberTempUrl(packSlotCacheKey(id, s.index, 'static'), staticUrl);
+          }
+          merged = {
+            ...s,
+            staticUrl,
+            hasAnim: row.hasAnim != null ? !!row.hasAnim : s.hasAnim,
+            staticReady: true,
           };
-        });
-        const summary = summarizeSelection(next, variant);
-        this.setData({
-          emojiSlots: next,
-          selectedCount: summary.selectedCount,
-          selectedCost: summary.selectedCost,
-          allSelected: summary.allSelected,
-        });
-      } catch (e) {
-        console.warn('[slotUrls]', e.message || e);
-      }
+        }
+        const displayUrl = slotDisplayUrl(merged, variant);
+        return {
+          ...merged,
+          selectable: isSlotSelectable(merged, downloadReady, variant),
+          displayUrl,
+          urlPending: slotUrlPending(merged, variant),
+          imgReady: displayUrl && displayUrl === s.displayUrl ? !!s.imgReady : false,
+          saveLabel: buildSaveLabel(
+            merged,
+            downloadReady,
+            variant,
+            hasAnimAny,
+            canSaveStatic,
+          ),
+        };
+      });
+      const summary = summarizeSelection(next, variant);
+      this.setData({
+        emojiSlots: next,
+        selectedCount: summary.selectedCount,
+        selectedCost: summary.selectedCost,
+        allSelected: summary.allSelected,
+      });
+    } catch (e) {
+      console.warn('[slotUrls]', e.message || e);
+    } finally {
+      this._slotUrlPrefetching = false;
     }
+  },
+
+  prefetchMoreSlotUrls() {
+    const variant = this.data.downloadVariant === 'anim' ? 'anim' : 'static';
+    const hasPending = (this.data.emojiSlots || []).some((s) =>
+      this.slotNeedsUrl(s, variant),
+    );
+    if (!hasPending) return;
+    this.prefetchSlotUrls(this.data.packId, { limit: SLOT_URL_BATCH });
+  },
+
+  onPageScroll(e) {
+    const top = (e && e.scrollTop) || 0;
+    if (top < (this._lastPrefetchScroll || 0) + 240) return;
+    this._lastPrefetchScroll = top;
+    this.prefetchMoreSlotUrls();
   },
 
   onCopyPackId() {
@@ -552,12 +643,15 @@ Page({
         ...s,
         selected: false,
         displayUrl,
+        urlPending: slotUrlPending(s, downloadVariant),
         imgReady: displayUrl && displayUrl === s.displayUrl ? !!s.imgReady : false,
       };
     });
-    this.setData({ downloadVariant, emojiSlots: cleared }, () =>
-      this.refreshEntitlementUi(),
-    );
+    this._lastPrefetchScroll = 0;
+    this.setData({ downloadVariant, emojiSlots: cleared }, () => {
+      this.refreshEntitlementUi();
+      this.prefetchSlotUrls(this.data.packId, { limit: SLOT_URL_FIRST });
+    });
   },
 
   onSlotImgLoad(e) {

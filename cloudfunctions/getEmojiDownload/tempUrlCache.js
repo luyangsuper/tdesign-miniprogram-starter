@@ -1,9 +1,9 @@
 /**
  * 云存储临时链短缓存（热实例内存）。
- * 微信临时链约 2 小时有效；这里 90 分钟过期，留余量。
+ * 微信临时链约 2 小时有效；这里 110 分钟过期，留余量（合集很少改）。
  */
 
-const TTL_MS = 90 * 60 * 1000;
+const TTL_MS = 110 * 60 * 1000;
 const MAX_ENTRIES = 2000;
 
 /** @type {Map<string, { url: string, expireAt: number }>} */

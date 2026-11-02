@@ -1,12 +1,26 @@
 /**
  * 首页列表本地快照：二次打开先出壳，再静默刷新。
  */
+import { packCoverCacheKey, peekTempUrl } from '~/utils/tempUrlCache';
 
 const STORAGE_KEY = 'home_list_snapshot_v1';
-/** 快照可用时长 */
-export const HOME_SNAPSHOT_TTL = 5 * 60 * 1000;
+/** 快照壳时长；封面链仍依赖后续 list 刷新换新签 */
+export const HOME_SNAPSHOT_TTL = 45 * 60 * 1000;
 /** 最多持久化条数，控制 storage 体积 */
-const MAX_LIST = 30;
+const MAX_LIST = 40;
+
+function stabilizeCover(item) {
+  if (!item || !item._id) return item;
+  // 有未过期缓存用缓存；否则用快照里的 url（可能偏旧，靠静默刷新纠正）
+  // 切勿把快照旧链 write 进 tempUrlCache，否则会盖住服务端新签
+  const cached = peekTempUrl(packCoverCacheKey(item._id));
+  const coverUrl = cached || item.coverUrl || '';
+  return {
+    ...item,
+    coverUrl,
+    slides: coverUrl ? [coverUrl] : [],
+  };
+}
 
 export function readHomeSnapshot() {
   try {
@@ -15,7 +29,10 @@ export function readHomeSnapshot() {
     const at = Number(raw.at) || 0;
     if (!at || Date.now() - at > HOME_SNAPSHOT_TTL) return null;
     if (!Array.isArray(raw.list) || !raw.list.length) return null;
-    return raw;
+    return {
+      ...raw,
+      list: raw.list.map(stabilizeCover),
+    };
   } catch (e) {
     return null;
   }

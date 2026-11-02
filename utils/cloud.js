@@ -1,4 +1,5 @@
 import config from '~/config';
+import { resolveTempFileURLs } from '~/utils/tempUrlCache';
 
 function friendlyCloudError(err, name) {
   const msg = (err && (err.errMsg || err.message)) || '';
@@ -48,13 +49,21 @@ export function callFunction(name, data = {}) {
     });
 }
 
-/** 把云存储 fileID 转成临时 https 链接（批量） */
+/** 把云存储 fileID 转成临时 https 链接（批量，带客户端 TTL 缓存） */
 export function getTempFileURLs(fileList = []) {
-  const list = (fileList || []).filter(Boolean);
-  if (!list.length) return Promise.resolve([]);
+  const list = (fileList || []).map((id) => String(id || '').trim());
+  if (!list.some(Boolean)) return Promise.resolve([]);
 
-  return wx.cloud.getTempFileURL({ fileList: list }).then((res) =>
-    (res.fileList || []).map((item) => item.tempFileURL || ''),
+  return resolveTempFileURLs(list, (missIds) =>
+    wx.cloud.getTempFileURL({ fileList: missIds }).then((res) => {
+      const map = Object.create(null);
+      (res.fileList || []).forEach((item) => {
+        if (item && item.fileID && item.tempFileURL) {
+          map[item.fileID] = item.tempFileURL;
+        }
+      });
+      return missIds.map((id) => map[id] || '');
+    }),
   );
 }
 

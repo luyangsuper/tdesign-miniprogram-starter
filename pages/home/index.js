@@ -1,4 +1,5 @@
 import { callFunction } from '~/utils/cloud';
+import { packCoverCacheKey, reuseTempUrl } from '~/utils/tempUrlCache';
 import {
   formatBatchResultTip,
   runBatchDownload,
@@ -32,6 +33,7 @@ import {
 } from '~/utils/subscribe';
 import { applyThemeToPage, applyThemeToTabBar, getThemeStyle } from '~/utils/theme';
 import {
+  clearHomeSnapshot,
   readHomeSnapshot,
   writeHomeSnapshot,
 } from '~/utils/homeSnapshot';
@@ -91,7 +93,8 @@ function appendColumns(columns, newItems, columnCount) {
   return cols;
 }
 
-const LIST_CACHE_TTL = 90 * 1000;
+/** 合集很少改：内存列表缓存拉长；下拉刷新 / 管理端发布仍 force 绕过 */
+const LIST_CACHE_TTL = 30 * 60 * 1000;
 /** 瀑布流滚过该高度（px）后显示回到顶部 */
 const BACK_TOP_VISIBLE = 400;
 /** 节流同步 scrollTop 给 t-back-top，避免每帧 setData */
@@ -258,6 +261,7 @@ Page({
       if (app.globalData && app.globalData.homeNeedRefresh) {
         app.globalData.homeNeedRefresh = false;
         this.clearListCache();
+        clearHomeSnapshot();
         this.loadCategories();
         this.loadList(true, { force: true });
       }
@@ -860,6 +864,7 @@ Page({
 
   clearListCache() {
     this._listCache = Object.create(null);
+    clearHomeSnapshot();
   },
 
   /** 二次打开：用本地快照先铺瀑布流，减少白屏 */
@@ -1827,7 +1832,14 @@ Page({
         hasMore = false,
         total = 0,
       } = res.data || {};
-      const withRatio = await this.resolveCoverRatios(list, seq);
+      const withStableCover = (list || []).map((item) => {
+        if (!item || !item._id || !item.coverUrl) return item;
+        return {
+          ...item,
+          coverUrl: reuseTempUrl(packCoverCacheKey(item._id), item.coverUrl),
+        };
+      });
+      const withRatio = await this.resolveCoverRatios(withStableCover, seq);
       if (!withRatio || seq !== this._listSeq) return;
 
       const nextList = reset ? withRatio : this.data.list.concat(withRatio);

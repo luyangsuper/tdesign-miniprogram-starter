@@ -238,6 +238,11 @@
             >
               <view slot="loading" class="detail__slot-skeleton" aria-hidden="true" />
             </t-image>
+            <view
+              wx:elif="{{item.urlPending}}"
+              class="detail__slot-cover detail__slot-skeleton"
+              aria-hidden="true"
+            />
             <view wx:else class="detail__slot-cover detail__slot-cover--empty">
               {{downloadVariant === 'anim' ? '无动态' : '暂无原图'}}
             </view>

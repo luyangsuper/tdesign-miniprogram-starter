@@ -1,6 +1,7 @@
 import { callFunction, uploadFile } from '~/utils/cloud';
 import { guardAdminPage } from '~/utils/auth';
 import { getSubscribeMpState } from '~/utils/subscribe';
+import { invalidatePackTempUrls } from '~/utils/tempUrlCache';
 import {
   getFileName,
   isVideoFile,
@@ -957,6 +958,7 @@ Page({
       }
 
       try {
+        if (savedPackId) invalidatePackTempUrls(savedPackId);
         getApp().globalData.homeNeedRefresh = true;
       } catch (e) {
         /* ignore */

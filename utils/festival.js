@@ -8,6 +8,11 @@
 
 import { callFunction, getTempFileURLs } from '~/utils/cloud';
 import {
+  forgetTempUrl,
+  peekTempUrl as peekSharedTempUrl,
+  rememberTempUrl as rememberSharedTempUrl,
+} from '~/utils/tempUrlCache';
+import {
   formatMonthDayTimeLabel,
   getFestivalSolarTableAdminHint,
   getRuleWindowForYear,
@@ -1178,8 +1183,7 @@ export async function clearFestivalWindow(festivalId) {
 
 /** 上传/清除后丢掉临时链缓存，强制下次换新签 */
 export function invalidateFestivalSrcCache(fileID) {
-  const id = String(fileID || '').trim();
-  if (id && _tempUrlCache[id]) delete _tempUrlCache[id];
+  forgetTempUrl(fileID);
 }
 
 export async function saveFestivalBanner(festivalId, fileID) {
@@ -1252,29 +1256,16 @@ export function isCloudFileId(src) {
   return /^cloud:\/\//.test(String(src || '').trim());
 }
 
-/** 云文件临时链内存缓存，避免切 tab 反复换签导致图片闪白重载 */
-const _tempUrlCache = Object.create(null);
-const TEMP_URL_TTL_MS = 90 * 60 * 1000;
-
 /** 各 tab 页 custom-tab-bar 实例各自一份，用模块级展示缓存做同步回填 */
 let _bankDisplay = { festivalId: '', raw: '', url: '' };
 let _bannerDisplay = { festivalId: '', raw: '', url: '' };
 
 function readTempUrlCache(fileID) {
-  const hit = _tempUrlCache[fileID];
-  if (!hit || !hit.url) return '';
-  if (hit.expireAt && hit.expireAt <= Date.now()) {
-    delete _tempUrlCache[fileID];
-    return '';
-  }
-  return hit.url;
+  return peekSharedTempUrl(fileID);
 }
 
 function writeTempUrlCache(fileID, url) {
-  const u = String(url || '').trim();
-  if (!fileID || !u) return '';
-  _tempUrlCache[fileID] = { url: u, expireAt: Date.now() + TEMP_URL_TTL_MS };
-  return u;
+  return rememberSharedTempUrl(fileID, url);
 }
 
 /** 同步窥探：本地路径或已缓存临时链，不发网络 */

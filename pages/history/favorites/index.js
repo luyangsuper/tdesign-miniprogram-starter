@@ -1,6 +1,7 @@
 import { callFunction } from '~/utils/cloud';
 import { queueFavorite } from '~/utils/favoriteQueue';
 import { getWindowInfoSafe } from '~/utils/systemInfo';
+import { packCoverCacheKey, reuseTempUrl } from '~/utils/tempUrlCache';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
 
@@ -50,7 +51,11 @@ function withCoverRatio(item) {
     }
   }
   if (!(ratio > 0.2 && ratio < 4)) ratio = 1;
-  return { ...item, coverRatio: ratio };
+  const coverUrl =
+    item.packId && item.coverUrl
+      ? reuseTempUrl(packCoverCacheKey(item.packId), item.coverUrl)
+      : item.coverUrl;
+  return { ...item, coverRatio: ratio, coverUrl };
 }
 
 Page({
