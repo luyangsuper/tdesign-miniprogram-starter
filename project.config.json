@@ -4,7 +4,31 @@
     "ignore": [
       {
         "type": "folder",
-        "value": "miniprogram_npm/lunar-javascript/__tests__"
+        "value": ".miniprogram_npm_build"
+      },
+      {
+        "type": "glob",
+        "value": "miniprogram_npm.bak_*"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/lunar-javascript"
+      },
+      {
+        "type": "file",
+        "value": "miniprogram_npm/tdesign-miniprogram/.wechatide.ib.json"
+      },
+      {
+        "type": "folder",
+        "value": "scripts"
+      },
+      {
+        "type": "folder",
+        "value": "cloudfunctions"
+      },
+      {
+        "type": "folder",
+        "value": "node_modules"
       }
     ],
     "include": []

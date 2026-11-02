@@ -4,12 +4,20 @@ import {
   getMotionIcons,
   getFestivalAssets,
   isCloudFileId,
+  peekFestivalBannerDisplay,
+  rememberFestivalBannerDisplay,
   resolveFestivalSrc,
 } from '../../utils/festival';
 
-/** 首页飘落：全屏更密；顶栏模式列行少一些 */
-const FLAKE_FULL = { cols: 9, rows: 5 };
-const FLAKE_HEADER = { cols: 7, rows: 3 };
+/** 首页飘落数量：全屏更密；顶栏略少 */
+const FLAKE_FULL_COUNT = 42;
+const FLAKE_HEADER_COUNT = 20;
+
+/** 稳定伪随机 0~1，避免每次 refresh 位置乱跳 */
+function hash01(seed) {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
 
 function buildBulbs(festivalId) {
   if (festivalId === 'christmas') {
@@ -58,41 +66,52 @@ function buildSparkles() {
   }));
 }
 
-/** 行列网格 + 隔行错位，相位铺满整段下落 */
+/**
+ * 散落飘落：快慢差大、左右漂移、相位错开，避免「一条条平行斜线」
+ */
 function buildFlakes(festivalId, fallScope) {
   const icons = getMotionIcons(festivalId);
   if (!icons.length) return [];
-  const grid = fallScope === 'full' ? FLAKE_FULL : FLAKE_HEADER;
-  const cols = grid.cols;
-  const rows = grid.rows;
+  const count = fallScope === 'full' ? FLAKE_FULL_COUNT : FLAKE_HEADER_COUNT;
+  const fallMin = fallScope === 'full' ? 5.2 : 3.0;
+  const fallMax = fallScope === 'full' ? 15.5 : 9.2;
+  const sizeBase = fallScope === 'full' ? 14 : 12;
   const list = [];
-  const period = fallScope === 'full' ? 9.5 : 5.5;
-  for (let r = 0; r < rows; r += 1) {
-    for (let c = 0; c < cols; c += 1) {
-      const i = r * cols + c;
-      const colShift = r % 2 ? 0.5 / cols : 0;
-      const left = Math.max(
-        1.5,
-        Math.min(96.5, ((c + 0.5) / cols + colShift) * 97),
-      );
-      const size = (fallScope === 'full' ? 16 : 14) + ((c + r) % 4) * 2;
-      const fall = period + (i % 5) * 0.28;
-      const delay = -((r + c / cols) / rows) * period;
-      const spin = 4.5 + (i % 4) * 0.8;
-      const spinDir = i % 2 === 0 ? 1 : -1;
-      list.push({
-        id: `f${festivalId}-${fallScope}-${i}`,
-        src: icons[i % icons.length],
-        wrapStyle: [
-          `left:${left.toFixed(2)}%`,
-          `--fest-size:${size}px`,
-          `--fest-fall:${fall.toFixed(2)}s`,
-          `--fest-delay:${delay.toFixed(2)}s`,
-          `--fest-spin:${spin.toFixed(2)}s`,
-          `--fest-spin-dir:${spinDir}`,
-        ].join(';'),
-      });
-    }
+  for (let i = 0; i < count; i += 1) {
+    const a = hash01(i * 3 + 1);
+    const b = hash01(i * 5 + 11);
+    const c = hash01(i * 7 + 23);
+    const d = hash01(i * 11 + 41);
+    const e = hash01(i * 13 + 67);
+    const left = 2 + a * 96;
+    /* 快慢拉开：约 3x 速差 */
+    const fall = fallMin + b * (fallMax - fallMin);
+    /* 负 delay 错开起点，铺满周期 */
+    const delay = -(c * fallMax * 1.15);
+    const size = sizeBase + Math.round(d * 14);
+    const spin = 3.2 + e * 5.5;
+    const spinDir = hash01(i + 99) > 0.5 ? 1 : -1;
+    /* 横向漂移（预计算多段，避免真机 calc(var * n) 失效） */
+    const drift = Math.round((hash01(i + 131) - 0.5) * 72);
+    const driftB = Math.round(drift * -0.7);
+    const driftC = Math.round(drift * 0.45);
+    const driftD = Math.round(drift * -0.15);
+    list.push({
+      id: `f${festivalId}-${fallScope}-${i}`,
+      src: icons[i % icons.length],
+      wrapStyle: [
+        `left:${left.toFixed(2)}%`,
+        `--fest-size:${size}px`,
+        `--fest-fall:${fall.toFixed(2)}s`,
+        `--fest-delay:${delay.toFixed(2)}s`,
+        `--fest-spin:${spin.toFixed(2)}s`,
+        `--fest-spin-dir:${spinDir}`,
+        `--fest-drift:${drift}px`,
+        `--fest-drift-b:${driftB}px`,
+        `--fest-drift-c:${driftC}px`,
+        `--fest-drift-d:${driftD}px`,
+      ].join(';'),
+    });
   }
   return list;
 }
@@ -163,35 +182,36 @@ Component({
   },
 
   methods: {
+    /** token 保证只有最后一次 refresh 的结果落地；不再加「进行中」锁，否则换签未回来时关开关会被丢掉 */
     refresh() {
-      if (this._festRefreshing) return;
-      this._festRefreshing = true;
-      const token = (this._festRefreshToken = (this._festRefreshToken || 0) + 1);
+      const token = (this._festRefreshToken || 0) + 1;
+      this._festRefreshToken = token;
       const cfg = getFestivalConfig();
       const mode = this.properties.mode || 'home';
       const festivalId = cfg.id || '';
       const rawAssets = getFestivalAssets(festivalId) || {};
-      const isHome = mode === 'home';
+      /* 首页 / 我的：顶栏皮肤、灯带、飘落一致 */
+      const showDecor = mode === 'home' || mode === 'my';
       const navH = Number(this.properties.navHeight) || 88;
-      /* 优先用页面传入的导航高度；顶栏图不得盖住分类条 */
+      /* headerHeight = 导航高；上传图 4:1，灯带贴导航底缘 */
       const headerH = Number(this.properties.headerHeight) || navH;
       const rawBanner = rawAssets.banner || '';
 
       const apply = (assets) => {
         if (token !== this._festRefreshToken) return;
         const fallScope = getFestivalFallScope();
-        const showSkin = isHome && !!festivalId && !!assets.banner;
-        const showChrome = isHome && !!festivalId && !!cfg.lights;
-        const showMotion = isHome && !!cfg.motion && !!festivalId;
+        const pageActive = this.properties.active !== false;
+        /* 切走 tab 只暂停动画，不卸顶栏图，避免切回闪白 */
+        const paused = !pageActive;
+        const showSkin = showDecor && !!festivalId && !!assets.banner;
+        const showChrome = showDecor && !!festivalId && !!cfg.lights;
+        const showMotion = showDecor && !!cfg.motion && !!festivalId;
         const showAmbient = showMotion;
-        const showLights = !!cfg.lights && isHome;
+        const showLights = !!cfg.lights && showDecor;
         const visible =
-          !!festivalId &&
-          this.properties.active !== false &&
-          (showSkin || showChrome || showAmbient);
+          !!festivalId && showDecor && (showSkin || showChrome || showAmbient);
         const chromeHeightPx = Math.max(48, navH);
         const skinHeightPx = Math.max(48, Math.round(headerH || navH));
-        /* 顶栏飘落高度跟导航一致，不盖分类条 */
         const ambientH = chromeHeightPx;
         const ambientStyle =
           fallScope === 'full'
@@ -209,9 +229,13 @@ Component({
           Array.isArray(this.data.flakes) &&
           this.data.flakes.length > 0;
 
+        if (assets.banner && rawBanner) {
+          rememberFestivalBannerDisplay(festivalId, rawBanner, assets.banner);
+        }
+
         const patch = {
           visible,
-          paused: false,
+          paused,
           festivalId,
           assets,
           showSkin,
@@ -234,13 +258,13 @@ Component({
           patch.sparkles = showChrome ? buildSparkles() : [];
         }
 
-        /* 同节日同图时只更新尺寸等轻量字段，避免 image 重载 */
         if (
           sameFest &&
           sameBanner &&
           sameFall &&
           keepFlakes &&
-          this.data.visible === visible
+          this.data.visible === visible &&
+          this.data.paused === paused
         ) {
           this.setData({
             chromeHeightPx,
@@ -253,21 +277,45 @@ Component({
             showMotion,
             showLights,
             visible,
+            paused,
           });
+        } else if (
+          sameFest &&
+          sameBanner &&
+          sameFall &&
+          keepFlakes &&
+          this.data.visible === visible
+        ) {
+          /* 仅 paused 变化：不动图片 */
+          this.setData({ paused });
         } else {
           this.setData(patch);
         }
         this._rawBannerId = rawBanner;
-        this._festRefreshing = false;
       };
 
-      resolveFestivalSrc(rawBanner)
-        .then((banner) => {
-          apply({ ...rawAssets, banner });
-        })
-        .catch(() => {
-          apply({ ...rawAssets, banner: isCloudFileId(rawBanner) ? '' : rawBanner });
-        });
+      const peeked = peekFestivalBannerDisplay(festivalId, rawBanner);
+      const keepBanner =
+        this._rawBannerId === rawBanner &&
+        this.data.assets &&
+        this.data.assets.banner
+          ? this.data.assets.banner
+          : '';
+      const syncBanner = peeked || (!isCloudFileId(rawBanner) ? rawBanner : keepBanner);
+      const needFetch = isCloudFileId(rawBanner) && !peeked;
+
+      apply({ ...rawAssets, banner: syncBanner || '' });
+
+      if (needFetch) {
+        resolveFestivalSrc(rawBanner)
+          .then((banner) => {
+            const next = banner || syncBanner || '';
+            apply({ ...rawAssets, banner: next });
+          })
+          .catch(() => {
+            apply({ ...rawAssets, banner: syncBanner || '' });
+          });
+      }
     },
   },
 });

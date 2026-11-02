@@ -1,14 +1,17 @@
-<!-- ① 仅首页：顶栏背景图 -->
+<!-- ① 首页 / 我的：顶栏背景图 -->
 <view
   wx:if="{{visible && showSkin && assets.banner}}"
   class="fest-skin fest-skin--{{festivalId}}"
   style="height: {{skinHeightPx}}px;"
   aria-hidden="true"
 >
+  <!-- aspectFill：上传 4:1，等比铺满导航区（机型略差时上下微裁，不拉伸） -->
   <image class="fest-skin__img" src="{{assets.banner}}" mode="aspectFill" />
+  <!-- 底缘淡入页面底色，减轻和分类区/内容的硬切 -->
+  <view class="fest-skin__fade" />
 </view>
 
-<!-- ② 仅首页：灯带 + 微光（春节/圣诞） -->
+<!-- ② 首页 / 我的：灯带 + 微光（春节/圣诞） -->
 <view
   wx:if="{{visible && showChrome}}"
   class="fest-chrome fest-chrome--{{festivalId}} {{paused ? 'fest--paused' : ''}}"
@@ -42,7 +45,7 @@
   </view>
 </view>
 
-<!-- ③ 仅首页：循环飘落；默认顶栏，可开全屏 -->
+<!-- ③ 首页 / 我的：循环飘落；默认顶栏，可开全屏 -->
 <view
   wx:if="{{visible && showAmbient}}"
   class="fest-ambient fest-ambient--{{fallScope}} fest-ambient--{{festivalId}} {{paused ? 'fest--paused' : ''}}"

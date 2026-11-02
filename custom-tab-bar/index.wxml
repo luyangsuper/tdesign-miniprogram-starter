@@ -1,6 +1,7 @@
-<!-- 固定底栏：节日背景限高裁切、原图显示；图标文字用描边保可读 -->
+<!-- 底栏始终实心；有节日底图时铺在实心底上，透明区露出栏体色而非页面内容 -->
 <view
-  class="page custom-tab-bar {{festivalId ? 'custom-tab-bar--fest custom-tab-bar--' + festivalId : ''}} {{bankSrc ? 'custom-tab-bar--bank' : ''}}"
+  wx:if="{{!hidden}}"
+  class="page custom-tab-bar {{festivalId ? 'custom-tab-bar--fest custom-tab-bar--' + festivalId : ''}}"
   style="{{themeStyle}}"
 >
   <view
@@ -9,7 +10,7 @@
     style="height: {{bankMaxPx}}px;"
     aria-hidden="true"
   >
-    <image class="custom-tab-bar__bg" src="{{bankSrc}}" mode="aspectFill" />
+    <image class="custom-tab-bar__bg" src="{{bankSrc}}" mode="scaleToFill" />
   </view>
   <view class="custom-tab-bar__inner">
     <t-tab-bar

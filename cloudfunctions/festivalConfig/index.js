@@ -48,7 +48,7 @@ function pad2(n) {
 function parseMonthDay(raw) {
   const s = String(raw || '').trim();
   if (!s) return null;
-  const full = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const full = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (full) {
     const month = Number(full[2]);
     const day = Number(full[3]);
@@ -63,6 +63,22 @@ function parseMonthDay(raw) {
   return { month, day };
 }
 
+function parseHourMinute(raw, fallback) {
+  const s = String(raw || '').trim();
+  const m = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (m) {
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (h >= 0 && h <= 23 && min >= 0 && min <= 59) {
+      return `${pad2(h)}:${pad2(min)}`;
+    }
+  }
+  const fb = String(fallback || '00:00');
+  const fm = fb.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (fm) return `${pad2(Number(fm[1]) || 0)}:${pad2(Number(fm[2]) || 0)}`;
+  return '00:00';
+}
+
 function pickWindowEntry(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const start = parseMonthDay(raw.start);
@@ -71,6 +87,8 @@ function pickWindowEntry(raw) {
   return {
     start: `${pad2(start.month)}-${pad2(start.day)}`,
     end: `${pad2(end.month)}-${pad2(end.day)}`,
+    startTime: parseHourMinute(raw.startTime || raw.startHm, '00:00'),
+    endTime: parseHourMinute(raw.endTime || raw.endHm, '23:59'),
   };
 }
 
@@ -206,12 +224,14 @@ exports.main = async (event) => {
         return { ok: false, code: 'BAD_REQUEST', message: '缺少 festivalId' };
       }
       if (!start || !end) {
-        return { ok: false, code: 'BAD_REQUEST', message: '起止日期无效' };
+        return { ok: false, code: 'BAD_REQUEST', message: '起止时间无效' };
       }
       const doc = await readDoc();
       doc.windows[festivalId] = {
         start: `${pad2(start.month)}-${pad2(start.day)}`,
         end: `${pad2(end.month)}-${pad2(end.day)}`,
+        startTime: parseHourMinute(event && event.startTime, '00:00'),
+        endTime: parseHourMinute(event && event.endTime, '23:59'),
       };
       const saved = await writeDoc(doc);
       return { ok: true, data: saved };

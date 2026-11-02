@@ -300,7 +300,6 @@
     --td-cell-border-color: transparent;
     --td-cell-horizontal-padding: 0;
     --td-cell-vertical-padding: 10rpx;
-    --td-cell-right-width: auto;
   }
 
   &__log-cell {
@@ -314,9 +313,18 @@
     }
   }
 
+  // t-cell 默认 title/note 都是 flex:1 且 min-width:auto，长合集名会把积分顶出屏幕
+  &__log-center {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden;
+  }
+
   &__log-title {
     .ui-body();
-    display: block;
+    display: block !important;
+    box-sizing: border-box;
+    width: 100%;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -330,6 +338,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  &__log-note {
+    flex: 0 0 auto !important;
+    min-width: auto !important;
   }
 
   &__log-right {

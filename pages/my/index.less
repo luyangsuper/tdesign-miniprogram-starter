@@ -6,6 +6,12 @@
   display: flex;
   flex-direction: column;
   background: var(--td-bg-color-page);
+
+  /* 与首页一致：有顶栏图时导航透明 + 浅色字 */
+  &--fest {
+    --td-navbar-bg-color: transparent;
+    --td-navbar-color: var(--fest-nav-color, #fff);
+  }
 }
 
 .my {
@@ -968,9 +974,16 @@
 }
 
 .my__festival-sheet {
-  max-height: 78vh;
-  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+  /* scroll-view 必须有明确高度才能滚到底；仅 max-height 在真机常被裁切 */
+  height: 72vh;
+  max-height: 72vh;
+  padding-bottom: 0;
   box-sizing: border-box;
+}
+
+.my__festival-sheet-foot {
+  height: calc(56rpx + env(safe-area-inset-bottom));
+  flex-shrink: 0;
 }
 
 .my__festival-sheet-desc {
@@ -978,6 +991,16 @@
   margin: 8rpx 0 8rpx;
   line-height: 1.45;
   color: var(--td-text-color-secondary);
+}
+
+.my__festival-solar-warn {
+  .ui-caption();
+  margin: 8rpx 0 16rpx;
+  padding: 16rpx 20rpx;
+  line-height: 1.45;
+  color: var(--td-warning-color-1, #e37318);
+  background: var(--td-warning-color-light, rgba(227, 115, 24, 0.12));
+  border-radius: 12rpx;
 }
 
 .my__festival-fx {
@@ -1133,6 +1156,8 @@
   border-radius: 12rpx;
   background: var(--td-bg-color-secondarycontainer);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .my__festival-asset-card-head {
@@ -1156,13 +1181,17 @@
 }
 
 .my__festival-asset-card-preview {
+  /* 两侧共用顶栏 4:1 槽位高度，底栏图在槽内垂直居中，按钮才能齐 */
   width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 1;
   border-radius: 8rpx;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.04);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 
   image {
     display: block;
@@ -1171,12 +1200,7 @@
   }
 }
 
-.my__festival-asset-card-preview--banner {
-  height: 72rpx;
-}
-
 .my__festival-asset-card-preview--bank {
-  height: 72rpx;
   background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 12rpx 12rpx;
 }
 
@@ -1186,7 +1210,8 @@
 }
 
 .my__festival-asset-card-actions {
-  margin-top: 10rpx;
+  margin-top: auto;
+  padding-top: 10rpx;
   display: flex;
   align-items: stretch;
   gap: 8rpx;

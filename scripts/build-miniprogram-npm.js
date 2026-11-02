@@ -9,12 +9,21 @@
  * （即使业务代码未引用，缺文件会直接 ENOENT 失败）。
  */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
 const npmDir = path.join(root, 'miniprogram_npm');
-/** 先写到临时目录再整体替换，避免 IDE 编译撞上半清空的 miniprogram_npm */
-const npmStaging = path.join(root, '.miniprogram_npm_build');
+/**
+ * staging 放系统临时目录，不要放在小程序工程根下。
+ * 否则开发者工具上传时可能扫到半成品路径（如 .miniprogram_npm_build/...）报 ENOENT。
+ */
+const npmStaging = path.join(
+  os.tmpdir(),
+  `emojiShare-miniprogram_npm_build_${process.pid}`,
+);
+/** 历史遗留：旧版脚本写在工程根下的 staging，上传前务必清掉 */
+const legacyStaging = path.join(root, '.miniprogram_npm_build');
 const tdesignDist = path.join(
   root,
   'node_modules',
@@ -117,6 +126,7 @@ if (!fs.existsSync(tdesignDist)) {
   process.exit(1);
 }
 
+rmrf(legacyStaging);
 rmrf(npmStaging);
 fs.mkdirSync(npmStaging, { recursive: true });
 
@@ -163,37 +173,7 @@ if (fs.existsSync(tinySrc)) {
   console.log('patched tinycolor2 entry aliases');
 }
 
-/**
- * 节日农历：运行时 + __tests__ 空占位。
- * 整包拷会触发「保留目录」告警；删掉测试文件又会 ENOENT（IDE 仍按清单 open）。
- * 与 tinycolor2 一样：目录保留、文件写成空模块即可。
- */
-const lunarSrc = path.join(root, 'node_modules', 'lunar-javascript');
-const lunarDest = path.join(npmStaging, 'lunar-javascript');
-if (!fs.existsSync(path.join(lunarSrc, 'index.js'))) {
-  console.error('缺少 lunar-javascript，请先执行 npm install');
-  process.exit(1);
-}
-fs.mkdirSync(lunarDest, { recursive: true });
-for (const name of ['index.js', 'lunar.js', 'package.json']) {
-  const s = path.join(lunarSrc, name);
-  if (!fs.existsSync(s)) {
-    console.error(`缺少 lunar-javascript/${name}`);
-    process.exit(1);
-  }
-  fs.copyFileSync(s, path.join(lunarDest, name));
-}
-const lunarTestsSrc = path.join(lunarSrc, '__tests__');
-const lunarTestsDest = path.join(lunarDest, '__tests__');
-if (fs.existsSync(lunarTestsSrc)) {
-  fs.mkdirSync(lunarTestsDest, { recursive: true });
-  for (const name of fs.readdirSync(lunarTestsSrc)) {
-    if (!name.endsWith('.js')) continue;
-    fs.writeFileSync(path.join(lunarTestsDest, name), 'module.exports = {};\n', 'utf8');
-  }
-  console.log('stubbed lunar-javascript/__tests__');
-}
-console.log('copied lunar-javascript');
+/* 农历已改为预计算表 utils/festivalSolarTable.js，不再拷贝 lunar-javascript 进主包 */
 
 mustExist(path.join(tdesignDest, 'navbar', 'navbar.js'), 'navbar');
 mustExist(path.join(tdesignDest, 'search', 'search.wxml'), 'search.wxml');
@@ -206,7 +186,6 @@ mustExist(
   path.join(tdesignDest, 'miniprogram_npm', 'lodash', 'isArray.js'),
   'nested lodash/isArray.js',
 );
-mustExist(path.join(lunarDest, 'index.js'), 'lunar-javascript/index.js');
 
 /* 原子替换：旧目录挪走 → staging 就位 → 删旧 */
 const npmBackup = `${npmDir}.bak_${Date.now()}`;
@@ -218,12 +197,12 @@ if (fs.existsSync(npmDir)) {
   }
 }
 try {
-  fs.renameSync(npmStaging, npmDir);
-} catch (e) {
-  /* Windows 偶发跨盘/占用：退回拷贝 */
+  /* tmp → 工程目录跨盘时 rename 常失败，优先直接拷 */
   copyDir(npmStaging, npmDir);
+} finally {
   rmrf(npmStaging);
 }
 rmrf(npmBackup);
+rmrf(legacyStaging);
 
 console.log('OK miniprogram_npm ready');

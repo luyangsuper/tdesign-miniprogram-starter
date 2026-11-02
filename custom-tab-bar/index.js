@@ -2,8 +2,10 @@ import { getThemeStyle } from '~/utils/theme';
 import {
   getActiveFestival,
   getFestivalAssets,
+  festivalBankContentHeightPx,
+  peekFestivalBankDisplay,
+  rememberFestivalBankDisplay,
   resolveFestivalSrc,
-  FESTIVAL_BANK_SPEC,
 } from '~/utils/festival';
 import { getWindowInfoSafe } from '~/utils/systemInfo';
 
@@ -14,26 +16,29 @@ function routeToValue(route) {
   return '';
 }
 
-/** 底栏装饰图最大高度（px），按设计稿 750×160 等比，且不超过栏高的 1.35 倍 */
+/** 底图高度只跟图标内容区走（90rpx，与 750:90 ≈ 8.318:1 对齐）；安全区由栏体实色填充 */
 function bankMaxHeightPx() {
   try {
     const win = getWindowInfoSafe();
-    const w = win.windowWidth || 375;
-    const bySpec = Math.round((w * FESTIVAL_BANK_SPEC.height) / FESTIVAL_BANK_SPEC.width);
-    const tabApprox = Math.round((96 / 750) * w) + 24;
-    return Math.max(48, Math.min(bySpec, Math.round(tabApprox * 1.35)));
+    return festivalBankContentHeightPx(win.windowWidth || 375);
   } catch (e) {
-    return 80;
+    return 48;
   }
 }
 
 Component({
+  options: {
+    styleIsolation: 'shared',
+    virtualHost: true,
+  },
   data: {
     value: '',
     themeStyle: '',
     festivalId: '',
     bankSrc: '',
     bankMaxPx: 80,
+    /** 全屏遮罩（裁剪等）时隐藏 */
+    hidden: false,
   },
   lifetimes: {
     attached() {
@@ -47,7 +52,6 @@ Component({
       this.syncFestival();
       this._onThemeChange = () => this.syncTheme();
       this._onFestivalChange = () => {
-        /* 不强制清空 raw，同 fileID 命中缓存则 bankSrc 不变、不重载图 */
         this.syncFestival();
       };
       try {
@@ -86,9 +90,10 @@ Component({
       const themeStyle = getThemeStyle();
       if (this.data.themeStyle !== themeStyle) this.setData({ themeStyle });
     },
-    /** 底栏背景跟节日走；临时链有缓存，同图不重载 */
+    /** 底栏背景跟节日走；栏体始终实心，底图只作装饰 */
     syncFestival(opts = {}) {
-      const token = (this._festToken = (this._festToken || 0) + 1);
+      const token = (this._festToken || 0) + 1;
+      this._festToken = token;
       const fest = getActiveFestival();
       const festivalId = fest ? fest.id : '';
       const assets = festivalId ? getFestivalAssets(festivalId) : {};
@@ -108,6 +113,9 @@ Component({
       const apply = (bankSrc) => {
         if (token !== this._festToken) return;
         this._rawBankId = rawBank;
+        if (bankSrc && rawBank) {
+          rememberFestivalBankDisplay(festivalId, rawBank, bankSrc);
+        }
         const patch = {};
         if (this.data.festivalId !== festivalId) patch.festivalId = festivalId;
         if (this.data.bankSrc !== bankSrc) patch.bankSrc = bankSrc;
@@ -119,13 +127,39 @@ Component({
         apply('');
         return;
       }
+
+      const peeked = peekFestivalBankDisplay(festivalId, rawBank);
+      if (peeked) {
+        apply(peeked);
+        return;
+      }
+
+      const keep =
+        this._rawBankId === rawBank && this.data.bankSrc ? this.data.bankSrc : '';
+      if (keep) apply(keep);
+
       resolveFestivalSrc(rawBank)
-        .then((url) => apply(url || ''))
-        .catch(() => apply(''));
+        .then((url) => {
+          const next = url || keep || '';
+          if (next !== this.data.bankSrc || this._rawBankId !== rawBank) {
+            apply(next);
+          } else {
+            this._rawBankId = rawBank;
+            rememberFestivalBankDisplay(festivalId, rawBank, next);
+          }
+        })
+        .catch(() => {
+          if (!keep) apply('');
+        });
     },
     setSelected(value) {
       if (!value || this.data.value === value) return;
       this.setData({ value });
+    },
+    setHidden(hidden) {
+      const next = !!hidden;
+      if (this.data.hidden === next) return;
+      this.setData({ hidden: next });
     },
     onChange(e) {
       const value = e && e.detail && e.detail.value;

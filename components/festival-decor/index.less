@@ -1,6 +1,6 @@
-/* 节日主题：仅首页顶栏背景图 + 灯带 + 飘落；底栏装饰在 custom-tab-bar */
+/* 节日主题：首页/我的顶栏背景图 + 灯带 + 飘落；底栏装饰在 custom-tab-bar */
 
-/* 仅导航区（含状态栏），高度由页面传入 = navHeight，不含分类条 */
+/* 顶栏装饰：高度 = 系统导航（含状态栏），图为 4:1 aspectFill */
 .fest-skin {
   position: fixed;
   left: 0;
@@ -10,9 +10,6 @@
   pointer-events: none;
   overflow: hidden;
   background: transparent;
-  /* 底缘软收，衔接下方实底分类条 */
-  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
 }
 
 .fest-skin__img {
@@ -22,6 +19,23 @@
   width: 100%;
   height: 100%;
   display: block;
+}
+
+/* 底缘淡入，整体压低透明度，只轻轻接缝 */
+.fest-skin__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28rpx;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.35;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--td-bg-color-page) 100%
+  );
 }
 
 .fest-chrome {
@@ -192,7 +206,8 @@
   top: -12%;
   width: var(--fest-size, 28px);
   height: var(--fest-size, 28px);
-  animation: fest-fall-loop var(--fest-fall, 10s) linear infinite;
+  /* ease-in：越落越快一点；时长/漂移各片不同 */
+  animation: fest-fall-loop var(--fest-fall, 10s) ease-in infinite;
   animation-delay: var(--fest-delay, 0s);
   will-change: transform, opacity;
   opacity: 0;
@@ -209,25 +224,34 @@
   animation: fest-spin-only var(--fest-spin, 6s) linear infinite;
 }
 
-/* 全屏：穿越视口 */
+/* 全屏：左右漂移 + 下落，打破平行线 */
 @keyframes fest-fall-loop {
   0% {
     transform: translate3d(0, 0, 0);
     opacity: 0;
   }
-  5% {
+  4% {
     opacity: 1;
   }
-  90% {
+  28% {
+    transform: translate3d(var(--fest-drift, 16px), 30vh, 0);
+  }
+  55% {
+    transform: translate3d(var(--fest-drift-b, -12px), 60vh, 0);
+  }
+  78% {
+    transform: translate3d(var(--fest-drift-c, 8px), 88vh, 0);
+  }
+  92% {
     opacity: 1;
   }
   100% {
-    transform: translate3d(0, 115vh, 0);
+    transform: translate3d(var(--fest-drift-d, -4px), 118vh, 0);
     opacity: 0;
   }
 }
 
-/* 顶栏：只在导航高度内下落 */
+/* 顶栏：短距下落 + 漂移（Y 用 px 近似，避免 calc(var * n)） */
 @keyframes fest-fall-header {
   0% {
     transform: translate3d(0, 0, 0);
@@ -236,11 +260,17 @@
   8% {
     opacity: 1;
   }
-  85% {
+  40% {
+    transform: translate3d(var(--fest-drift, 12px), 36px, 0);
+  }
+  70% {
+    transform: translate3d(var(--fest-drift-b, -8px), 64px, 0);
+  }
+  88% {
     opacity: 1;
   }
   100% {
-    transform: translate3d(0, var(--fest-fall-dist, 100px), 0);
+    transform: translate3d(var(--fest-drift-c, 4px), var(--fest-fall-dist, 100px), 0);
     opacity: 0;
   }
 }

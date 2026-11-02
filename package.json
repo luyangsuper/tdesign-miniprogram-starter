@@ -11,6 +11,7 @@
     "icons:gen": "node scripts/generate-iconpark-assets.js",
     "festival:gen": "node scripts/generate-festival-assets.js",
     "festival:fit": "node scripts/fit-festival-image.js",
+    "festival:solar": "node scripts/gen-festival-solar-table.js",
     "build:npm": "node scripts/build-miniprogram-npm.js"
   },
   "keywords": [
@@ -24,10 +25,10 @@
   "description": "趣集 · 微信云开发合集分享（表情/壁纸等）：封面/预览/原图，看广告后单张保存",
   "dependencies": {
     "dayjs": "^1.11.13",
-    "lunar-javascript": "^1.7.7",
     "tdesign-miniprogram": "^1.11.2"
   },
   "devDependencies": {
+    "lunar-javascript": "^1.7.7",
     "@icon-park/svg": "^1.4.2",
     "eslint": "^8.49.0",
     "eslint-config-airbnb-base": "^15.0.0",

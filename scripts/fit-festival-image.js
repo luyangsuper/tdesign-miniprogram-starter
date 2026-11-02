@@ -7,8 +7,8 @@
  *   node scripts/fit-festival-image.js --in ./raw.png --out ./banner.png --kind banner --gravity top --fade
  *
  * 推荐工作流：
- *   1) AI 用常见比例出图（16:9 / 3:1 / 21:9 / 1:1 均可）
- *   2) 本脚本 cover 裁切到 750×200（顶栏）或 750×160（底栏）
+ *   1) AI：顶栏 4:1（750×188），底栏 ≈8.318:1（750×90）
+ *   2) 或任意图经本脚本 cover 裁到对应规格
  *   3) 顶栏可加 --fade 底部渐隐；底栏默认贴底裁，适合雪堆/角色在画面下方
  */
 const fs = require('fs');
@@ -16,8 +16,9 @@ const path = require('path');
 const sharp = require('sharp');
 
 const SPECS = {
-  banner: { width: 750, height: 200, label: '导航顶栏' },
-  bank: { width: 750, height: 160, label: '底栏背景' },
+  banner: { width: 750, height: 188, label: '导航顶栏' },
+  /* 底栏安全区不写进图片；750/90 ≈ 8.318 */
+  bank: { width: 750, height: 90, label: '底栏背景' },
 };
 
 function parseArgs(argv) {
@@ -48,7 +49,7 @@ function printHelp() {
 Options:
   --in <path>        输入图（任意比例）
   --out <path>       输出 PNG
-  --kind banner|bank 顶栏 750×200 / 底栏 750×160
+  --kind banner|bank 顶栏 750×188（4:1）/ 底栏 750×90（≈8.318:1）
   --gravity top|center|bottom|north|south  cover 裁切重心（默认：banner=top，bank=bottom）
   --fade             仅 banner：底部渐隐透明（衔接下方页面）
   --pad              不裁切：等比缩放入画布，透明/留白补边（适合异形贴纸）

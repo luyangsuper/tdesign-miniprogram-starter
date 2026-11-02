@@ -8,13 +8,19 @@
 
 import { callFunction, getTempFileURLs } from '~/utils/cloud';
 import {
-  formatMonthDayLabel,
+  formatMonthDayTimeLabel,
+  getFestivalSolarTableAdminHint,
   getRuleWindowForYear,
   matchFestivalRule,
   matchMonthDayRange,
+  maybeWarnFestivalSolarTable,
+  parseHourMinute,
   parseMonthDay,
+  toHourMinuteKey,
   toMonthDayKey,
 } from '~/utils/festivalCalendar';
+
+export { getFestivalSolarTableAdminHint };
 
 const MODE_KEY = 'festival_mode';
 const USER_ON_KEY = 'festival_user_on';
@@ -23,24 +29,91 @@ const FALL_SCOPE_KEY = 'festival_fall_scope';
 const CLOUD_CACHE_KEY = 'festival_cloud_cache';
 
 /**
- * 首页顶栏背景图规格（管理员按此尺寸/比例上传）
- * 仅覆盖导航栏（含状态栏），不含分类条。
- * 设计稿 750×200；真机按导航实际高度裁切（aspectFill）。
+ * 顶栏：750×188 = 4:1（接近常见机型「屏宽:导航高」）。
+ * AI 出图用 4:1；上传裁剪固定此规格；展示高度跟系统导航（含状态栏），aspectFill 等比铺满。
  */
 export const FESTIVAL_BANNER_SPEC = {
   width: 750,
-  height: 200,
-  ratio: '75:20',
+  height: 188,
+  contentRpx: 188,
+  ratio: '4:1',
   fileName: 'banner.png',
 };
 
-/** 底栏背景图：宽屏短图，建议透明 PNG 异形装饰 */
+/**
+ * 底栏：750×90 ≈ 8.318:1（对齐常见 AI 条带）；内容区高 90rpx（= @tab-bar-height）。
+ * 底部安全区因机而异，**不能**写进图片比例。
+ */
 export const FESTIVAL_BANK_SPEC = {
   width: 750,
-  height: 160,
-  ratio: '75:16',
+  /** 内容区高（设计稿 rpx），与 variable.less @tab-bar-height 一致 */
+  height: 90,
+  contentRpx: 90,
+  ratio: '8.318:1',
   fileName: 'bank.png',
 };
+
+/** 估算导航栏高度（含状态栏），与首页 festHeader 一致 */
+export function estimateNavHeightPx() {
+  try {
+    const win =
+      (typeof wx.getWindowInfo === 'function' && wx.getWindowInfo()) ||
+      wx.getSystemInfoSync();
+    const status = Number(win.statusBarHeight) || 20;
+    const menu =
+      typeof wx.getMenuButtonBoundingClientRect === 'function'
+        ? wx.getMenuButtonBoundingClientRect()
+        : null;
+    if (menu && menu.height && menu.top != null) {
+      const gap = Math.max(0, menu.top - status);
+      return Math.max(48, Math.round(status + gap * 2 + menu.height));
+    }
+    return Math.max(48, Math.round(status + 44));
+  } catch (e) {
+    return 88;
+  }
+}
+
+/**
+ * 把设计稿 rpx 高换成真机 px（宽按 750 设计稿）。
+ */
+function festivalStripHeightPx(windowWidth, contentRpx) {
+  const w = Number(windowWidth) || 375;
+  const h = Number(contentRpx) || 90;
+  return Math.max(24, Math.round((h * w) / 750));
+}
+
+/**
+ * 顶栏装饰展示高度 = 系统导航高（含状态栏）；上传图为 4:1，展示 aspectFill。
+ */
+export function festivalBannerContentHeightPx(windowWidth) {
+  /* 保留导出供脚本/文档；真机展示优先用 estimateNavHeightPx */
+  const contentRpx =
+    FESTIVAL_BANNER_SPEC.contentRpx || FESTIVAL_BANNER_SPEC.height || 188;
+  return festivalStripHeightPx(windowWidth, contentRpx);
+}
+
+/**
+ * 底栏装饰展示高度 = 图标内容区 90rpx（**不含**底部安全区）。
+ * 安全区在图片之外由栏体实色填充，这样同一张图在任何机型上都不会溢出。
+ */
+export function festivalBankContentHeightPx(windowWidth) {
+  const contentRpx =
+    FESTIVAL_BANK_SPEC.contentRpx || FESTIVAL_BANK_SPEC.height || 90;
+  return festivalStripHeightPx(windowWidth, contentRpx);
+}
+
+/**
+ * 裁剪导出尺寸：顶栏 750×188（4:1）/ 底栏 750×90（≈8.318:1）。
+ * @param {'banner'|'bank'} kind
+ */
+export function getFestivalCropOutSize(kind) {
+  const spec = kind === 'bank' ? FESTIVAL_BANK_SPEC : FESTIVAL_BANNER_SPEC;
+  return {
+    width: spec.width || 750,
+    height: spec.height || (kind === 'bank' ? 90 : 188),
+  };
+}
 
 /**
  * @typedef {object} FestivalAssets
@@ -635,10 +708,16 @@ function matchPreset(preset, date) {
       return false;
     }
   }
-  /* 云端自定义公历区间优先（每年循环） */
+  /* 云端自定义公历区间优先（每年循环，含时分） */
   const win = getFestivalWindowOverrides()[preset.id];
   if (win && win.start && win.end) {
-    return matchMonthDayRange(date, win.start, win.end);
+    return matchMonthDayRange(
+      date,
+      win.start,
+      win.end,
+      win.startTime || '00:00',
+      win.endTime || '23:59',
+    );
   }
   if (preset.rule) {
     return matchFestivalRule(date, preset.rule);
@@ -669,15 +748,25 @@ function pickFileMap(src) {
   return out;
 }
 
-/** @returns {{ start: string, end: string } | null} start/end 为 MM-DD */
+/** @returns {{ start: string, end: string, startTime: string, endTime: string } | null} */
 function pickWindowEntry(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const start = parseMonthDay(raw.start);
   const end = parseMonthDay(raw.end);
   if (!start || !end) return null;
+  const st = parseHourMinute(
+    raw.startTime || raw.startHm,
+    '00:00',
+  );
+  const et = parseHourMinute(
+    raw.endTime || raw.endHm,
+    '23:59',
+  );
   return {
     start: toMonthDayKey(start.month, start.day),
     end: toMonthDayKey(end.month, end.day),
+    startTime: toHourMinuteKey(st.hour, st.minute),
+    endTime: toHourMinuteKey(et.hour, et.minute),
   };
 }
 
@@ -723,14 +812,33 @@ function setFestivalCloudCache(doc) {
   return next;
 }
 
-/** 拉取云端配置；失败时保留本地缓存 */
+function cloudCacheChanged(prev, next) {
+  if (!prev || !next) return true;
+  if (!!prev.enabled !== !!next.enabled) return true;
+  const keys = ['banners', 'banks', 'windows'];
+  for (let i = 0; i < keys.length; i += 1) {
+    const a = prev[keys[i]] || {};
+    const b = next[keys[i]] || {};
+    const ak = Object.keys(a);
+    const bk = Object.keys(b);
+    if (ak.length !== bk.length) return true;
+    for (let j = 0; j < ak.length; j += 1) {
+      const k = ak[j];
+      if (a[k] !== b[k]) return true;
+    }
+  }
+  return false;
+}
+
+/** 拉取云端配置；失败时保留本地缓存。内容未变不广播，避免切 tab 闪图 */
 export async function loadFestivalConfig({ silent } = {}) {
   try {
+    const prev = getFestivalCloudCache();
     const res = await callFunction('festivalConfig', { action: 'get' });
     const data = (res && res.data) || {};
-    setFestivalCloudCache(data);
-    emitFestivalChange();
-    return getFestivalCloudCache();
+    const next = setFestivalCloudCache(data);
+    if (cloudCacheChanged(prev, next)) emitFestivalChange();
+    return next;
   } catch (e) {
     if (!silent) {
       console.warn('[festival] load config fail', e && e.message);
@@ -878,19 +986,21 @@ function isAdminPreviewClient() {
 
 /**
  * 当前生效节日
- * - 管理员预览（mode=具体节日）：无视全局开关
+ * - 「开启节日效果」是硬开关：关了就一律不展示（预览模式也不绕过）
+ * - 管理员预览（mode=具体节日）：无视云端「全员可见」
  * - 管理员 + 跟随日期：可本机预览匹配结果（仍受「开启节日效果」约束）
  * - mode=off：关闭
  * - 普通用户：需全局开启 + 用户开关 + 日期匹配
  */
 export function getActiveFestival(now = Date.now()) {
+  maybeWarnFestivalSolarTable(now);
+  if (!isFestivalUserOn()) return null;
   const mode = getFestivalMode();
   if (mode === 'off') return null;
   if (mode !== 'auto') return getFestivalPreset(mode);
 
   const adminPreview = isAdminPreviewClient();
   if (!adminPreview && !isFestivalFeatureEnabled()) return null;
-  if (!isFestivalUserOn()) return null;
 
   const date = now instanceof Date ? now : new Date(now);
   for (let i = 0; i < FESTIVAL_PRESETS.length; i += 1) {
@@ -907,14 +1017,14 @@ export function getFestivalStatus(now = Date.now()) {
   const userOn = isFestivalUserOn();
   const adminPreview = isAdminPreviewClient();
   let note = '';
-  if (!featureOn && mode === 'auto' && !adminPreview) {
-    note = '近期暂无节日活动';
-  } else if (!userOn && mode === 'auto') {
+  if (!userOn) {
     note = '已关闭节日效果';
-  } else if (active) {
-    note = active.tip;
   } else if (mode === 'off') {
     note = '节日装饰已关闭';
+  } else if (!featureOn && mode === 'auto' && !adminPreview) {
+    note = '近期暂无节日活动';
+  } else if (active) {
+    note = active.tip;
   } else if (!featureOn && mode === 'auto' && adminPreview) {
     note = '本机可预览；用户需先开全员可见';
   } else {
@@ -974,7 +1084,7 @@ export function getFestivalWindowOverrides() {
 
 /**
  * 管理端：某节日当前生效窗口（自定义或规则默认）
- * @returns {{ custom: boolean, startMd: string, endMd: string, label: string, defaultLabel: string, pickerStart: string, pickerEnd: string }}
+ * 规则默认按整天：开始 00:00、结束 23:59
  */
 export function getFestivalWindowInfo(festivalId, now = Date.now()) {
   const id = String(festivalId || '').trim();
@@ -985,30 +1095,40 @@ export function getFestivalWindowInfo(festivalId, now = Date.now()) {
   const custom = id ? getFestivalWindowOverrides()[id] : null;
   const startMd = (custom && custom.start) || (def && def.startMd) || '';
   const endMd = (custom && custom.end) || (def && def.endMd) || '';
-  const startLabel = startMd ? formatMonthDayLabel(startMd) : '选择';
-  const endLabel = endMd ? formatMonthDayLabel(endMd) : '选择';
+  const startTime = (custom && custom.startTime) || '00:00';
+  const endTime = (custom && custom.endTime) || '23:59';
+  const startLabel = startMd
+    ? formatMonthDayTimeLabel(startMd, startTime)
+    : '选择';
+  const endLabel = endMd ? formatMonthDayTimeLabel(endMd, endTime) : '选择';
   const label =
     startMd && endMd ? `${startLabel} – ${endLabel}` : '未设置';
   const defaultLabel =
     def && def.startMd && def.endMd
-      ? `${formatMonthDayLabel(def.startMd)} – ${formatMonthDayLabel(def.endMd)}`
+      ? `${formatMonthDayTimeLabel(def.startMd, '00:00')} – ${formatMonthDayTimeLabel(def.endMd, '23:59')}`
       : '';
   const pickerStart = startMd
-    ? `${year}-${startMd}`
+    ? `${year}-${startMd} ${startTime}`
     : def && def.startYmd
-      ? def.startYmd
-      : `${year}-01-01`;
-  let pickerEnd = endMd ? `${year}-${endMd}` : (def && def.endYmd) || `${year}-12-31`;
+      ? `${def.startYmd} 00:00`
+      : `${year}-01-01 00:00`;
+  let pickerEnd = endMd
+    ? `${year}-${endMd} ${endTime}`
+    : def && def.endYmd
+      ? `${def.endYmd} 23:59`
+      : `${year}-12-31 23:59`;
   /* 跨年：结束月日早于开始时，结束落在次年 */
   if (startMd && endMd && endMd < startMd) {
-    pickerEnd = `${year + 1}-${endMd}`;
+    pickerEnd = `${year + 1}-${endMd} ${endTime}`;
   } else if (def && def.endYmd && def.startYmd && def.endYmd < def.startYmd && !custom) {
-    pickerEnd = def.endYmd;
+    pickerEnd = `${def.endYmd} 23:59`;
   }
   return {
     custom: !!custom,
     startMd,
     endMd,
+    startTime,
+    endTime,
     startLabel,
     endLabel,
     label,
@@ -1018,17 +1138,28 @@ export function getFestivalWindowInfo(festivalId, now = Date.now()) {
   };
 }
 
+/** startRaw/endRaw: YYYY-MM-DD 或 YYYY-MM-DD HH:mm */
 export async function saveFestivalWindow(festivalId, startRaw, endRaw) {
   const start = parseMonthDay(startRaw);
   const end = parseMonthDay(endRaw);
   if (!festivalId || !start || !end) {
-    throw new Error('请选择完整起止日期');
+    throw new Error('请选择完整起止时间');
   }
+  const startTime = parseHourMinute(
+    String(startRaw || '').trim().slice(11, 16),
+    '00:00',
+  );
+  const endTime = parseHourMinute(
+    String(endRaw || '').trim().slice(11, 16),
+    '23:59',
+  );
   const res = await callFunction('festivalConfig', {
     action: 'setWindow',
     festivalId,
     start: toMonthDayKey(start.month, start.day),
     end: toMonthDayKey(end.month, end.day),
+    startTime: toHourMinuteKey(startTime.hour, startTime.minute),
+    endTime: toHourMinuteKey(endTime.hour, endTime.minute),
   });
   setFestivalCloudCache((res && res.data) || getFestivalCloudCache());
   emitFestivalChange();
@@ -1125,6 +1256,10 @@ export function isCloudFileId(src) {
 const _tempUrlCache = Object.create(null);
 const TEMP_URL_TTL_MS = 90 * 60 * 1000;
 
+/** 各 tab 页 custom-tab-bar 实例各自一份，用模块级展示缓存做同步回填 */
+let _bankDisplay = { festivalId: '', raw: '', url: '' };
+let _bannerDisplay = { festivalId: '', raw: '', url: '' };
+
 function readTempUrlCache(fileID) {
   const hit = _tempUrlCache[fileID];
   if (!hit || !hit.url) return '';
@@ -1140,6 +1275,54 @@ function writeTempUrlCache(fileID, url) {
   if (!fileID || !u) return '';
   _tempUrlCache[fileID] = { url: u, expireAt: Date.now() + TEMP_URL_TTL_MS };
   return u;
+}
+
+/** 同步窥探：本地路径或已缓存临时链，不发网络 */
+export function peekFestivalSrc(src) {
+  const raw = String(src || '').trim();
+  if (!raw) return '';
+  if (!isCloudFileId(raw)) return raw;
+  return readTempUrlCache(raw);
+}
+
+export function peekFestivalBankDisplay(festivalId, rawBank) {
+  const id = String(festivalId || '');
+  const raw = String(rawBank || '').trim();
+  if (_bankDisplay.festivalId === id && _bankDisplay.raw === raw && _bankDisplay.url) {
+    return _bankDisplay.url;
+  }
+  return peekFestivalSrc(raw);
+}
+
+export function rememberFestivalBankDisplay(festivalId, rawBank, url) {
+  const u = String(url || '').trim();
+  const raw = String(rawBank || '').trim();
+  if (!raw || !u) return;
+  _bankDisplay = {
+    festivalId: String(festivalId || ''),
+    raw,
+    url: u,
+  };
+}
+
+export function peekFestivalBannerDisplay(festivalId, rawBanner) {
+  const id = String(festivalId || '');
+  const raw = String(rawBanner || '').trim();
+  if (_bannerDisplay.festivalId === id && _bannerDisplay.raw === raw && _bannerDisplay.url) {
+    return _bannerDisplay.url;
+  }
+  return peekFestivalSrc(raw);
+}
+
+export function rememberFestivalBannerDisplay(festivalId, rawBanner, url) {
+  const u = String(url || '').trim();
+  const raw = String(rawBanner || '').trim();
+  if (!raw || !u) return;
+  _bannerDisplay = {
+    festivalId: String(festivalId || ''),
+    raw,
+    url: u,
+  };
 }
 
 /** 解析单个路径：本地/https 原样返回；cloud:// 走缓存或批量换签 */

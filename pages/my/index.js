@@ -56,10 +56,14 @@ import {
   clearFestivalBank,
   clearFestivalWindow,
   ensureFestivalModeForRole,
+  getActiveFestival,
+  getFestivalAssets,
   getFestivalBannerAdminItems,
   getFestivalBankAdminItems,
+  getFestivalCropOutSize,
   getFestivalMode,
   getFestivalModeOptions,
+  getFestivalSolarTableAdminHint,
   getFestivalStatus,
   getFestivalWindowInfo,
   isCloudFileId,
@@ -76,6 +80,7 @@ import {
   setFestivalMode,
   setFestivalUserOn,
 } from '~/utils/festival';
+import { getWindowInfoSafe } from '~/utils/systemInfo';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
 
 /**
@@ -94,8 +99,8 @@ function buildRoleLabel({ isAdmin, isVip, points, vipMonthQuota, previewAsUser }
 /** 节日氛围入口右侧文案：对用户不暴露后台；有生效节日时优先显示名称 */
 function festivalMenuNote(fest) {
   if (!fest) return '敬请期待';
+  if (!fest.userOn) return '已关闭';
   if (fest.activeName && fest.activeName !== '无') return fest.activeName;
-  if (!fest.userOn && fest.mode === 'auto') return '已关闭';
   if (!fest.featureOn && fest.mode === 'auto') return '敬请期待';
   if (fest.mode === 'off') return '已关闭';
   return '已开启';
@@ -154,6 +159,12 @@ Page({
     themeName: '微信绿',
     themePresets: [],
     themePopupVisible: false,
+    navHeight: 64,
+    festivalActive: true,
+    festivalId: '',
+    festivalClass: '',
+    festivalStyle: '',
+    festHeaderPx: 88,
     festivalMode: 'auto',
     festivalModeLabel: '跟随日期',
     festivalActiveName: '无',
@@ -166,8 +177,8 @@ Page({
     festivalBannerItems: [],
     festivalBankItems: [],
     festivalAssetEdit: null,
-    festivalBannerSpecLabel: `${FESTIVAL_BANNER_SPEC.width}×${FESTIVAL_BANNER_SPEC.height}`,
-    festivalBankSpecLabel: `${FESTIVAL_BANK_SPEC.width}×${FESTIVAL_BANK_SPEC.height}`,
+    festivalBannerSpecLabel: `${FESTIVAL_BANNER_SPEC.width}×${FESTIVAL_BANNER_SPEC.height}（${FESTIVAL_BANNER_SPEC.ratio}）`,
+    festivalBankSpecLabel: `${FESTIVAL_BANK_SPEC.width}×${FESTIVAL_BANK_SPEC.height}（${FESTIVAL_BANK_SPEC.ratio}，仅图标区）`,
     /** '' | banner-upload | banner-reset | bank-upload | bank-reset */
     festivalAssetBusy: '',
     festivalCropVisible: false,
@@ -179,6 +190,8 @@ Page({
     festivalCropOutW: FESTIVAL_BANNER_SPEC.width,
     festivalCropOutH: FESTIVAL_BANNER_SPEC.height,
     festivalFeatureSaving: false,
+    /** 农历对照表临近/超过覆盖年份时给管理员的提示 */
+    festivalSolarTableHint: '',
     festivalWindowPickerVisible: false,
     festivalWindowPickerTitle: '选择日期',
     festivalWindowPickerMode: 'start',
@@ -227,6 +240,10 @@ Page({
   onShow() {
     this.syncThemeUi();
     applyThemeToTabBar();
+    if (!this.data.festivalActive) {
+      this.setData({ festivalActive: true });
+    }
+    this.refreshFestivalDecor();
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
       if (typeof bar.setSelected === 'function') bar.setSelected('my');
@@ -234,6 +251,8 @@ Page({
       if (typeof bar.syncTheme === 'function') bar.syncTheme();
       if (typeof bar.syncFestival === 'function') bar.syncFestival();
     }
+    /* 裁剪全屏时保持藏底栏（cover-view 会盖住裁剪层） */
+    this.setTabBarHidden(!!this.data.festivalCropVisible);
     this.refreshIdentity();
     ensureFestivalModeForRole(!!this.data.isAdmin);
     this.syncProfileFromCloud();
@@ -245,8 +264,13 @@ Page({
     loadFestivalConfig({ silent: true }).then(() => {
       ensureFestivalModeForRole(!!this.data.isAdmin);
       this.syncThemeUi();
+      this.refreshFestivalDecor();
       this.syncTabBarFestival();
     });
+  },
+
+  onHide() {
+    this.setData({ festivalActive: false });
   },
 
   onShareAppMessage() {
@@ -307,14 +331,17 @@ Page({
   },
 
   onLoad() {
+    this.updateNavHeight();
     this.syncThemeUi();
     this._onEntitlementChange = () => this.refreshIdentity();
     try {
       const app = getApp();
       this._onAdminViewChange = () => this.refreshIdentity();
+      this._onFestivalChange = () => this.refreshFestivalDecor();
       if (app && app.eventBus) {
         app.eventBus.on('entitlementChange', this._onEntitlementChange);
         app.eventBus.on('adminViewChange', this._onAdminViewChange);
+        app.eventBus.on('festivalChange', this._onFestivalChange);
       }
     } catch (e) {
       /* ignore */
@@ -327,10 +354,53 @@ Page({
       if (app && app.eventBus) {
         if (this._onEntitlementChange) app.eventBus.off('entitlementChange', this._onEntitlementChange);
         if (this._onAdminViewChange) app.eventBus.off('adminViewChange', this._onAdminViewChange);
+        if (this._onFestivalChange) app.eventBus.off('festivalChange', this._onFestivalChange);
       }
     } catch (e) {
       /* ignore */
     }
+  },
+
+  updateNavHeight() {
+    try {
+      const win = getWindowInfoSafe();
+      const menu = wx.getMenuButtonBoundingClientRect();
+      const gap = menu.top - win.statusBarHeight;
+      const navHeight = win.statusBarHeight + gap * 2 + menu.height;
+      this.setData({ navHeight }, () => this.refreshFestivalDecor());
+    } catch (e) {
+      this.setData({ navHeight: 64 }, () => this.refreshFestivalDecor());
+    }
+  },
+
+  refreshFestivalDecor() {
+    const fest = getActiveFestival();
+    const nav = Number(this.data.navHeight) || 64;
+    const assets = fest ? getFestivalAssets(fest.id) : {};
+    const hasBanner = !!(assets && assets.banner);
+    /* 顶栏图盖满导航；上传 4:1，展示跟导航同高（不上提内容，避免头像卡顶） */
+    const festHeaderPx = Math.max(48, Math.round(nav));
+    const festivalStyle = fest
+      ? [
+          `--fest-accent:${fest.accent || 'var(--td-brand-color)'}`,
+          hasBanner ? `--fest-nav-color:${fest.navColor || '#ffffff'}` : '',
+        ]
+          .filter(Boolean)
+          .join(';')
+      : '';
+    const festivalClass = fest
+      ? [hasBanner ? 'my-page--fest' : '', `my-page--fest-${fest.id}`]
+          .filter(Boolean)
+          .join(' ')
+      : '';
+    this.setData({
+      festivalId: fest ? fest.id : '',
+      festivalClass,
+      festivalStyle,
+      festHeaderPx,
+    });
+    const decor = this.selectComponent('#festivalDecor');
+    if (decor && typeof decor.refresh === 'function') decor.refresh();
   },
 
   maybeOpenCheckinPopup() {
@@ -602,6 +672,9 @@ Page({
   },
 
   openFestivalPicker() {
+    const festivalSolarTableHint = this.data.isAdmin
+      ? getFestivalSolarTableAdminHint()
+      : '';
     this.setData({
       festivalPopupVisible: true,
       festivalMode: getFestivalMode(),
@@ -609,6 +682,7 @@ Page({
       festivalFeatureOn: isFestivalFeatureEnabled(),
       festivalUserOn: isFestivalUserOn(),
       festivalFallFull: isFestivalFallFull(),
+      festivalSolarTableHint,
     });
     /* 先用本地缓存渲染预览图，避免连点两次换签导致图片闪两次 */
     if (this.data.isAdmin) this.refreshFestivalAssetItems();
@@ -617,6 +691,9 @@ Page({
         festivalFeatureOn: isFestivalFeatureEnabled(),
         festivalUserOn: isFestivalUserOn(),
         festivalFallFull: isFestivalFallFull(),
+        festivalSolarTableHint: this.data.isAdmin
+          ? getFestivalSolarTableAdminHint()
+          : '',
       });
       this.syncThemeUi();
       if (this.data.isAdmin) this.refreshFestivalAssetItems();
@@ -721,21 +798,37 @@ Page({
     });
   },
 
+  setTabBarHidden(hidden) {
+    try {
+      if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+        const bar = this.getTabBar();
+        if (bar && typeof bar.setHidden === 'function') bar.setHidden(hidden);
+        else if (bar && typeof bar.setData === 'function') {
+          bar.setData({ hidden: !!hidden });
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  },
+
   openFestivalCrop(kind, festivalId, localPath) {
     const isBank = kind === 'bank';
-    const spec = isBank ? FESTIVAL_BANK_SPEC : FESTIVAL_BANNER_SPEC;
-    /* 先收起节日弹层，避免 t-popup 盖住裁剪全屏层 */
+    /* 导出比例跟真机展示一致，避免上传后再被容器裁掉 */
+    const out = getFestivalCropOutSize(isBank ? 'bank' : 'banner');
     this._festivalPopupBeforeCrop = !!this.data.festivalPopupVisible;
+    /* cover-view 底栏会盖过裁剪层，打开前先藏 */
+    this.setTabBarHidden(true);
     this.setData({
       festivalPopupVisible: false,
       festivalCropVisible: true,
       festivalCropSrc: localPath,
       festivalCropKind: kind,
       festivalCropFestivalId: festivalId,
-      festivalCropOutW: spec.width,
-      festivalCropOutH: spec.height,
+      festivalCropOutW: out.width,
+      festivalCropOutH: out.height,
       festivalCropTitle: isBank ? '裁剪底栏背景' : '裁剪导航顶栏',
-      festivalCropHint: `单指拖动，双指缩放 · 导出 ${spec.width}×${spec.height}`,
+      festivalCropHint: `单指拖动，双指缩放 · 导出 ${out.width}×${out.height}（与真机展示同比例）`,
     });
   },
 
@@ -743,6 +836,7 @@ Page({
     const reopen =
       reopenPopup !== false && this._festivalPopupBeforeCrop;
     this._festivalPopupBeforeCrop = false;
+    this.setTabBarHidden(false);
     this.setData({
       festivalCropVisible: false,
       festivalCropSrc: '',
@@ -896,12 +990,14 @@ Page({
       ),
     });
     let toast = '预览已切换，回首页查看';
-    if (id === 'off') toast = '已关闭节日装饰';
-    else if (id === 'auto') {
+    if (id === 'off') {
+      toast = '已关闭节日装饰';
+    } else if (!isFestivalUserOn()) {
+      /* 用户开关是总闸：关着时预览也不显示 */
+      toast = '「开启节日效果」已关闭，预览不显示';
+    } else if (id === 'auto') {
       if (!isFestivalFeatureEnabled()) {
         toast = '跟随日期：本机可预览；用户需先开「全员可见」';
-      } else if (!isFestivalUserOn()) {
-        toast = '请先打开「开启节日效果」';
       } else {
         const active = getFestivalStatus().activeName;
         toast =
@@ -925,7 +1021,7 @@ Page({
       which === 'end' ? win.pickerEnd || win.pickerStart : win.pickerStart || win.pickerEnd;
     this.setData({
       festivalWindowPickerMode: which === 'end' ? 'end' : 'start',
-      festivalWindowPickerTitle: which === 'end' ? '结束日期' : '开始日期',
+      festivalWindowPickerTitle: which === 'end' ? '结束时间' : '开始时间',
       festivalWindowPickerValue: value,
       festivalWindowDraftStart: win.pickerStart || '',
       festivalWindowDraftEnd: win.pickerEnd || '',
@@ -942,17 +1038,24 @@ Page({
       (e && e.detail && (e.detail.value || e.detail)) ||
       this.data.festivalWindowPickerValue ||
       '';
-    const ymd = String(raw).trim().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    let text = String(raw).trim();
+    /* 兼容只回了日期：补默认时分 */
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+      text =
+        this.data.festivalWindowPickerMode === 'end'
+          ? `${text} 23:59`
+          : `${text} 00:00`;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{1,2}$/.test(text)) {
       this.setData({ festivalWindowPickerVisible: false });
-      wx.showToast({ title: '日期无效', icon: 'none' });
+      wx.showToast({ title: '时间无效', icon: 'none' });
       return;
     }
     const mode = this.data.festivalWindowPickerMode;
     let start = this.data.festivalWindowDraftStart || '';
     let end = this.data.festivalWindowDraftEnd || '';
-    if (mode === 'end') end = ymd;
-    else start = ymd;
+    if (mode === 'end') end = text;
+    else start = text;
     const id =
       (this.data.festivalAssetEdit && this.data.festivalAssetEdit.id) || '';
     this.setData({
@@ -961,13 +1064,12 @@ Page({
       festivalWindowDraftEnd: end,
     });
     if (!id || !start || !end) {
-      /* 只改了一端：打开另一端继续选 */
       const nextWhich = mode === 'start' ? 'end' : 'start';
       const edit = this.data.festivalAssetEdit;
       const win = (edit && edit.window) || {};
       this.setData({
         festivalWindowPickerMode: nextWhich,
-        festivalWindowPickerTitle: nextWhich === 'end' ? '结束日期' : '开始日期',
+        festivalWindowPickerTitle: nextWhich === 'end' ? '结束时间' : '开始时间',
         festivalWindowPickerValue:
           nextWhich === 'end'
             ? end || win.pickerEnd || start
@@ -987,7 +1089,7 @@ Page({
       });
       this.syncThemeUi();
       this.syncTabBarFestival();
-      wx.showToast({ title: '日期已更新', icon: 'success' });
+      wx.showToast({ title: '时间已更新', icon: 'success' });
     } catch (err) {
       wx.showToast({
         title: (err && err.message) || '保存失败',
@@ -1085,6 +1187,7 @@ Page({
     } catch (err) {
       /* ignore */
     }
+    this.refreshFestivalDecor();
   },
 
   refreshIdentity() {

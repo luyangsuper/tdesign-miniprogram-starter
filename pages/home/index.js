@@ -226,16 +226,20 @@ Page({
   onShow() {
     applyThemeToPage(this);
     applyThemeToTabBar();
-    this.setData({ festivalActive: true });
+    /* 先恢复 active（仅解暂停），避免先卸图再加载造成闪烁 */
+    if (!this.data.festivalActive) {
+      this.setData({ festivalActive: true });
+    }
     this.refreshFestivalDecor();
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
       if (typeof bar.setSelected === 'function') bar.setSelected('home');
       else bar.setData({ value: 'home' });
       if (typeof bar.syncTheme === 'function') bar.syncTheme();
-      /* 各 tab 页自带一份 custom-tab-bar，必须在首页也 sync，否则切春节仍显示积雪 */
+      /* 各 tab 页自带一份 custom-tab-bar，必须在首页也 sync */
       if (typeof bar.syncFestival === 'function') bar.syncFestival();
     }
+    /* 配置未变时 loadFestivalConfig 不广播；变了才再刷 */
     loadFestivalConfig({ silent: true }).then(() => {
       this.refreshFestivalDecor();
       if (typeof this.getTabBar === 'function' && this.getTabBar()) {
@@ -270,7 +274,7 @@ Page({
   refreshFestivalDecor() {
     const fest = getActiveFestival();
     const nav = Number(this.data.navHeight) || 64;
-    /* 顶栏图只盖导航（含状态栏），不延伸进分类条 */
+    /* 顶栏图盖满导航（含状态栏）；上传 4:1，展示跟导航同高 */
     const festHeaderPx = Math.max(48, Math.round(nav));
     const assets = fest ? getFestivalAssets(fest.id) : {};
     /* 无顶栏图时不要透明导航+白字，否则浅底上看不清 */

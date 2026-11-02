@@ -1,57 +1,45 @@
 @import '/variable.less';
 
-.custom-tab-bar {
+/* 栏体始终实心（比全局 .page 背景规则更具体，避免被页面底色盖掉） */
+.page.custom-tab-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 500;
   box-sizing: border-box;
-  background: var(--td-bg-color-container);
+  background-color: var(--td-bg-color-container);
   box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.08);
   --td-tab-bar-height: @tab-bar-item-height;
   --td-tab-bar-bg-color: transparent;
   --td-tab-bar-color: var(--td-text-color-placeholder);
   --td-tab-bar-active-color: var(--td-brand-color);
-  overflow: hidden;
 }
 
-/* 限高容器：过高图 aspectFill 贴底裁切；图不降透明度、不加遮罩 */
+/* 底图只作装饰，且只覆盖图标内容区（安全区留白由栏体实色填充）；
+   高度由 inline bankMaxPx 写入，与图片 750:96 同比例，不会溢出 */
 .custom-tab-bar__bg-wrap {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: constant(safe-area-inset-bottom);
+  bottom: env(safe-area-inset-bottom);
   width: 100%;
-  overflow: hidden;
   pointer-events: none;
   z-index: 0;
+  overflow: hidden;
 }
 
 .custom-tab-bar__bg {
   display: block;
   width: 100%;
   height: 100%;
-  opacity: 1;
 }
 
+/* 图标行透明，露出下层底图与栏体实色 */
 .custom-tab-bar__inner {
   position: relative;
   z-index: 1;
-  background: transparent;
-}
-
-.custom-tab-bar:not(.custom-tab-bar--bank) .custom-tab-bar__inner {
-  background: var(--td-bg-color-container);
-}
-
-/* 有底图：整栏透明，只保留图标/文字本身 */
-.custom-tab-bar--bank {
-  background: transparent;
-  box-shadow: none;
-}
-
-.custom-tab-bar--bank .custom-tab-bar__inner {
   background: transparent;
 }
 
@@ -61,11 +49,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .custom-tab-bar:not(.custom-tab-bar--bank) {
+  .page.custom-tab-bar {
     box-shadow: 0 -8rpx 28rpx rgba(0, 0, 0, 0.4);
-  }
-
-  .custom-tab-bar:not(.custom-tab-bar--bank) .custom-tab-bar__inner {
-    background: var(--td-bg-color-container);
   }
 }

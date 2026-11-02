@@ -21,6 +21,7 @@
     "t-date-time-picker": "tdesign-miniprogram/date-time-picker/date-time-picker",
     "checkin-popup": "/components/checkin-popup/index",
     "lottery-host": "/components/lottery-host/index",
+    "festival-decor": "/components/festival-decor/index",
     "festival-image-crop": "/components/festival-image-crop/index"
   }
 }

@@ -230,8 +230,10 @@
                     wx:for="{{pointsLogs}}"
                     wx:key="id"
                     t-class="users-page__log-cell"
+                    t-class-center="users-page__log-center"
                     t-class-title="users-page__log-title"
                     t-class-description="users-page__log-desc"
+                    t-class-note="users-page__log-note"
                     hover="{{false}}"
                     bordered="{{false}}"
                   >

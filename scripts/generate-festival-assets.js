@@ -108,26 +108,30 @@ function cnyHeaderSvg() {
 </svg>`;
 }
 
-/** 底栏顶缘矮积雪（挂在 custom-tab-bar 上，不是浮在列表中间） */
+/**
+ * 底栏顶缘矮积雪（挂在 custom-tab-bar 上，不是浮在列表中间）
+ * 画布 750×90 ≈ 8.318:1（variable.less @tab-bar-height 90rpx），
+ * 不含底部安全区——安全区由栏体实色填充，图不会被拉伸。
+ */
 function snowBankSvg() {
   const W = 750;
-  const H = 72;
+  const H = 90;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-  <path d="M-10 38
+  <path d="M-10 36
     C 70 12, 140 28, 220 8
     C 300 -8, 380 24, 470 6
     C 560 -10, 640 20, 760 8
-    L 760 80 L -10 80 Z" fill="#64748b" opacity="0.35"/>
-  <path d="M-10 44
+    L 760 90 L -10 90 Z" fill="#64748b" opacity="0.35"/>
+  <path d="M-10 42
     C 80 18, 160 34, 250 14
     C 340 0, 420 30, 510 14
     C 600 2, 680 26, 760 16
-    L 760 80 L -10 80 Z" fill="#e2e8f0"/>
-  <path d="M-10 52
+    L 760 90 L -10 90 Z" fill="#e2e8f0"/>
+  <path d="M-10 50
     C 100 32, 200 48, 310 30
     C 410 16, 520 46, 620 32
     C 690 24, 730 40, 760 34
-    L 760 80 L -10 80 Z" fill="#ffffff"/>
+    L 760 90 L -10 90 Z" fill="#ffffff"/>
   <circle cx="120" cy="28" r="1.8" fill="#fff"/>
   <circle cx="340" cy="22" r="1.4" fill="#fff"/>
   <circle cx="560" cy="26" r="1.6" fill="#fff"/>
@@ -136,13 +140,13 @@ function snowBankSvg() {
 
 function cnyBankSvg() {
   const W = 750;
-  const H = 56;
+  const H = 90;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-  <path d="M0 28 C 100 8, 200 24, 320 6 C 440 -8, 560 22, 750 10 L 750 60 L 0 60 Z"
+  <path d="M0 28 C 100 8, 200 24, 320 6 C 440 -8, 560 22, 750 10 L 750 90 L 0 90 Z"
     fill="#fbbf24" opacity="0.5"/>
-  <path d="M0 36 C 120 18, 240 32, 380 16 C 500 4, 620 28, 750 20 L 750 60 L 0 60 Z"
+  <path d="M0 36 C 120 18, 240 32, 380 16 C 500 4, 620 28, 750 20 L 750 90 L 0 90 Z"
     fill="#dc2626" opacity="0.32"/>
-  <path d="M0 44 C 140 32, 280 42, 420 30 C 560 20, 660 38, 750 34 L 750 60 L 0 60 Z"
+  <path d="M0 44 C 140 32, 280 42, 420 30 C 560 20, 660 38, 750 34 L 750 90 L 0 90 Z"
     fill="#fef3c7" opacity="0.75"/>
 </svg>`;
 }
@@ -241,10 +245,10 @@ async function writeCorner(filePath, svg) {
   console.log('OK', path.relative(ROOT, filePath));
 }
 
-/** 首页顶栏背景图规格：750×200（与 utils/festival FESTIVAL_BANNER_SPEC 一致，仅导航区） */
+/** 首页顶栏背景图规格：750×188 = 4:1（与 utils/festival FESTIVAL_BANNER_SPEC 一致） */
 function xmasBannerSvg() {
   const W = 750;
-  const H = 200;
+  const H = 188;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
     <linearGradient id="xwash" x1="0" y1="0" x2="0" y2="1">
@@ -270,10 +274,10 @@ function xmasBannerSvg() {
 </svg>`;
 }
 
-/** 春节顶栏背景图：750×200（仅导航区） */
+/** 春节顶栏背景图：750×188 = 4:1 */
 function cnyBannerSvg() {
   const W = 750;
-  const H = 200;
+  const H = 188;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
     <linearGradient id="cwash" x1="0" y1="0" x2="0" y2="1">
