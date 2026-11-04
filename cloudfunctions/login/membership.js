@@ -2,7 +2,7 @@ const { dayjs, toMs, formatDate } = require('./time');
 const { recordPointsLog } = require('./pointsLog');
 
 const TZ = 'Asia/Shanghai';
-const MONTHLY_QUOTA = 36;
+const MONTHLY_QUOTA = 48;
 const COST = { static: 1, anim: 2 };
 
 function periodKey(ms = Date.now()) {

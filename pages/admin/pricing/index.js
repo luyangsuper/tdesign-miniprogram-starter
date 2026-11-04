@@ -6,6 +6,8 @@ const PRODUCT_ORDER = [
   'vip_month',
   'vip_quarter',
   'vip_year',
+  'points_4',
+  'points_8',
   'points_20',
   'points_66',
   'points_170',
@@ -16,6 +18,8 @@ const DEFAULT_PROP_ICONS = {
   vip_month: '/static/pricing/month.png',
   vip_quarter: '/static/pricing/quarter.png',
   vip_year: '/static/pricing/year.png',
+  points_4: '/static/pricing/points.png',
+  points_8: '/static/pricing/points2.png',
   points_20: '/static/pricing/points.png',
   points_66: '/static/pricing/points2.png',
   points_170: '/static/pricing/points3.png',
@@ -25,12 +29,14 @@ const PLAN_META = {
   vip_month: { tone: 'month', shortTitle: '包月', iconSrc: '/static/pricing/month.png' },
   vip_quarter: { tone: 'quarter', shortTitle: '季卡', iconSrc: '/static/pricing/quarter.png' },
   vip_year: { tone: 'year', shortTitle: '年卡', iconSrc: '/static/pricing/year.png' },
+  points_4: { tone: 'points', shortTitle: '', iconSrc: '/static/pricing/points.png' },
+  points_8: { tone: 'points2', shortTitle: '', iconSrc: '/static/pricing/points2.png' },
   points_20: { tone: 'points', shortTitle: '', iconSrc: '/static/pricing/points.png' },
   points_66: { tone: 'points2', shortTitle: '', iconSrc: '/static/pricing/points2.png' },
   points_170: { tone: 'points3', shortTitle: '', iconSrc: '/static/pricing/points3.png' },
 };
 
-const MONTHLY_QUOTA = 36;
+const MONTHLY_QUOTA = 48;
 const ANIM_COST = 2;
 const STATIC_COST = 1;
 

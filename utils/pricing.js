@@ -42,6 +42,8 @@ const VIP_META = {
 };
 
 const POINTS_META = {
+  points_4: { key: 'p4', tone: 'points', iconSrc: '/static/pricing/points.png' },
+  points_8: { key: 'p8', tone: 'points2', iconSrc: '/static/pricing/points2.png' },
   points_20: { key: 'p0', tone: 'points', iconSrc: '/static/pricing/points.png' },
   points_66: { key: 'p1', tone: 'points2', iconSrc: '/static/pricing/points2.png' },
   points_170: { key: 'p2', tone: 'points3', iconSrc: '/static/pricing/points3.png' },
@@ -57,7 +59,7 @@ function fenToYuan(fen) {
  * @param {Array<{slotId?,productId,planKey,title,type,value,priceFen}>|null} products
  */
 export function buildPricingPlansFromProducts(products) {
-  const monthly = Math.max(1, Number(config.monthlyQuota) || 36);
+  const monthly = Math.max(1, Number(config.monthlyQuota) || 48);
   const staticCost = downloadCost('static');
   const animCost = downloadCost('anim');
   const payOn = !!(config.virtualPay && config.virtualPay.enabled);
@@ -113,7 +115,7 @@ export function buildPricingPlansFromProducts(products) {
     })
     .filter(Boolean);
 
-  const pointPlans = ['points_20', 'points_66', 'points_170']
+  const pointPlans = ['points_4', 'points_8', 'points_20', 'points_66', 'points_170']
     .map((slot) => {
       const meta = POINTS_META[slot];
       const p = bySlot[slot] || (meta && byPlan[meta.key]);
@@ -170,7 +172,7 @@ export function buildPricingPlansFromProducts(products) {
 
 /** 离线默认（config.js） */
 function getPricingPlansFromConfig() {
-  const monthly = Math.max(1, Number(config.monthlyQuota) || 36);
+  const monthly = Math.max(1, Number(config.monthlyQuota) || 48);
   const staticCost = downloadCost('static');
   const animCost = downloadCost('anim');
   const pricing = config.membershipPricing || {};
@@ -187,14 +189,14 @@ function getPricingPlansFromConfig() {
         tone: 'month',
         iconSrc: '/static/pricing/month.png',
         title: '包月',
-        priceFen: Math.round((pricing.monthYuan ?? 10) * 100),
+        priceFen: Math.round((pricing.monthYuan ?? 9) * 100),
         period: '30 天',
         desc: `每月 ${monthly} 积分 · 约 ${Math.floor(monthly / animCost)} 张动态`,
         type: 'vip_days',
         value: 30,
-        note: `包月¥${formatYuan(pricing.monthYuan ?? 10)}`,
+        note: `包月¥${formatYuan(pricing.monthYuan ?? 9)}`,
       },
-      pricing.monthYuan ?? 10,
+      pricing.monthYuan ?? 9,
     ),
     withDealFields(
       {
@@ -205,14 +207,14 @@ function getPricingPlansFromConfig() {
         tone: 'quarter',
         iconSrc: '/static/pricing/quarter.png',
         title: '季卡',
-        priceFen: Math.round((pricing.quarterYuan ?? 25) * 100),
+        priceFen: Math.round((pricing.quarterYuan ?? 24) * 100),
         period: '90 天',
-        desc: `每月仍 ${monthly} 积分 · 约合 ¥${formatYuan((pricing.quarterYuan ?? 25) / 3)}/月`,
+        desc: `每月仍 ${monthly} 积分 · 约合 ¥${formatYuan((pricing.quarterYuan ?? 24) / 3)}/月`,
         type: 'vip_days',
         value: 90,
-        note: `季卡¥${formatYuan(pricing.quarterYuan ?? 25)}`,
+        note: `季卡¥${formatYuan(pricing.quarterYuan ?? 24)}`,
       },
-      pricing.quarterYuan ?? 25,
+      pricing.quarterYuan ?? 24,
     ),
     withDealFields(
       {
@@ -223,18 +225,20 @@ function getPricingPlansFromConfig() {
         tone: 'year',
         iconSrc: '/static/pricing/year.png',
         title: '年卡',
-        priceFen: Math.round((pricing.yearYuan ?? 68) * 100),
+        priceFen: Math.round((pricing.yearYuan ?? 70) * 100),
         period: '365 天',
-        desc: `每月仍 ${monthly} 积分 · 约合 ¥${formatYuan((pricing.yearYuan ?? 68) / 12)}/月`,
+        desc: `每月仍 ${monthly} 积分 · 约合 ¥${formatYuan((pricing.yearYuan ?? 70) / 12)}/月`,
         type: 'vip_days',
         value: 365,
-        note: `年卡¥${formatYuan(pricing.yearYuan ?? 68)}`,
+        note: `年卡¥${formatYuan(pricing.yearYuan ?? 70)}`,
       },
-      pricing.yearYuan ?? 68,
+      pricing.yearYuan ?? 70,
     ),
   ];
 
   const pointMeta = [
+    { tone: 'points', iconSrc: '/static/pricing/points.png', productId: 'points_4', planKey: 'p4' },
+    { tone: 'points2', iconSrc: '/static/pricing/points2.png', productId: 'points_8', planKey: 'p8' },
     { tone: 'points', iconSrc: '/static/pricing/points.png', productId: 'points_20', planKey: 'p0' },
     { tone: 'points2', iconSrc: '/static/pricing/points2.png', productId: 'points_66', planKey: 'p1' },
     { tone: 'points3', iconSrc: '/static/pricing/points3.png', productId: 'points_170', planKey: 'p2' },

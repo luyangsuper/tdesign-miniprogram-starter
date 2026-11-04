@@ -13,7 +13,7 @@ Page({
     tips: [
       '1. 首页浏览合集封面',
       '2. 进入详情查看预览图',
-      '3. 兑换包月（每月 36 积分）或积分后保存原图（静态 1 积分 / 动态 2 积分）',
+      '3. 兑换包月（每月 48 积分）或积分后保存原图（静态 1 积分 / 动态 2 积分）',
     ],
     serviceWechat: config.serviceWechat || 'Shine_Luyang',
     legalVisible: false,

@@ -23,7 +23,7 @@ export default {
    * 包月每月额度（与云函数 membership.MONTHLY_QUOTA 保持一致）
    * 上海自然月重置，未用完不滚存；先扣月额度再扣购买积分
    */
-  monthlyQuota: 36,
+  monthlyQuota: 48,
   /**
    * 积分活动默认值（真正生效以云库 app_config/points 为准，可在管理端修改）
    * - welcomeGiftPoints：新用户首次登录见面礼
@@ -38,13 +38,15 @@ export default {
    * 管理端改价会同步微信道具，发布成功后 live 价才用于下单。
    */
   membershipPricing: {
-    monthYuan: 10,
-    quarterYuan: 25,
-    yearYuan: 68,
+    monthYuan: 9,
+    quarterYuan: 24,
+    yearYuan: 70,
     pointPacks: [
-      { points: 20, priceYuan: 6, bonus: 0 },
-      { points: 60, priceYuan: 15, bonus: 6 },
-      { points: 150, priceYuan: 30, bonus: 20 },
+      { points: 4, priceYuan: 1, bonus: 0 },
+      { points: 8, priceYuan: 2, bonus: 0 },
+      { points: 18, priceYuan: 5, bonus: 0 },
+      { points: 66, priceYuan: 16, bonus: 0 },
+      { points: 170, priceYuan: 32, bonus: 0 },
     ],
   },
   /**
