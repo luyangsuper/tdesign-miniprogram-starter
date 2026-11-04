@@ -10,7 +10,7 @@
  * 5. reason 可任意新字符串；未登记的会用 title，再退回 reason 原文。列表不按 reason 过滤。
  *
  * 当前写入点：
- * welcome login / checkin+makeup userCheckin / oa+redeem userEntitlement /
+ * welcome login / checkin+makeup userCheckin / oa+redeem+ad_reward userEntitlement /
  * purchase(+refund) virtualPay / lottery lotteryDraw+userLottery /
  * campaign adminManagePoints / admin+admin_repair adminManageUser /
  * download(+refund) getEmojiDownload / grid gridLottery /
@@ -27,6 +27,7 @@ const REASON_TITLE = {
   purchase: '购买积分',
   purchase_refund: '订单退款回收',
   oa: '公众号动态礼',
+  ad_reward: '看广告领积分',
   lottery: '抽奖奖励',
   lottery_entry: '抽奖投入',
   lottery_refund: '抽奖退回',

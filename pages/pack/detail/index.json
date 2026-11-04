@@ -15,6 +15,7 @@
     "t-input": "tdesign-miniprogram/input/input",
     "lottery-host": "/components/lottery-host/index",
     "heart-burst": "/components/heart-burst/index",
-    "confetti-burst": "/components/confetti-burst/index"
+    "confetti-burst": "/components/confetti-burst/index",
+    "points-reward": "/components/points-reward/index"
   }
 }

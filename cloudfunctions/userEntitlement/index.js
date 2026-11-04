@@ -1,5 +1,5 @@
 const cloud = require('wx-server-sdk');
-const { dayjs, toMs } = require('./time');
+const { dayjs, TZ, toMs } = require('./time');
 const { MONTHLY_QUOTA, buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { getPointsSettings } = require('./pointsSettings');
 const { applyUserPoints } = require('./pointsLog');
@@ -15,14 +15,61 @@ const _ = db.command;
  * - users.vipExpireAt     包月到期
  * - users.vipMonthQuota   本月剩余额度
  * - users.vipQuotaPeriod  额度所属月份 YYYY-MM
+ * - users.adRewardDayKey / adRewardDayCount          30s 主动广告当日计数
+ * - users.saveAdRewardDayKey / saveAdRewardDayCount  15s 救急广告当日计数
  *
  * action:
  * - get | redeem | ackPointGift | ackPointGifts | claimOaBonus
+ * - adRewardStatus | claimAdReward
  * redeem: { code }
  * ackPointGift: { giftId }  关闭单笔
  * ackPointGifts: { giftIds: string[] }  合并弹窗一次确认多笔
  * claimOaBonus: { oaId }  公众号动态入口礼，每用户每 oaId 一次
+ * claimAdReward: { slot?: 'reward'|'save' } 看完激励视频后领取（客户端信任 + 日上限）
+ * adRewardStatus: { slot?: 'reward'|'save' } 不传 slot 时返回 { reward, save }
  */
+
+function todayKeyShanghai() {
+  return dayjs().tz(TZ).format('YYYY-MM-DD');
+}
+
+function normalizeAdSlot(raw) {
+  return String(raw || '').trim() === 'save' ? 'save' : 'reward';
+}
+
+/**
+ * @param {'reward'|'save'} slot
+ */
+function buildAdRewardStatus(settings, user = {}, slot = 'reward') {
+  const isSave = slot === 'save';
+  const points = Math.max(
+    0,
+    Number(isSave ? settings.saveAdRewardPoints : settings.adRewardPoints) || 0,
+  );
+  const dailyMax = Math.max(
+    0,
+    Number(isSave ? settings.saveAdRewardDailyMax : settings.adRewardDailyMax) ||
+      0,
+  );
+  const dayKey = todayKeyShanghai();
+  const keyField = isSave ? 'saveAdRewardDayKey' : 'adRewardDayKey';
+  const countField = isSave ? 'saveAdRewardDayCount' : 'adRewardDayCount';
+  const usedToday =
+    String(user[keyField] || '') === dayKey
+      ? Math.max(0, Number(user[countField]) || 0)
+      : 0;
+  const leftToday = dailyMax > 0 ? Math.max(0, dailyMax - usedToday) : 0;
+  const enabled = points > 0 && dailyMax > 0;
+  return {
+    slot,
+    enabled,
+    points,
+    dailyMax,
+    usedToday,
+    leftToday: enabled ? leftToday : 0,
+    dayKey,
+  };
+}
 
 /** 公众号动态入口 id：字母数字 _ -，1～64 */
 function normalizeOaId(raw) {
@@ -118,13 +165,117 @@ exports.main = async (event = {}) => {
           return !(drawAt > 0 && drawAt <= now);
         })
         .slice(0, 20);
+      const settings = await getPointsSettings(db);
       return {
         ok: true,
         openid: OPENID,
         entitlement: buildEntitlement(synced),
         pendingPointGifts,
         pendingLotteryInvites,
+        adReward: buildAdRewardStatus(settings, synced, 'reward'),
+        saveAdReward: buildAdRewardStatus(settings, synced, 'save'),
+        /** 首页信息流广告间隔（合集数）；0=关闭 */
+        homeFeedAdEvery: settings.homeFeedAdEvery,
         // 开奖结果只走 userLottery.pending（校验已参与）
+      };
+    }
+
+    if (action === 'adRewardStatus') {
+      const { data } = await ensureUser(OPENID);
+      const settings = await getPointsSettings(db);
+      const slotRaw = String(event.slot || '').trim();
+      if (!slotRaw) {
+        return {
+          ok: true,
+          data: {
+            reward: buildAdRewardStatus(settings, data, 'reward'),
+            save: buildAdRewardStatus(settings, data, 'save'),
+          },
+        };
+      }
+      const slot = normalizeAdSlot(slotRaw);
+      return {
+        ok: true,
+        data: buildAdRewardStatus(settings, data, slot),
+      };
+    }
+
+    if (action === 'claimAdReward') {
+      const slot = normalizeAdSlot(event.slot);
+      const settings = await getPointsSettings(db);
+      const probe = buildAdRewardStatus(settings, {}, slot);
+      if (!probe.enabled) {
+        return {
+          ok: false,
+          code: 'DISABLED',
+          message: '看广告领积分暂未开放',
+        };
+      }
+
+      const { ref, data: user } = await ensureUser(OPENID);
+      let userData = user;
+      try {
+        const snap = await ref.get();
+        userData = { ...(snap.data || {}), _id: OPENID, openid: OPENID };
+      } catch (e) {
+        return {
+          ok: false,
+          code: 'NO_USER',
+          message: '请先登录后再领取',
+        };
+      }
+
+      const current = buildAdRewardStatus(settings, userData, slot);
+      if (current.leftToday <= 0) {
+        return {
+          ok: false,
+          code: 'DAY_LIMIT',
+          message: `今日已达上限（${current.dailyMax} 次）`,
+          data: current,
+          entitlement: buildEntitlement(userData),
+        };
+      }
+
+      const add = current.points;
+      const dayKey = current.dayKey;
+      const isSave = slot === 'save';
+      const keyField = isSave ? 'saveAdRewardDayKey' : 'adRewardDayKey';
+      const countField = isSave ? 'saveAdRewardDayCount' : 'adRewardDayCount';
+      const sameDay = String(userData[keyField] || '') === dayKey;
+      const nextCount = (sameDay ? current.usedToday : 0) + 1;
+      const title = isSave ? '看广告救急' : '看广告领积分';
+
+      await applyUserPoints(db, _, {
+        openid: OPENID,
+        delta: add,
+        currentPoints: userData.points,
+        currentVipMonthQuota: userData.vipMonthQuota,
+        reason: 'ad_reward',
+        title,
+        meta: {
+          slot,
+          dayKey,
+          count: nextCount,
+          dailyMax: current.dailyMax,
+        },
+        userPatch: {
+          [keyField]: dayKey,
+          [countField]: sameDay ? _.inc(1) : 1,
+        },
+      });
+
+      const fresh = (await ref.get()).data || {};
+      const synced = await syncVipMonthQuota(ref, fresh, db.serverDate(), db);
+      const nextStatus = buildAdRewardStatus(settings, synced, slot);
+      return {
+        ok: true,
+        claimed: true,
+        slot,
+        points: add,
+        leftToday: nextStatus.leftToday,
+        message: `已到账 ${add} 积分`,
+        data: nextStatus,
+        entitlement: buildEntitlement(synced),
       };
     }
 

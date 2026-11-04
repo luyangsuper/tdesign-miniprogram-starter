@@ -1,0 +1,105 @@
+.pr {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 13000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+
+  &--in {
+    animation: pr-fade-in 0.18s ease both;
+  }
+
+  &--out {
+    animation: pr-fade-out 0.22s ease both;
+  }
+
+  &__mask {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.28);
+  }
+
+  &__card {
+    position: relative;
+    z-index: 1;
+    min-width: 280rpx;
+    padding: 36rpx 48rpx 40rpx;
+    border-radius: 28rpx;
+    background: var(--td-bg-color-container, #fff);
+    box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.16);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: pr-pop 0.42s cubic-bezier(0.18, 0.9, 0.32, 1.2) both;
+  }
+
+  &__badge {
+    font-size: 24rpx;
+    line-height: 1.4;
+    color: var(--td-text-color-secondary, #888);
+    margin-bottom: 8rpx;
+  }
+
+  &__points {
+    font-size: 88rpx;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: #07c160;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__unit {
+    margin-top: 6rpx;
+    font-size: 28rpx;
+    font-weight: 600;
+    color: var(--td-text-color-primary, #333);
+  }
+
+  &__tip {
+    margin-top: 16rpx;
+    font-size: 24rpx;
+    line-height: 1.4;
+    color: var(--td-text-color-secondary, #888);
+    text-align: center;
+    max-width: 360rpx;
+  }
+}
+
+@keyframes pr-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pr-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pr-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.72) translateY(24rpx);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.06) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

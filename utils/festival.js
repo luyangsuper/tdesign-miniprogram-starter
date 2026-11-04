@@ -7,6 +7,7 @@
  */
 
 import { callFunction, getTempFileURLs } from '~/utils/cloud';
+import { getCachedEntitlement } from '~/utils/entitlement';
 import {
   forgetTempUrl,
   peekTempUrl as peekSharedTempUrl,
@@ -26,6 +27,12 @@ import {
 } from '~/utils/festivalCalendar';
 
 export { getFestivalSolarTableAdminHint };
+
+/**
+ * 普通用户可免费享受的节日氛围（其余需包月 VIP 或管理员视图）
+ * 春节 cny · 圣诞节 christmas
+ */
+export const FREE_FESTIVAL_IDS = ['cny', 'christmas'];
 
 const MODE_KEY = 'festival_mode';
 const USER_ON_KEY = 'festival_user_on';
@@ -989,27 +996,65 @@ function isAdminPreviewClient() {
   return false;
 }
 
+/** VIP 或管理员视图：可享受全部节日氛围 */
+export function canAccessAllFestivals() {
+  try {
+    if (isAdminPreviewClient()) return true;
+    if (getCachedEntitlement().isVip) return true;
+  } catch (e) {
+    /* ignore */
+  }
+  return false;
+}
+
+/** 单个节日是否可对本机展示 */
+export function canAccessFestival(festivalId) {
+  const id = String(festivalId || '').trim();
+  if (!id) return false;
+  if (canAccessAllFestivals()) return true;
+  return FREE_FESTIVAL_IDS.indexOf(id) >= 0;
+}
+
+/** 权益变更（开通/失效 VIP）后刷新各页节日装饰 */
+export function notifyFestivalAccessChange() {
+  emitFestivalChange();
+}
+
+function findMatchedFestival(date) {
+  for (let i = 0; i < FESTIVAL_PRESETS.length; i += 1) {
+    if (matchPreset(FESTIVAL_PRESETS[i], date)) return FESTIVAL_PRESETS[i];
+  }
+  return null;
+}
+
 /**
  * 当前生效节日
  * - 「开启节日效果」是硬开关：关了就一律不展示（预览模式也不绕过）
  * - 管理员预览（mode=具体节日）：无视云端「全员可见」
  * - 管理员 + 跟随日期：可本机预览匹配结果（仍受「开启节日效果」约束）
  * - mode=off：关闭
- * - 普通用户：需全局开启 + 用户开关 + 日期匹配
+ * - 普通用户：需全局开启 + 用户开关 + 日期匹配；仅春节/圣诞免费，其余需 VIP
  */
 export function getActiveFestival(now = Date.now()) {
   maybeWarnFestivalSolarTable(now);
   if (!isFestivalUserOn()) return null;
   const mode = getFestivalMode();
   if (mode === 'off') return null;
-  if (mode !== 'auto') return getFestivalPreset(mode);
+  if (mode !== 'auto') {
+    const forced = getFestivalPreset(mode);
+    if (!forced) return null;
+    return canAccessFestival(forced.id) ? forced : null;
+  }
 
   const adminPreview = isAdminPreviewClient();
   if (!adminPreview && !isFestivalFeatureEnabled()) return null;
 
   const date = now instanceof Date ? now : new Date(now);
   for (let i = 0; i < FESTIVAL_PRESETS.length; i += 1) {
-    if (matchPreset(FESTIVAL_PRESETS[i], date)) return FESTIVAL_PRESETS[i];
+    const preset = FESTIVAL_PRESETS[i];
+    if (!matchPreset(preset, date)) continue;
+    if (canAccessFestival(preset.id)) return preset;
+    /* 无权限：继续看是否还有可访问的重叠节日 */
   }
   return null;
 }
@@ -1021,6 +1066,8 @@ export function getFestivalStatus(now = Date.now()) {
   const featureOn = isFestivalFeatureEnabled();
   const userOn = isFestivalUserOn();
   const adminPreview = isAdminPreviewClient();
+  const allAccess = canAccessAllFestivals();
+  const date = now instanceof Date ? now : new Date(now);
   let note = '';
   if (!userOn) {
     note = '已关闭节日效果';
@@ -1033,7 +1080,12 @@ export function getFestivalStatus(now = Date.now()) {
   } else if (!featureOn && mode === 'auto' && adminPreview) {
     note = '本机可预览；用户需先开全员可见';
   } else {
-    note = '当前不在节日窗口';
+    const matched = findMatchedFestival(date);
+    if (matched && !canAccessFestival(matched.id)) {
+      note = `${matched.name}氛围为会员权益，开通包月可享`;
+    } else {
+      note = '当前不在节日窗口';
+    }
   }
   return {
     mode,
@@ -1041,6 +1093,8 @@ export function getFestivalStatus(now = Date.now()) {
     featureOn,
     userOn,
     fxOn: userOn,
+    allAccess,
+    freeOnly: !allAccess,
     active,
     activeId: active ? active.id : '',
     activeName: active ? active.name : '无',

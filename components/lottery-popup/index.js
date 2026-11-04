@@ -3,6 +3,8 @@ import { formatDate } from '~/utils/time';
 import { formatCountdown } from '~/utils/lotteryHint';
 import { requestLotterySubscribe } from '~/utils/subscribe';
 import { getThemeStyle } from '~/utils/theme';
+import { promptSaveAdForPoints } from '~/utils/adReward';
+import { spendablePoints, getCachedEntitlement } from '~/utils/entitlement';
 
 Component({
   properties: {
@@ -143,18 +145,24 @@ Component({
       } catch (e) {
         const msg = (e && e.message) || '参与失败';
         if (paid && /积分不足/.test(msg)) {
-          const go = await new Promise((resolve) => {
-            wx.showModal({
-              title: '积分不足',
-              content: `${msg}。可到「我的」签到或购买积分。`,
-              confirmText: '去我的',
-              success: (r) => resolve(!!r.confirm),
-              fail: () => resolve(false),
-            });
+          const adRes = await promptSaveAdForPoints({
+            page: this,
+            message: msg,
+            need: cost,
+            count: 1,
+            unitCost: cost,
+            actionLabel: '报名抽奖',
+            maxRounds: 2,
           });
-          if (go) {
+          if (adRes.action === 'go_my') {
             this.triggerEvent('close');
             wx.switchTab({ url: '/pages/my/index' });
+          } else if (
+            adRes.ok &&
+            spendablePoints(getCachedEntitlement()) >= cost
+          ) {
+            this.setData({ joining: false });
+            return this.onJoin();
           }
         } else {
           wx.showToast({ title: msg, icon: 'none' });

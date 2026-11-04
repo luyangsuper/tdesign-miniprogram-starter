@@ -16,6 +16,7 @@
     "t-back-top": "tdesign-miniprogram/back-top/back-top",
     "pack-card": "/components/pack-card/index",
     "lottery-host": "/components/lottery-host/index",
+    "points-reward": "/components/points-reward/index",
     "festival-decor": "/components/festival-decor/index"
   }
 }

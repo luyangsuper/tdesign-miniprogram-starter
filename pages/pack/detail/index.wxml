@@ -142,6 +142,16 @@
       </block>
     </view>
 
+    <view
+      wx:if="{{showNativeAd && nativeAdUnitId}}"
+      class="detail__native-ad"
+    >
+      <ad-custom
+        unit-id="{{nativeAdUnitId}}"
+        binderror="onNativeAdError"
+      />
+    </view>
+
     <view class="detail__section">
       <view class="detail__section-title">{{canSaveStatic ? '保存原图' : '原图预览'}}</view>
       <view class="detail__hint">
@@ -153,7 +163,8 @@
           当前积分不够保存动态图（需 2 积分）。可切回静态图（1 积分），或兑换更多积分。
         </block>
         <block wx:else>
-          暂无法下载。可到「我的」查看定价并兑换包月 / 积分（静态 1 积分 / 动态 2 积分）。
+          暂无法下载。可看广告领积分，或到「我的」兑换包月 / 积分（静态 1 / 动态 2）。
+          <text wx:if="{{adRewardHint}}"> {{adRewardHint}}</text>
         </block>
       </view>
 
@@ -235,6 +246,7 @@
               height="280rpx"
               data-index="{{item.index}}"
               bind:load="onSlotImgLoad"
+              bind:error="onSlotImgError"
             >
               <view slot="loading" class="detail__slot-skeleton" aria-hidden="true" />
             </t-image>
@@ -339,4 +351,5 @@
   <lottery-host />
   <heart-burst id="heartBurst" />
   <confetti-burst id="festivalConfetti" />
+  <points-reward id="pointsReward" />
 </view>

@@ -12,6 +12,16 @@
     />
   </view>
 
+  <view
+    wx:if="{{showNativeAd && nativeAdUnitId}}"
+    class="favorites__native-ad"
+  >
+    <ad-custom
+      unit-id="{{nativeAdUnitId}}"
+      binderror="onNativeAdError"
+    />
+  </view>
+
   <view wx:if="{{loading && !list.length}}" class="favorites__state">
     <t-loading theme="circular" size="40rpx" text="加载中" />
   </view>
@@ -96,6 +106,7 @@
           coverRatio="{{item.coverRatio}}"
           cardWidth="{{cardWidth}}"
           bind:ratiochange="onCoverRatioChange"
+          bind:covererror="onCoverError"
         />
         <view
           class="favorites__water-fav"

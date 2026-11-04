@@ -1,5 +1,9 @@
 import { callFunction } from '~/utils/cloud';
 import { queueFavorite } from '~/utils/favoriteQueue';
+import {
+  getNativeFavoritesAdUnitId,
+  shouldShowNativeAds,
+} from '~/utils/nativeAd';
 import { getWindowInfoSafe } from '~/utils/systemInfo';
 import { packCoverCacheKey, reuseTempUrl } from '~/utils/tempUrlCache';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
@@ -73,6 +77,8 @@ Page({
     cardWidth: 0,
     listGap: 6,
     rowGap: 6,
+    nativeAdUnitId: getNativeFavoritesAdUnitId(),
+    showNativeAd: false,
   },
 
   onLoad() {
@@ -81,11 +87,16 @@ Page({
       layout: readLayout(),
     });
     this.updateLayout();
+    this.refreshNativeAd();
     this._onFavoriteChange = (payload) => this.applyFavoriteChange(payload);
+    this._onAdminViewChange = () => this.refreshNativeAd();
+    this._onEntitlementChange = () => this.refreshNativeAd();
     try {
       const app = getApp();
       if (app && app.eventBus) {
         app.eventBus.on('favoriteChange', this._onFavoriteChange);
+        app.eventBus.on('adminViewChange', this._onAdminViewChange);
+        app.eventBus.on('entitlementChange', this._onEntitlementChange);
       }
     } catch (e) {
       /* ignore */
@@ -96,8 +107,16 @@ Page({
   onUnload() {
     try {
       const app = getApp();
-      if (app && app.eventBus && this._onFavoriteChange) {
-        app.eventBus.off('favoriteChange', this._onFavoriteChange);
+      if (app && app.eventBus) {
+        if (this._onFavoriteChange) {
+          app.eventBus.off('favoriteChange', this._onFavoriteChange);
+        }
+        if (this._onAdminViewChange) {
+          app.eventBus.off('adminViewChange', this._onAdminViewChange);
+        }
+        if (this._onEntitlementChange) {
+          app.eventBus.off('entitlementChange', this._onEntitlementChange);
+        }
       }
     } catch (e) {
       /* ignore */
@@ -106,6 +125,19 @@ Page({
 
   onShow() {
     applyThemeToPage(this);
+    this.refreshNativeAd();
+  },
+
+  refreshNativeAd() {
+    const unitId = getNativeFavoritesAdUnitId();
+    this.setData({
+      nativeAdUnitId: unitId,
+      showNativeAd: !!unitId && shouldShowNativeAds(),
+    });
+  },
+
+  onNativeAdError() {
+    this.setData({ showNativeAd: false });
   },
 
   onShareAppMessage() {
@@ -179,6 +211,16 @@ Page({
     const list = (this.data.list || []).map(patchItem);
     const columns = (this.data.columns || []).map((col) => (col || []).map(patchItem));
     this.setData({ list, columns });
+  },
+
+  onCoverError() {
+    if (this._coverErrorRefreshing) return;
+    this._coverErrorRefreshing = true;
+    Promise.resolve(this.loadList(true)).finally(() => {
+      setTimeout(() => {
+        this._coverErrorRefreshing = false;
+      }, 2500);
+    });
   },
 
   onReachBottom() {

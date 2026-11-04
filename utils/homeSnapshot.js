@@ -4,17 +4,16 @@
 import { packCoverCacheKey, peekTempUrl } from '~/utils/tempUrlCache';
 
 const STORAGE_KEY = 'home_list_snapshot_v1';
-/** 快照壳时长；封面链仍依赖后续 list 刷新换新签 */
-export const HOME_SNAPSHOT_TTL = 45 * 60 * 1000;
+/** 快照壳时长；仅作首屏占位，hydrate 后必须静默 list 换新签 */
+export const HOME_SNAPSHOT_TTL = 20 * 60 * 1000;
 /** 最多持久化条数，控制 storage 体积 */
 const MAX_LIST = 40;
 
 function stabilizeCover(item) {
   if (!item || !item._id) return item;
-  // 有未过期缓存用缓存；否则用快照里的 url（可能偏旧，靠静默刷新纠正）
+  // 只用未过期的本地链；快照里的 coverUrl 可能已过 CDN 有效期，勿回退展示
   // 切勿把快照旧链 write 进 tempUrlCache，否则会盖住服务端新签
-  const cached = peekTempUrl(packCoverCacheKey(item._id));
-  const coverUrl = cached || item.coverUrl || '';
+  const coverUrl = peekTempUrl(packCoverCacheKey(item._id)) || '';
   return {
     ...item,
     coverUrl,

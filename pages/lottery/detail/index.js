@@ -12,6 +12,8 @@ import {
 } from '~/utils/subscribe';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
+import { promptSaveAdForPoints } from '~/utils/adReward';
+import { spendablePoints, getCachedEntitlement } from '~/utils/entitlement';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -227,16 +229,25 @@ Page({
     } catch (e) {
       const msg = (e && e.message) || '参与失败';
       if (paid && /积分不足/.test(msg)) {
-        const go = await new Promise((resolve) => {
-          wx.showModal({
-            title: '积分不足',
-            content: `${msg}。可到「我的」签到或购买积分。`,
-            confirmText: '去我的',
-            success: (r) => resolve(!!r.confirm),
-            fail: () => resolve(false),
-          });
+        const adRes = await promptSaveAdForPoints({
+          page: this,
+          message: msg,
+          need: cost,
+          count: 1,
+          unitCost: cost,
+          actionLabel: '报名抽奖',
+          maxRounds: 2,
         });
-        if (go) wx.switchTab({ url: '/pages/my/index' });
+        if (adRes.action === 'go_my') {
+          wx.switchTab({ url: '/pages/my/index' });
+        } else if (
+          adRes.ok &&
+          spendablePoints(getCachedEntitlement()) >= cost
+        ) {
+          // 到账后自动再试一次报名
+          this.setData({ joining: false });
+          return this.onJoin();
+        }
       } else {
         wx.showToast({ title: msg, icon: 'none' });
       }

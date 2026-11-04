@@ -123,6 +123,12 @@ export function formatBenefitCard(entitlement) {
     empty,
     emptyText: '暂无下载权益，可兑换包月或购买积分',
     isVip,
+    /** VIP 应用内免广告（信息流/详情/我的等原生广告；不含启动封面广告） */
+    adFreeActive: isVip,
+    adFreeLabel: isVip ? '生效中' : '',
+    /** VIP 全节日氛围（普通用户仅春节/圣诞） */
+    festivalAllActive: isVip,
+    festivalAllLabel: isVip ? '生效中' : '',
     total,
     totalValueText: String(total),
     affordLine: empty ? '' : affordHint(total),
@@ -137,7 +143,7 @@ export function formatBenefitCard(entitlement) {
     showBoughtPoints: points > 0,
     pointsText: String(points),
     footLine: isVip
-      ? `包月至 ${expireDate} · 静${staticCost}/动${animCost} · 先扣本月额度`
+      ? `包月至 ${expireDate} · 应用内免广告 · 全节日氛围`
       : `静${staticCost}/动${animCost} 积分/张 · 已购积分可累计`,
   };
 }
@@ -149,6 +155,8 @@ export function formatEntitlementHint(entitlement) {
   const card = formatBenefitCard(entitlement);
   if (card.empty) return card.emptyText;
   const parts = [`可用 ${card.total} 积分`];
+  if (card.adFreeActive) parts.push('应用内免广告');
+  if (card.festivalAllActive) parts.push('全节日氛围');
   if (card.affordLine) parts.push(card.affordLine);
   return parts.join(' · ');
 }

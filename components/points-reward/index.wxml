@@ -1,0 +1,15 @@
+<view
+  wx:if="{{visible}}"
+  class="pr {{closing ? 'pr--out' : 'pr--in'}}"
+  catchtouchmove="noop"
+  catchtap="noop"
+>
+  <view class="pr__mask" />
+  <view class="pr__card">
+    <view class="pr__badge">{{title}}</view>
+    <view class="pr__points">+{{points}}</view>
+    <view class="pr__unit">积分</view>
+    <view wx:if="{{tip}}" class="pr__tip">{{tip}}</view>
+  </view>
+  <confetti-burst id="prConfetti" />
+</view>

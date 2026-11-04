@@ -36,6 +36,19 @@ import {
 } from '~/utils/lotteryHint';
 import config from '~/config';
 import {
+  defaultAdRewardDailyMax,
+  defaultAdRewardPoints,
+  fetchAdRewardStatus,
+  isAdRewardEnabled,
+  watchAdAndClaimPoints,
+} from '~/utils/adReward';
+import {
+  applyHomeFeedAdEveryFromSettings,
+  getNativeMyPageAdUnitId,
+  shouldShowNativeAds,
+} from '~/utils/nativeAd';
+import { showPointsReward } from '~/utils/pointsReward';
+import {
   fetchFeedbackNotifyStatus,
   fetchNewPackSubscribeStatus,
   requestFeedbackNotifySubscribe,
@@ -77,6 +90,7 @@ import {
   saveFestivalWindow,
   setFestivalFallFull,
   setFestivalFeatureEnabled,
+  notifyFestivalAccessChange,
   setFestivalMode,
   setFestivalUserOn,
 } from '~/utils/festival';
@@ -101,6 +115,7 @@ function festivalMenuNote(fest) {
   if (!fest) return '敬请期待';
   if (!fest.userOn) return '已关闭';
   if (fest.activeName && fest.activeName !== '无') return fest.activeName;
+  if (fest.note && /会员权益/.test(fest.note)) return '会员专属节日中';
   if (!fest.featureOn && fest.mode === 'auto') return '敬请期待';
   if (fest.mode === 'off') return '已关闭';
   return '已开启';
@@ -208,6 +223,13 @@ Page({
     lotteryOpenCount: 0,
     gridLotteryOn: false,
     checkinVisible: false,
+    adRewardVisible: false,
+    adRewardNote: '看完视频领积分',
+    adRewardPoints: defaultAdRewardPoints(),
+    adRewardLeftToday: defaultAdRewardDailyMax(),
+    adRewardClaiming: false,
+    nativeAdUnitId: getNativeMyPageAdUnitId(),
+    showNativeAd: false,
     guideVisible: false,
     guideSteps: [
       {
@@ -257,6 +279,7 @@ Page({
     ensureFestivalModeForRole(!!this.data.isAdmin);
     this.syncProfileFromCloud();
     this.syncEntitlement();
+    this.refreshAdRewardStatus();
     this.refreshNotifyStatus();
     this.refreshFeedbackNotifyStatus();
     this.refreshLotteryHint();
@@ -492,8 +515,17 @@ Page({
         this.refreshIdentity();
       }
       await this.syncEntitlement();
+      this.refreshAdRewardStatus();
+      try {
+        const app = getApp();
+        if (app && app.eventBus) app.eventBus.emit('entitlementChange');
+      } catch (e) {
+        /* ignore */
+      }
+      const fallbackTitle =
+        kind === 'vip' ? '会员已开通 · 应用内免广告' : '购买成功';
       wx.showToast({
-        title: (result && result.message) || '购买成功',
+        title: (result && result.message) || fallbackTitle,
         icon: 'success',
       });
     } catch (err) {
@@ -671,6 +703,11 @@ Page({
     wx.showToast({ title: '主题已更新', icon: 'success' });
   },
 
+  openPricingFromFestival() {
+    this.setData({ festivalPopupVisible: false });
+    this.openPricing();
+  },
+
   openFestivalPicker() {
     const festivalSolarTableHint = this.data.isAdmin
       ? getFestivalSolarTableAdminHint()
@@ -683,6 +720,7 @@ Page({
       festivalUserOn: isFestivalUserOn(),
       festivalFallFull: isFestivalFallFull(),
       festivalSolarTableHint,
+      benefit: formatBenefitCard(getCachedEntitlement()),
     });
     /* 先用本地缓存渲染预览图，避免连点两次换签导致图片闪两次 */
     if (this.data.isAdmin) this.refreshFestivalAssetItems();
@@ -1208,6 +1246,7 @@ Page({
       vipMonthQuota: entitlement.vipMonthQuota,
       previewAsUser,
     };
+    const unitId = getNativeMyPageAdUnitId();
     const patch = {
       openid,
       isAdmin,
@@ -1222,6 +1261,8 @@ Page({
       avatarBadge: buildAvatarBadge(roleOpts),
       pricing,
       serviceWechat: pricing.serviceWechat || config.serviceWechat || 'Shine_Luyang',
+      nativeAdUnitId: unitId,
+      showNativeAd: !!unitId && shouldShowNativeAds(),
     };
 
     // 无可用头像链时用 Pixabot；有云文件则等 ensureCloudAvatarUrl 换链
@@ -1246,12 +1287,22 @@ Page({
     });
   },
 
+  onNativeAdError() {
+    this.setData({ showNativeAd: false });
+  },
+
   async syncEntitlement() {
     try {
       const res = await callFunction('userEntitlement', { action: 'get' });
+      if (res && res.homeFeedAdEvery != null) {
+        applyHomeFeedAdEveryFromSettings(res);
+      }
       if (res.entitlement) {
         setCachedEntitlement(res.entitlement);
         this.refreshIdentity();
+        notifyFestivalAccessChange();
+        this.refreshFestivalDecor();
+        this.syncThemeUi();
       }
       applyPendingPointGifts(res && res.pendingPointGifts);
       applyPendingLotteryInvites(res && res.pendingLotteryInvites, {
@@ -1485,7 +1536,31 @@ Page({
       if (res.entitlement) setCachedEntitlement(res.entitlement);
       this.setData({ redeemCode: '' });
       this.refreshIdentity();
-      wx.showToast({ title: res.message || '兑换成功', icon: 'success' });
+      this.refreshAdRewardStatus();
+      const grant = res.grant || {};
+      const becameVip =
+        grant.grantType === 'vip_days' || !!(res.entitlement && res.entitlement.isVip);
+      const pointsAdded = Math.max(0, Number(grant.add) || 0);
+      if (becameVip) {
+        notifyFestivalAccessChange();
+        this.refreshFestivalDecor();
+        this.syncThemeUi();
+      }
+      if (pointsAdded > 0) {
+        showPointsReward({
+          host: this,
+          points: pointsAdded,
+          title: '兑换成功',
+          tip: res.message || '',
+        });
+      } else {
+        wx.showToast({
+          title:
+            res.message ||
+            (becameVip ? '兑换成功 · 应用内免广告' : '兑换成功'),
+          icon: 'success',
+        });
+      }
     } catch (e) {
       wx.showToast({ title: e.message || '兑换失败', icon: 'none' });
     } finally {
@@ -1547,6 +1622,86 @@ Page({
   onCheckinSuccess() {
     this.syncEntitlement();
     this.refreshIdentity();
+  },
+
+  formatAdRewardNote(status) {
+    const points = Math.max(0, Number(status && status.points) || defaultAdRewardPoints());
+    const left = Math.max(0, Number(status && status.leftToday) || 0);
+    const dailyMax = Math.max(0, Number(status && status.dailyMax) || 0);
+    if (!(status && status.enabled)) return '暂未开放';
+    if (left <= 0) return `今日已达上限（${dailyMax} 次）`;
+    return `看完 +${points} 积分 · 今日还可 ${left} 次`;
+  },
+
+  applyAdRewardStatus(status) {
+    const next = status || {
+      enabled: isAdRewardEnabled(),
+      points: defaultAdRewardPoints(),
+      dailyMax: defaultAdRewardDailyMax(),
+      leftToday: defaultAdRewardDailyMax(),
+    };
+    // VIP 免被动广告，但仍可主动「看广告领积分」
+    this.setData({
+      adRewardVisible: !!next.enabled,
+      adRewardPoints: next.points,
+      adRewardLeftToday: next.leftToday,
+      adRewardNote: this.formatAdRewardNote(next),
+    });
+  },
+
+  async refreshAdRewardStatus() {
+    if (!isAdRewardEnabled()) {
+      this.applyAdRewardStatus({
+        enabled: false,
+        points: defaultAdRewardPoints(),
+        dailyMax: defaultAdRewardDailyMax(),
+        leftToday: 0,
+      });
+      return;
+    }
+    const status = await fetchAdRewardStatus('reward');
+    this.applyAdRewardStatus(status);
+  },
+
+  async onWatchAdReward() {
+    if (this.data.adRewardClaiming) return;
+    if (!this.data.adRewardVisible) {
+      wx.showToast({ title: '暂未开放看广告领积分', icon: 'none' });
+      return;
+    }
+    if (this.data.adRewardLeftToday <= 0) {
+      wx.showToast({ title: '今日次数已用完，明天再来', icon: 'none' });
+      return;
+    }
+
+    this.setData({ adRewardClaiming: true });
+    try {
+      const res = await watchAdAndClaimPoints({ page: this, slot: 'reward' });
+      if (!res || !res.ok) {
+        if (res && res.reason === 'SKIPPED') return;
+        wx.showToast({
+          title: (res && res.message) || '领取失败',
+          icon: 'none',
+        });
+        if (res && res.data) this.applyAdRewardStatus(res.data);
+        else this.refreshAdRewardStatus();
+        return;
+      }
+      this.applyAdRewardStatus(res.data);
+      this.refreshIdentity();
+      await this.syncEntitlement();
+      showPointsReward({
+        host: this,
+        points: res.points || this.data.adRewardPoints,
+        title: '看广告领积分',
+        tip: res.message || '',
+      });
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '领取失败', icon: 'none' });
+      this.refreshAdRewardStatus();
+    } finally {
+      this.setData({ adRewardClaiming: false });
+    }
   },
 
   goPointsSettings() {

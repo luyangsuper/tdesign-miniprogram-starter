@@ -92,6 +92,7 @@
     bind:tap="onResetToday"
   />
   <confetti-burst id="gridConfetti" />
+  <points-reward id="pointsReward" />
 </view>
 <view class="grid-lot grid-lot--off" wx:elif="{{ready && !enabled}}">
   <text class="grid-lot__sub">九宫格暂未开放</text>

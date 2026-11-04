@@ -5,6 +5,7 @@ import {
   runBatchDownload,
 } from '~/utils/batchDownload';
 import {
+  forgetTempUrl,
   packCoverCacheKey,
   packPreviewCacheKey,
   packSlotCacheKey,
@@ -18,6 +19,7 @@ import {
   formatEntitlementHint,
   getCachedEntitlement,
   setCachedEntitlement,
+  spendablePoints,
 } from '~/utils/entitlement';
 import { downloadCost } from '~/utils/pricing';
 import { resolveIsAdmin } from '~/utils/auth';
@@ -26,6 +28,19 @@ import { getFestivalConfettiColors } from '~/utils/festival';
 import { getWindowInfoSafe } from '~/utils/systemInfo';
 import { getFavoriteCached, queueFavorite, rememberFavorite } from '~/utils/favoriteQueue';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
+import {
+  buildSaveAdPrompt,
+  defaultSaveAdRewardPoints,
+  fetchAdRewardStatus,
+  formatAdClaimToast,
+  isSaveAdRewardEnabled,
+  watchAdAndClaimPoints,
+} from '~/utils/adReward';
+import {
+  getNativePackDetailAdUnitId,
+  shouldShowNativeAds,
+} from '~/utils/nativeAd';
+import { showPointsReward } from '~/utils/pointsReward';
 
 function calcSwiperHeight() {
   try {
@@ -36,8 +51,15 @@ function calcSwiperHeight() {
   }
 }
 
-function buildSaveLabel(slot, downloadReady, variant, hasAnimAny, canSaveStatic) {
-  if (!canSaveStatic) return '去兑换';
+function buildSaveLabel(
+  slot,
+  downloadReady,
+  variant,
+  hasAnimAny,
+  canSaveStatic,
+  adRewardReady,
+) {
+  if (!canSaveStatic) return adRewardReady ? '看广告' : '去兑换';
   if (hasAnimAny && variant === 'anim' && !slot.hasAnim) return '无动态';
   if (!downloadReady) return '积分不足';
   const costTip = `${downloadCost(variant)}积分`;
@@ -72,7 +94,14 @@ function slotUrlPending(slot, variant) {
 const SLOT_URL_FIRST = 16;
 const SLOT_URL_BATCH = 16;
 
-function decorateSlots(slots, downloadReady, variant, hasAnimAny, canSaveStatic) {
+function decorateSlots(
+  slots,
+  downloadReady,
+  variant,
+  hasAnimAny,
+  canSaveStatic,
+  adRewardReady,
+) {
   return (slots || []).map((s) => {
     const selectable = isSlotSelectable(s, downloadReady, variant);
     const displayUrl = slotDisplayUrl(s, variant);
@@ -88,7 +117,14 @@ function decorateSlots(slots, downloadReady, variant, hasAnimAny, canSaveStatic)
       displayUrl,
       urlPending: slotUrlPending(s, variant),
       imgReady,
-      saveLabel: buildSaveLabel(s, downloadReady, variant, hasAnimAny, canSaveStatic),
+      saveLabel: buildSaveLabel(
+        s,
+        downloadReady,
+        variant,
+        hasAnimAny,
+        canSaveStatic,
+        adRewardReady,
+      ),
     };
   });
 }
@@ -149,6 +185,12 @@ Page({
     redeemVisible: false,
     redeemCode: '',
     redeeming: false,
+    adRewardReady: false,
+    adRewardPoints: defaultSaveAdRewardPoints(),
+    adRewardLeftToday: 0,
+    adRewardHint: '',
+    nativeAdUnitId: getNativePackDetailAdUnitId(),
+    showNativeAd: false,
     confirmVisible: false,
     confirmTitle: '',
     confirmContent: '',
@@ -170,7 +212,10 @@ Page({
       themeBrand: getThemeBrand(),
     });
     this.refreshEntitlementUi();
-    this._onAdminViewChange = () => this.applyAdminView();
+    this._onAdminViewChange = () => {
+      this.applyAdminView();
+      this.refreshEntitlementUi();
+    };
     this._onFavoriteChange = (payload) => this.applyFavoriteChange(payload);
     try {
       const app = getApp();
@@ -316,16 +361,18 @@ Page({
 
   refreshEntitlementUi() {
     const entitlement = getCachedEntitlement();
-    const { emojiSlots, downloadVariant, hasAnimAny } = this.data;
+    const { emojiSlots, downloadVariant, hasAnimAny, adRewardReady } = this.data;
     const canSaveStatic = canAttemptDownload(entitlement, 'static');
     const downloadReady = canAttemptDownload(entitlement, downloadVariant);
     const isVip = !!entitlement.isVip;
+    const unitId = getNativePackDetailAdUnitId();
     const nextSlots = decorateSlots(
       emojiSlots,
       downloadReady,
       downloadVariant,
       hasAnimAny,
       canSaveStatic,
+      adRewardReady,
     );
     const summary = summarizeSelection(nextSlots, downloadVariant);
     this.setData({
@@ -338,7 +385,54 @@ Page({
       selectedCount: summary.selectedCount,
       selectedCost: summary.selectedCost,
       allSelected: summary.allSelected,
+      nativeAdUnitId: unitId,
+      showNativeAd: !!unitId && shouldShowNativeAds(),
     });
+  },
+
+  onNativeAdError() {
+    this.setData({ showNativeAd: false });
+  },
+
+  applyAdRewardStatus(status) {
+    const enabled = !!(status && status.enabled);
+    const leftToday = Math.max(0, Number(status && status.leftToday) || 0);
+    const points = Math.max(
+      0,
+      Number(status && status.points) || defaultSaveAdRewardPoints(),
+    );
+    const adRewardReady =
+      enabled && leftToday > 0 && isSaveAdRewardEnabled();
+    const bal = spendablePoints();
+    const staticCost = downloadCost('static');
+    const shortfall = Math.max(0, staticCost - bal);
+    const adRewardHint = !enabled || !isSaveAdRewardEnabled()
+      ? ''
+      : leftToday <= 0
+        ? '今日看广告次数已用完'
+        : shortfall > 0
+          ? `当前 ${bal} 积分，还差 ${shortfall}；看广告每次 +${points}（今日还可 ${leftToday} 次）`
+          : `看广告每次 +${points}（今日还可 ${leftToday} 次）`;
+    this.setData({
+      adRewardReady,
+      adRewardPoints: points,
+      adRewardLeftToday: leftToday,
+      adRewardHint,
+    });
+    this.refreshEntitlementUi();
+  },
+
+  async refreshAdRewardStatus() {
+    if (!isSaveAdRewardEnabled()) {
+      this.applyAdRewardStatus({
+        enabled: false,
+        points: defaultSaveAdRewardPoints(),
+        leftToday: 0,
+      });
+      return;
+    }
+    const status = await fetchAdRewardStatus('save');
+    this.applyAdRewardStatus(status);
   },
 
   async syncEntitlement() {
@@ -346,7 +440,12 @@ Page({
       const res = await callFunction('userEntitlement', { action: 'get' });
       if (res.entitlement) {
         setCachedEntitlement(res.entitlement);
+      }
+      if (res && res.saveAdReward) {
+        this.applyAdRewardStatus(res.saveAdReward);
+      } else {
         this.refreshEntitlementUi();
+        this.refreshAdRewardStatus();
       }
     } catch (e) {
       /* ignore */
@@ -458,6 +557,7 @@ Page({
         downloadVariant,
         hasAnimAny,
         canSaveStatic,
+        this.data.adRewardReady,
       );
       const summary = summarizeSelection(emojiSlots, downloadVariant);
       const heroSlides = this.buildHeroSlides(pack);
@@ -571,6 +671,7 @@ Page({
             variant,
             hasAnimAny,
             canSaveStatic,
+            this.data.adRewardReady,
           ),
         };
       });
@@ -661,6 +762,36 @@ Page({
     const i = list.findIndex((s) => s.index === index);
     if (i < 0 || list[i].imgReady) return;
     this.setData({ [`emojiSlots[${i}].imgReady`]: true });
+  },
+
+  /** 槽位图临时链失效：丢缓存并重新换签 */
+  onSlotImgError(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (Number.isNaN(index)) return;
+    const id = this.data.packId;
+    const variant = this.data.downloadVariant === 'anim' ? 'anim' : 'static';
+    if (id) forgetTempUrl(packSlotCacheKey(id, index, variant));
+    const list = this.data.emojiSlots || [];
+    const i = list.findIndex((s) => s.index === index);
+    if (i < 0) return;
+    const patch =
+      variant === 'anim'
+        ? {
+            [`emojiSlots[${i}].animUrl`]: '',
+            [`emojiSlots[${i}].animReady`]: false,
+            [`emojiSlots[${i}].imgReady`]: false,
+            [`emojiSlots[${i}].displayUrl`]: '',
+            [`emojiSlots[${i}].urlPending`]: true,
+          }
+        : {
+            [`emojiSlots[${i}].staticUrl`]: '',
+            [`emojiSlots[${i}].staticReady`]: false,
+            [`emojiSlots[${i}].imgReady`]: false,
+            [`emojiSlots[${i}].displayUrl`]: '',
+            [`emojiSlots[${i}].urlPending`]: true,
+          };
+    this.setData(patch);
+    this.prefetchSlotUrls(id, { limit: 1 });
   },
 
   onToggleSelect(e) {
@@ -807,6 +938,136 @@ Page({
     this.setData({ redeemVisible: true, redeemCode: '' });
   },
 
+  /**
+   * 积分不足时：优先看广告领积分，也可去兑换。
+   * 文案写清：余额 / 需要 / 还差 / 本次能领多少，避免以为一次能存完全部。
+   * @param {'static'|'anim'} [variant]
+   * @param {{ need?: number, count?: number, actionLabel?: string, maxRounds?: number }} [opts]
+   * @returns {Promise<boolean>} 看完广告并到账后是否已够继续保存
+   */
+  async offerAdOrRedeem(variant = 'static', opts = {}) {
+    const unitCost = downloadCost(variant);
+    const count = Math.max(1, Number(opts.count) || 1);
+    const need = Math.max(
+      0,
+      Number(opts.need) || unitCost * count,
+    );
+    const actionLabel =
+      String(opts.actionLabel || '').trim() ||
+      (count > 1 ? `保存 ${count} 张` : '保存这张');
+    const maxRounds = Math.max(1, Math.min(3, Number(opts.maxRounds) || 2));
+
+    if (!isSaveAdRewardEnabled()) {
+      this.goRedeem();
+      return false;
+    }
+
+    for (let round = 0; round < maxRounds; round += 1) {
+      const bal = spendablePoints();
+      if (bal >= need) return true;
+
+      let status = {
+        enabled: this.data.adRewardReady,
+        points: this.data.adRewardPoints || defaultSaveAdRewardPoints(),
+        leftToday: this.data.adRewardLeftToday || 0,
+      };
+      try {
+        status = await fetchAdRewardStatus('save');
+        this.applyAdRewardStatus(status);
+      } catch (e) {
+        /* keep cached */
+      }
+
+      if (!status.enabled || status.leftToday <= 0) {
+        const shortfall = Math.max(0, need - bal);
+        await this.confirmAsync(
+          `当前可用 ${bal} 积分，还差 ${shortfall}。今日看广告次数已用完，可使用兑换码或到「我的」领积分。`,
+          {
+            title: '积分不够啦',
+            icon: CONFIRM_ICONS.warn,
+            okText: '去兑换',
+          },
+        );
+        this.goRedeem();
+        return false;
+      }
+
+      const prompt = buildSaveAdPrompt({
+        spendable: bal,
+        need,
+        rewardPoints: status.points,
+        leftToday: status.leftToday,
+        count,
+        unitCost,
+        actionLabel,
+      });
+      const confirmed = await this.confirmAsync(prompt.content, {
+        title: prompt.title,
+        icon: CONFIRM_ICONS.warn,
+        okText: '看广告领积分',
+      });
+      if (!confirmed) {
+        this.goRedeem();
+        return false;
+      }
+
+      const claimed = await this.watchAdForPoints(need);
+      if (!claimed) return false;
+      if (spendablePoints() >= need) return true;
+    }
+
+    const bal = spendablePoints();
+    const shortfall = Math.max(0, need - bal);
+    wx.showToast({
+      title: `还差 ${shortfall} 积分，可再看广告或去兑换`,
+      icon: 'none',
+      duration: 2500,
+    });
+    return false;
+  },
+
+  /**
+   * @param {number} [need] 本次目标消耗，用于到账提示
+   */
+  async watchAdForPoints(need = 0) {
+    if (this._adClaiming) return false;
+    this._adClaiming = true;
+    try {
+      const res = await watchAdAndClaimPoints({ page: this, slot: 'save' });
+      if (!res || !res.ok) {
+        if (res && res.reason !== 'SKIPPED') {
+          wx.showToast({
+            title: (res && res.message) || '领取失败',
+            icon: 'none',
+          });
+        }
+        if (res && res.data) this.applyAdRewardStatus(res.data);
+        else this.refreshAdRewardStatus();
+        return false;
+      }
+      if (res.data) this.applyAdRewardStatus(res.data);
+      else this.refreshEntitlementUi();
+      const gained = Math.max(0, Number(res.points) || 0);
+      showPointsReward({
+        host: this,
+        points: gained,
+        title: '看广告领积分',
+        tip: formatAdClaimToast({
+          gained,
+          spendable: spendablePoints(res.entitlement),
+          need,
+        }),
+      });
+      return true;
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '领取失败', icon: 'none' });
+      this.refreshAdRewardStatus();
+      return false;
+    } finally {
+      this._adClaiming = false;
+    }
+  },
+
   onRedeemInput(e) {
     const value =
       (e.detail && (e.detail.value !== undefined ? e.detail.value : e.detail)) ||
@@ -838,7 +1099,18 @@ Page({
         this.refreshEntitlementUi();
       }
       this.setData({ redeemVisible: false, redeemCode: '' });
-      wx.showToast({ title: res.message || '兑换成功', icon: 'success' });
+      const grant = res.grant || {};
+      const pointsAdded = Math.max(0, Number(grant.add) || 0);
+      if (pointsAdded > 0) {
+        showPointsReward({
+          host: this,
+          points: pointsAdded,
+          title: '兑换成功',
+          tip: res.message || '',
+        });
+      } else {
+        wx.showToast({ title: res.message || '兑换成功', icon: 'success' });
+      }
     } catch (e) {
       wx.showToast({ title: e.message || '兑换失败', icon: 'none' });
     } finally {
@@ -847,9 +1119,15 @@ Page({
     }
   },
 
-  onSaveOrRedeem(e) {
+  async onSaveOrRedeem(e) {
+    const variant = this.data.downloadVariant === 'anim' ? 'anim' : 'static';
     if (!this.data.canSaveStatic) {
-      this.goRedeem();
+      const ready = await this.offerAdOrRedeem('static', {
+        need: downloadCost('static'),
+        count: 1,
+        actionLabel: '保存这张',
+      });
+      if (ready) this.onDownloadEmoji(e);
       return;
     }
     if (!this.data.downloadReady) {
@@ -858,7 +1136,7 @@ Page({
     }
     const index = Number(e.currentTarget.dataset.index);
     const slot = (this.data.emojiSlots || []).find((s) => s.index === index);
-    if (this.data.downloadVariant === 'anim' && slot && !slot.hasAnim) {
+    if (variant === 'anim' && slot && !slot.hasAnim) {
       wx.showToast({ title: '该张无动态原图', icon: 'none' });
       return;
     }
@@ -913,10 +1191,26 @@ Page({
     if (saving || Number.isNaN(index)) return;
 
     const variant = downloadVariant === 'anim' ? 'anim' : 'static';
-    const entitlement = getCachedEntitlement();
+    let entitlement = getCachedEntitlement();
     if (!canAttemptDownload(entitlement, variant)) {
-      this.goRedeem();
-      return;
+      const ready = await this.offerAdOrRedeem(variant, {
+        need: downloadCost(variant),
+        count: 1,
+        actionLabel: '保存这张',
+      });
+      if (!ready) return;
+      entitlement = getCachedEntitlement();
+      if (!canAttemptDownload(entitlement, variant)) {
+        const shortfall = Math.max(
+          0,
+          downloadCost(variant) - spendablePoints(entitlement),
+        );
+        wx.showToast({
+          title: `还差 ${shortfall} 积分，可再看广告或去兑换`,
+          icon: 'none',
+        });
+        return;
+      }
     }
 
     this.setData({ saving: true });
@@ -932,7 +1226,11 @@ Page({
       const msg = err.message || '保存失败';
       if (/不足|积分|额度|兑换|权益/i.test(msg)) {
         wx.showToast({ title: msg, icon: 'none' });
-        this.goRedeem();
+        this.offerAdOrRedeem(variant, {
+          need: downloadCost(variant),
+          count: 1,
+          actionLabel: '保存这张',
+        });
       } else {
         wx.showToast({ title: msg, icon: 'none' });
       }
@@ -953,13 +1251,9 @@ Page({
 
   async onBatchSave() {
     if (this.data.saving) return;
-    if (!this.data.downloadReady) {
-      this.goRedeem();
-      return;
-    }
-
     const variant =
       this.data.downloadVariant === 'anim' ? 'anim' : 'static';
+
     const summary = summarizeSelection(this.data.emojiSlots, variant);
     let indexes = summary.selectedIndexes;
 
@@ -974,21 +1268,26 @@ Page({
       indexes.length,
     );
 
-    if (!estimate.canAny) {
-      wx.showToast({
-        title: `积分不足（单张需 ${estimate.cost} 积分）`,
-        icon: 'none',
-      });
-      this.goRedeem();
-      return;
-    }
-
     if (!estimate.canAll) {
-      await this.confirmAsync(
-        `余额约 ${estimate.spendable} 积分，只够保存 ${estimate.maxCount} / ${indexes.length} 张（每张 ${estimate.cost} 积分）。请取消部分勾选后再保存。`,
-        { title: '积分不太够哦', icon: CONFIRM_ICONS.warn, okText: '去重选' },
+      const ready = await this.offerAdOrRedeem(variant, {
+        need: estimate.totalCost,
+        count: indexes.length,
+        actionLabel: `保存 ${indexes.length} 张`,
+        maxRounds: 2,
+      });
+      if (!ready) return;
+      estimate = estimateBatchAffordable(
+        getCachedEntitlement(),
+        variant,
+        indexes.length,
       );
-      return;
+      if (!estimate.canAll) {
+        await this.confirmAsync(
+          `当前 ${estimate.spendable} 积分，只够保存 ${estimate.maxCount} / ${indexes.length} 张（每张 ${estimate.cost} 积分）。请减少勾选后再保存，或继续看广告补积分。`,
+          { title: '积分不太够哦', icon: CONFIRM_ICONS.warn, okText: '去重选' },
+        );
+        return;
+      }
     }
 
     const kindLabel = this.data.hasAnimAny
@@ -1052,7 +1351,11 @@ Page({
     });
 
     if (result.stoppedByBalance && !result.okCount) {
-      this.goRedeem();
+      this.offerAdOrRedeem(variant, {
+        need: downloadCost(variant),
+        count: 1,
+        actionLabel: '继续保存',
+      });
     }
   },
 });

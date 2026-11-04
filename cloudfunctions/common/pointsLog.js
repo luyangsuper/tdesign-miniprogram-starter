@@ -27,6 +27,7 @@ const REASON_TITLE = {
   purchase: '购买积分',
   purchase_refund: '订单退款回收',
   oa: '公众号动态礼',
+  ad_reward: '看广告领积分',
   lottery: '抽奖奖励',
   lottery_entry: '抽奖投入',
   lottery_refund: '抽奖退回',

@@ -1,7 +1,10 @@
 /**
  * 小程序全局配置
  * - cloudEnv：微信开发者工具 → 云开发 → 环境 ID
- * - rewardedAdUnitId：激励广告位（空=关闭免费通道；需包月 / 积分才能保存）
+ * - rewardedAdUnitId：激励广告（约 30s）·「我的」主动领积分
+ * - saveRewardedAdUnitId：激励广告（约 15s）· 积分不足救急；空则回退到 rewardedAdUnitId
+ * - adRewardPoints / adRewardDailyMax：30s 主动广告奖励与日上限
+ * - saveAdRewardPoints / saveAdRewardDailyMax：15s 救急广告奖励与日上限
  * - downloadCosts：单张扣分（与整包静 2 元 / 动 4 元对齐为 1:2）
  * - membershipPricing：离线默认售价；线上以云库 app_config/pricing（管理端「定价方案」）为准
  * - virtualPay：OfferId 可公开；AppKey 只放云函数环境变量
@@ -13,7 +16,36 @@ export default {
   /** 关于页展示；与 package.json version 对齐即可 */
   appVersion: '0.1.0',
   cloudEnv: 'cloud1-d4g0731mc55f853ef',
-  rewardedAdUnitId: '', // 暂不开放广告；接好后填 adunit-xxxxxx
+  /** 约 30s，主动领积分 */
+  rewardedAdUnitId: 'adunit-b77d32dfa7a29761',
+  /** 约 15s，积分不足保存时用（更短、少打断） */
+  saveRewardedAdUnitId: 'adunit-0aea2ce574eb035c',
+  /**
+   * 原生模板广告（横版优选 · 20:7 / 16:9）
+   * 空=该位置不展示；VIP 客户端不展示被动原生广告
+   */
+  /** 首页瀑布流通栏 */
+  nativeHomeFeedAdUnitId: 'adunit-2cd86e0e56e6d718',
+  /** 合集详情 · 保存原图上方 */
+  nativePackDetailAdUnitId: 'adunit-955ce8dea99a2a65',
+  /** 「我的」积分区下方 */
+  nativeMyPageAdUnitId: 'adunit-95a12cc17e9ca0d1',
+  /** 收藏列表原生广告 */
+  nativeFavoritesAdUnitId: 'adunit-494a61cf3ce09618',
+  /**
+   * 首页每多少个合集插入一条原生广告（离线默认）
+   * 线上以云库 app_config/points.homeFeedAdEvery 为准；0=关闭信息流广告；建议 6～8
+   */
+  homeFeedAdEvery: 6,
+  /**
+   * 看广告领积分默认值（云库 app_config/points 可改）
+   * - 30s 主动：+2（≈1 张动态）
+   * - 15s 救急：+1（≈1 张静态）；动态不够可再看一次
+   */
+  adRewardPoints: 2,
+  adRewardDailyMax: 5,
+  saveAdRewardPoints: 1,
+  saveAdRewardDailyMax: 8,
   /** 单张原图积分消耗（云函数 getEmojiDownload 须保持一致） */
   downloadCosts: {
     static: 1,
@@ -29,6 +61,7 @@ export default {
    * - welcomeGiftPoints：新用户首次登录见面礼
    * - checkinPoints：每日签到
    * - oaBonusPoints：公众号动态入口（带 oaId），每用户每动态一次；0 关闭
+   * - adReward* / saveAdReward*：激励视频（见上）
    */
   welcomeGiftPoints: 18,
   checkinPoints: 1,

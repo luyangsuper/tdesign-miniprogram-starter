@@ -1,5 +1,5 @@
 import { callFunction } from '~/utils/cloud';
-import { packCoverCacheKey, reuseTempUrl } from '~/utils/tempUrlCache';
+import { packCoverCacheKey, peekTempUrl, reuseTempUrl } from '~/utils/tempUrlCache';
 import {
   formatBatchResultTip,
   runBatchDownload,
@@ -15,6 +15,13 @@ import {
   getCachedEntitlement,
   setCachedEntitlement,
 } from '~/utils/entitlement';
+import { promptSaveAdForPoints } from '~/utils/adReward';
+import {
+  applyHomeFeedAdEveryFromSettings,
+  getHomeFeedAdEvery,
+  getNativeHomeFeedAdUnitId,
+  shouldShowHomeFeedAds,
+} from '~/utils/nativeAd';
 import {
   applyPendingPointGifts,
   formatGiftAffordLine,
@@ -42,6 +49,7 @@ import {
   getActiveFestival,
   getFestivalAssets,
   loadFestivalConfig,
+  notifyFestivalAccessChange,
 } from '~/utils/festival';
 
 const CONFIRM_ICONS = {
@@ -93,8 +101,47 @@ function appendColumns(columns, newItems, columnCount) {
   return cols;
 }
 
-/** 合集很少改：内存列表缓存拉长；下拉刷新 / 管理端发布仍 force 绕过 */
-const LIST_CACHE_TTL = 30 * 60 * 1000;
+/**
+ * 瀑布流分段：每凑满 every 个合集插一条通栏原生广告（横版模板适合通栏，不适合塞进单列窄卡）。
+ * 不插广告时必须整表一块 grid，禁止按 every 切开——否则列高会在段界重置，VIP/管理员会看到空白间隔。
+ * 最后不足一组不插，避免总贴在「没有更多了」上面。
+ */
+function buildFeedBlocks(list, columnCount, every, showAds) {
+  const items = list || [];
+  const insertAds = !!showAds && Number(every) > 0;
+  if (!insertAds) {
+    return [
+      {
+        key: 'g-all',
+        type: 'grid',
+        columns: buildColumns(items, columnCount),
+      },
+    ];
+  }
+  const n = Math.max(1, Number(every) || 6);
+  const blocks = [];
+  let adSeq = 0;
+  for (let i = 0; i < items.length; i += n) {
+    const chunk = items.slice(i, i + n);
+    blocks.push({
+      key: `g-${i}`,
+      type: 'grid',
+      columns: buildColumns(chunk, columnCount),
+    });
+    if (chunk.length >= n) {
+      blocks.push({
+        key: `ad-${adSeq}`,
+        type: 'ad',
+        hidden: false,
+      });
+      adSeq += 1;
+    }
+  }
+  return blocks;
+}
+
+/** 列表元数据内存缓存；封面链另用 tempUrlCache，过期则静默换签 */
+const LIST_CACHE_TTL = 10 * 60 * 1000;
 /** 瀑布流滚过该高度（px）后显示回到顶部 */
 const BACK_TOP_VISIBLE = 400;
 /** 节流同步 scrollTop 给 t-back-top，避免每帧 setData */
@@ -110,6 +157,10 @@ Page({
     loading: true,
     list: [],
     columns: [[], []],
+    /** 瀑布流分段：grid 合集块 + ad 通栏广告 */
+    feedBlocks: [],
+    nativeAdUnitId: getNativeHomeFeedAdUnitId(),
+    showFeedAds: shouldShowHomeFeedAds(),
     page: 1,
     hasMore: true,
     loadingMore: false,
@@ -234,6 +285,7 @@ Page({
       this.setData({ festivalActive: true });
     }
     this.refreshFestivalDecor();
+    this.refreshFeedAdGate();
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
       if (typeof bar.setSelected === 'function') bar.setSelected('home');
@@ -328,7 +380,14 @@ Page({
       ]);
       if (res && res.entitlement) {
         setCachedEntitlement(res.entitlement);
+        notifyFestivalAccessChange();
+        this.refreshFestivalDecor();
       }
+      if (res && res.homeFeedAdEvery != null) {
+        applyHomeFeedAdEveryFromSettings(res);
+      }
+      // 权益（VIP）或间隔变化后重建分段，避免留下空广告位/段界空白
+      this.refreshFeedAdGate();
       applyPendingPointGifts(res && res.pendingPointGifts);
       const lotData = (lotteryPending && lotteryPending.data) || {};
       applyPendingLotteryInvites(
@@ -804,6 +863,8 @@ Page({
 
   refreshAdmin() {
     this.setData({ isAdmin: resolveIsAdmin() });
+    // 管理员视图 / 预览普通用户切换时同步信息流广告
+    this.refreshFeedAdGate();
   },
 
   updateLayout() {
@@ -819,11 +880,53 @@ Page({
       (windowWidth - gap * 2 - gap * (columnCount - 1)) / columnCount,
     );
 
-    const patch = { columnCount, cardWidth, listGap: gap, rowGap };
+    const patch = {
+      columnCount,
+      cardWidth,
+      listGap: gap,
+      rowGap,
+      nativeAdUnitId: getNativeHomeFeedAdUnitId(),
+      showFeedAds: shouldShowHomeFeedAds(),
+    };
     if (this.data.list && this.data.list.length) {
       patch.columns = buildColumns(this.data.list, columnCount);
+      patch.feedBlocks = buildFeedBlocks(
+        this.data.list,
+        columnCount,
+        getHomeFeedAdEvery(),
+        patch.showFeedAds && !this.data.selectMode,
+      );
     }
     this.setData(patch);
+  },
+
+  refreshFeedAdGate() {
+    const show = shouldShowHomeFeedAds();
+    const unitId = getNativeHomeFeedAdUnitId();
+    const patch = {
+      showFeedAds: show,
+      nativeAdUnitId: unitId,
+    };
+    if (this.data.list && this.data.list.length) {
+      patch.feedBlocks = buildFeedBlocks(
+        this.data.list,
+        this.data.columnCount,
+        getHomeFeedAdEvery(),
+        show && !this.data.selectMode,
+      );
+    }
+    this.setData(patch);
+  },
+
+  onFeedAdError(e) {
+    const key = e && e.currentTarget && e.currentTarget.dataset
+      ? e.currentTarget.dataset.key
+      : '';
+    if (!key) return;
+    const feedBlocks = (this.data.feedBlocks || []).map((b) =>
+      b && b.key === key ? { ...b, hidden: true } : b,
+    );
+    this.setData({ feedBlocks });
   },
 
   filterCount(categoryId) {
@@ -846,10 +949,20 @@ Page({
       appendItems && appendItems.length
         ? appendColumns(this.data.columns, appendItems, this.data.columnCount)
         : buildColumns(list, this.data.columnCount);
+    const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
+    const feedBlocks = buildFeedBlocks(
+      list,
+      this.data.columnCount,
+      getHomeFeedAdEvery(),
+      showAds,
+    );
     // 不在每次列表更新里写 enable，避免误触 refresher-triggered 抖动
     const patch = {
       list,
       columns,
+      feedBlocks,
+      showFeedAds: shouldShowHomeFeedAds(),
+      nativeAdUnitId: getNativeHomeFeedAdUnitId(),
       page,
       hasMore,
       listTotal: Math.max(0, Number(total) || 0),
@@ -877,8 +990,9 @@ Page({
     const list = snap.list || [];
     if (!list.length) return;
     const cacheKey = listCacheKey(categoryId, keyword);
+    // at=0：快照只铺壳，随后 loadList 必走静默刷新换新签，避免过期封面裂图
     this._listCache[cacheKey] = {
-      at: snap.at || Date.now(),
+      at: 0,
       list,
       page: snap.page || 2,
       hasMore: !!snap.hasMore,
@@ -1468,16 +1582,33 @@ Page({
   onToggleSelectMode() {
     if (this.data.batchSaving) return;
     if (this.data.selectMode) {
+      const showAds = shouldShowHomeFeedAds();
       this.setData({
         selectMode: false,
         selectedMap: {},
         selectedCount: 0,
         approxCount: 0,
         approxCost: 0,
+        showFeedAds: showAds,
+        feedBlocks: buildFeedBlocks(
+          this.data.list,
+          this.data.columnCount,
+          getHomeFeedAdEvery(),
+          showAds,
+        ),
       });
       return;
     }
-    this.setData({ selectMode: true });
+    // 多选时先藏广告，避免误触、也少占勾选空间
+    this.setData({
+      selectMode: true,
+      feedBlocks: buildFeedBlocks(
+        this.data.list,
+        this.data.columnCount,
+        getHomeFeedAdEvery(),
+        false,
+      ),
+    });
   },
 
   onTogglePack(e) {
@@ -1546,6 +1677,17 @@ Page({
     wx.switchTab({ url: '/pages/my/index' });
   },
 
+  /** 积分不足：优先救急广告，否则去「我的」 */
+  async offerAdOrRedeem(opts = {}) {
+    const res = await promptSaveAdForPoints({
+      page: this,
+      maxRounds: 2,
+      ...opts,
+    });
+    if (res.action === 'go_my') this.goRedeem();
+    return !!res.ok;
+  },
+
   async buildBatchJobs(packIds, variant) {
     const jobs = [];
     let skippedPacks = 0;
@@ -1591,13 +1733,15 @@ Page({
     }
 
     const variant = this.data.batchVariant === 'anim' ? 'anim' : 'static';
+    const unitCost = downloadCost(variant);
     if (!canAttemptDownload(getCachedEntitlement(), variant)) {
-      wx.showToast({
-        title: `积分不足（单张需 ${downloadCost(variant)} 积分）`,
-        icon: 'none',
+      const ready = await this.offerAdOrRedeem({
+        need: unitCost,
+        count: 1,
+        unitCost,
+        actionLabel: '保存原图',
       });
-      this.goRedeem();
-      return;
+      if (!ready || !canAttemptDownload(getCachedEntitlement(), variant)) return;
     }
 
     this.setData({ batchSaving: true });
@@ -1628,29 +1772,34 @@ Page({
       return;
     }
 
-    const estimate = estimateBatchAffordable(
+    let estimate = estimateBatchAffordable(
       getCachedEntitlement(),
       variant,
       totalCount,
     );
 
-    if (!estimate.canAny) {
-      this.setData({ batchSaving: false });
-      wx.showToast({
-        title: `积分不足（单张需 ${estimate.cost} 积分）`,
-        icon: 'none',
-      });
-      this.goRedeem();
-      return;
-    }
-
     if (!estimate.canAll) {
-      await this.confirmAsync(
-        `余额约 ${estimate.spendable} 积分，只够保存 ${estimate.maxCount} / ${totalCount} 张（每张 ${estimate.cost} 积分）。请取消部分合集后再下载。`,
-        { title: '积分不太够哦', icon: CONFIRM_ICONS.warn, okText: '去重选' },
-      );
       this.setData({ batchSaving: false });
-      return;
+      const ready = await this.offerAdOrRedeem({
+        need: estimate.totalCost,
+        count: totalCount,
+        unitCost: estimate.cost,
+        actionLabel: `保存 ${totalCount} 张`,
+      });
+      if (!ready) return;
+      estimate = estimateBatchAffordable(
+        getCachedEntitlement(),
+        variant,
+        totalCount,
+      );
+      if (!estimate.canAll) {
+        await this.confirmAsync(
+          `当前 ${estimate.spendable} 积分，只够保存 ${estimate.maxCount} / ${totalCount} 张（每张 ${estimate.cost} 积分）。请减少合集后再下载，或继续看广告补积分。`,
+          { title: '积分不太够哦', icon: CONFIRM_ICONS.warn, okText: '去重选' },
+        );
+        return;
+      }
+      this.setData({ batchSaving: true });
     }
 
     const kindLabel = variant === 'anim' ? '动态 GIF' : '静态原图';
@@ -1711,7 +1860,12 @@ Page({
     }
 
     if (result.stoppedByBalance && !result.okCount) {
-      this.goRedeem();
+      await this.offerAdOrRedeem({
+        need: downloadCost(variant),
+        count: 1,
+        unitCost: downloadCost(variant),
+        actionLabel: '继续保存',
+      });
     }
   },
 
@@ -1761,12 +1915,34 @@ Page({
     const columns = (this.data.columns || []).map((col) =>
       (col || []).map(patchItem),
     );
-    this.setData({ list, columns });
+    const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
+    const feedBlocks = buildFeedBlocks(
+      list,
+      this.data.columnCount,
+      getHomeFeedAdEvery(),
+      showAds,
+    );
+    this.setData({ list, columns, feedBlocks });
 
     const cacheKey = listCacheKey(this.data.categoryId, this.data.keyword);
     if (this._listCache && this._listCache[cacheKey] && this._listCache[cacheKey].list) {
       this._listCache[cacheKey].list = this._listCache[cacheKey].list.map(patchItem);
     }
+  },
+
+  /** 封面临时链失效：清列表缓存并静默换签（防抖，避免瀑布流连环触发） */
+  onCoverError() {
+    if (this._coverErrorRefreshing) return;
+    this._coverErrorRefreshing = true;
+    const cacheKey = listCacheKey(this.data.categoryId, this.data.keyword);
+    if (this._listCache && this._listCache[cacheKey]) {
+      this._listCache[cacheKey].at = 0;
+    }
+    Promise.resolve(this.loadList(true, { force: true })).finally(() => {
+      setTimeout(() => {
+        this._coverErrorRefreshing = false;
+      }, 2500);
+    });
   },
 
   async loadList(reset = false, options = {}) {
@@ -1792,11 +1968,18 @@ Page({
           hasMore: cached.hasMore,
           total: cached.total,
         });
-        // 缓存仍新鲜：不再打云函数
-        if (Date.now() - cached.at < LIST_CACHE_TTL) {
+        const cacheFresh = cached.at > 0 && Date.now() - cached.at < LIST_CACHE_TTL;
+        const coversOk =
+          cacheFresh &&
+          (cached.list || []).every((item) => {
+            if (!item || !item._id || !item.coverUrl) return true;
+            return !!peekTempUrl(packCoverCacheKey(item._id));
+          });
+        // 列表与封面链都仍有效才跳过请求；否则静默换签
+        if (coversOk) {
           return;
         }
-        // 过期：静默后台刷新，不闪整页 loading
+        // 过期 / 封面链失效：静默后台刷新，不闪整页 loading
       } else {
         this.applyListState({
           list: [],

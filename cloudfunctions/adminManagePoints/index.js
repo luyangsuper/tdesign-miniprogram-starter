@@ -185,6 +185,11 @@ exports.main = async (event = {}) => {
           welcomeGiftPoints: event.welcomeGiftPoints,
           checkinPoints: event.checkinPoints,
           oaBonusPoints: event.oaBonusPoints,
+          adRewardPoints: event.adRewardPoints,
+          adRewardDailyMax: event.adRewardDailyMax,
+          saveAdRewardPoints: event.saveAdRewardPoints,
+          saveAdRewardDailyMax: event.saveAdRewardDailyMax,
+          homeFeedAdEvery: event.homeFeedAdEvery,
         },
         { openid: OPENID },
       );

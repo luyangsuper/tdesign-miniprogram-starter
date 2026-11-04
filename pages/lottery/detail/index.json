@@ -10,6 +10,7 @@
     "t-cell": "tdesign-miniprogram/cell/cell",
     "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
     "fun-empty": "/components/fun-empty/index",
-    "lottery-host": "/components/lottery-host/index"
+    "lottery-host": "/components/lottery-host/index",
+    "points-reward": "/components/points-reward/index"
   }
 }

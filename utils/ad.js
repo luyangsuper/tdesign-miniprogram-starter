@@ -1,20 +1,58 @@
 import config from '~/config';
 
-/** 是否已配置激励视频广告位（未配置则下载不可用） */
-export function isDownloadReady() {
-  return !!config.rewardedAdUnitId;
+/**
+ * @param {'reward'|'save'} [slot]
+ * - reward：我的页主动领积分（30s）
+ * - save：积分不足保存（15s，未配置则回退 reward）
+ */
+export function getRewardedAdUnitId(slot = 'reward') {
+  if (slot === 'save') {
+    return (
+      String(config.saveRewardedAdUnitId || '').trim() ||
+      String(config.rewardedAdUnitId || '').trim() ||
+      ''
+    );
+  }
+  return String(config.rewardedAdUnitId || '').trim() || '';
+}
+
+/** 是否已配置对应激励广告位 */
+export function isRewardedAdReady(slot = 'reward') {
+  return !!getRewardedAdUnitId(slot);
+}
+
+/** 页面级：按广告位 ID 缓存实例（同页可并存 30s / 15s 两个） */
+const pageAdMap = new WeakMap();
+
+function getPageAd(page, unitId) {
+  if (!page || !unitId || !wx.createRewardedVideoAd) return null;
+
+  let byUnit = pageAdMap.get(page);
+  if (!byUnit) {
+    byUnit = new Map();
+    pageAdMap.set(page, byUnit);
+  }
+  if (byUnit.has(unitId)) return byUnit.get(unitId);
+
+  const ad = wx.createRewardedVideoAd({ adUnitId: unitId });
+  byUnit.set(unitId, ad);
+  return ad;
 }
 
 /**
  * 播放激励视频广告。
- * 未配置广告位：不放行下载（对用户只提示暂无法下载）。
- * @returns {Promise<boolean>} 是否完整观看并可继续保存
+ * @param {{ page?: any, slot?: 'reward'|'save', unitId?: string }} [opts]
+ * @returns {Promise<boolean>} 是否完整观看
  */
-export function showRewardedAd() {
-  const unitId = config.rewardedAdUnitId;
-
+export function showRewardedAd(opts = {}) {
+  const slot = opts.slot === 'save' ? 'save' : 'reward';
+  const unitId = String(opts.unitId || getRewardedAdUnitId(slot)).trim();
   if (!unitId) {
     wx.showToast({ title: '暂未配置广告，请先兑换', icon: 'none' });
+    return Promise.resolve(false);
+  }
+  if (!wx.createRewardedVideoAd) {
+    wx.showToast({ title: '当前基础库不支持激励广告', icon: 'none' });
     return Promise.resolve(false);
   }
 
@@ -23,10 +61,16 @@ export function showRewardedAd() {
     const finish = (ok) => {
       if (settled) return;
       settled = true;
-      resolve(ok);
+      resolve(!!ok);
     };
 
-    const ad = wx.createRewardedVideoAd({ adUnitId: unitId });
+    const page =
+      opts.page ||
+      (typeof getCurrentPages === 'function'
+        ? getCurrentPages().slice(-1)[0]
+        : null);
+    const ad =
+      getPageAd(page, unitId) || wx.createRewardedVideoAd({ adUnitId: unitId });
 
     const onClose = (res) => {
       ad.offClose(onClose);
@@ -35,7 +79,7 @@ export function showRewardedAd() {
     };
 
     const onError = (err) => {
-      console.error('[ad]', err);
+      console.error('[ad]', slot, err);
       ad.offClose(onClose);
       ad.offError(onError);
       wx.showToast({ title: '广告加载失败，请稍后重试', icon: 'none' });
@@ -46,13 +90,17 @@ export function showRewardedAd() {
     ad.onError(onError);
 
     ad
-      .load()
-      .then(() => ad.show())
-      .catch(() => {
+      .show()
+      .catch(() =>
         ad
           .load()
           .then(() => ad.show())
-          .catch(onError);
-      });
+          .catch(onError),
+      );
   });
+}
+
+/** @deprecated 使用 isRewardedAdReady */
+export function isDownloadReady() {
+  return isRewardedAdReady('save');
 }

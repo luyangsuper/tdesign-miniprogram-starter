@@ -25,7 +25,7 @@
       <image class="ckp__hero-icon" src="/static/emoji/checkin.png" mode="aspectFit" />
       <view class="ckp__hero-main">
         <text class="ckp__hero-title">每日签到</text>
-        <text class="ckp__hero-sub">每天 +{{checkinPoints}} 积分 · 余额 {{points}}</text>
+        <text class="ckp__hero-sub">每天 +{{checkinPoints}} 积分{{adBonusVisible ? ' · 可看广告再 +' + adBonusPoints : ''}} · 余额 {{points}}</text>
       </view>
     </view>
 
@@ -92,8 +92,21 @@
         content="{{checkinBtnText}}"
         bind:tap="onCheckin"
       />
+      <t-button
+        wx:if="{{adBonusVisible}}"
+        t-class="ckp__ad-btn"
+        theme="primary"
+        variant="outline"
+        size="medium"
+        block
+        loading="{{adBonusClaiming}}"
+        disabled="{{checking || loading || adBonusClaiming}}"
+        content="{{adBonusBtnText}}"
+        bind:tap="onWatchAdBonus"
+      />
     </view>
   </view>
 </t-popup>
 
 <confetti-burst id="confetti" />
+<points-reward id="pointsReward" />

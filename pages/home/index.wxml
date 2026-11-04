@@ -188,37 +188,54 @@
             </view>
             <view id="homeScrollerTop" class="home__scroller-anchor" />
             <block wx:if="{{!loading && list.length}}">
-              <view class="home__list" style="gap: {{listGap}}px;">
+              <block wx:for="{{feedBlocks}}" wx:key="key">
                 <view
-                  class="home__col"
-                  wx:for="{{columns}}"
-                  wx:for-item="col"
-                  wx:for-index="colIndex"
-                  wx:key="colIndex"
-                  style="width: {{cardWidth}}px; gap: {{rowGap}}px;"
+                  wx:if="{{item.type === 'grid'}}"
+                  class="home__list"
+                  style="gap: {{listGap}}px;"
                 >
-                  <view class="home__item" wx:for="{{col}}" wx:for-item="item" wx:key="_id">
-                    <pack-card
-                      packId="{{item._id}}"
-                      title="{{item.title}}"
-                      coverUrl="{{item.coverUrl}}"
-                      emojiCount="{{item.emojiCount}}"
-                      downloadCount="{{item.downloadCount}}"
-                      categoryId="{{item.categoryId}}"
-                      categoryName="{{item.categoryName}}"
-                      coverRatio="{{item.coverRatio}}"
-                      cardWidth="{{cardWidth}}"
-                      showAdmin="{{isAdmin}}"
-                      selectMode="{{selectMode}}"
-                      selected="{{selectedMap[item._id] ? true : false}}"
-                      bind:toggle="onTogglePack"
-                      bind:ratiochange="onCoverRatioChange"
-                      bind:edit="onEditPack"
-                      bind:delete="onDeletePack"
-                    />
+                  <view
+                    class="home__col"
+                    wx:for="{{item.columns}}"
+                    wx:for-item="col"
+                    wx:for-index="colIndex"
+                    wx:key="colIndex"
+                    style="width: {{cardWidth}}px; gap: {{rowGap}}px;"
+                  >
+                    <view class="home__item" wx:for="{{col}}" wx:for-item="pack" wx:key="_id">
+                      <pack-card
+                        packId="{{pack._id}}"
+                        title="{{pack.title}}"
+                        coverUrl="{{pack.coverUrl}}"
+                        emojiCount="{{pack.emojiCount}}"
+                        downloadCount="{{pack.downloadCount}}"
+                        categoryId="{{pack.categoryId}}"
+                        categoryName="{{pack.categoryName}}"
+                        coverRatio="{{pack.coverRatio}}"
+                        cardWidth="{{cardWidth}}"
+                        showAdmin="{{isAdmin}}"
+                        selectMode="{{selectMode}}"
+                        selected="{{selectedMap[pack._id] ? true : false}}"
+                        bind:toggle="onTogglePack"
+                        bind:ratiochange="onCoverRatioChange"
+                        bind:covererror="onCoverError"
+                        bind:edit="onEditPack"
+                        bind:delete="onDeletePack"
+                      />
+                    </view>
                   </view>
                 </view>
-              </view>
+                <view
+                  wx:elif="{{item.type === 'ad' && showFeedAds && !selectMode && !item.hidden && nativeAdUnitId}}"
+                  class="home__feed-ad"
+                >
+                  <ad-custom
+                    unit-id="{{nativeAdUnitId}}"
+                    data-key="{{item.key}}"
+                    binderror="onFeedAdError"
+                  />
+                </view>
+              </block>
               <view class="home__footer" wx:if="{{loadingMore}}">
                 <fun-loading size="small" variant="wave" funTips="{{false}}" text="加载更多" />
               </view>
@@ -378,6 +395,7 @@
 
 <!-- 全局抽奖邀请 / 开奖结果（任意前台页可弹） -->
 <lottery-host />
+<points-reward id="pointsReward" />
 
 <!-- 微信官方订阅弹窗须用户点击后才能调起；底部引导条承接「进首页提醒」体验 -->
 <t-popup

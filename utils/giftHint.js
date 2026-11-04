@@ -23,6 +23,29 @@ export function defaultOaBonusPoints() {
   return Math.max(0, Number(config.oaBonusPoints) || 1);
 }
 
+export function defaultAdRewardPoints() {
+  return Math.max(0, Number(config.adRewardPoints) || 2);
+}
+
+export function defaultAdRewardDailyMax() {
+  return Math.max(0, Number(config.adRewardDailyMax) || 5);
+}
+
+export function defaultSaveAdRewardPoints() {
+  return Math.max(0, Number(config.saveAdRewardPoints) || 1);
+}
+
+export function defaultSaveAdRewardDailyMax() {
+  return Math.max(0, Number(config.saveAdRewardDailyMax) || 8);
+}
+
+/** 首页信息流每隔多少个合集插一条原生广告；0=关闭 */
+export function defaultHomeFeedAdEvery() {
+  const v = Number(config.homeFeedAdEvery);
+  if (Number.isNaN(v)) return 6;
+  return Math.max(0, Math.min(20, Math.floor(v)));
+}
+
 /**
  * 多笔待弹活动礼合并为一次展示文案（避免连环弹窗）。
  * @param {Array<{ id?: string, title?: string, points?: number }>} list

@@ -2,10 +2,16 @@ import { callFunction } from '~/utils/cloud';
 import { guardAdminPage } from '~/utils/auth';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 import {
+  defaultAdRewardDailyMax,
+  defaultAdRewardPoints,
   defaultCheckinPoints,
+  defaultHomeFeedAdEvery,
   defaultOaBonusPoints,
+  defaultSaveAdRewardDailyMax,
+  defaultSaveAdRewardPoints,
   defaultWelcomeGiftPoints,
 } from '~/utils/giftHint';
+import { setHomeFeedAdEvery } from '~/utils/nativeAd';
 
 Page({
   data: {
@@ -16,6 +22,11 @@ Page({
     welcomeGiftPoints: String(defaultWelcomeGiftPoints()),
     checkinPoints: String(defaultCheckinPoints()),
     oaBonusPoints: String(defaultOaBonusPoints()),
+    adRewardPoints: String(defaultAdRewardPoints()),
+    adRewardDailyMax: String(defaultAdRewardDailyMax()),
+    saveAdRewardPoints: String(defaultSaveAdRewardPoints()),
+    saveAdRewardDailyMax: String(defaultSaveAdRewardDailyMax()),
+    homeFeedAdEvery: String(defaultHomeFeedAdEvery()),
     userCount: 0,
     campaignTitle: '',
     campaignPoints: '10',
@@ -49,6 +60,29 @@ Page({
         oaBonusPoints: String(
           data.oaBonusPoints != null ? data.oaBonusPoints : defaultOaBonusPoints(),
         ),
+        adRewardPoints: String(
+          data.adRewardPoints != null ? data.adRewardPoints : defaultAdRewardPoints(),
+        ),
+        adRewardDailyMax: String(
+          data.adRewardDailyMax != null
+            ? data.adRewardDailyMax
+            : defaultAdRewardDailyMax(),
+        ),
+        saveAdRewardPoints: String(
+          data.saveAdRewardPoints != null
+            ? data.saveAdRewardPoints
+            : defaultSaveAdRewardPoints(),
+        ),
+        saveAdRewardDailyMax: String(
+          data.saveAdRewardDailyMax != null
+            ? data.saveAdRewardDailyMax
+            : defaultSaveAdRewardDailyMax(),
+        ),
+        homeFeedAdEvery: String(
+          data.homeFeedAdEvery != null
+            ? data.homeFeedAdEvery
+            : defaultHomeFeedAdEvery(),
+        ),
         userCount: Number(data.userCount) || 0,
         campaigns: Array.isArray(data.campaigns) ? data.campaigns : [],
       });
@@ -71,6 +105,26 @@ Page({
     this.setData({ oaBonusPoints: (e.detail && e.detail.value) || '' });
   },
 
+  onAdRewardPointsChange(e) {
+    this.setData({ adRewardPoints: (e.detail && e.detail.value) || '' });
+  },
+
+  onAdRewardDailyMaxChange(e) {
+    this.setData({ adRewardDailyMax: (e.detail && e.detail.value) || '' });
+  },
+
+  onSaveAdRewardPointsChange(e) {
+    this.setData({ saveAdRewardPoints: (e.detail && e.detail.value) || '' });
+  },
+
+  onSaveAdRewardDailyMaxChange(e) {
+    this.setData({ saveAdRewardDailyMax: (e.detail && e.detail.value) || '' });
+  },
+
+  onHomeFeedAdEveryChange(e) {
+    this.setData({ homeFeedAdEvery: (e.detail && e.detail.value) || '' });
+  },
+
   onCampaignTitleChange(e) {
     this.setData({ campaignTitle: (e.detail && e.detail.value) || '' });
   },
@@ -84,15 +138,31 @@ Page({
     const welcomeGiftPoints = Number(this.data.welcomeGiftPoints);
     const checkinPoints = Number(this.data.checkinPoints);
     const oaBonusPoints = Number(this.data.oaBonusPoints);
+    const adRewardPoints = Number(this.data.adRewardPoints);
+    const adRewardDailyMax = Number(this.data.adRewardDailyMax);
+    const saveAdRewardPoints = Number(this.data.saveAdRewardPoints);
+    const saveAdRewardDailyMax = Number(this.data.saveAdRewardDailyMax);
+    const homeFeedAdEvery = Number(this.data.homeFeedAdEvery);
     if (
       Number.isNaN(welcomeGiftPoints) ||
       welcomeGiftPoints < 0 ||
       Number.isNaN(checkinPoints) ||
       checkinPoints < 0 ||
       Number.isNaN(oaBonusPoints) ||
-      oaBonusPoints < 0
+      oaBonusPoints < 0 ||
+      Number.isNaN(adRewardPoints) ||
+      adRewardPoints < 0 ||
+      Number.isNaN(adRewardDailyMax) ||
+      adRewardDailyMax < 0 ||
+      Number.isNaN(saveAdRewardPoints) ||
+      saveAdRewardPoints < 0 ||
+      Number.isNaN(saveAdRewardDailyMax) ||
+      saveAdRewardDailyMax < 0 ||
+      Number.isNaN(homeFeedAdEvery) ||
+      homeFeedAdEvery < 0 ||
+      homeFeedAdEvery > 20
     ) {
-      wx.showToast({ title: '请填写有效非负整数', icon: 'none' });
+      wx.showToast({ title: '请填写有效非负整数（信息流间隔 0～20）', icon: 'none' });
       return;
     }
     this.setData({ saving: true });
@@ -102,12 +172,28 @@ Page({
         welcomeGiftPoints,
         checkinPoints,
         oaBonusPoints,
+        adRewardPoints,
+        adRewardDailyMax,
+        saveAdRewardPoints,
+        saveAdRewardDailyMax,
+        homeFeedAdEvery,
       });
       const data = (res && res.data) || {};
+      const nextEvery = data.homeFeedAdEvery ?? homeFeedAdEvery;
+      setHomeFeedAdEvery(nextEvery);
       this.setData({
         welcomeGiftPoints: String(data.welcomeGiftPoints ?? welcomeGiftPoints),
         checkinPoints: String(data.checkinPoints ?? checkinPoints),
         oaBonusPoints: String(data.oaBonusPoints ?? oaBonusPoints),
+        adRewardPoints: String(data.adRewardPoints ?? adRewardPoints),
+        adRewardDailyMax: String(data.adRewardDailyMax ?? adRewardDailyMax),
+        saveAdRewardPoints: String(
+          data.saveAdRewardPoints ?? saveAdRewardPoints,
+        ),
+        saveAdRewardDailyMax: String(
+          data.saveAdRewardDailyMax ?? saveAdRewardDailyMax,
+        ),
+        homeFeedAdEvery: String(nextEvery),
       });
       wx.showToast({ title: res.message || '已保存', icon: 'success' });
     } catch (e) {

@@ -1,13 +1,14 @@
 /**
  * 客户端临时 https 链 TTL 缓存（内存 + 本地持久化）。
  * 有服务端新链时一律用新链并更新缓存；仅无网络结果时才读缓存占位。
- * 微信临时链约 2 小时；TTL 取 60 分钟，避免「本地未过期、CDN 已拒」裂图。
+ * 微信临时链约 2 小时；服务端缓存约 50 分钟。客户端 TTL 取 45 分钟，
+ * 且同一 URL 不续期，避免「服务端旧签 + 客户端再续」叠出 CDN 已拒的裂图。
  */
 
-const TTL_MS = 60 * 60 * 1000;
+const TTL_MS = 45 * 60 * 1000;
 const MAX_ENTRIES = 1200;
 /** bump key 丢掉旧版可能已失效的持久化链 */
-const STORAGE_KEY = 'temp_url_cache_v2';
+const STORAGE_KEY = 'temp_url_cache_v3';
 const FLUSH_DELAY_MS = 600;
 
 /** @type {Record<string, { url: string, expireAt: number }>} */
@@ -20,9 +21,10 @@ function hydrateFromStorage() {
   if (hydrated) return;
   hydrated = true;
   try {
-    // 清掉 v1 坏缓存
+    // 清掉旧版可能已叠寿的坏缓存
     try {
       wx.removeStorageSync('temp_url_cache_v1');
+      wx.removeStorageSync('temp_url_cache_v2');
     } catch (e) {
       /* ignore */
     }
@@ -99,13 +101,18 @@ export function peekTempUrl(key) {
   return hit.url;
 }
 
-/** 写入缓存并返回 url */
+/** 写入缓存并返回 url；同一 url 不续期，避免把服务端旧签再撑过 CDN 有效期 */
 export function rememberTempUrl(key, url) {
   hydrateFromStorage();
   const k = String(key || '').trim();
   const u = String(url || '').trim();
   if (!k || !u) return u;
-  mem[k] = { url: u, expireAt: Date.now() + TTL_MS };
+  const now = Date.now();
+  const prev = mem[k];
+  if (prev && prev.url === u && Number(prev.expireAt) > now) {
+    return u;
+  }
+  mem[k] = { url: u, expireAt: now + TTL_MS };
   pruneIfNeeded();
   scheduleFlush();
   return u;
@@ -198,6 +205,7 @@ export function clearAllTempUrlCache() {
   try {
     wx.removeStorageSync(STORAGE_KEY);
     wx.removeStorageSync('temp_url_cache_v1');
+    wx.removeStorageSync('temp_url_cache_v2');
   } catch (e) {
     /* ignore */
   }

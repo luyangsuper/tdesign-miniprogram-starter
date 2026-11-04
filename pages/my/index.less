@@ -154,6 +154,13 @@
     animation: my-fade-up 0.28s ease 0.04s both;
   }
 
+  &__native-ad {
+    margin: 0 12rpx 12rpx;
+    overflow: hidden;
+    border-radius: 16rpx;
+    background: var(--td-bg-color-container);
+  }
+
   &__benefit-top {
     display: flex;
     align-items: center;
@@ -243,6 +250,15 @@
     display: block;
     .ui-caption();
     margin: 2rpx 0 10rpx;
+  }
+
+  &__benefit-row--perk {
+    align-items: center;
+  }
+
+  &__benefit-perk {
+    display: flex;
+    align-items: center;
   }
 
   &__pricing-links {
@@ -482,7 +498,36 @@
 .my__pricing-sheet-rule {
   .ui-caption();
   margin-top: 6rpx;
+  margin-bottom: 12rpx;
+}
+
+.my__pricing-vip-perk {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
   margin-bottom: 20rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 14rpx;
+  background: rgba(7, 193, 96, 0.1);
+  box-sizing: border-box;
+}
+
+.my__pricing-vip-perk-icon {
+  flex-shrink: 0;
+  width: 32rpx;
+  height: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 抵消 t-icon 字形视觉偏上 */
+  transform: translateY(1rpx);
+}
+
+.my__pricing-vip-perk-text {
+  flex: 1;
+  .ui-caption();
+  color: var(--td-text-color-primary);
+  line-height: 1.45;
 }
 
 .my__pricing-service {
@@ -1008,6 +1053,26 @@
 .my__festival-sheet-foot {
   height: calc(56rpx + env(safe-area-inset-bottom));
   flex-shrink: 0;
+}
+
+.my__festival-sheet-perk {
+  margin: 8rpx 0 4rpx;
+  padding: 12rpx 16rpx;
+  border-radius: 12rpx;
+  background: rgba(7, 193, 96, 0.1);
+  .ui-caption();
+  color: var(--td-text-color-primary);
+  line-height: 1.45;
+}
+
+.my__festival-sheet-perk--free {
+  background: rgba(227, 77, 89, 0.08);
+}
+
+.my__festival-sheet-perk-link {
+  margin-left: 8rpx;
+  color: var(--td-brand-color);
+  font-weight: 600;
 }
 
 .my__festival-sheet-desc {

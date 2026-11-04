@@ -86,13 +86,13 @@ export function buildPricingPlansFromProducts(products) {
       const yuan = fenToYuan(p.priceFen);
       const days = Math.max(1, Number(p.value) || 30);
       const periodLabel = `${days} 天`;
-      let desc = `每月 ${monthly} 积分`;
+      let desc = `每月 ${monthly} 积分 · 应用内免广告 · 全节日氛围`;
       if (meta.key === 'month') {
-        desc = `每月 ${monthly} 积分 · 约 ${Math.floor(monthly / animCost)} 张动态`;
+        desc = `每月 ${monthly} 积分 · 应用内免广告 · 全节日氛围`;
       } else if (meta.key === 'quarter') {
-        desc = `每月仍 ${monthly} 积分 · 约合 ¥${formatYuan(yuan / 3)}/月`;
+        desc = `每月仍 ${monthly} 积分 · 应用内免广告 · 全节日 · 约合 ¥${formatYuan(yuan / 3)}/月`;
       } else {
-        desc = `每月仍 ${monthly} 积分 · 约合 ¥${formatYuan(yuan / 12)}/月`;
+        desc = `每月仍 ${monthly} 积分 · 应用内免广告 · 全节日 · 约合 ¥${formatYuan(yuan / 12)}/月`;
       }
       return withDealFields(
         {
@@ -149,7 +149,8 @@ export function buildPricingPlansFromProducts(products) {
     monthlyQuota: monthly,
     serviceWechat: config.serviceWechat || 'Shine_Luyang',
     costLine: `保存原图：静态 ${staticCost} 积分 · 动态 ${animCost} 积分`,
-    ruleLine: `包月额度自然月重置，未用完不滚存；先扣本月额度，再扣购买积分。`,
+    ruleLine: `包月含每月额度、应用内免广告（信息流/详情等原生广告，不含启动封面广告）与全节日氛围（普通用户仅春节/圣诞）；额度自然月重置，未用完不滚存；先扣本月额度，再扣购买积分。`,
+    vipPerkLine: '会员权益：每月额度 · 应用内免广告 · 全节日氛围 · 有效期内一直生效',
     buyTip: payOn
       ? '点「购买」可在小程序内支付到账；也可复制微信号联系客服，或使用兑换码。'
       : '暂不支持在线支付。复制微信号联系客服，付款后发兑换码；也可在上方自行兑换。',
@@ -191,7 +192,7 @@ function getPricingPlansFromConfig() {
         title: '包月',
         priceFen: Math.round((pricing.monthYuan ?? 9) * 100),
         period: '30 天',
-        desc: `每月 ${monthly} 积分 · 约 ${Math.floor(monthly / animCost)} 张动态`,
+        desc: `每月 ${monthly} 积分 · 应用内免广告 · 全节日氛围`,
         type: 'vip_days',
         value: 30,
         note: `包月¥${formatYuan(pricing.monthYuan ?? 9)}`,
@@ -209,7 +210,7 @@ function getPricingPlansFromConfig() {
         title: '季卡',
         priceFen: Math.round((pricing.quarterYuan ?? 24) * 100),
         period: '90 天',
-        desc: `每月仍 ${monthly} 积分 · 约合 ¥${formatYuan((pricing.quarterYuan ?? 24) / 3)}/月`,
+        desc: `每月仍 ${monthly} 积分 · 应用内免广告 · 全节日 · 约合 ¥${formatYuan((pricing.quarterYuan ?? 24) / 3)}/月`,
         type: 'vip_days',
         value: 90,
         note: `季卡¥${formatYuan(pricing.quarterYuan ?? 24)}`,
@@ -227,7 +228,7 @@ function getPricingPlansFromConfig() {
         title: '年卡',
         priceFen: Math.round((pricing.yearYuan ?? 70) * 100),
         period: '365 天',
-        desc: `每月仍 ${monthly} 积分 · 约合 ¥${formatYuan((pricing.yearYuan ?? 70) / 12)}/月`,
+        desc: `每月仍 ${monthly} 积分 · 应用内免广告 · 全节日 · 约合 ¥${formatYuan((pricing.yearYuan ?? 70) / 12)}/月`,
         type: 'vip_days',
         value: 365,
         note: `年卡¥${formatYuan(pricing.yearYuan ?? 70)}`,
@@ -275,7 +276,8 @@ function getPricingPlansFromConfig() {
     monthlyQuota: monthly,
     serviceWechat: config.serviceWechat || 'Shine_Luyang',
     costLine: `保存原图：静态 ${staticCost} 积分 · 动态 ${animCost} 积分`,
-    ruleLine: `包月额度自然月重置，未用完不滚存；先扣本月额度，再扣购买积分。`,
+    ruleLine: `包月含每月额度、应用内免广告（信息流/详情等原生广告，不含启动封面广告）与全节日氛围（普通用户仅春节/圣诞）；额度自然月重置，未用完不滚存；先扣本月额度，再扣购买积分。`,
+    vipPerkLine: '会员权益：每月额度 · 应用内免广告 · 全节日氛围 · 有效期内一直生效',
     buyTip: payOn
       ? '点「购买」可在小程序内支付到账；也可复制微信号联系客服，或使用兑换码。'
       : '暂不支持在线支付。复制微信号联系客服，付款后发兑换码；也可在上方自行兑换。',

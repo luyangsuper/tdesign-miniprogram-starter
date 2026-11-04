@@ -2,6 +2,8 @@ import { callFunction } from '~/utils/cloud';
 import { canBeAdmin } from '~/utils/auth';
 import { getFestivalConfettiColors } from '~/utils/festival';
 import { getLotteryAudio } from '~/utils/lotteryAudio';
+import { promptSaveAdForPoints } from '~/utils/adReward';
+import { spendablePoints, getCachedEntitlement } from '~/utils/entitlement';
 
 const ART = {
   miss: '/static/lottery/miss.png',
@@ -230,16 +232,20 @@ Component({
         this._paint(-1, -1, -1);
         const msg = (e && e.message) || '抽奖失败';
         if (/积分不足/.test(msg)) {
-          const go = await new Promise((resolve) => {
-            wx.showModal({
-              title: '可用积分不足',
-              content: `${msg}。包月额度也可抽，可到「我的」开通或购买。`,
-              confirmText: '去我的',
-              success: (r) => resolve(!!r.confirm),
-              fail: () => resolve(false),
-            });
+          const need = Math.max(0, Number(this.data.costPoints) || 0);
+          const adRes = await promptSaveAdForPoints({
+            page: this,
+            message: msg,
+            need,
+            count: 1,
+            unitCost: need,
+            actionLabel: '抽一次奖',
+            maxRounds: 2,
           });
-          if (go) wx.switchTab({ url: '/pages/my/index' });
+          if (adRes.action === 'go_my') {
+            wx.switchTab({ url: '/pages/my/index' });
+          }
+          // 看广告到账庆祝已由 promptSaveAdForPoints → showPointsReward 处理
         } else {
           wx.showToast({ title: msg, icon: 'none' });
         }

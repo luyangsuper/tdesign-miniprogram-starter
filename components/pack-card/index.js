@@ -1,4 +1,5 @@
 import { categoryTagStyle, metaTagStyle } from '~/utils/categories';
+import { forgetTempUrl, packCoverCacheKey } from '~/utils/tempUrlCache';
 import { getThemeBrand } from '~/utils/theme';
 
 Component({
@@ -182,6 +183,14 @@ Component({
         mediaHeight: cardW ? Math.round(cardW * ratio) : 0,
       });
       this.triggerEvent('ratiochange', { packId, coverRatio: ratio });
+    },
+
+    /** 临时链失效时丢掉本地缓存，让列表静默换签 */
+    onCoverError() {
+      const { packId, coverUrl } = this.data;
+      if (packId) forgetTempUrl(packCoverCacheKey(packId));
+      this.setData({ coverReady: false });
+      this.triggerEvent('covererror', { packId, coverUrl });
     },
 
     onTap() {

@@ -1,6 +1,14 @@
 import { callFunction } from '~/utils/cloud';
 import { setCachedEntitlement } from '~/utils/entitlement';
+import {
+  defaultSaveAdRewardPoints,
+  fetchAdRewardStatus,
+  formatAdClaimToast,
+  isSaveAdRewardEnabled,
+  watchAdAndClaimPoints,
+} from '~/utils/adReward';
 import { getFestivalConfettiColors } from '~/utils/festival';
+import { showPointsReward } from '~/utils/pointsReward';
 import { getThemeStyle } from '~/utils/theme';
 import { defaultCheckinPoints } from '~/utils/giftHint';
 
@@ -73,6 +81,11 @@ Component({
     canMakeupNow: false,
     nextMakeupDateKey: '',
     nextMakeupLabel: '',
+    adBonusVisible: false,
+    adBonusClaiming: false,
+    adBonusPoints: defaultSaveAdRewardPoints(),
+    adBonusLeftToday: 0,
+    adBonusBtnText: '看广告再领 +1',
   },
 
   observers: {
@@ -89,6 +102,40 @@ Component({
       if (!isCurrentMonth) return '仅可签到本月';
       if (checkedToday) return '今日已签到';
       return `立即签到 +${checkinPoints}`;
+    },
+
+    buildAdBonusBtnText(points, leftToday) {
+      const p = Math.max(1, Number(points) || defaultSaveAdRewardPoints());
+      const left = Math.max(0, Number(leftToday) || 0);
+      if (left <= 0) return '今日广告奖励已用完';
+      return `看广告再领 +${p}`;
+    },
+
+    async refreshAdBonusStatus() {
+      if (!isSaveAdRewardEnabled()) {
+        this.setData({
+          adBonusVisible: false,
+          adBonusPoints: defaultSaveAdRewardPoints(),
+          adBonusLeftToday: 0,
+          adBonusBtnText: '看广告再领 +1',
+        });
+        return;
+      }
+      const status = await fetchAdRewardStatus('save');
+      const points = Math.max(
+        1,
+        Number(status && status.points) || defaultSaveAdRewardPoints(),
+      );
+      const leftToday = Math.max(0, Number(status && status.leftToday) || 0);
+      const enabled = !!(status && status.enabled) && leftToday > 0;
+      // 今日已签到（或刚签完）才露出「再领」入口，避免抢签到主按钮
+      const visible = enabled && !!this.data.checkedToday;
+      this.setData({
+        adBonusVisible: visible,
+        adBonusPoints: points,
+        adBonusLeftToday: leftToday,
+        adBonusBtnText: this.buildAdBonusBtnText(points, leftToday),
+      });
     },
 
     applyStatus(data, fallbackMonthKey) {
@@ -143,6 +190,7 @@ Component({
         nextMakeupDateKey,
         nextMakeupLabel: formatDateLabel(nextMakeupDateKey),
       });
+      this.refreshAdBonusStatus();
     },
 
     async loadStatus(monthKey) {
@@ -243,20 +291,24 @@ Component({
           await this.loadStatus(stayMonth || undefined);
         }
         this.playConfetti();
+        const added = Math.max(
+          0,
+          Number(data.added) || this.data.checkinPoints || 0,
+        );
         this.triggerEvent('success', {
           isMakeup: !!isMakeup,
-          added: data.added || this.data.checkinPoints,
+          added,
           entitlement: data.entitlement || null,
           message: res.message || '',
         });
-        wx.showToast({
-          title:
-            res.message ||
-            (isMakeup
-              ? `补签成功 +${data.added || this.data.checkinPoints}`
-              : `+${data.added || this.data.checkinPoints} 积分`),
-          icon: 'success',
+        showPointsReward({
+          host: this,
+          points: added,
+          title: isMakeup ? '补签成功' : '签到成功',
+          tip: res.message || '',
         });
+        // 签到成功后露出 15s 广告再领
+        this.refreshAdBonusStatus();
       } catch (e) {
         wx.showToast({ title: (e && e.message) || '签到失败', icon: 'none' });
       } finally {
@@ -271,6 +323,80 @@ Component({
 
     onMakeup() {
       this.doCheckin(true);
+    },
+
+    async onWatchAdBonus() {
+      if (this.data.adBonusClaiming || this.data.checking) return;
+      if (!this.data.adBonusVisible) {
+        wx.showToast({ title: '暂不可领取', icon: 'none' });
+        return;
+      }
+      if (this.data.adBonusLeftToday <= 0) {
+        wx.showToast({ title: '今日广告奖励已用完', icon: 'none' });
+        return;
+      }
+
+      this.setData({ adBonusClaiming: true });
+      try {
+        const pages =
+          typeof getCurrentPages === 'function' ? getCurrentPages() : [];
+        const page = pages.length ? pages[pages.length - 1] : null;
+        const res = await watchAdAndClaimPoints({ page, slot: 'save' });
+        if (!res || !res.ok) {
+          if (res && res.reason === 'SKIPPED') return;
+          wx.showToast({
+            title: (res && res.message) || '领取失败',
+            icon: 'none',
+          });
+          if (res && res.data) {
+            const left = Math.max(0, Number(res.data.leftToday) || 0);
+            const points = Math.max(
+              1,
+              Number(res.data.points) || this.data.adBonusPoints,
+            );
+            this.setData({
+              adBonusVisible: left > 0 && !!this.data.checkedToday,
+              adBonusLeftToday: left,
+              adBonusPoints: points,
+              adBonusBtnText: this.buildAdBonusBtnText(points, left),
+            });
+          } else {
+            this.refreshAdBonusStatus();
+          }
+          return;
+        }
+        if (res.entitlement) {
+          setCachedEntitlement(res.entitlement);
+          this.setData({
+            points: Math.max(0, Number(res.entitlement.points) || 0),
+          });
+        }
+        const gained = Math.max(
+          0,
+          Number(res.points) || this.data.adBonusPoints || 0,
+        );
+        this.triggerEvent('success', {
+          isMakeup: false,
+          added: gained,
+          entitlement: res.entitlement || null,
+          message: res.message || '',
+          fromAd: true,
+        });
+        showPointsReward({
+          host: this,
+          points: gained,
+          title: '看广告再领',
+          tip:
+            formatAdClaimToast({ gained }) ||
+            (gained ? `已到账 +${gained}` : ''),
+        });
+        this.refreshAdBonusStatus();
+      } catch (e) {
+        wx.showToast({ title: (e && e.message) || '领取失败', icon: 'none' });
+        this.refreshAdBonusStatus();
+      } finally {
+        this.setData({ adBonusClaiming: false });
+      }
     },
   },
 });

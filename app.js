@@ -8,6 +8,7 @@ import {
   applyPendingLotteryResults,
 } from './utils/lotteryHint';
 import { setCachedEntitlement } from './utils/entitlement';
+import { showPointsReward } from './utils/pointsReward';
 import { initTheme } from './utils/theme';
 import {
   ensureFestivalModeForRole,
@@ -120,7 +121,11 @@ App({
         applyPendingPointGifts(res.pendingPointGifts);
         const n = Number(res.points) || 0;
         if (n > 0) {
-          wx.showToast({ title: `公众号礼 +${n} 积分`, icon: 'none' });
+          showPointsReward({
+            points: n,
+            title: '公众号礼',
+            tip: '已放进你的账户',
+          });
         }
       } else if (
         res &&

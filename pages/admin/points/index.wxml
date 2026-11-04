@@ -1,6 +1,6 @@
 <view class="admin-points" style="{{themeStyle}}">
   <view class="admin-points__tip">
-    见面礼 / 签到 / 公众号入口改完立即生效。活动发积分只发给云库里已有账号的用户，从未登录的人不会预建、也不会发到。公众号路径示例：pages/home/index?oaId=文章ID
+    见面礼 / 签到 / 公众号入口 / 信息流广告间隔改完立即生效（首页下次拉取权益时应用）。活动发积分只发给云库里已有账号的用户，从未登录的人不会预建、也不会发到。公众号路径示例：pages/home/index?oaId=文章ID
   </view>
 
   <view wx:if="{{loading}}" class="admin-points__loading">
@@ -57,6 +57,91 @@
           suffix="积分"
           value="{{oaBonusPoints}}"
           bind:change="onOaBonusChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">主动看广告奖励</view>
+          <view class="admin-points__hint">「我的」入口 · 建议 2 · 0 关闭</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{adRewardPoints}}"
+          bind:change="onAdRewardPointsChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">主动广告每日上限</view>
+          <view class="admin-points__hint">建议 5 · 0 关闭</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="次"
+          value="{{adRewardDailyMax}}"
+          bind:change="onAdRewardDailyMaxChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">救急看广告奖励</view>
+          <view class="admin-points__hint">保存/抽奖积分不足 · 建议 1 · 0 关闭</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{saveAdRewardPoints}}"
+          bind:change="onSaveAdRewardPointsChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">救急广告每日上限</view>
+          <view class="admin-points__hint">建议 8 · 0 关闭</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="次"
+          value="{{saveAdRewardDailyMax}}"
+          bind:change="onSaveAdRewardDailyMaxChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">首页信息流广告间隔</view>
+          <view class="admin-points__hint">每隔 N 个合集插 1 条 · 建议 6～8 · 0 关闭</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="个"
+          value="{{homeFeedAdEvery}}"
+          bind:change="onHomeFeedAdEveryChange"
         />
       </view>
     </view>

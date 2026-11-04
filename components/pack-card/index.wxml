@@ -22,6 +22,7 @@
       width="100%"
       height="100%"
       bind:load="onCoverLoad"
+      bind:error="onCoverError"
     >
       <view slot="loading" class="pack-card__skeleton" aria-hidden="true" />
     </t-image>

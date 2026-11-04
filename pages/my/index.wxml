@@ -87,6 +87,19 @@
         <text class="my__benefit-v">{{benefit.pointsText}}</text>
       </view>
 
+      <view wx:if="{{benefit.adFreeActive}}" class="my__benefit-row my__benefit-row--perk">
+        <text class="my__benefit-k">应用内免广告</text>
+        <view class="my__benefit-perk">
+          <t-tag size="small" variant="light" theme="success">{{benefit.adFreeLabel}}</t-tag>
+        </view>
+      </view>
+      <view wx:if="{{benefit.festivalAllActive}}" class="my__benefit-row my__benefit-row--perk">
+        <text class="my__benefit-k">全节日氛围</text>
+        <view class="my__benefit-perk">
+          <t-tag size="small" variant="light" theme="success">{{benefit.festivalAllLabel}}</t-tag>
+        </view>
+      </view>
+
       <text class="my__benefit-foot">{{benefit.footLine}}</text>
     </block>
     <view class="my__pricing-strip" bindtap="openPricing">
@@ -156,6 +169,16 @@
         bind:tap="onRedeem"
       />
     </view>
+  </view>
+
+  <view
+    wx:if="{{showNativeAd && nativeAdUnitId}}"
+    class="my__native-ad"
+  >
+    <ad-custom
+      unit-id="{{nativeAdUnitId}}"
+      binderror="onNativeAdError"
+    />
   </view>
 
   <t-cell-group theme="card" t-class="my-cell-group">
@@ -241,6 +264,23 @@
     >
       <view slot="left-icon" class="my-menu-icon">
         <image class="my-menu-icon__img" src="/static/emoji/checkin.png" mode="aspectFit" />
+      </view>
+    </t-cell>
+    <t-cell
+      wx:if="{{adRewardVisible}}"
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="看广告领积分"
+      note="{{adRewardNote}}"
+      hover
+      bind:click="onWatchAdReward"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="play-circle" size="40rpx" color="#0052D9" />
       </view>
     </t-cell>
     <t-cell
@@ -684,6 +724,12 @@
     >
       <view class="my__pricing-sheet-desc">{{pricing.costLine}}</view>
       <view class="my__pricing-sheet-rule">{{pricing.ruleLine}}</view>
+      <view wx:if="{{pricing.vipPerkLine}}" class="my__pricing-vip-perk">
+        <view class="my__pricing-vip-perk-icon">
+          <t-icon name="secured" size="32rpx" color="#07c160" />
+        </view>
+        <text class="my__pricing-vip-perk-text">{{pricing.vipPerkLine}}</text>
+      </view>
 
       <view class="my__pricing-service" bindtap="copyServiceWechat">
         <view class="my__pricing-service-icon">
@@ -861,6 +907,13 @@
   <scroll-view scroll-y class="my__theme-sheet my__festival-sheet" enhanced show-scrollbar="{{false}}">
     <view class="my__theme-sheet-title">节日氛围</view>
     <view class="my__festival-sheet-desc">跟随日期会在节日前后窗口内自动换肤（不只当天），可随时关闭</view>
+    <view wx:if="{{benefit.festivalAllActive || isAdmin}}" class="my__festival-sheet-perk">
+      已享全节日氛围（含元宵、中秋、国庆等）
+    </view>
+    <view wx:else class="my__festival-sheet-perk my__festival-sheet-perk--free">
+      免费开放春节、圣诞；其他节日氛围为包月会员权益
+      <text class="my__festival-sheet-perk-link" bindtap="openPricingFromFestival">去开通</text>
+    </view>
     <view wx:if="{{isAdmin && festivalSolarTableHint}}" class="my__festival-solar-warn">
       {{festivalSolarTableHint}}
     </view>
@@ -1099,5 +1152,6 @@
   bind:confirm="onFestivalCropConfirm"
 />
 
+<points-reward id="pointsReward" />
 <lottery-host />
 </view>
