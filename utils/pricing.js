@@ -42,8 +42,8 @@ const VIP_META = {
 };
 
 const POINTS_META = {
-  points_4: { key: 'p4', tone: 'points', iconSrc: '/static/pricing/points.png' },
-  points_8: { key: 'p8', tone: 'points2', iconSrc: '/static/pricing/points2.png' },
+  points_4: { key: 'p4', tone: 'points4', iconSrc: '/static/pricing/points4.png' },
+  points_8: { key: 'p8', tone: 'points5', iconSrc: '/static/pricing/points5.png' },
   points_20: { key: 'p0', tone: 'points', iconSrc: '/static/pricing/points.png' },
   points_66: { key: 'p1', tone: 'points2', iconSrc: '/static/pricing/points2.png' },
   points_170: { key: 'p2', tone: 'points3', iconSrc: '/static/pricing/points3.png' },
@@ -237,8 +237,8 @@ function getPricingPlansFromConfig() {
   ];
 
   const pointMeta = [
-    { tone: 'points', iconSrc: '/static/pricing/points.png', productId: 'points_4', planKey: 'p4' },
-    { tone: 'points2', iconSrc: '/static/pricing/points2.png', productId: 'points_8', planKey: 'p8' },
+    { tone: 'points4', iconSrc: '/static/pricing/points4.png', productId: 'points_4', planKey: 'p4' },
+    { tone: 'points5', iconSrc: '/static/pricing/points5.png', productId: 'points_8', planKey: 'p8' },
     { tone: 'points', iconSrc: '/static/pricing/points.png', productId: 'points_20', planKey: 'p0' },
     { tone: 'points2', iconSrc: '/static/pricing/points2.png', productId: 'points_66', planKey: 'p1' },
     { tone: 'points3', iconSrc: '/static/pricing/points3.png', productId: 'points_170', planKey: 'p2' },

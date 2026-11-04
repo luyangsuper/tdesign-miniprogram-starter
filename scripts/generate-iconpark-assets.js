@@ -26,6 +26,8 @@ const PALETTE = {
   points: ['#1f2937', '#10b981', '#ffffff', '#6ee7b7'],
   points2: ['#1f2937', '#06b6d4', '#ffffff', '#67e8f9'],
   points3: ['#1f2937', '#eab308', '#ffffff', '#fde047'],
+  points4: ['#1f2937', '#f97316', '#ffffff', '#fdba74'],
+  points5: ['#1f2937', '#ec4899', '#ffffff', '#f9a8d4'],
   preview: ['#1f2937', '#8b5cf6', '#ffffff', '#c4b5fd'],
   /** 叠在视频上：深底白三角，别用品牌绿显得花哨 */
   play: ['#1f2937', '#ffffff', '#ffffff', '#1f2937'],
@@ -72,9 +74,11 @@ const ASSETS = [
   { dir: 'static/pricing', file: 'month.png', icon: 'Coupon', palette: 'month', note: '包月' },
   { dir: 'static/pricing', file: 'quarter.png', icon: 'VipOne', palette: 'quarter', note: '季卡' },
   { dir: 'static/pricing', file: 'year.png', icon: 'Crown', palette: 'year', note: '年卡' },
-  { dir: 'static/pricing', file: 'points.png', icon: 'Ticket', palette: 'points', note: '积分包1' },
-  { dir: 'static/pricing', file: 'points2.png', icon: 'Gift', palette: 'points2', note: '积分包2' },
-  { dir: 'static/pricing', file: 'points3.png', icon: 'Lightning', palette: 'points3', note: '积分包3' },
+  { dir: 'static/pricing', file: 'points4.png', icon: 'Wallet', palette: 'points4', note: '积分包¥1' },
+  { dir: 'static/pricing', file: 'points5.png', icon: 'RedEnvelope', palette: 'points5', note: '积分包¥2' },
+  { dir: 'static/pricing', file: 'points.png', icon: 'Ticket', palette: 'points', note: '积分包¥5' },
+  { dir: 'static/pricing', file: 'points2.png', icon: 'Gift', palette: 'points2', note: '积分包¥16' },
+  { dir: 'static/pricing', file: 'points3.png', icon: 'Lightning', palette: 'points3', note: '积分包¥32' },
   // 节日装饰角标
   { dir: 'static/festival/christmas', file: 'tree.png', icon: 'ChristmasTree', palette: 'xmasTree', note: '圣诞树角标' },
   { dir: 'static/festival/christmas', file: 'hat.png', icon: 'WoolenHat', palette: 'xmas', note: '圣诞帽角标' },

@@ -91,6 +91,16 @@
       --plan-accent: #2980b9;
       --plan-soft: rgba(41, 128, 185, 0.1);
     }
+
+    &--points4 {
+      --plan-accent: #f97316;
+      --plan-soft: rgba(249, 115, 22, 0.1);
+    }
+
+    &--points5 {
+      --plan-accent: #ec4899;
+      --plan-soft: rgba(236, 72, 153, 0.1);
+    }
   }
 
   &__chip-icon {
@@ -284,13 +294,15 @@
     border-top: 1rpx solid var(--td-border-level1-color, rgba(0, 0, 0, 0.06));
     display: flex;
     flex-wrap: wrap;
-    gap: 12rpx;
+    gap: 12rpx 10rpx;
   }
 
   &__ops-btn {
-    flex: 1;
-    min-width: 160rpx;
+    flex: 1 1 calc(50% - 10rpx);
+    max-width: calc(50% - 10rpx);
+    min-width: 0;
     margin: 0 !important;
+    box-sizing: border-box;
   }
 
   &__footer {

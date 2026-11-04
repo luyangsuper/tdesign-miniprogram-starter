@@ -18,8 +18,8 @@ const DEFAULT_PROP_ICONS = {
   vip_month: '/static/pricing/month.png',
   vip_quarter: '/static/pricing/quarter.png',
   vip_year: '/static/pricing/year.png',
-  points_4: '/static/pricing/points.png',
-  points_8: '/static/pricing/points2.png',
+  points_4: '/static/pricing/points4.png',
+  points_8: '/static/pricing/points5.png',
   points_20: '/static/pricing/points.png',
   points_66: '/static/pricing/points2.png',
   points_170: '/static/pricing/points3.png',
@@ -29,8 +29,8 @@ const PLAN_META = {
   vip_month: { tone: 'month', shortTitle: '包月', iconSrc: '/static/pricing/month.png' },
   vip_quarter: { tone: 'quarter', shortTitle: '季卡', iconSrc: '/static/pricing/quarter.png' },
   vip_year: { tone: 'year', shortTitle: '年卡', iconSrc: '/static/pricing/year.png' },
-  points_4: { tone: 'points', shortTitle: '', iconSrc: '/static/pricing/points.png' },
-  points_8: { tone: 'points2', shortTitle: '', iconSrc: '/static/pricing/points2.png' },
+  points_4: { tone: 'points4', shortTitle: '', iconSrc: '/static/pricing/points4.png' },
+  points_8: { tone: 'points5', shortTitle: '', iconSrc: '/static/pricing/points5.png' },
   points_20: { tone: 'points', shortTitle: '', iconSrc: '/static/pricing/points.png' },
   points_66: { tone: 'points2', shortTitle: '', iconSrc: '/static/pricing/points2.png' },
   points_170: { tone: 'points3', shortTitle: '', iconSrc: '/static/pricing/points3.png' },
@@ -70,7 +70,11 @@ function buildDisplay(item) {
       desc = `每月仍 ${MONTHLY_QUOTA} 积分 · 约合 ¥${formatYuan(yuanSafe / 12)}/月`;
     }
   }
-  const thumbSrc = item.previewUrl || meta.iconSrc || DEFAULT_PROP_ICONS[slotId] || '';
+  // 未发布档优先用本地套餐图，避免云上旧图把新样式盖住
+  const localIcon = meta.iconSrc || DEFAULT_PROP_ICONS[slotId] || '';
+  const thumbSrc = !item.propPublished && localIcon
+    ? localIcon
+    : item.previewUrl || localIcon;
   const wxStatus = item.wxStatus || 'ok';
   const liveFen = Number(item.livePriceFen);
   const liveYuan = Number.isNaN(liveFen) ? yuanSafe : liveFen / 100;
@@ -261,6 +265,8 @@ Page({
       const editTitle = draft ? draft.title : p.title || slotId;
       const editPriceFen = draft ? draft.priceFen : p.priceFen;
       const editValue = draft ? draft.value : p.value;
+      const propPublished = !!(p.wx && p.wx.propPublished);
+      const busySync = meta.wxStatus === 'syncing' || meta.wxStatus === 'ready';
       return buildDisplay({
         slotId,
         productId: slotId,
@@ -271,8 +277,8 @@ Page({
         type: p.type || (slotId.startsWith('points') ? 'points' : 'vip_days'),
         itemFileId: p.itemFileId || '',
         previewUrl: p._previewUrl || '',
-        wxStatus: meta.wxStatus,
-        wxLabel: meta.wxLabel,
+        wxStatus: !propPublished && !draft && meta.wxStatus === 'ok' ? 'await_mp' : meta.wxStatus,
+        wxLabel: meta.wxLabel || (!propPublished && !draft ? '未发布到微信' : ''),
         wxError: (p.wx && p.wx.status === 'fail' && p.wx.error) || '',
         draftText,
         syncHint,
@@ -280,6 +286,9 @@ Page({
         canRetry: meta.wxStatus === 'fail',
         canConfirm: !!(draft && meta.wxStatus === 'ready'),
         canCancel: !!draft,
+        canFirstPublish: !draft && !propPublished,
+        canUpdateEntitlement: !busySync,
+        propPublished,
         livePriceFen: Number(p.priceFen) || 0,
         liveTitle: p.title || '',
         liveValue: Number(p.value) || 0,
@@ -318,7 +327,15 @@ Page({
       this.setData({ payEnvLabel: Number(res.payEnv) === 1 ? '沙箱' : '现网' });
       this.applyItems(items);
       this.maybeStartPoll(products);
-      if (items.some((it) => !it.itemFileId)) {
+      // 未发布档强制刷成最新本地默认图；其余仅补缺
+      const unpublishedSlots = items.filter((it) => !it.propPublished).map((it) => it.slotId);
+      if (unpublishedSlots.length) {
+        await this.fillDefaultIcons({
+          silent: true,
+          onlyMissing: false,
+          slots: unpublishedSlots,
+        });
+      } else if (items.some((it) => !it.itemFileId)) {
         await this.fillDefaultIcons({ silent: true, onlyMissing: true });
       }
     } catch (e) {
@@ -358,10 +375,12 @@ Page({
   async fillDefaultIcons(opts = {}) {
     const silent = !!opts.silent;
     const onlyMissing = opts.onlyMissing !== false;
+    const slotFilter = Array.isArray(opts.slots) ? new Set(opts.slots.filter(Boolean)) : null;
     if (this.data.fillingIcons || this.data.saving) return;
     const targets = (this.data.items || []).filter((it) => {
       const slot = it.slotId || it.productId;
       if (!DEFAULT_PROP_ICONS[slot]) return false;
+      if (slotFilter && !slotFilter.has(slot)) return false;
       return onlyMissing ? !it.itemFileId : true;
     });
     if (!targets.length) {
@@ -626,6 +645,96 @@ Page({
       wx.showToast({ title: (res && res.message) || '已对齐', icon: 'none', duration: 2500 });
     } catch (err) {
       wx.showToast({ title: (err && err.message) || '操作失败', icon: 'none' });
+    } finally {
+      this.setData({ retryingId: '' });
+    }
+  },
+
+  async onFirstPublish(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id || this.data.retryingId) return;
+    const it = (this.data.items || []).find((x) => (x.slotId || x.productId) === id);
+    if (!it) return;
+    const priceFen = yuanToFen(it.priceYuan);
+    const value = Number(it.value);
+    if (Number.isNaN(priceFen) || priceFen < 1) {
+      wx.showToast({ title: '售价无效', icon: 'none' });
+      return;
+    }
+    if (Number.isNaN(value) || value < 1) {
+      wx.showToast({ title: '权益无效', icon: 'none' });
+      return;
+    }
+    if (!it.itemFileId) {
+      wx.showToast({ title: '请先上传道具图', icon: 'none' });
+      return;
+    }
+    const ok = await new Promise((resolve) => {
+      wx.showModal({
+        title: '首次发布到微信',
+        content: `将按当前「${it.title || id} · ¥${it.priceYuan} · ${value}${
+          String(it.type) === 'points' ? '积分' : '天'
+        }」新建微信道具并上传。完成后点「确认切换」才会用于支付。`,
+        confirmText: '开始发布',
+        success: (r) => resolve(!!r.confirm),
+      });
+    });
+    if (!ok) return;
+    this.setData({ retryingId: id });
+    try {
+      const res = await callFunction('adminManagePricing', {
+        action: 'firstPublish',
+        slotId: id,
+        productId: id,
+        title: it.title,
+        value,
+        priceFen,
+      });
+      const next = await this.hydratePreviews(res.products || []);
+      this.applyItems(this.mapItems(next));
+      this.maybeStartPoll(next);
+      wx.showToast({ title: (res && res.message) || '已开始发布', icon: 'none', duration: 3000 });
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '发布失败', icon: 'none' });
+    } finally {
+      this.setData({ retryingId: '' });
+    }
+  },
+
+  async onUpdateEntitlement(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id || this.data.retryingId) return;
+    const it = (this.data.items || []).find((x) => (x.slotId || x.productId) === id);
+    if (!it) return;
+    const value = Number(it.value);
+    if (Number.isNaN(value) || value < 1) {
+      wx.showToast({ title: '权益无效', icon: 'none' });
+      return;
+    }
+    const unit = String(it.type) === 'points' ? '积分' : '天';
+    const ok = await new Promise((resolve) => {
+      wx.showModal({
+        title: '仅更新权益',
+        content: `把发放改为 ${value} ${unit}（及道具名）。不改售价、不新建微信道具。适合「积分 20→18」这类调整。`,
+        confirmText: '更新',
+        success: (r) => resolve(!!r.confirm),
+      });
+    });
+    if (!ok) return;
+    this.setData({ retryingId: id });
+    try {
+      const res = await callFunction('adminManagePricing', {
+        action: 'updateEntitlement',
+        slotId: id,
+        productId: id,
+        title: it.title,
+        value,
+      });
+      const next = await this.hydratePreviews(res.products || []);
+      this.applyItems(this.mapItems(next));
+      wx.showToast({ title: (res && res.message) || '已更新', icon: 'none', duration: 2800 });
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '更新失败', icon: 'none' });
     } finally {
       this.setData({ retryingId: '' });
     }

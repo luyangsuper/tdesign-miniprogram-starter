@@ -1,6 +1,6 @@
 <view class="admin-pricing" style="{{themeStyle}}">
   <view class="admin-pricing__tip">
-    改价=新建道具 ID 上传（微信同时只跑 1 个任务，会自动排队）。图须 200×200。官方无删除道具 API，旧 ID 可在 MP「道具管理」下架，或不删留着。支付失败：对齐现网价。
+    改价=新建道具 ID。新档点「首次发布」；只改积分/天数点「更新权益」。支付价对不上微信时用「对齐价格」。未发布档会自动刷最新默认图。图须 200×200。
   </view>
 
   <view wx:if="{{loading}}" class="admin-pricing__loading">
@@ -15,7 +15,7 @@
         theme="default"
         variant="text"
         size="small"
-        content="{{missingIconCount ? '补默认道具图' : '重置默认道具图'}}"
+        content="{{missingIconCount ? '补默认道具图' : '刷新默认道具图'}}"
         loading="{{fillingIcons}}"
         disabled="{{fillingIcons || saving}}"
         bind:tap="onFillDefaultIcons"
@@ -107,7 +107,7 @@
               t-class="admin-pricing__ops-btn"
               theme="primary"
               variant="outline"
-              size="medium"
+              size="small"
               content="确认切换"
               loading="{{retryingId === item.slotId}}"
               disabled="{{saving || !!retryingId}}"
@@ -119,7 +119,7 @@
               t-class="admin-pricing__ops-btn"
               theme="primary"
               variant="outline"
-              size="medium"
+              size="small"
               content="重试上传"
               loading="{{retryingId === item.slotId}}"
               disabled="{{saving || !!retryingId}}"
@@ -131,7 +131,7 @@
               t-class="admin-pricing__ops-btn"
               theme="default"
               variant="outline"
-              size="medium"
+              size="small"
               content="放弃"
               loading="{{retryingId === item.slotId}}"
               disabled="{{saving || !!retryingId}}"
@@ -139,11 +139,35 @@
               bind:tap="onCancelDraft"
             />
             <t-button
+              wx:if="{{item.canFirstPublish}}"
+              t-class="admin-pricing__ops-btn"
+              theme="primary"
+              variant="outline"
+              size="small"
+              content="首次发布"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onFirstPublish"
+            />
+            <t-button
+              wx:if="{{item.canUpdateEntitlement}}"
+              t-class="admin-pricing__ops-btn"
+              theme="default"
+              variant="outline"
+              size="small"
+              content="更新权益"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onUpdateEntitlement"
+            />
+            <t-button
               t-class="admin-pricing__ops-btn"
               theme="danger"
               variant="outline"
-              size="medium"
-              content="对齐现网价"
+              size="small"
+              content="对齐价格"
               loading="{{retryingId === item.slotId}}"
               disabled="{{saving || !!retryingId}}"
               data-id="{{item.slotId}}"
@@ -239,7 +263,7 @@
               t-class="admin-pricing__ops-btn"
               theme="primary"
               variant="outline"
-              size="medium"
+              size="small"
               content="确认切换"
               loading="{{retryingId === item.slotId}}"
               disabled="{{saving || !!retryingId}}"
@@ -251,7 +275,7 @@
               t-class="admin-pricing__ops-btn"
               theme="primary"
               variant="outline"
-              size="medium"
+              size="small"
               content="重试上传"
               loading="{{retryingId === item.slotId}}"
               disabled="{{saving || !!retryingId}}"
@@ -263,7 +287,7 @@
               t-class="admin-pricing__ops-btn"
               theme="default"
               variant="outline"
-              size="medium"
+              size="small"
               content="放弃"
               loading="{{retryingId === item.slotId}}"
               disabled="{{saving || !!retryingId}}"
@@ -271,11 +295,35 @@
               bind:tap="onCancelDraft"
             />
             <t-button
+              wx:if="{{item.canFirstPublish}}"
+              t-class="admin-pricing__ops-btn"
+              theme="primary"
+              variant="outline"
+              size="small"
+              content="首次发布"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onFirstPublish"
+            />
+            <t-button
+              wx:if="{{item.canUpdateEntitlement}}"
+              t-class="admin-pricing__ops-btn"
+              theme="default"
+              variant="outline"
+              size="small"
+              content="更新权益"
+              loading="{{retryingId === item.slotId}}"
+              disabled="{{saving || !!retryingId}}"
+              data-id="{{item.slotId}}"
+              bind:tap="onUpdateEntitlement"
+            />
+            <t-button
               t-class="admin-pricing__ops-btn"
               theme="danger"
               variant="outline"
-              size="medium"
-              content="对齐现网价"
+              size="small"
+              content="对齐价格"
               loading="{{retryingId === item.slotId}}"
               disabled="{{saving || !!retryingId}}"
               data-id="{{item.slotId}}"

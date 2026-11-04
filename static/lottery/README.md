@@ -15,14 +15,3 @@
 | pts12.png | Diamond | 12积分 |
 | pts18.png | Crown | 18积分大奖 |
 | go.png | GiftBox | 中间抽奖钮 |
-
-## 音效 `sfx/`
-
-卡通轻松向，来自 [Kenney Interface Sounds](https://kenney.nl/assets/interface-sounds)（CC0），转成 mp3 以便微信播放。
-
-| File | Kenney | License |
-|------|--------|---------|
-| tick.mp3 | click_001 | CC0 |
-| start.mp3 | confirmation_001 | CC0 |
-| win.mp3 | confirmation_002 | CC0 |
-| miss.mp3 | minimize_001 | CC0 |

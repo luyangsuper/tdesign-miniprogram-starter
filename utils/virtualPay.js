@@ -67,6 +67,41 @@ function wxLoginCode() {
   });
 }
 
+/** 虚拟支付常见错误 → 可读中文（原生 errMsg 常被 toast 截断） */
+function friendlyVirtualPayError(err) {
+  const raw = String((err && (err.errMsg || err.message)) || '');
+  const code = err && err.errCode;
+  if (code === -2 || /cancel/i.test(raw)) {
+    return { message: '已取消支付', code: 'CANCEL', errCode: code };
+  }
+  // -15014 / COIN_OR_PRODUCT_ID_CREATED_IN_RECENTLY：刚发布未全网生效
+  if (
+    code === -15014 ||
+    /COIN_OR_PRODUCT_ID_CREATED_IN_RECENTLY/i.test(raw) ||
+    /发布未生效/i.test(raw)
+  ) {
+    return {
+      message: '道具刚发布，微信同步中，请过 10～30 分钟再试',
+      code: 'PRODUCT_SYNCING',
+      errCode: code || -15014,
+    };
+  }
+  if (code === -15010 || /productId未发布|道具.*未发布/i.test(raw)) {
+    return { message: '该道具尚未在微信发布，请先在管理端完成发布并确认切换', code: 'PRODUCT_UNPUBLISHED', errCode: code };
+  }
+  if (code === -15013 || /goodsPrice|道具价格错误/i.test(raw)) {
+    return { message: '售价与微信道具价不一致，请在管理端「对齐价格」或重新发布', code: 'PRICE_MISMATCH', errCode: code };
+  }
+  if (code === -15009) {
+    return { message: '代币未发布', code: 'COIN_UNPUBLISHED', errCode: code };
+  }
+  if (code === -15018 || /审核不通过/i.test(raw)) {
+    return { message: '道具/代币审核未通过，请到微信公众平台查看', code: 'AUDIT_FAIL', errCode: code };
+  }
+  const short = raw.replace(/^requestVirtualPayment:fail\s*/i, '').trim() || '支付失败';
+  return { message: short.slice(0, 48), code: 'PAY_FAIL', errCode: code };
+}
+
 function requestVirtualPayment(pay) {
   return new Promise((resolve, reject) => {
     if (!canUseVirtualPay()) {
@@ -80,11 +115,10 @@ function requestVirtualPayment(pay) {
       signature: pay.signature,
       success: (res) => resolve(res),
       fail: (err) => {
-        const msg = (err && (err.errMsg || err.message)) || '支付失败';
-        const code = err && err.errCode;
-        const e = new Error(msg);
-        e.errCode = code;
-        if (code === -2 || /cancel/i.test(msg)) e.code = 'CANCEL';
+        const mapped = friendlyVirtualPayError(err);
+        const e = new Error(mapped.message);
+        e.errCode = mapped.errCode;
+        e.code = mapped.code;
         reject(e);
       },
     });

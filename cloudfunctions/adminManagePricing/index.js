@@ -72,13 +72,26 @@ function isRetryableWxErr(err) {
   );
 }
 
-function markQueued(entry, hint) {
+function setWx(entry, patch) {
+  const prev = (entry && entry.wx) || {};
   entry.wx = {
+    status: patch.status != null ? patch.status : prev.status || 'ok',
+    error: patch.error != null ? String(patch.error).slice(0, 500) : prev.error || '',
+    at: patch.at != null ? patch.at : new Date(),
+    syncStartedAt:
+      patch.syncStartedAt !== undefined ? patch.syncStartedAt : prev.syncStartedAt || null,
+    propPublished:
+      patch.propPublished !== undefined ? !!patch.propPublished : !!prev.propPublished,
+  };
+}
+
+function markQueued(entry, hint) {
+  setWx(entry, {
     status: 'syncing',
     error: String(hint || '排队等待微信批量任务空闲').slice(0, 500),
     at: new Date(),
     syncStartedAt: (entry.wx && entry.wx.syncStartedAt) || Date.now(),
-  };
+  });
 }
 
 async function startUploadNewGoods(cloudInst, entry, draft) {
@@ -111,17 +124,98 @@ function promoteDraft(entry) {
   entry.value = entry.draft.value;
   entry.priceFen = entry.draft.priceFen;
   entry.draft = null;
-  entry.wx = { status: 'ok', error: '', at: new Date(), syncStartedAt: null };
+  setWx(entry, {
+    status: 'ok',
+    error: '',
+    at: new Date(),
+    syncStartedAt: null,
+    propPublished: true,
+  });
   return true;
 }
 
 function markFail(entry, err) {
-  entry.wx = {
+  setWx(entry, {
     status: 'fail',
     error: String((err && err.message) || err || '同步失败').slice(0, 500),
     at: new Date(),
     syncStartedAt: (entry.wx && entry.wx.syncStartedAt) || null,
-  };
+  });
+}
+
+function resolveSlot(doc, slotOrId) {
+  const id = String(slotOrId || '').trim();
+  if (!id) return '';
+  if (PRODUCT_IDS.includes(id)) return id;
+  return (
+    PRODUCT_IDS.find((s) => doc.products[s].productId === id) ||
+    PRODUCT_IDS.find(
+      (s) => doc.products[s].draft && doc.products[s].draft.productId === id,
+    ) ||
+    ''
+  );
+}
+
+/** 强制开新道具 ID 并上传（首次发布 / 同价重建） */
+async function beginNewPropUpload(cloudInst, doc, slot, opts = {}) {
+  const entry = doc.products[slot];
+  if (!entry) throw new Error('未知商品');
+  if (!entry.itemFileId) throw new Error('请先上传道具图（点左侧图标或「补默认道具图」）');
+  const title =
+    opts.title != null
+      ? String(opts.title).trim().slice(0, 20) || entry.title
+      : entry.title;
+  const value =
+    opts.value != null ? clampInt(opts.value, 1, 99999, entry.value) : entry.value;
+  const priceFen =
+    opts.priceFen != null
+      ? clampInt(opts.priceFen, 1, 99999900, entry.priceFen)
+      : entry.priceFen;
+  if (!priceFen) throw new Error('售价无效');
+
+  let newPid = genProductId(slot, priceFen);
+  const used = new Set(PRODUCT_IDS.map((id) => doc.products[id].productId));
+  used.add(entry.productId);
+  let guard = 0;
+  while (used.has(newPid) && guard < 5) {
+    newPid = genProductId(slot, priceFen);
+    guard += 1;
+  }
+  entry.draft = { productId: newPid, title, value, priceFen };
+  setWx(entry, {
+    status: 'syncing',
+    error: '',
+    at: new Date(),
+    syncStartedAt: Date.now(),
+  });
+
+  let uploadData = null;
+  let publishData = null;
+  try {
+    uploadData = await queryUploadGoods(cloudInst);
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    publishData = await queryPublishGoods(cloudInst);
+  } catch (e) {
+    /* ignore */
+  }
+  if (wxBatchBusy(uploadData, publishData)) {
+    markQueued(entry, '微信批量任务仍在运行，已排队；页面会自动轮询');
+    return { queued: true, productId: newPid };
+  }
+  try {
+    await startUploadNewGoods(cloudInst, entry, entry.draft);
+    return { queued: false, productId: newPid };
+  } catch (e) {
+    if (isRetryableWxErr(e)) {
+      markQueued(entry, e.message || '微信忙碌，排队自动重试');
+      return { queued: true, productId: newPid };
+    }
+    markFail(entry, e);
+    throw e;
+  }
 }
 
 function wxBatchBusy(uploadData, publishData) {
@@ -221,12 +315,12 @@ exports.main = async (event = {}) => {
             priceFen: nextPrice,
           };
           if (valueChanged) cur.value = nextValue;
-          cur.wx = {
+          setWx(cur, {
             status: 'syncing',
             error: '',
             at: new Date(),
             syncStartedAt: Date.now(),
-          };
+          });
           toSync.push(slot);
         } else {
           cur.title = nextTitle || cur.title;
@@ -235,7 +329,7 @@ exports.main = async (event = {}) => {
             cur.draft.title = nextTitle || cur.draft.title;
           }
           if (!cur.draft) {
-            cur.wx = { status: 'ok', error: '', at: new Date(), syncStartedAt: null };
+            setWx(cur, { status: 'ok', error: '', at: new Date(), syncStartedAt: null });
           }
         }
         doc.products[slot] = normalizeProduct(cur, DEFAULT_PRODUCTS[slot], slot);
@@ -261,12 +355,12 @@ exports.main = async (event = {}) => {
         const entry = doc.products[first];
         try {
           await startUploadNewGoods(cloud, entry, entry.draft);
-          entry.wx = {
+          setWx(entry, {
             status: 'syncing',
             error: '',
             at: new Date(),
             syncStartedAt: Date.now(),
-          };
+          });
           syncResults.push({ slotId: first, productId: entry.draft.productId, ok: true });
         } catch (e) {
           if (isRetryableWxErr(e)) {
@@ -343,7 +437,7 @@ exports.main = async (event = {}) => {
         };
       }
 
-      entry.wx = { status: 'syncing', error: '', at: new Date(), syncStartedAt: Date.now() };
+      setWx(entry, { status: 'syncing', error: '', at: new Date(), syncStartedAt: Date.now() });
       try {
         await startUploadNewGoods(cloud, entry, entry.draft);
       } catch (e) {
@@ -458,12 +552,12 @@ exports.main = async (event = {}) => {
             changed = true;
             continue;
           }
-          entry.wx = {
+          setWx(entry, {
             status: 'ready',
             error: '',
             at: new Date(),
             syncStartedAt: startedAt || null,
-          };
+          });
           changed = true;
         }
       }
@@ -480,12 +574,12 @@ exports.main = async (event = {}) => {
           if (up) continue; // 已在上传列表
           try {
             await startUploadNewGoods(cloud, entry, entry.draft);
-            entry.wx = {
+            setWx(entry, {
               status: 'syncing',
               error: '',
               at: new Date(),
               syncStartedAt: Date.now(),
-            };
+            });
             changed = true;
             break; // 一次只启动一个
           } catch (e) {
@@ -552,18 +646,14 @@ exports.main = async (event = {}) => {
     }
 
     if (action === 'cancelDraft') {
-      const slotOrId = String(event.productId || event.slotId || '').trim();
-      let slot = PRODUCT_IDS.includes(slotOrId) ? slotOrId : '';
       const doc = await getPricingDoc(db);
-      if (!slot) {
-        slot = PRODUCT_IDS.find((id) => doc.products[id].productId === slotOrId) || '';
-      }
+      const slot = resolveSlot(doc, event.productId || event.slotId);
       if (!slot || !DEFAULT_PRODUCTS[slot]) {
         return { ok: false, code: 'BAD_PARAM', message: '未知商品' };
       }
       const entry = doc.products[slot];
       entry.draft = null;
-      entry.wx = { status: 'ok', error: '', at: new Date(), syncStartedAt: null };
+      setWx(entry, { status: 'ok', error: '', at: new Date(), syncStartedAt: null });
       await savePricingDoc(db, doc, { openid: OPENID });
       return {
         ok: true,
@@ -573,12 +663,8 @@ exports.main = async (event = {}) => {
     }
 
     if (action === 'forceLive') {
-      const slotOrId = String(event.productId || event.slotId || '').trim();
-      let slot = PRODUCT_IDS.includes(slotOrId) ? slotOrId : '';
       const doc = await getPricingDoc(db);
-      if (!slot) {
-        slot = PRODUCT_IDS.find((id) => doc.products[id].productId === slotOrId) || '';
-      }
+      const slot = resolveSlot(doc, event.productId || event.slotId);
       if (!slot || !DEFAULT_PRODUCTS[slot]) {
         return { ok: false, code: 'BAD_PARAM', message: '未知商品' };
       }
@@ -592,11 +678,96 @@ exports.main = async (event = {}) => {
       if (event.title != null) entry.title = String(event.title).trim().slice(0, 20) || entry.title;
       if (event.value != null) entry.value = clampInt(event.value, 1, 99999, entry.value);
       entry.draft = null;
-      entry.wx = { status: 'ok', error: '', at: new Date(), syncStartedAt: null };
+      setWx(entry, { status: 'ok', error: '', at: new Date(), syncStartedAt: null });
       await savePricingDoc(db, doc, { openid: OPENID });
       return {
         ok: true,
         message: `已把支付价对齐为 ¥${(priceFen / 100).toFixed(2).replace(/\.00$/, '')}（道具 ID 仍为 ${entry.productId}）`,
+        products: PRODUCT_IDS.map((id) => publicProduct(doc.products[id], id)),
+      };
+    }
+
+    /**
+     * 首次发布到微信：售价可不变，强制新建道具 ID → 上传 → 发布，再点「确认切换」
+     * 用于新槽位（如 points_4）从未在微信创建过的情况。
+     */
+    if (action === 'firstPublish') {
+      const doc = await getPricingDoc(db);
+      const slot = resolveSlot(doc, event.productId || event.slotId);
+      if (!slot || !DEFAULT_PRODUCTS[slot]) {
+        return { ok: false, code: 'BAD_PARAM', message: '未知商品' };
+      }
+      const entry = doc.products[slot];
+      if (entry.draft) {
+        return {
+          ok: false,
+          code: 'HAS_DRAFT',
+          message: '已有待切换道具，请先「确认切换」或「放弃」',
+          products: PRODUCT_IDS.map((id) => publicProduct(doc.products[id], id)),
+        };
+      }
+      try {
+        const result = await beginNewPropUpload(cloud, doc, slot, {
+          title: event.title,
+          value: event.value,
+          priceFen: event.priceFen,
+        });
+        await savePricingDoc(db, doc, { openid: OPENID });
+        return {
+          ok: true,
+          queued: !!result.queued,
+          message: result.queued
+            ? `已排队首次发布 ${result.productId}（微信忙碌）。完成后点「确认切换」`
+            : `已开始首次发布 ${result.productId}。完成后点「确认切换」`,
+          products: PRODUCT_IDS.map((id) => publicProduct(doc.products[id], id)),
+        };
+      } catch (e) {
+        await savePricingDoc(db, doc, { openid: OPENID });
+        return {
+          ok: false,
+          code: 'SYNC_FAIL',
+          message: e.message || '首次发布失败',
+          products: PRODUCT_IDS.map((id) => publicProduct(doc.products[id], id)),
+        };
+      }
+    }
+
+    /**
+     * 仅更新权益（积分/天数/名称）：不改价、不碰微信道具 ID。
+     * 用于 points_20 20→18 这类只改发放数量的情况。
+     */
+    if (action === 'updateEntitlement') {
+      const doc = await getPricingDoc(db);
+      const slot = resolveSlot(doc, event.productId || event.slotId);
+      if (!slot || !DEFAULT_PRODUCTS[slot]) {
+        return { ok: false, code: 'BAD_PARAM', message: '未知商品' };
+      }
+      const entry = doc.products[slot];
+      if (entry.draft && entry.wx && (entry.wx.status === 'syncing' || entry.wx.status === 'ready')) {
+        return {
+          ok: false,
+          code: 'BUSY',
+          message: '该档正在发布新道具，请先确认切换或放弃后再改权益',
+          products: PRODUCT_IDS.map((id) => publicProduct(doc.products[id], id)),
+        };
+      }
+      const nextTitle =
+        event.title != null
+          ? String(event.title).trim().slice(0, 20) || entry.title
+          : entry.title;
+      const nextValue =
+        event.value != null ? clampInt(event.value, 1, 99999, entry.value) : entry.value;
+      entry.title = nextTitle;
+      entry.value = nextValue;
+      if (entry.draft) {
+        entry.draft.title = nextTitle;
+        entry.draft.value = nextValue;
+      }
+      await savePricingDoc(db, doc, { openid: OPENID });
+      const unit = entry.type === 'points' ? '积分' : '天';
+      return {
+        ok: true,
+        message: `已更新权益为 ${nextValue} ${unit}（售价与道具 ID 未变，无需发微信）`,
         products: PRODUCT_IDS.map((id) => publicProduct(doc.products[id], id)),
       };
     }

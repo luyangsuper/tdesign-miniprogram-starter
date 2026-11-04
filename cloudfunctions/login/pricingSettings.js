@@ -86,8 +86,25 @@ const SLOT_PREFIX = {
 
 const WX_STATUS = ['ok', 'syncing', 'ready', 'fail', 'await_mp'];
 
+/** 上线前已在微信发布过的槽位；新槽默认 propPublished=false */
+const LEGACY_PUBLISHED_SLOTS = new Set([
+  'vip_month',
+  'vip_quarter',
+  'vip_year',
+  'points_20',
+  'points_66',
+  'points_170',
+]);
+
 function emptyWx() {
   return { status: 'ok', error: '', at: null, syncStartedAt: null };
+}
+
+function resolvePropPublished(wxRaw, productId, slot) {
+  if (wxRaw && wxRaw.propPublished === true) return true;
+  if (wxRaw && wxRaw.propPublished === false) return false;
+  if (productId && slot && String(productId) !== String(slot)) return true;
+  return LEGACY_PUBLISHED_SLOTS.has(slot);
 }
 
 function clampInt(n, min, max, fallback) {
@@ -149,6 +166,7 @@ function normalizeProduct(raw, fallback, slotId) {
       error: String(wxRaw.error || '').slice(0, 500),
       at: wxRaw.at || null,
       syncStartedAt: wxRaw.syncStartedAt || null,
+      propPublished: resolvePropPublished(wxRaw, productId, slot),
     },
     draft,
   };
@@ -315,7 +333,9 @@ module.exports = {
   DEFAULT_PRODUCTS,
   PRODUCT_IDS,
   SLOT_PREFIX,
+  LEGACY_PUBLISHED_SLOTS,
   emptyWx,
+  resolvePropPublished,
   normalizeProduct,
   normalizePricingDoc,
   buildDefaultDoc,

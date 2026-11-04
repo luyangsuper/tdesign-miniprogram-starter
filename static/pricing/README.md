@@ -11,6 +11,8 @@ Graphics from [IconPark](https://iconpark.oceanengine.com/) two-tone PNG.
 | month.png | Coupon | 包月 |
 | quarter.png | VipOne | 季卡 |
 | year.png | Crown | 年卡 |
-| points.png | Ticket | 积分包1 |
-| points2.png | Gift | 积分包2 |
-| points3.png | Lightning | 积分包3 |
+| points4.png | Wallet | 积分包¥1 |
+| points5.png | RedEnvelope | 积分包¥2 |
+| points.png | Ticket | 积分包¥5 |
+| points2.png | Gift | 积分包¥16 |
+| points3.png | Lightning | 积分包¥32 |
