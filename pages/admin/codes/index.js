@@ -7,7 +7,6 @@ import {
   createAndCopyCode,
   formatRedeemShareText,
 } from '~/utils/redeemCode';
-
 Page({
   data: {
     pricing: getPricingPlans(),

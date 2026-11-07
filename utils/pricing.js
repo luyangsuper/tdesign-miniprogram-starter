@@ -1,14 +1,107 @@
 import config from '~/config';
 import { callFunction } from '~/utils/cloud';
+import { normalizeContentType, isEmojiType } from '~/utils/contentType';
 
-/** @param {'static'|'anim'} variant */
-export function downloadCost(variant) {
-  const costs = config.downloadCosts || { static: 1, anim: 2 };
-  return variant === 'anim' ? costs.anim || 2 : costs.static || 1;
+const DEFAULT_COSTS = {
+  static: 1,
+  anim: 2,
+  wallpaper: 4,
+  avatar: 4,
+  video: 8,
+};
+
+const DOWNLOAD_COSTS_KEY = 'download_costs';
+
+function costTable() {
+  let cached = null;
+  try {
+    cached = wx.getStorageSync(DOWNLOAD_COSTS_KEY);
+  } catch (e) {
+    cached = null;
+  }
+  return {
+    ...DEFAULT_COSTS,
+    ...(config.downloadCosts || {}),
+    ...(cached && typeof cached === 'object' ? cached : {}),
+  };
 }
 
-export function formatCostHint(variant) {
-  const n = downloadCost(variant);
+/** 登录 / 权益拉取后写入云端单价，详情与列表即时生效 */
+export function setDownloadCosts(costs = {}) {
+  const next = {
+    static: Math.max(1, Number(costs.static) || DEFAULT_COSTS.static),
+    anim: Math.max(1, Number(costs.anim) || DEFAULT_COSTS.anim),
+    wallpaper: Math.max(1, Number(costs.wallpaper) || DEFAULT_COSTS.wallpaper),
+    avatar: Math.max(1, Number(costs.avatar) || DEFAULT_COSTS.avatar),
+    video: Math.max(1, Number(costs.video) || DEFAULT_COSTS.video),
+  };
+  try {
+    wx.setStorageSync(DOWNLOAD_COSTS_KEY, next);
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    const app = getApp();
+    if (app && app.globalData) app.globalData.downloadCosts = next;
+  } catch (e) {
+    /* ignore */
+  }
+  return next;
+}
+
+export function applyDownloadCostsFromSettings(settings = {}) {
+  if (!settings || typeof settings !== 'object') return costTable();
+  if (settings.downloadCosts && typeof settings.downloadCosts === 'object') {
+    return setDownloadCosts(settings.downloadCosts);
+  }
+  if (
+    settings.costStatic != null ||
+    settings.costAnim != null ||
+    settings.costWallpaper != null ||
+    settings.costAvatar != null ||
+    settings.costVideo != null
+  ) {
+    return setDownloadCosts({
+      static: settings.costStatic,
+      anim: settings.costAnim,
+      wallpaper: settings.costWallpaper,
+      avatar: settings.costAvatar,
+      video: settings.costVideo,
+    });
+  }
+  return costTable();
+}
+
+/**
+ * 积分单价。
+ * @param {string} costKey static|anim|wallpaper|avatar|video
+ */
+export function downloadCost(costKey) {
+  const costs = costTable();
+  const key = String(costKey || 'static');
+  const n = Number(costs[key]);
+  return n > 0 ? n : costs.static || 1;
+}
+
+/**
+ * 按合集类型 + 表情动静解析扣费 key
+ * @param {string} contentType
+ * @param {'static'|'anim'} [variant]
+ */
+export function resolveDownloadCostKey(contentType, variant = 'static') {
+  const type = normalizeContentType(contentType);
+  if (isEmojiType(type)) {
+    return variant === 'anim' ? 'anim' : 'static';
+  }
+  return type;
+}
+
+export function downloadCostForPack(contentType, variant = 'static') {
+  return downloadCost(resolveDownloadCostKey(contentType, variant));
+}
+
+export function formatCostHint(costKeyOrVariant) {
+  const n = downloadCost(costKeyOrVariant);
   return `${n} 积分`;
 }
 
@@ -62,6 +155,9 @@ export function buildPricingPlansFromProducts(products) {
   const monthly = Math.max(1, Number(config.monthlyQuota) || 48);
   const staticCost = downloadCost('static');
   const animCost = downloadCost('anim');
+  const wallpaperCost = downloadCost('wallpaper');
+  const avatarCost = downloadCost('avatar');
+  const videoCost = downloadCost('video');
   const payOn = !!(config.virtualPay && config.virtualPay.enabled);
   const list = Array.isArray(products) ? products : [];
 
@@ -146,14 +242,16 @@ export function buildPricingPlansFromProducts(products) {
   return {
     staticCost,
     animCost,
+    wallpaperCost,
+    avatarCost,
+    videoCost,
     monthlyQuota: monthly,
-    serviceWechat: config.serviceWechat || 'Shine_Luyang',
-    costLine: `保存原图：静态 ${staticCost} 积分 · 动态 ${animCost} 积分`,
+    costLine: `保存：表情静态 ${staticCost} / 动态 ${animCost} · 壁纸 ${wallpaperCost} · 头像 ${avatarCost} · 视频 ${videoCost} 积分`,
     ruleLine: `包月含每月额度、应用内免广告（信息流/详情等原生广告，不含启动封面广告）与全节日氛围（普通用户仅春节/圣诞）；额度自然月重置，未用完不滚存；先扣本月额度，再扣购买积分。`,
     vipPerkLine: '会员权益：每月额度 · 应用内免广告 · 全节日氛围 · 有效期内一直生效',
     buyTip: payOn
-      ? '点「购买」可在小程序内支付到账；也可复制微信号联系客服，或使用兑换码。'
-      : '暂不支持在线支付。复制微信号联系客服，付款后发兑换码；也可在上方自行兑换。',
+      ? '点「购买」可在小程序内支付到账；也可使用兑换码。'
+      : '暂不支持在线支付。请使用兑换码兑换，或通过「我的 → 意见反馈」联系我们。',
     virtualPayEnabled: payOn,
     vipPlans,
     pointPlans,
@@ -176,6 +274,9 @@ function getPricingPlansFromConfig() {
   const monthly = Math.max(1, Number(config.monthlyQuota) || 48);
   const staticCost = downloadCost('static');
   const animCost = downloadCost('anim');
+  const wallpaperCost = downloadCost('wallpaper');
+  const avatarCost = downloadCost('avatar');
+  const videoCost = downloadCost('video');
   const pricing = config.membershipPricing || {};
   const packs = Array.isArray(pricing.pointPacks) ? pricing.pointPacks : [];
   const payOn = !!(config.virtualPay && config.virtualPay.enabled);
@@ -273,14 +374,16 @@ function getPricingPlansFromConfig() {
   return {
     staticCost,
     animCost,
+    wallpaperCost,
+    avatarCost,
+    videoCost,
     monthlyQuota: monthly,
-    serviceWechat: config.serviceWechat || 'Shine_Luyang',
-    costLine: `保存原图：静态 ${staticCost} 积分 · 动态 ${animCost} 积分`,
+    costLine: `保存：表情静态 ${staticCost} / 动态 ${animCost} · 壁纸 ${wallpaperCost} · 头像 ${avatarCost} · 视频 ${videoCost} 积分`,
     ruleLine: `包月含每月额度、应用内免广告（信息流/详情等原生广告，不含启动封面广告）与全节日氛围（普通用户仅春节/圣诞）；额度自然月重置，未用完不滚存；先扣本月额度，再扣购买积分。`,
     vipPerkLine: '会员权益：每月额度 · 应用内免广告 · 全节日氛围 · 有效期内一直生效',
     buyTip: payOn
-      ? '点「购买」可在小程序内支付到账；也可复制微信号联系客服，或使用兑换码。'
-      : '暂不支持在线支付。复制微信号联系客服，付款后发兑换码；也可在上方自行兑换。',
+      ? '点「购买」可在小程序内支付到账；也可使用兑换码。'
+      : '暂不支持在线支付。请使用兑换码兑换，或通过「我的 → 意见反馈」联系我们。',
     virtualPayEnabled: payOn,
     vipPlans,
     pointPlans,

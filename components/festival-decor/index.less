@@ -1,14 +1,7 @@
 /* 节日主题：首页/我的顶栏背景图 + 灯带 + 飘落；底栏装饰在 custom-tab-bar */
+/* 定位一律写在 wxml 内联，避免样式未命中时带 height 的节点挤占文档流 */
 
-/* 顶栏装饰：高度 = 系统导航（含状态栏），图为 4:1 aspectFill */
 .fest-skin {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 90;
-  pointer-events: none;
-  overflow: hidden;
   background: transparent;
 }
 
@@ -36,16 +29,6 @@
     transparent 0%,
     var(--td-bg-color-page) 100%
   );
-}
-
-.fest-chrome {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 480;
-  pointer-events: none;
-  overflow: hidden;
 }
 
 /* 导航区微光：分组闪烁，不另起灯绳 */
@@ -177,13 +160,6 @@
 }
 
 /* —— 飘落：仅首页；默认裁切在顶栏，可切全屏 —— */
-.fest-ambient {
-  position: fixed;
-  z-index: 460;
-  pointer-events: none;
-  overflow: hidden;
-}
-
 .fest-ambient--full {
   inset: 0;
 }

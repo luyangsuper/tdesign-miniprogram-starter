@@ -1,11 +1,11 @@
 /**
  * 小程序全局配置
  * - cloudEnv：微信开发者工具 → 云开发 → 环境 ID
- * - rewardedAdUnitId：激励广告（约 30s）·「我的」主动领积分
- * - saveRewardedAdUnitId：激励广告（约 15s）· 积分不足救急；空则回退到 rewardedAdUnitId
- * - adRewardPoints / adRewardDailyMax：30s 主动广告奖励与日上限
- * - saveAdRewardPoints / saveAdRewardDailyMax：15s 救急广告奖励与日上限
- * - downloadCosts：单张扣分（与整包静 2 元 / 动 4 元对齐为 1:2）
+ * - rewardedAdUnitId：激励广告（约 30s）· 全站统一（我的 / 签到再领 / 保存不够）
+ * - saveRewardedAdUnitId：已废弃（原 15s 短广告），留空即可
+ * - adRewardPoints / adRewardDailyMax：「我的」主动领取奖励与日上限
+ * - saveAdRewardPoints / saveAdRewardDailyMax：签到再领 / 保存不够 的奖励与日上限（仍用 30s 广告）
+ * - downloadCosts：保存单价默认值；线上以 app_config/points（管理端「积分规则」）为准
  * - membershipPricing：离线默认售价；线上以云库 app_config/pricing（管理端「定价方案」）为准
  * - virtualPay：OfferId 可公开；AppKey 只放云函数环境变量
  * - adminOpenids：管理员 openid 列表（真正鉴权在云函数；客户端可用「我的→预览普通用户」）
@@ -14,12 +14,12 @@
  */
 export default {
   /** 关于页展示；与 package.json version 对齐即可 */
-  appVersion: '0.1.0',
+  appVersion: '3.1.0',
   cloudEnv: 'cloud1-d4g0731mc55f853ef',
-  /** 约 30s，主动领积分 */
+  /** 约 30s，全站激励广告 */
   rewardedAdUnitId: 'adunit-b77d32dfa7a29761',
-  /** 约 15s，积分不足保存时用（更短、少打断） */
-  saveRewardedAdUnitId: 'adunit-0aea2ce574eb035c',
+  /** @deprecated 原 15s 短广告，已不再使用 */
+  saveRewardedAdUnitId: '',
   /**
    * 原生模板广告（横版优选 · 20:7 / 16:9）
    * 空=该位置不展示；VIP 客户端不展示被动原生广告
@@ -34,22 +34,30 @@ export default {
   nativeFavoritesAdUnitId: 'adunit-494a61cf3ce09618',
   /**
    * 首页每多少个合集插入一条原生广告（离线默认）
-   * 线上以云库 app_config/points.homeFeedAdEvery 为准；0=关闭信息流广告；建议 6～8
+   * 线上以云库 app_config/points.homeFeedAdEvery 为准；0=关闭信息流广告；建议 6～8。
+   * 数值按约 2 列口径；客户端会随瀑布流列数缩放（1 列更密、3/4 列更疏）。
    */
   homeFeedAdEvery: 6,
   /**
-   * 看广告领积分默认值（云库 app_config/points 可改）
-   * - 30s 主动：+2（≈1 张动态）
-   * - 15s 救急：+1（≈1 张静态）；动态不够可再看一次
+   * 看广告领积分默认值（云库 app_config/points 可改；广告均为约 30s）
+   * - 「我的」主动领取：+2
+   * - 签到后再领 / 保存不够：+1（额度仍可分开配）
    */
   adRewardPoints: 2,
   adRewardDailyMax: 5,
   saveAdRewardPoints: 1,
   saveAdRewardDailyMax: 8,
-  /** 单张原图积分消耗（云函数 getEmojiDownload 须保持一致） */
+  /**
+   * 单张/单段原文件积分消耗（云函数 getEmojiDownload 须保持一致）
+   * - static / anim：表情动静
+   * - wallpaper / avatar / video：对应类型（无动静之分）
+   */
   downloadCosts: {
     static: 1,
     anim: 2,
+    wallpaper: 4,
+    avatar: 4,
+    video: 8,
   },
   /**
    * 包月每月额度（与云函数 membership.MONTHLY_QUOTA 保持一致）
@@ -91,10 +99,8 @@ export default {
     offerId: '1450673547',
     env: 0,
   },
-  /** 联系客服微信号（展示与复制，勿在小程序内挂收款码） */
-  serviceWechat: 'Shine_Luyang',
   /** 展示在套餐下方 */
-  shopHint: '支持小程序内购买；也可联系客服或使用兑换码',
+  shopHint: '支持小程序内购买；也可使用兑换码',
   adminOpenids: [
     'oOtg0xqcOEHgBAL7u3M7g9S8ln2c', // 本人；云函数环境变量 ADMIN_OPENIDS 请填同样值
   ],

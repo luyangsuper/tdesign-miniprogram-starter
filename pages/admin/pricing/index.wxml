@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="admin-pricing" style="{{themeStyle}}">
   <view class="admin-pricing__tip">
     改价=新建道具 ID。新档点「首次发布」；只改积分/天数点「更新权益」。支付价对不上微信时用「对齐价格」。未发布档会自动刷最新默认图。图须 200×200。

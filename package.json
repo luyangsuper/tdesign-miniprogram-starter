@@ -1,6 +1,6 @@
 {
   "name": "emoji-share",
-  "version": "0.1.0",
+  "version": "3.1.0",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -22,7 +22,7 @@
   ],
   "author": "leejim",
   "license": "MIT",
-  "description": "趣集 · 微信云开发合集分享（表情/壁纸等）：封面/预览/原图，看广告后单张保存",
+  "description": "趣图铺子 · 微信云开发合集分享（表情/壁纸/头像/视频）：封面/预览/原文件，积分保存到相册",
   "dependencies": {
     "dayjs": "^1.11.13",
     "tdesign-miniprogram": "^1.11.2"

@@ -62,6 +62,13 @@ const ASSETS = [
   { dir: 'static/emoji', file: 'swipe-next.png', icon: 'RightC', palette: 'brand', note: '滑向下一分类' },
   { dir: 'static/emoji', file: 'swipe-end.png', icon: 'SmilingFace', palette: 'warn', note: '分类滑到头' },
   { dir: 'static/emoji', file: 'play.png', icon: 'Play', palette: 'play', note: '详情预览视频' },
+  // 合集类型筛选（首页胶囊 / 下拉 / 标签）
+  { dir: 'static/emoji', file: 'type-all.png', icon: 'ApplicationOne', palette: 'brand', note: '类型·全部' },
+  { dir: 'static/emoji', file: 'type-emoji.png', icon: 'EmotionHappy', palette: 'brand', note: '类型·表情' },
+  { dir: 'static/emoji', file: 'type-wallpaper.png', icon: 'PictureOne', palette: 'preview', note: '类型·壁纸' },
+  { dir: 'static/emoji', file: 'type-avatar.png', icon: 'Avatar', palette: 'quarter', note: '类型·头像' },
+  { dir: 'static/emoji', file: 'type-video.png', icon: 'Video', palette: 'anim', note: '类型·视频' },
+  { dir: 'static/emoji', file: 'type-caret.png', icon: 'Down', palette: 'soft', note: '类型下拉箭头' },
   { dir: 'static/lottery', file: 'miss.png', icon: 'DisappointedFace', palette: 'soft', note: '谢谢参与' },
   { dir: 'static/lottery', file: 'pts1.png', icon: 'Ticket', palette: 'points', note: '1积分' },
   { dir: 'static/lottery', file: 'pts2.png', icon: 'Gift', palette: 'points2', note: '2积分' },

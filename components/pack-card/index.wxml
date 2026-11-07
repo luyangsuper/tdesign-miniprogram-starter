@@ -1,7 +1,7 @@
 <view
-  class="pack-card {{selectMode && selected ? 'pack-card--selected' : ''}}"
+  class="pack-card {{selectMode && selected ? 'pack-card--selected' : ''}} {{selectMode && selectDisabled ? 'pack-card--disabled' : ''}}"
   style="width: {{cardWidth}}px;"
-  hover-class="pack-card--press"
+  hover-class="{{selectDisabled ? '' : 'pack-card--press'}}"
   hover-start-time="20"
   hover-stay-time="80"
   bindtap="onTap"
@@ -26,6 +26,19 @@
     >
       <view slot="loading" class="pack-card__skeleton" aria-hidden="true" />
     </t-image>
+    <view
+      wx:if="{{typeBadge}}"
+      class="pack-card__type-badge {{typeBadgeCompact ? 'pack-card__type-badge--compact' : ''}}"
+      style="{{typeBadge.customStyle}}"
+      aria-hidden="true"
+    >
+      <image
+        class="pack-card__type-badge-icon"
+        src="{{typeBadge.iconSrc}}"
+        mode="aspectFit"
+      />
+      <text wx:if="{{!typeBadgeCompact}}" class="pack-card__type-badge-text">{{typeBadge.text}}</text>
+    </view>
     <view wx:if="{{selectMode}}" class="pack-card__check" aria-hidden="true">
       <t-icon
         name="{{selected ? 'check-circle-filled' : 'circle'}}"
@@ -37,17 +50,23 @@
 
   <view class="pack-card__info">
     <text class="pack-card__title">{{title}}</text>
-    <view class="pack-card__tag-group" wx:if="{{tags.length}}">
-      <t-tag
-        wx:for="{{tags}}"
-        wx:key="text"
-        size="small"
-        variant="light"
-        theme="{{item.theme}}"
-        custom-style="{{item.customStyle}}"
-      >
-        {{item.text}}
-      </t-tag>
+    <view
+      class="pack-card__meta-row"
+      wx:if="{{tags.length || metaLine}}"
+    >
+      <view class="pack-card__tag-group" wx:if="{{tags.length}}">
+        <block wx:for="{{tags}}" wx:key="text">
+          <t-tag
+            size="small"
+            variant="light"
+            theme="{{item.theme}}"
+            custom-style="{{item.customStyle}}"
+          >
+            {{item.text}}
+          </t-tag>
+        </block>
+      </view>
+      <text wx:if="{{metaLine}}" class="pack-card__meta-line">{{metaLine}}</text>
     </view>
     <view class="pack-card__admin" wx:if="{{showAdmin && !selectMode && adminActionsVisible}}" catchtap="noop">
       <t-button

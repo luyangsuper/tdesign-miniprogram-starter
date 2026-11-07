@@ -19,11 +19,66 @@
     opacity: 0.96;
   }
 
+  &--disabled {
+    opacity: 0.42;
+    filter: grayscale(0.25);
+
+    .pack-card__title {
+      opacity: 0.85;
+    }
+  }
+
   &__media {
     width: 100%;
     background: var(--td-bg-color-secondarycontainer);
     overflow: hidden;
     position: relative;
+  }
+
+  &__type-badge {
+    position: absolute;
+    top: 10rpx;
+    left: 10rpx;
+    z-index: 2;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 4rpx;
+    height: 36rpx;
+    max-width: calc(100% - 72rpx);
+    box-sizing: border-box;
+    padding: 0 10rpx 0 6rpx;
+    border-radius: 999rpx;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.1);
+    pointer-events: none;
+  }
+
+  &__type-badge--compact {
+    width: 36rpx;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  &__type-badge-icon {
+    width: 22rpx;
+    height: 22rpx;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  &__type-badge-text {
+    display: block;
+    height: 22rpx;
+    font-size: 20rpx;
+    /* 行高贴图标，避免 text 默认行盒把汉字顶偏下 */
+    line-height: 22rpx;
+    font-weight: 500;
+    color: inherit;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   &__check {
@@ -99,11 +154,29 @@
     max-height: 2.7em;
   }
 
-  &__tag-group {
+  &__meta-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8rpx;
+    align-items: center;
+    gap: 6rpx 8rpx;
     margin-top: 8rpx;
+    min-width: 0;
+  }
+
+  &__tag-group {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8rpx;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  &__meta-line {
+    .ui-caption();
+    color: var(--td-text-color-placeholder);
+    line-height: 1.3;
+    white-space: nowrap;
   }
 
   /* 选中底栏横条：主题色，从中心展开 */

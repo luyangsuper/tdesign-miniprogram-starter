@@ -7,6 +7,7 @@
  */
 
 import { callFunction, getTempFileURLs } from '~/utils/cloud';
+import { resolveIsAdmin } from '~/utils/auth';
 import { getCachedEntitlement } from '~/utils/entitlement';
 import {
   forgetTempUrl,
@@ -986,14 +987,11 @@ export function getFestivalPreset(id) {
 
 function isAdminPreviewClient() {
   try {
-    /* 与 auth.resolveIsAdmin 对齐：预览普通用户时不绕过全员开关 */
-    if (wx.getStorageSync('preview_as_user')) return false;
-    const app = getApp();
-    if (app && app.globalData && app.globalData.isAdmin) return true;
+    /* 必须与页面 resolveIsAdmin 同源：只信 globalData.isAdmin 会漏掉 config.adminOpenids */
+    return !!resolveIsAdmin();
   } catch (e) {
-    /* ignore */
+    return false;
   }
-  return false;
 }
 
 /** VIP 或管理员视图：可享受全部节日氛围 */
@@ -1057,6 +1055,35 @@ export function getActiveFestival(now = Date.now()) {
     /* 无权限：继续看是否还有可访问的重叠节日 */
   }
   return null;
+}
+
+/**
+ * 设置页预览可选节日：
+ * - 全员/VIP/管理员：跟随日期 + 全部节日
+ * - 普通免费用户：跟随日期 + 春节/圣诞（不含「关闭」，关闭用上方开关）
+ */
+export function getFestivalPreviewOptions() {
+  if (canAccessAllFestivals()) {
+    return MODE_OPTIONS.filter((o) => o.id !== 'off');
+  }
+  return [
+    { id: 'auto', name: '跟随日期' },
+    ...FESTIVAL_PRESETS.filter((p) => FREE_FESTIVAL_IDS.indexOf(p.id) >= 0).map(
+      (p) => ({ id: p.id, name: p.name }),
+    ),
+  ];
+}
+
+/** 预览手机壳用的示例节日（无进行中节日时用春节示意） */
+export function getFestivalPreviewDemo(now = Date.now()) {
+  const active = getActiveFestival(now);
+  if (active) return active;
+  const mode = getFestivalMode();
+  if (mode && mode !== 'auto' && mode !== 'off') {
+    const preset = getFestivalPreset(mode);
+    if (preset && canAccessFestival(preset.id)) return preset;
+  }
+  return getFestivalPreset('cny') || FESTIVAL_PRESETS[0] || null;
 }
 
 export function getFestivalStatus(now = Date.now()) {
@@ -1459,4 +1486,60 @@ export function getMotionKinds(festivalId) {
 export function getMotionIcons(festivalId) {
   const f = getFestivalPreset(festivalId) || getActiveFestival();
   return f && Array.isArray(f.motionIcons) ? f.motionIcons.filter(Boolean) : [];
+}
+
+function hash01(seed) {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/**
+ * 设置页手机预览用飘落粒子（与 festival-decor 同图、同算法，数量略少）
+ * @param {string} festivalId
+ * @param {'header'|'full'} fallScope
+ */
+export function buildFestivalSheetFlakes(festivalId, fallScope = 'header') {
+  const icons = getMotionIcons(festivalId);
+  if (!icons.length) return [];
+  const full = fallScope === 'full';
+  const count = full ? 18 : 10;
+  const fallMin = full ? 4.8 : 2.8;
+  const fallMax = full ? 11.5 : 7.2;
+  const sizeBase = full ? 16 : 14;
+  const list = [];
+  for (let i = 0; i < count; i += 1) {
+    const a = hash01(i * 3 + 1);
+    const b = hash01(i * 5 + 11);
+    const c = hash01(i * 7 + 23);
+    const d = hash01(i * 11 + 41);
+    const e = hash01(i * 13 + 67);
+    const left = 4 + a * 92;
+    const fall = fallMin + b * (fallMax - fallMin);
+    const delay = -(c * fallMax * 1.1);
+    const size = sizeBase + Math.round(d * 12);
+    const spin = 3.2 + e * 5.5;
+    const spinDir = hash01(i + 99) > 0.5 ? 1 : -1;
+    const drift = Math.round((hash01(i + 131) - 0.5) * 56);
+    const driftB = Math.round(drift * -0.7);
+    const driftC = Math.round(drift * 0.45);
+    const driftD = Math.round(drift * -0.15);
+    list.push({
+      id: `sf-${festivalId}-${fallScope}-${i}`,
+      src: icons[i % icons.length],
+      wrapStyle: [
+        `left:${left.toFixed(2)}%`,
+        `--fest-size:${size}rpx`,
+        `--fest-fall:${fall.toFixed(2)}s`,
+        `--fest-delay:${delay.toFixed(2)}s`,
+        `--fest-spin:${spin.toFixed(2)}s`,
+        `--fest-spin-dir:${spinDir}`,
+        `--fest-drift:${drift}rpx`,
+        `--fest-drift-b:${driftB}rpx`,
+        `--fest-drift-c:${driftC}rpx`,
+        `--fest-drift-d:${driftD}rpx`,
+        `--fest-fall-dist:${full ? 360 : 72}rpx`,
+      ].join(';'),
+    });
+  }
+  return list;
 }

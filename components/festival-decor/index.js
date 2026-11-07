@@ -117,6 +117,10 @@ function buildFlakes(festivalId, fallScope) {
 }
 
 Component({
+  /* 去掉自定义组件宿主节点，避免 fixed 子树仍按 skin 高度挤占页面文档流 */
+  options: {
+    virtualHost: true,
+  },
   properties: {
     mode: { type: String, value: 'home' },
     active: { type: Boolean, value: true },
@@ -215,8 +219,8 @@ Component({
         const ambientH = chromeHeightPx;
         const ambientStyle =
           fallScope === 'full'
-            ? ''
-            : `height:${ambientH}px;--fest-fall-dist:${ambientH + 24}px;`;
+            ? 'inset:0;'
+            : `top:0;left:0;right:0;height:${ambientH}px;--fest-fall-dist:${ambientH + 24}px;`;
 
         const sameFest = this.data.festivalId === festivalId;
         const sameBanner =

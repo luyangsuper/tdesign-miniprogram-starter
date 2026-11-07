@@ -2,7 +2,6 @@ import { callFunction } from '~/utils/cloud';
 import { guardAdminPage } from '~/utils/auth';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 import { getDefaultAvatarUrl } from '~/utils/avatar';
-
 Page({
   data: {
     filter: 'all',

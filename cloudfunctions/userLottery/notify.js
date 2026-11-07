@@ -171,7 +171,7 @@ async function sendLotteryInviteNotices(
               Number(costPoints) > 0
                 ? `投入${Number(costPoints)}分可抽「${title}」`
                 : `「${title}」可参与抽奖`,
-              '打开趣集参与抽奖',
+              '打开趣图铺子参与抽奖',
             ),
           },
         },
@@ -239,7 +239,7 @@ async function sendLotteryWinNotice(
 
   const pts = Math.max(1, Math.floor(Number(prizePoints) || 0));
   const data = {
-    thing1: { value: clipThing(`${pts}积分`, '趣集积分') },
+    thing1: { value: clipThing(`${pts}积分`, '趣图铺子积分') },
     number2: { value: String(pts) },
     time3: { value: formatNotifyTime(Date.now()) },
     thing4: { value: clipThing('积分已到账，可兑原图', '请打开小程序查看') },

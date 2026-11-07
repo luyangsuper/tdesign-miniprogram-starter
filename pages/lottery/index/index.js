@@ -58,7 +58,6 @@ function mapList(raw) {
     ...statusMeta(item),
   }));
 }
-
 Page({
   data: {
     themeStyle: '',
@@ -175,12 +174,12 @@ Page({
 
   onShareAppMessage() {
     return shareAppMessage({
-      title: '趣集抽奖',
+      title: '趣图铺子抽奖',
       path: '/pages/lottery/index/index',
     });
   },
 
   onShareTimeline() {
-    return shareTimeline({ title: '趣集抽奖' });
+    return shareTimeline({ title: '趣图铺子抽奖' });
   },
 });

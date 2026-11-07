@@ -1,7 +1,6 @@
 import { callFunction } from '~/utils/cloud';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
-
 Page({
   data: {
     themeStyle: '',

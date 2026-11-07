@@ -92,18 +92,20 @@
         content="{{checkinBtnText}}"
         bind:tap="onCheckin"
       />
-      <t-button
-        wx:if="{{adBonusVisible}}"
-        t-class="ckp__ad-btn"
-        theme="primary"
-        variant="outline"
-        size="medium"
-        block
-        loading="{{adBonusClaiming}}"
-        disabled="{{checking || loading || adBonusClaiming}}"
-        content="{{adBonusBtnText}}"
-        bind:tap="onWatchAdBonus"
-      />
+      <!-- 不用 wx:if：用 class 做显隐过渡，避免突然消失 -->
+      <view class="ckp__ad-wrap {{adBonusVisible ? 'is-show' : ''}}">
+        <t-button
+          t-class="ckp__ad-btn"
+          theme="primary"
+          variant="outline"
+          size="medium"
+          block
+          loading="{{adBonusClaiming}}"
+          disabled="{{!adBonusVisible || checking || loading || adBonusClaiming}}"
+          content="{{adBonusBtnText}}"
+          bind:tap="onWatchAdBonus"
+        />
+      </view>
     </view>
   </view>
 </t-popup>

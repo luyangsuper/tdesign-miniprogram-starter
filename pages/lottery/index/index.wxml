@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="lottery-list" style="{{themeStyle}}">
   <grid-lottery />
 

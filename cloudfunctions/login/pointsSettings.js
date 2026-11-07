@@ -12,6 +12,12 @@ const DEFAULTS = {
   saveAdRewardDailyMax: 8,
   /** 首页信息流每隔多少个合集插一条原生广告；0=关闭；建议 6～8 */
   homeFeedAdEvery: 6,
+  /** 保存单价（与客户端 config.downloadCosts 默认对齐） */
+  costStatic: 1,
+  costAnim: 2,
+  costWallpaper: 4,
+  costAvatar: 4,
+  costVideo: 8,
 };
 
 function clampPoints(n, fallback) {
@@ -30,6 +36,13 @@ function clampHomeFeedAdEvery(n, fallback) {
   const v = Number(n);
   if (Number.isNaN(v)) return fallback;
   return Math.max(0, Math.min(20, Math.floor(v)));
+}
+
+/** 保存单价：至少 1，避免误设成免费 */
+function clampDownloadCost(n, fallback) {
+  const v = Number(n);
+  if (Number.isNaN(v)) return fallback;
+  return Math.max(1, Math.min(999, Math.floor(v)));
 }
 
 function normalizeSettings(raw = {}) {
@@ -54,6 +67,22 @@ function normalizeSettings(raw = {}) {
       raw.homeFeedAdEvery,
       DEFAULTS.homeFeedAdEvery,
     ),
+    costStatic: clampDownloadCost(raw.costStatic, DEFAULTS.costStatic),
+    costAnim: clampDownloadCost(raw.costAnim, DEFAULTS.costAnim),
+    costWallpaper: clampDownloadCost(raw.costWallpaper, DEFAULTS.costWallpaper),
+    costAvatar: clampDownloadCost(raw.costAvatar, DEFAULTS.costAvatar),
+    costVideo: clampDownloadCost(raw.costVideo, DEFAULTS.costVideo),
+  };
+}
+
+function downloadCostsFromSettings(settings = {}) {
+  const s = normalizeSettings(settings);
+  return {
+    static: s.costStatic,
+    anim: s.costAnim,
+    wallpaper: s.costWallpaper,
+    avatar: s.costAvatar,
+    video: s.costVideo,
   };
 }
 
@@ -110,6 +139,26 @@ async function savePointsSettings(db, patch, meta = {}) {
       patch.homeFeedAdEvery !== undefined && patch.homeFeedAdEvery !== null
         ? patch.homeFeedAdEvery
         : prev.homeFeedAdEvery,
+    costStatic:
+      patch.costStatic !== undefined && patch.costStatic !== null
+        ? patch.costStatic
+        : prev.costStatic,
+    costAnim:
+      patch.costAnim !== undefined && patch.costAnim !== null
+        ? patch.costAnim
+        : prev.costAnim,
+    costWallpaper:
+      patch.costWallpaper !== undefined && patch.costWallpaper !== null
+        ? patch.costWallpaper
+        : prev.costWallpaper,
+    costAvatar:
+      patch.costAvatar !== undefined && patch.costAvatar !== null
+        ? patch.costAvatar
+        : prev.costAvatar,
+    costVideo:
+      patch.costVideo !== undefined && patch.costVideo !== null
+        ? patch.costVideo
+        : prev.costVideo,
   });
   await ensureAppConfigCollection(db);
   try {
@@ -149,5 +198,7 @@ module.exports = {
   normalizeSettings,
   getPointsSettings,
   savePointsSettings,
+  downloadCostsFromSettings,
   clampPoints,
+  clampDownloadCost,
 };

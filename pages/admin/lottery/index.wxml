@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="admin-lottery" style="{{themeStyle}}">
   <view class="admin-lottery__tip">
     九宫格随时抽、当场出结果。限时活动：免费或投入积分报名，到点抽少数人。投入型实发不超过报名费×返还比例。

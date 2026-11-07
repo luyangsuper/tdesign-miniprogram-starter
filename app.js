@@ -16,6 +16,7 @@ import {
 } from './utils/festival';
 import * as favoriteQueue from './utils/favoriteQueue';
 import { showShareMenu } from './utils/share';
+import { ensureBrandDisplayFont } from './utils/brandFont';
 
 /** 公众号动态入口 oaId：字母数字 _ -，1～64 */
 function normalizeOaId(raw) {
@@ -48,6 +49,7 @@ function pickOaIdFromOptions(opts) {
 App({
   onLaunch(options) {
     initTheme();
+    ensureBrandDisplayFont().catch(() => {});
     this.captureOaEntry(options);
     if (!wx.cloud) {
       console.error('请使用 2.2.3 或以上基础库以使用云能力');

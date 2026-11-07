@@ -167,6 +167,46 @@
     --td-tag-default-font-color: var(--td-text-color-secondary);
   }
 
+  &__type {
+    flex-shrink: 0;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8rpx;
+    height: 56rpx;
+    padding: 0 20rpx;
+    border-radius: 999rpx;
+    box-sizing: border-box;
+    background: var(--td-bg-color-secondarycontainer);
+    transition: background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease;
+
+    &--on {
+      /* 底色 / 字色由 item.chipStyle 内联 */
+    }
+
+    &--press {
+      opacity: 0.75;
+    }
+  }
+
+  &__type-icon {
+    width: 28rpx;
+    height: 28rpx;
+    flex-shrink: 0;
+    display: block;
+    transform: translateY(1rpx);
+  }
+
+  &__type-text {
+    font-size: 28rpx;
+    line-height: 28rpx;
+    height: 28rpx;
+    font-weight: 500;
+    color: inherit;
+    display: flex;
+    align-items: center;
+  }
+
   /*
    * check-tag 默认带 2rpx border，height+line-height 同值时内容区被吃掉，字会偏上；
    * 去掉边框、固定行盒，并对中文做 1rpx 光学下移。

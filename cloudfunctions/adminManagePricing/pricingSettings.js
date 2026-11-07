@@ -7,7 +7,7 @@ const DEFAULT_PRODUCTS = {
   vip_month: {
     productId: 'vip_month',
     planKey: 'month',
-    title: '趣集包月',
+    title: '趣图铺子包月',
     type: 'vip_days',
     value: 30,
     priceFen: 900,
@@ -15,7 +15,7 @@ const DEFAULT_PRODUCTS = {
   vip_quarter: {
     productId: 'vip_quarter',
     planKey: 'quarter',
-    title: '趣集季卡',
+    title: '趣图铺子季卡',
     type: 'vip_days',
     value: 90,
     priceFen: 2400,
@@ -23,7 +23,7 @@ const DEFAULT_PRODUCTS = {
   vip_year: {
     productId: 'vip_year',
     planKey: 'year',
-    title: '趣集年卡',
+    title: '趣图铺子年卡',
     type: 'vip_days',
     value: 365,
     priceFen: 7000,

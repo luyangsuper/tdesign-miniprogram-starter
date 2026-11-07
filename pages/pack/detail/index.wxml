@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="detail" style="{{themeStyle}}">
   <view class="detail__state" wx:if="{{loading}}">
     <fun-loading />
@@ -16,7 +17,11 @@
       bindchange="onHeroChange"
     >
       <swiper-item wx:for="{{heroSlides}}" wx:key="key">
-        <view wx:if="{{item.type === 'video'}}" class="detail__hero-video-wrap">
+        <view
+          wx:if="{{item.type === 'video'}}"
+          class="detail__hero-video-wrap"
+          catchlongpress="onHeroVideoLongPress"
+        >
           <video
             id="heroPreviewVideo"
             class="detail__hero-video"
@@ -25,15 +30,20 @@
             show-center-play-btn="{{false}}"
             show-mute-btn
             enable-play-gesture
+            show-casting-button="{{false}}"
+            show-snapshot-button="{{false}}"
+            show-background-playback-button="{{false}}"
             object-fit="contain"
             bindplay="onHeroVideoPlay"
             bindpause="onHeroVideoPause"
             bindended="onHeroVideoPause"
+            catchlongpress="onHeroVideoLongPress"
           />
           <view
             wx:if="{{!heroVideoPlaying}}"
             class="detail__hero-play"
             catchtap="onHeroVideoPlayTap"
+            catchlongpress="onHeroVideoLongPress"
           >
             <image
               class="detail__hero-play-icon"
@@ -108,8 +118,22 @@
       </view>
       <text class="detail__desc" wx:if="{{pack.description}}" user-select>{{pack.description}}</text>
       <view class="detail__meta">
-        <text wx:if="{{pack.categoryName}}">{{pack.categoryName}} · </text>
-        共 {{pack.emojiCount}} 张
+        <view
+          wx:if="{{contentTypeName}}"
+          class="detail__type"
+          style="{{contentTypeColorStyle}}"
+        >
+          <image
+            class="detail__type-icon"
+            src="{{contentTypeIconSrc}}"
+            mode="aspectFit"
+          />
+          <text class="detail__type-text">{{contentTypeName}}</text>
+        </view>
+        <text wx:if="{{contentTypeName && pack.categoryName}}"> · </text>
+        <text wx:if="{{pack.categoryName}}">{{pack.categoryName}}</text>
+        <text wx:if="{{contentTypeName || pack.categoryName}}"> · </text>
+        {{itemCountText || ('共 ' + pack.emojiCount + ' 张')}}
       </view>
       <view class="detail__entitlement">{{entitlementHint}}</view>
 
@@ -153,23 +177,26 @@
     </view>
 
     <view class="detail__section">
-      <view class="detail__section-title">{{canSaveStatic ? '保存原图' : '原图预览'}}</view>
+      <view class="detail__section-title">{{canSaveStatic ? saveSectionTitle : '预览'}}</view>
       <view class="detail__hint">
         <block wx:if="{{downloadReady}}">
           {{entitlementHint}} · {{costHint}}
-          点封面勾选后保存，也可点单张保存。
+          点封面勾选后保存，也可点单张保存；请对照序号，避免下错。
+        </block>
+        <block wx:elif="{{canSaveStatic && showVariantToggle}}">
+          当前积分不够保存动态图。可切回静态图，或兑换更多积分。
         </block>
         <block wx:elif="{{canSaveStatic}}">
-          当前积分不够保存动态图（需 2 积分）。可切回静态图（1 积分），或兑换更多积分。
+          当前积分不够保存，请兑换更多积分或看广告。
         </block>
         <block wx:else>
-          暂无法下载。可看广告领积分，或到「我的」兑换包月 / 积分（静态 1 / 动态 2）。
+          暂无法下载。可看广告领积分，或到「我的」兑换包月 / 积分。
           <text wx:if="{{adRewardHint}}"> {{adRewardHint}}</text>
         </block>
       </view>
 
-      <!-- 静/动切换：图标 + 说明，避免选错；有静态额度时也要能切回来 -->
-      <view class="detail__variant" wx:if="{{hasAnimAny && canSaveStatic}}">
+      <!-- 静/动切换：仅表情合集且存在动态原图时展示 -->
+      <view class="detail__variant" wx:if="{{showVariantToggle && canSaveStatic}}">
         <view
           class="detail__variant-card {{downloadVariant === 'static' ? 'detail__variant-card--active' : ''}}"
           data-value="static"
@@ -178,7 +205,7 @@
           <image class="detail__variant-art" src="/static/emoji/static.png" mode="aspectFit" />
           <view class="detail__variant-text">
             <text class="detail__variant-title">静态图</text>
-            <text class="detail__variant-desc">静止原图 · 1 积分/张</text>
+            <text class="detail__variant-desc">静止原图 · {{costStatic}} 积分/张</text>
           </view>
         </view>
         <view
@@ -189,11 +216,11 @@
           <image class="detail__variant-art" src="/static/emoji/anim.png" mode="aspectFit" />
           <view class="detail__variant-text">
             <text class="detail__variant-title">动态图</text>
-            <text class="detail__variant-desc">GIF 动图 · 2 积分/张</text>
+            <text class="detail__variant-desc">GIF 动图 · {{costAnim}} 积分/张</text>
           </view>
         </view>
       </view>
-      <view class="detail__variant-tip" wx:if="{{hasAnimAny && canSaveStatic}}">
+      <view class="detail__variant-tip" wx:if="{{showVariantToggle && canSaveStatic}}">
         当前保存：{{downloadVariant === 'anim' ? '动态 GIF' : '静态原图'}}{{downloadReady ? '（切换后请重新勾选）' : ' · 积分不够，请切回静态'}}
       </view>
 
@@ -256,7 +283,16 @@
               aria-hidden="true"
             />
             <view wx:else class="detail__slot-cover detail__slot-cover--empty">
-              {{downloadVariant === 'anim' ? '无动态' : '暂无原图'}}
+              {{item.mediaKind === 'video' ? (item.videoUrl ? '点击播放' : '视频') : (downloadVariant === 'anim' ? '无动态' : '暂无原图')}}
+            </view>
+            <!-- 视频播放钮可点；多选时也不拦播放 -->
+            <view
+              wx:if="{{item.mediaKind === 'video'}}"
+              class="detail__slot-play {{item.videoUrl ? '' : 'detail__slot-play--wait'}}"
+              data-index="{{item.index}}"
+              catchtap="onSlotVideoPlay"
+            >
+              <image class="detail__slot-play-icon" src="/static/emoji/play.png" mode="aspectFit" />
             </view>
             <view
               wx:if="{{item.selected}}"

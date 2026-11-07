@@ -3,6 +3,15 @@ import { guardAdminPage } from '~/utils/auth';
 import { getSubscribeMpState } from '~/utils/subscribe';
 import { invalidatePackTempUrls } from '~/utils/tempUrlCache';
 import {
+  contentTypeOptions,
+  contentTypeLabel,
+  isCategoryOptional,
+  isEmojiType,
+  normalizeContentType,
+  originalsLabel,
+  originalsPickLabel,
+} from '~/utils/contentType';
+import {
   getFileName,
   isVideoFile,
   pairByIndex,
@@ -13,6 +22,42 @@ import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 const gridConfig = { column: 4, width: 160, height: 160 };
 const coverPickConfig = { count: 1, sizeType: ['original'], sourceType: ['album'] };
 
+function typeUi(contentType) {
+  const type = normalizeContentType(contentType);
+  const coverOptional = type === 'video';
+  return {
+    contentType: type,
+    contentTypeName: contentTypeLabel(type),
+    categoryOptional: isCategoryOptional(type),
+    coverOptional,
+    showAnimSection: isEmojiType(type),
+    showAnimDrive: isEmojiType(type),
+    coverLabel: coverOptional
+      ? '封面（可选，列表展示）'
+      : '封面（1 张，列表展示）',
+    coverTip: coverOptional
+      ? '可不传。不传时自动用预览图或原视频缩略图做列表封面；想自定义再选 1 张。AI 生成文案仍需封面。'
+      : '从相册选 1 张原图，用于列表展示（不压缩）。上传后可用 AI 根据「主题分类 + 封面」生成标题与简介；需要时再开公众号文案。',
+    originalsLabel: originalsLabel(type),
+    originalsPickLabel: originalsPickLabel(type),
+    originalsEmptyText:
+      type === 'video'
+        ? '点击上方按钮选择原视频'
+        : type === 'avatar'
+          ? '点击上方按钮选择头像原图'
+          : type === 'wallpaper'
+            ? '点击上方按钮选择壁纸原图'
+            : '点击上方按钮选择静态原图',
+    originalsTip:
+      type === 'video'
+        ? '相册多选视频；拖排序。用户按序号保存对应原视频。'
+        : type === 'emoji'
+          ? '相册多选；拖排序后与动态同序号对齐。'
+          : '相册多选原图；拖排序。用户按序号保存，避免下错。',
+    drivePlaceholder:
+      type === 'video' ? '原视频网盘链接' : type === 'emoji' ? '静态原图网盘链接' : '原图网盘链接',
+  };
+}
 Page({
   data: {
     packId: '',
@@ -21,6 +66,8 @@ Page({
     description: '',
     staticDriveUrl: '',
     animDriveUrl: '',
+    contentTypeOptions: contentTypeOptions(),
+    ...typeUi('emoji'),
     coverFiles: [],
     coverWidth: 0,
     coverHeight: 0,
@@ -85,7 +132,13 @@ Page({
       const res = await callFunction('listCategories');
       const categories = (res.data && res.data.categories) || [];
       const patch = { categories, loadingCats: false };
-      if (!this.data.categoryId && categories[0]) {
+      // 仅表情默认选中第一个主题；壁纸/头像/视频可不选
+      if (
+        isEmojiType(this.data.contentType) &&
+        !this.data.categoryId &&
+        categories[0] &&
+        !this.data.isEdit
+      ) {
         patch.categoryId = categories[0].id;
       }
       this.setData(patch);
@@ -108,18 +161,22 @@ Page({
         const ms = new Date(raw).getTime();
         return Number.isFinite(ms) ? ms : 0;
       })();
+      const contentType = normalizeContentType(pack.contentType);
       this.setData({
         title: pack.title || '',
         description: pack.description || '',
         staticDriveUrl: pack.staticDriveUrl || '',
         animDriveUrl: pack.animDriveUrl || '',
+        ...typeUi(contentType),
         categoryId: pack.categoryId || '',
         coverFiles: pack.coverFiles || [],
         coverWidth: pack.coverWidth || 0,
         coverHeight: pack.coverHeight || 0,
         previewFiles: this.withAutoSeq(this.markPreviewMedia(pack.previewFiles || [])),
         emojiFiles: this.withAutoSeq(pack.emojiFiles || []),
-        emojiAnimFiles: this.withPreservedSeq(pack.emojiAnimFiles || []),
+        emojiAnimFiles: isEmojiType(contentType)
+          ? this.withPreservedSeq(pack.emojiAnimFiles || [])
+          : [],
         notifySubscribers: false,
         packNotifiedAt,
         notifyHint: this.buildNotifyHint(packNotifiedAt),
@@ -175,11 +232,53 @@ Page({
     });
   },
 
+  onContentTypeTap(e) {
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      (e.target && e.target.dataset && e.target.dataset.id);
+    if (!id || id === this.data.contentType) return;
+    const next = typeUi(id);
+    const patch = { ...next };
+    if (!isEmojiType(next.contentType)) {
+      patch.emojiAnimFiles = [];
+      patch.animDriveUrl = '';
+    }
+    // 视频与图片原文件不互通
+    if ((this.data.contentType === 'video') !== (next.contentType === 'video')) {
+      patch.emojiFiles = [];
+    }
+    // 切到可不选分类的类型时，不自动填分类
+    if (next.categoryOptional && !this.data.categoryId) {
+      patch.categoryId = '';
+    }
+    // 切到表情且无分类时，若有分类列表则默认第一个
+    if (
+      isEmojiType(next.contentType) &&
+      !this.data.categoryId &&
+      (this.data.categories || [])[0]
+    ) {
+      patch.categoryId = this.data.categories[0].id;
+    }
+    this.setData(patch);
+  },
+
   onCategoryTap(e) {
     const id =
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
       (e.target && e.target.dataset && e.target.dataset.id);
-    if (id) this.setData({ categoryId: id });
+    if (id === '' || id === 'none') {
+      if (isCategoryOptional(this.data.contentType)) {
+        this.setData({ categoryId: '' });
+      }
+      return;
+    }
+    if (!id) return;
+    // 可选分类：再点已选中项可取消
+    if (isCategoryOptional(this.data.contentType) && id === this.data.categoryId) {
+      this.setData({ categoryId: '' });
+      return;
+    }
+    this.setData({ categoryId: id });
   },
 
   onCoverSuccess(e) {
@@ -257,9 +356,11 @@ Page({
 
   async onGenerateCopy() {
     if (this.data.generatingCopy || this.data.submitting) return;
-    const { categoryId, categories } = this.data;
+    const { categoryId, categories, contentType } = this.data;
     const cat = (categories || []).find((c) => c.id === categoryId);
-    const categoryName = (cat && cat.name) || '';
+    const categoryName =
+      (cat && cat.name) ||
+      (isCategoryOptional(contentType) ? contentTypeLabel(contentType) : '');
     if (!categoryName) {
       wx.showToast({ title: '请先选择主题分类', icon: 'none' });
       return;
@@ -280,6 +381,7 @@ Page({
         coverFileID,
         categoryName,
         categoryId: categoryId || '',
+        contentType: normalizeContentType(contentType),
         includeArticle,
       });
       const data = (res && res.data) || {};
@@ -431,26 +533,32 @@ Page({
   },
 
   /** 相册多选；靠拖动调整顺序后按下标对齐 */
-  pickFilesByAlbum(maxCount, field) {
+  pickFilesByAlbum(maxCount, field, mediaTypes = ['image']) {
     const remain = Math.max(0, maxCount - (this.data[field] || []).length);
     if (!remain) {
       wx.showToast({ title: '已达数量上限', icon: 'none' });
       return;
     }
+    const types = Array.isArray(mediaTypes) && mediaTypes.length ? mediaTypes : ['image'];
     wx.chooseMedia({
       count: Math.min(remain, 20),
-      mediaType: ['image'],
+      mediaType: types,
       sourceType: ['album'],
       sizeType: ['original'],
+      maxDuration: types.includes('video') ? 60 : undefined,
       success: (res) => {
         const picked = (res.tempFiles || []).map((f) => {
           const path = f.tempFilePath || f.path;
+          const video = f.fileType === 'video' || isVideoFile({ path, type: f.fileType });
           return {
             url: path,
             path,
             name: '',
-            type: 'image',
+            type: video ? 'video' : 'image',
+            isVideo: video,
+            thumb: f.thumbTempFilePath || '',
             size: f.size,
+            duration: f.duration || 0,
             byAlbum: true,
           };
         });
@@ -461,6 +569,11 @@ Page({
         wx.showToast({ title: '选择失败', icon: 'none' });
       },
     });
+  },
+
+  pickOriginalsFromAlbum() {
+    const isVideo = this.data.contentType === 'video';
+    this.pickFilesByAlbum(60, 'emojiFiles', isVideo ? ['video'] : ['image']);
   },
 
   pickPreviewFromAlbum() {
@@ -526,11 +639,12 @@ Page({
   },
 
   pickEmojiFromAlbum() {
-    this.pickFilesByAlbum(30, 'emojiFiles');
+    this.pickOriginalsFromAlbum();
   },
 
   pickAnimFromAlbum() {
-    this.pickFilesByAlbum(30, 'emojiAnimFiles');
+    if (!isEmojiType(this.data.contentType)) return;
+    this.pickFilesByAlbum(60, 'emojiAnimFiles', ['image']);
   },
 
   onRemoveNamedFile(e) {
@@ -540,20 +654,23 @@ Page({
     this.setFileList(field, list);
   },
 
-  /** 点击缩略图预览大图；预览区含视频时走 previewMedia */
+  /** 点击缩略图预览；含视频时走 previewMedia（预览区 / 视频原文件） */
   onPreviewGridImage(e) {
     if (this._drag && this._drag.field) return;
     const { field, index } = e.currentTarget.dataset;
     const list = this.data[field] || [];
     const i = Number(index) || 0;
-    if (field === 'previewFiles' && list.some(isVideoFile)) {
+    const hasVideo =
+      list.some(isVideoFile) ||
+      (field === 'emojiFiles' && this.data.contentType === 'video');
+    if (hasVideo) {
       const sources = list
         .map((f) => {
           const url = f.url || f.path || f.tempFilePath || '';
           if (!url) return null;
           return {
             url,
-            type: isVideoFile(f) ? 'video' : 'image',
+            type: isVideoFile(f) || this.data.contentType === 'video' ? 'video' : 'image',
             poster: f.thumb || '',
           };
         })
@@ -730,30 +847,36 @@ Page({
       emojiAnimFiles,
       submitting,
       categoryId,
+      contentType,
+      originalsLabel: originalsName,
     } = this.data;
     if (submitting) return;
+    const type = normalizeContentType(contentType);
+    const emojiOnly = isEmojiType(type);
 
     if (!title.trim()) {
       wx.showToast({ title: '请填写标题', icon: 'none' });
       return;
     }
-    if (!categoryId) {
+    if (!isCategoryOptional(type) && !categoryId) {
       wx.showToast({ title: '请选择分类', icon: 'none' });
       return;
     }
-    if (!coverFiles.length) {
+    // 视频封面可选：提交时若无封面会用预览图 / 视频缩略图顶上
+    if (!coverFiles.length && type !== 'video') {
       wx.showToast({ title: '请上传封面', icon: 'none' });
       return;
     }
     if (!emojiFiles.length) {
-      wx.showToast({ title: '请上传静态原图', icon: 'none' });
+      wx.showToast({ title: `请上传${originalsName || '原图'}`, icon: 'none' });
       return;
     }
 
     const { images: previewImages, videos: previewVideos } = splitPreviewMedia(previewFiles);
-    const paired = pairByIndex(previewImages, emojiFiles, emojiAnimFiles);
+    const animForPair = emojiOnly ? emojiAnimFiles : [];
+    const paired = pairByIndex(previewImages, emojiFiles, animForPair);
     if (!paired.pairs.length) {
-      wx.showToast({ title: '请上传静态原图', icon: 'none' });
+      wx.showToast({ title: `请上传${originalsName || '原图'}`, icon: 'none' });
       return;
     }
 
@@ -763,7 +886,11 @@ Page({
       previewVideo: previewVideos[0] || null,
     };
 
-    if (emojiAnimFiles.length && emojiAnimFiles.length !== emojiFiles.length) {
+    if (
+      emojiOnly &&
+      emojiAnimFiles.length &&
+      emojiAnimFiles.length !== emojiFiles.length
+    ) {
       wx.showModal({
         title: '动态数量不一致',
         content: `动态 ${emojiAnimFiles.length} 张，静态 ${emojiFiles.length} 张。多出的动态会忽略，缺少的槽位为空。是否继续？`,
@@ -786,6 +913,7 @@ Page({
       title: payload.title,
       categoryName: (cat && cat.name) || '',
       description: payload.description,
+      contentType: payload.contentType || this.data.contentType,
       emojiCount: (payload.emojiFileIDs || []).length,
       miniprogramState: getSubscribeMpState(),
     });
@@ -807,6 +935,44 @@ Page({
     return { sent, skipped, total, lastError };
   },
 
+  /**
+   * 视频可不传封面时的回退：
+   * - 有预览图：提交后直接复用首张 previewFileID（不重复上传）
+   * - 否则用预览/原视频的系统缩略图上传为封面
+   * @returns {{ coverFiles: any[], reusePreviewCover: boolean }}
+   */
+  resolveCoverPlanForSubmit(type, coverFiles, previewImages, previewVideo, emojiFiles) {
+    if (coverFiles && coverFiles.length) {
+      return { coverFiles, reusePreviewCover: false };
+    }
+    if (type !== 'video') {
+      return { coverFiles: coverFiles || [], reusePreviewCover: false };
+    }
+    if ((previewImages || []).some(Boolean)) {
+      return { coverFiles: [], reusePreviewCover: true };
+    }
+    const videoCand =
+      (previewVideo && (previewVideo.thumb || isVideoFile(previewVideo))
+        ? previewVideo
+        : null) ||
+      (emojiFiles || []).find((f) => f && (f.thumb || isVideoFile(f)));
+    const thumb =
+      (videoCand && (videoCand.thumb || videoCand.thumbTempFilePath)) || '';
+    if (!thumb) return { coverFiles: [], reusePreviewCover: false };
+    return {
+      coverFiles: [
+        {
+          url: thumb,
+          path: thumb,
+          name: 'cover-thumb.jpg',
+          type: 'image',
+          byAlbum: true,
+        },
+      ],
+      reusePreviewCover: false,
+    };
+  },
+
   async doSubmit(paired) {
     const previewImages = paired.previewImages || paired.orderedPreviews || [];
     const previewVideo = paired.previewVideo || null;
@@ -815,9 +981,11 @@ Page({
       isEdit,
       title,
       description,
+      contentType,
       staticDriveUrl,
       animDriveUrl,
-      coverFiles,
+      coverFiles: rawCoverFiles,
+      emojiFiles,
       categoryId,
       coverWidth,
       coverHeight,
@@ -826,6 +994,16 @@ Page({
     } = this.data;
     const wasEdit = isEdit;
     const shouldNotify = !!notifySubscribers;
+    const type = normalizeContentType(contentType);
+    const emojiOnly = isEmojiType(type);
+    const coverPlan = this.resolveCoverPlanForSubmit(
+      type,
+      rawCoverFiles,
+      previewImages,
+      previewVideo,
+      emojiFiles,
+    );
+    const coverFiles = coverPlan.coverFiles;
 
     if (shouldNotify && packNotifiedAt) {
       const ok = await new Promise((resolve) => {
@@ -854,6 +1032,14 @@ Page({
           this.resolveFileIds(previewVideo ? [previewVideo] : [], 'preview-video'),
         ]);
       const previewVideoFileID = previewVideoIds[0] || '';
+      let coverFileID = coverIds[0] || '';
+      // 视频无封面且有预览图：复用首张预览，避免同图传两遍
+      if (!coverFileID && coverPlan.reusePreviewCover) {
+        coverFileID = previewFileIDs.find(Boolean) || '';
+      }
+      if (!coverFileID && type !== 'video') {
+        throw new Error('请上传封面');
+      }
 
       // 与静态同序；无动态槽位填空串
       let animCursor = 0;
@@ -867,10 +1053,11 @@ Page({
       let w = Number(coverWidth) || 0;
       let h = Number(coverHeight) || 0;
       // 本地选图 / 云 fileID 都再量一次，保证首页瀑布流有 coverRatio
-      if (!w || !h) {
+      // 视频自动顶上的缩略图也要量；手动封面被清掉时勿沿用旧宽高
+      if (coverFileID && (!w || !h || !(rawCoverFiles || []).length)) {
         const candidates = [
           coverFiles[0] && this.pickLocalPath(coverFiles[0]),
-          coverIds[0],
+          coverFileID,
         ].filter(Boolean);
         for (let i = 0; i < candidates.length; i += 1) {
           // eslint-disable-next-line no-await-in-loop
@@ -888,20 +1075,25 @@ Page({
           }
         }
       }
+      if (!coverFileID) {
+        w = 0;
+        h = 0;
+      }
 
       const payload = {
         title: title.trim(),
         description: (description || '').replace(/\r\n/g, '\n').trim(),
+        contentType: type,
         staticDriveUrl: (staticDriveUrl || '').trim(),
-        animDriveUrl: (animDriveUrl || '').trim(),
-        categoryId,
-        coverFileID: coverIds[0],
+        animDriveUrl: emojiOnly ? (animDriveUrl || '').trim() : '',
+        categoryId: categoryId || '',
+        coverFileID,
         coverWidth: w,
         coverHeight: h,
         previewFileIDs,
         previewVideoFileID,
         emojiFileIDs,
-        emojiAnimFileIDs,
+        emojiAnimFileIDs: emojiOnly ? emojiAnimFileIDs : emojiFileIDs.map(() => ''),
         pairKeys: paired.pairKeys,
         status: 'published',
       };

@@ -76,7 +76,7 @@ function mapLottery(row, openid, entry) {
         : 0,
     winners: winners.map((w) => ({
       openid: w.openid,
-      nickName: w.nickName || '趣集用户',
+      nickName: w.nickName || '趣图铺子用户',
       points: Number(w.points) || 0,
       rank: Number(w.rank) || 0,
       isMe: !!(openid && w.openid === openid),
@@ -409,7 +409,7 @@ exports.main = async (event = {}) => {
       const entryPayload = {
         lotteryId,
         openid: OPENID,
-        nickName: nickName || '趣集用户',
+        nickName: nickName || '趣图铺子用户',
         joinedAt: db.serverDate(),
         won: false,
         prizePoints: 0,

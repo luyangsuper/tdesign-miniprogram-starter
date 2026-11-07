@@ -25,7 +25,10 @@ export function defaultSaveAdRewardDailyMax() {
 }
 
 function normalizeSlot(slot) {
-  return slot === 'save' ? 'save' : 'reward';
+  const s = String(slot || '').trim();
+  if (s === 'save') return 'save';
+  if (s === 'checkin') return 'checkin';
+  return 'reward';
 }
 
 /** 「我的」主动看广告 */
@@ -37,13 +40,18 @@ export function isAdRewardEnabled() {
   );
 }
 
-/** 积分不足救急 */
+/** 保存不够时的激励广告（约 30s） */
 export function isSaveAdRewardEnabled() {
   return (
     isRewardedAdReady('save') &&
     defaultSaveAdRewardPoints() > 0 &&
     defaultSaveAdRewardDailyMax() > 0
   );
+}
+
+/** 签到后再领：与救急同积分规则、同 30s 广告单元，每日仅 1 次（云端强制） */
+export function isCheckinAdRewardEnabled() {
+  return isRewardedAdReady('checkin') && defaultSaveAdRewardPoints() > 0;
 }
 
 function emitEntitlementChange() {
@@ -56,6 +64,19 @@ function emitEntitlementChange() {
 }
 
 function fallbackStatus(slot) {
+  if (slot === 'checkin') {
+    const points = defaultSaveAdRewardPoints();
+    const dailyMax = points > 0 ? 1 : 0;
+    const enabled = isCheckinAdRewardEnabled();
+    return {
+      slot,
+      enabled,
+      points,
+      dailyMax,
+      usedToday: 0,
+      leftToday: enabled ? dailyMax : 0,
+    };
+  }
   const isSave = slot === 'save';
   const points = isSave ? defaultSaveAdRewardPoints() : defaultAdRewardPoints();
   const dailyMax = isSave
@@ -73,7 +94,7 @@ function fallbackStatus(slot) {
 }
 
 /**
- * @param {'reward'|'save'} [slot]
+ * @param {'reward'|'save'|'checkin'} [slot]
  */
 export async function fetchAdRewardStatus(slot = 'reward') {
   const normalized = normalizeSlot(slot);
@@ -81,7 +102,10 @@ export async function fetchAdRewardStatus(slot = 'reward') {
   if (normalized === 'reward' && !isRewardedAdReady('reward')) {
     return { ...fallback, enabled: false, leftToday: 0 };
   }
-  if (normalized === 'save' && !isRewardedAdReady('save')) {
+  if (
+    (normalized === 'save' || normalized === 'checkin') &&
+    !isRewardedAdReady(normalized)
+  ) {
     return { ...fallback, enabled: false, leftToday: 0 };
   }
   try {
@@ -210,12 +234,16 @@ export function formatAdClaimToast({ gained, spendable, need }) {
 
 /**
  * 完整观看激励视频后向云函数领取积分。
- * @param {{ page?: any, slot?: 'reward'|'save' }} [opts]
+ * @param {{ page?: any, slot?: 'reward'|'save'|'checkin' }} [opts]
  */
 export async function watchAdAndClaimPoints(opts = {}) {
   const slot = normalizeSlot(opts.slot);
   const ready =
-    slot === 'save' ? isSaveAdRewardEnabled() : isAdRewardEnabled();
+    slot === 'checkin'
+      ? isCheckinAdRewardEnabled()
+      : slot === 'save'
+        ? isSaveAdRewardEnabled()
+        : isAdRewardEnabled();
   if (!ready) {
     wx.showToast({ title: '暂未开放看广告领积分', icon: 'none' });
     return { ok: false, reason: 'DISABLED', message: '暂未开放看广告领积分' };

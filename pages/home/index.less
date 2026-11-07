@@ -177,8 +177,73 @@
   @toolbar-h: 72rpx;
   @cat-h: 56rpx;
 
+  &__filter-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: @toolbar-h;
+    padding-left: 20rpx;
+    box-sizing: border-box;
+  }
+
+  /* 类型胶囊：配色由 contentTypeChipStyle 内联（跟图标色一致） */
+  &__type-capsule {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8rpx;
+    height: @cat-h;
+    max-width: 200rpx;
+    padding: 0 14rpx 0 16rpx;
+    border-radius: 999rpx;
+    box-sizing: border-box;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+
+    &--press {
+      opacity: 0.78;
+      transform: scale(0.97);
+    }
+  }
+
+  &__type-capsule-icon {
+    flex-shrink: 0;
+    width: 28rpx;
+    height: 28rpx;
+    display: block;
+    transform: translateY(1rpx);
+  }
+
+  /* 三角箭头：吃胶囊上的 color；略放大，远看别缩成一个点 */
+  &__type-capsule-caret {
+    flex-shrink: 0;
+    width: 0;
+    height: 0;
+    margin-left: 4rpx;
+    border-style: solid;
+    border-width: 12rpx 10rpx 0;
+    border-color: currentColor transparent transparent;
+    transform: translateY(2rpx);
+    opacity: 0.92;
+  }
+
+  &__type-capsule-text {
+    font-size: var(--ui-fs-strong, @ui-fs-strong);
+    font-weight: 600;
+    line-height: 1;
+    height: auto;
+    min-height: 28rpx;
+    max-width: 96rpx;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: inherit;
+    display: flex;
+    align-items: center;
+  }
+
   &__toolbar {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     height: @toolbar-h;
     white-space: nowrap;
     box-sizing: border-box;
@@ -188,66 +253,86 @@
     display: inline-flex;
     flex-direction: row;
     align-items: center;
-    gap: 12rpx;
+    gap: 8rpx;
     height: @toolbar-h;
     padding: 0 24rpx;
     box-sizing: border-box;
+
+    &--cats {
+      padding-left: 8rpx;
+      padding-right: 24rpx;
+    }
   }
 
-  &__cat-wrap {
+  /* 主题：文字 Tab + 底横条；未选次要色，选中用分类 accent */
+  &__tab {
+    position: relative;
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     height: @toolbar-h;
-  }
+    padding: 0 16rpx 8rpx;
+    box-sizing: border-box;
+    color: var(--td-text-color-secondary);
+    transition: color 0.2s ease, opacity 0.16s ease;
 
-  &__cat {
-    flex-shrink: 0;
-    height: @cat-h !important;
-    min-height: @cat-h !important;
-    max-height: @cat-h !important;
-    padding: 0 20rpx !important;
-    border-width: 0 !important;
-    border-radius: 999rpx !important;
-    box-sizing: border-box !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
-    line-height: 1 !important;
-    overflow: hidden;
-    transition: background-color 0.22s ease, color 0.22s ease, transform 0.16s ease;
-
-    &.t-tag {
-      line-height: 1 !important;
+    &--on {
+      color: var(--home-cat-accent, var(--td-brand-color));
+      font-weight: 600;
     }
 
-    .t-tag__text {
-      display: inline-flex !important;
-      align-items: center !important;
-      line-height: 1 !important;
-      height: auto !important;
-    }
-
-    &:active {
-      transform: scale(0.96);
+    &--press {
+      opacity: 0.7;
     }
   }
 
-  &__cat-inner {
-    display: flex;
-    align-items: center;
-    line-height: 1;
+  &__tab-name {
+    font-size: var(--ui-fs-strong, @ui-fs-strong);
+    line-height: 1.2;
+    height: auto;
+    color: inherit;
   }
 
-  &__cat-name {
+  &__tab-count {
     display: inline-block;
-    font-size: var(--ui-fs-caption, @ui-fs-caption);
-    line-height: 28rpx;
-    height: 28rpx;
+    max-width: 0;
+    margin-left: 0;
+    overflow: hidden;
+    opacity: 0;
+    font-size: var(--ui-fs-strong, @ui-fs-strong);
+    font-weight: 600;
+    line-height: 1.2;
+    height: auto;
+    color: inherit;
+    transition: max-width 0.22s ease, margin 0.22s ease, opacity 0.18s ease;
   }
 
-  /* 数量角标色跟当前分类 accent（custom-style 注入 --home-cat-accent） */
+  &__tab-count--show {
+    max-width: 80rpx;
+    margin-left: 8rpx;
+    opacity: 1;
+  }
+
+  &__tab-bar {
+    position: absolute;
+    left: 50%;
+    /* 文字与横条间距取中：比最初近、比上一版略松 */
+    bottom: 12rpx;
+    width: 36rpx;
+    height: 6rpx;
+    border-radius: 999rpx;
+    background: var(--home-cat-accent, var(--td-brand-color));
+    transform: translateX(-50%) scaleX(0);
+    opacity: 0;
+    transition: transform 0.22s ease, opacity 0.18s ease;
+  }
+
+  &__tab--on &__tab-bar {
+    transform: translateX(-50%) scaleX(1);
+    opacity: 1;
+  }
+
+  /* 兼容旧类名（节日等覆盖可能仍引用） */
   &__cat-count {
     display: inline-block;
     height: 28rpx;
@@ -574,6 +659,90 @@
     --td-tag-medium-height: 64rpx;
     --td-tag-medium-padding: 0 28rpx;
     --td-tag-medium-font-size: var(--ui-fs-body, @ui-fs-body);
+  }
+
+  &__batch-type {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8rpx;
+    .ui-body();
+    color: var(--td-text-color-secondary);
+    line-height: 64rpx;
+  }
+
+  &__batch-type-icon {
+    width: 28rpx;
+    height: 28rpx;
+    flex-shrink: 0;
+  }
+
+  &__type-sheet {
+    padding: 32rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+    background: var(--td-bg-color-container);
+    border-radius: 24rpx 24rpx 0 0;
+    box-sizing: border-box;
+  }
+
+  &__type-sheet-title {
+    .ui-strong();
+    text-align: center;
+  }
+
+  &__type-sheet-tip {
+    .ui-caption();
+    text-align: center;
+    color: var(--td-text-color-secondary);
+    margin: 8rpx 0 20rpx;
+  }
+
+  &__type-sheet-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16rpx;
+    min-height: 96rpx;
+    padding: 0 20rpx;
+    margin-bottom: 8rpx;
+    border-radius: 16rpx;
+    box-sizing: border-box;
+    transition:
+      background-color 0.16s ease,
+      color 0.16s ease,
+      transform 0.12s ease,
+      box-shadow 0.12s ease;
+
+    /* inset 遮罩不吃内联 chip 底色；按下哪行一眼能看清 */
+    &--press {
+      transform: scale(0.985);
+      box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.08);
+    }
+
+    &--on {
+      font-weight: 600;
+    }
+  }
+
+  &__type-sheet-icon {
+    width: 36rpx;
+    height: 36rpx;
+    flex-shrink: 0;
+    display: block;
+    /* IconPark 视觉重心略偏上，下移对齐汉字中线 */
+    transform: translateY(1rpx);
+  }
+
+  &__type-sheet-label {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--ui-fs-body, @ui-fs-body);
+    line-height: 1.25;
+    height: auto;
+    font-weight: 500;
+    color: inherit;
+    display: flex;
+    align-items: center;
   }
 
   &__batch-btn {

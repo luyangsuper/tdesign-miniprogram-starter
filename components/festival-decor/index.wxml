@@ -1,64 +1,65 @@
-<!-- ① 首页 / 我的：顶栏背景图 -->
-<view
-  wx:if="{{visible && showSkin && assets.banner}}"
-  class="fest-skin fest-skin--{{festivalId}}"
-  style="height: {{skinHeightPx}}px;"
-  aria-hidden="true"
->
-  <!-- aspectFill：上传 4:1，等比铺满导航区（机型略差时上下微裁，不拉伸） -->
-  <image class="fest-skin__img" src="{{assets.banner}}" mode="aspectFill" />
-  <!-- 底缘淡入页面底色，减轻和分类区/内容的硬切 -->
-  <view class="fest-skin__fade" />
-</view>
-
-<!-- ② 首页 / 我的：灯带 + 微光（春节/圣诞） -->
-<view
-  wx:if="{{visible && showChrome}}"
-  class="fest-chrome fest-chrome--{{festivalId}} {{paused ? 'fest--paused' : ''}}"
-  style="height: {{chromeHeightPx}}px;"
-  aria-hidden="true"
->
-  <view wx:if="{{sparkles.length}}" class="fest-sparkles">
-    <view
-      wx:for="{{sparkles}}"
-      wx:key="id"
-      class="fest-sparkles__dot fest-sparkles__dot--g{{item.group}}"
-      style="{{item.style}}"
-    />
+<!-- 唯一根：fixed + 0 尺寸，避免宿主/子节点挤占导航下方 -->
+<view class="fest-portal" style="position:fixed;left:0;top:0;width:0;height:0;overflow:visible;pointer-events:none;z-index:90;">
+  <!-- ① 顶栏背景图 -->
+  <view
+    wx:if="{{visible && showSkin && assets.banner}}"
+    class="fest-skin fest-skin--{{festivalId}}"
+    style="position:fixed;left:0;right:0;top:0;z-index:90;pointer-events:none;overflow:hidden;height:{{skinHeightPx}}px;"
+    aria-hidden="true"
+  >
+    <image class="fest-skin__img" src="{{assets.banner}}" mode="aspectFill" />
+    <view class="fest-skin__fade" />
   </view>
 
-  <view wx:if="{{showLights && (assets.header || bulbs.length)}}" class="fest-garland">
-    <image
-      wx:if="{{assets.header}}"
-      class="fest-garland__img"
-      src="{{assets.header}}"
-      mode="widthFix"
-    />
-    <view wx:if="{{showLights}}" class="fest-garland__glow">
+  <!-- ② 灯带 + 微光 -->
+  <view
+    wx:if="{{visible && showChrome}}"
+    class="fest-chrome fest-chrome--{{festivalId}} {{paused ? 'fest--paused' : ''}}"
+    style="position:fixed;left:0;right:0;top:0;z-index:480;pointer-events:none;overflow:hidden;height:{{chromeHeightPx}}px;"
+    aria-hidden="true"
+  >
+    <view wx:if="{{sparkles.length}}" class="fest-sparkles">
       <view
-        wx:for="{{bulbs}}"
+        wx:for="{{sparkles}}"
         wx:key="id"
-        class="fest-garland__bulb fest-garland__bulb--{{item.color}} fest-garland__bulb--g{{item.group}}"
+        class="fest-sparkles__dot fest-sparkles__dot--g{{item.group}}"
         style="{{item.style}}"
       />
     </view>
-  </view>
-</view>
 
-<!-- ③ 首页 / 我的：循环飘落；默认顶栏，可开全屏 -->
-<view
-  wx:if="{{visible && showAmbient}}"
-  class="fest-ambient fest-ambient--{{fallScope}} fest-ambient--{{festivalId}} {{paused ? 'fest--paused' : ''}}"
-  style="{{ambientStyle}}"
->
-  <view wx:if="{{showMotion}}" class="fest-ambient__motion" aria-hidden="true">
-    <view
-      wx:for="{{flakes}}"
-      wx:key="id"
-      class="fest-ambient__flake"
-      style="{{item.wrapStyle}}"
-    >
-      <image class="fest-ambient__img" src="{{item.src}}" mode="aspectFit" />
+    <view wx:if="{{showLights && (assets.header || bulbs.length)}}" class="fest-garland">
+      <image
+        wx:if="{{assets.header}}"
+        class="fest-garland__img"
+        src="{{assets.header}}"
+        mode="widthFix"
+      />
+      <view wx:if="{{showLights}}" class="fest-garland__glow">
+        <view
+          wx:for="{{bulbs}}"
+          wx:key="id"
+          class="fest-garland__bulb fest-garland__bulb--{{item.color}} fest-garland__bulb--g{{item.group}}"
+          style="{{item.style}}"
+        />
+      </view>
+    </view>
+  </view>
+
+  <!-- ③ 飘落 -->
+  <view
+    wx:if="{{visible && showAmbient}}"
+    class="fest-ambient fest-ambient--{{fallScope}} fest-ambient--{{festivalId}} {{paused ? 'fest--paused' : ''}}"
+    style="position:fixed;z-index:460;pointer-events:none;overflow:hidden;{{ambientStyle}}"
+  >
+    <view wx:if="{{showMotion}}" class="fest-ambient__motion" aria-hidden="true">
+      <view
+        wx:for="{{flakes}}"
+        wx:key="id"
+        class="fest-ambient__flake"
+        style="{{item.wrapStyle}}"
+      >
+        <image class="fest-ambient__img" src="{{item.src}}" mode="aspectFit" />
+      </view>
     </view>
   </view>
 </view>

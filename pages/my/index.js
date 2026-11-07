@@ -14,6 +14,8 @@ import {
   setCachedEntitlement,
 } from '~/utils/entitlement';
 import {
+  applyDownloadCostsFromSettings,
+  downloadCost,
   getPricingPlans,
   loadPricingPlans,
   pricingFromLoginPayload,
@@ -65,6 +67,7 @@ import {
 import {
   FESTIVAL_BANNER_SPEC,
   FESTIVAL_BANK_SPEC,
+  buildFestivalSheetFlakes,
   clearFestivalBanner,
   clearFestivalBank,
   clearFestivalWindow,
@@ -74,8 +77,10 @@ import {
   getFestivalBannerAdminItems,
   getFestivalBankAdminItems,
   getFestivalCropOutSize,
+  canAccessFestival,
   getFestivalMode,
-  getFestivalModeOptions,
+  getFestivalPreviewDemo,
+  getFestivalPreviewOptions,
   getFestivalSolarTableAdminHint,
   getFestivalStatus,
   getFestivalWindowInfo,
@@ -94,8 +99,21 @@ import {
   setFestivalMode,
   setFestivalUserOn,
 } from '~/utils/festival';
-import { getWindowInfoSafe } from '~/utils/systemInfo';
+import { getCustomNavMetrics, getWindowInfoSafe } from '~/utils/systemInfo';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
+import {
+  buildWaterfallPreviewColumns,
+  getDisplaySettingsNote,
+  getWaterfallColumnOptions,
+  getWaterfallColumnsPref,
+  setWaterfallColumnsPref,
+} from '~/utils/waterfallColumns';
+import {
+  buildFontScaleStyle,
+  getFontScaleId,
+  getFontScaleOptions,
+  setFontScaleId,
+} from '~/utils/fontScale';
 
 /**
  * 预览普通用户：只隐藏管理员身份，仍按真实权益显示 VIP / 积分
@@ -141,7 +159,6 @@ function buildRoleTagTheme({ isAdmin, isVip, points, vipMonthQuota, previewAsUse
   if ((points || 0) + (vipMonthQuota || 0) > 0) return 'success';
   return 'default';
 }
-
 Page({
   data: {
     openid: '',
@@ -159,7 +176,6 @@ Page({
     benefit: formatBenefitCard(),
     pricing: getPricingPlans(),
     pricingVisible: false,
-    serviceWechat: config.serviceWechat || 'Shine_Luyang',
     genCodeKey: '',
     buyingKey: '',
     redeemCode: '',
@@ -174,7 +190,19 @@ Page({
     themeName: '微信绿',
     themePresets: [],
     themePopupVisible: false,
+    displaySettingsNote: getDisplaySettingsNote(),
+    displayPrefDraft: 'auto',
+    displayPrefHint: '按屏幕宽度自动',
+    displayPreviewColumns: [],
+    displayPreviewColumnCount: 2,
+    displayPreviewIsAuto: true,
+    displayColumnOptions: getWaterfallColumnOptions(),
+    fontScaleDraft: 'standard',
+    fontScaleOptions: getFontScaleOptions(),
+    fontPreviewStyle: buildFontScaleStyle('standard'),
+    displayPopupVisible: false,
     navHeight: 64,
+    navBarStyle: '',
     festivalActive: true,
     festivalId: '',
     festivalClass: '',
@@ -189,6 +217,10 @@ Page({
     festivalFallFull: false,
     festivalPopupVisible: false,
     festivalModeOptions: [],
+    festivalPreviewHint: '',
+    festivalPreviewAccent: '#e34d59',
+    festivalPreviewName: '春节',
+    festivalPreviewFlakes: [],
     festivalBannerItems: [],
     festivalBankItems: [],
     festivalAssetEdit: null,
@@ -223,6 +255,8 @@ Page({
     lotteryOpenCount: 0,
     gridLotteryOn: false,
     checkinVisible: false,
+    checkinCheckedToday: false,
+    checkinEntryText: '签到',
     adRewardVisible: false,
     adRewardNote: '看完视频领积分',
     adRewardPoints: defaultAdRewardPoints(),
@@ -233,20 +267,20 @@ Page({
     guideVisible: false,
     guideSteps: [
       {
-        title: '在趣集里选合集',
-        desc: '打开首页，点进喜欢的合集，先预览封面和预览图。',
+        title: '在趣图铺子里选合集',
+        desc: '打开首页，可按表情 / 壁纸 / 头像 / 视频筛选，点进喜欢的合集预览。批量保存时一次只能选同一类型。',
       },
       {
         title: '获取下载权限',
-        desc: '在「我的」购买或兑换包月（每月 48 积分，月底清零）与积分（静态 1 积分 / 动态 2 积分）。',
+        desc: `在「我的」购买或兑换包月（每月 ${config.monthlyQuota || 48} 积分，月底清零）与积分。保存单价：表情静态 ${downloadCost('static')} / 动态 ${downloadCost('anim')}，壁纸 ${downloadCost('wallpaper')}，头像 ${downloadCost('avatar')}，视频 ${downloadCost('video')}（以「我的」与管理端规则为准）。`,
       },
       {
-        title: '保存原图到相册',
-        desc: '在合集详情里选「静态」或「动态」，点对应原图的保存，授权相册后图片会存进手机相册。',
+        title: '保存原文件到相册',
+        desc: '表情合集可选「静态 / 动态」原图；壁纸、头像、视频直接保存原文件。授权相册后写入手机。',
       },
       {
         title: '打开微信表情面板',
-        desc: '回到微信，进入任意聊天，点输入框旁的表情图标，打开表情面板。',
+        desc: '若保存的是表情：回到微信，进入任意聊天，点输入框旁的表情图标，打开表情面板。壁纸 / 头像可直接设系统壁纸或头像；视频可在相册播放。',
       },
       {
         title: '进入「添加的单个表情」',
@@ -276,16 +310,18 @@ Page({
     /* 裁剪全屏时保持藏底栏（cover-view 会盖住裁剪层） */
     this.setTabBarHidden(!!this.data.festivalCropVisible);
     this.refreshIdentity();
-    ensureFestivalModeForRole(!!this.data.isAdmin);
+    /* 用 resolveIsAdmin()，避免 setData 尚未反映到 this.data 时误把预览模式清成 auto */
+    ensureFestivalModeForRole(!!resolveIsAdmin());
     this.syncProfileFromCloud();
     this.syncEntitlement();
     this.refreshAdRewardStatus();
     this.refreshNotifyStatus();
     this.refreshFeedbackNotifyStatus();
     this.refreshLotteryHint();
+    this.refreshCheckinEntry();
     this.maybeOpenCheckinPopup();
     loadFestivalConfig({ silent: true }).then(() => {
-      ensureFestivalModeForRole(!!this.data.isAdmin);
+      ensureFestivalModeForRole(!!resolveIsAdmin());
       this.syncThemeUi();
       this.refreshFestivalDecor();
       this.syncTabBarFestival();
@@ -360,7 +396,7 @@ Page({
     try {
       const app = getApp();
       this._onAdminViewChange = () => this.refreshIdentity();
-      this._onFestivalChange = () => this.refreshFestivalDecor();
+      this._onFestivalChange = () => this.updateNavHeight();
       if (app && app.eventBus) {
         app.eventBus.on('entitlementChange', this._onEntitlementChange);
         app.eventBus.on('adminViewChange', this._onAdminViewChange);
@@ -386,13 +422,22 @@ Page({
 
   updateNavHeight() {
     try {
-      const win = getWindowInfoSafe();
-      const menu = wx.getMenuButtonBoundingClientRect();
-      const gap = menu.top - win.statusBarHeight;
-      const navHeight = win.statusBarHeight + gap * 2 + menu.height;
-      this.setData({ navHeight }, () => this.refreshFestivalDecor());
+      const m = getCustomNavMetrics();
+      this.setData(
+        {
+          navHeight: m.navHeight,
+          navBarStyle: m.navBarStyle,
+        },
+        () => this.refreshFestivalDecor(),
+      );
     } catch (e) {
-      this.setData({ navHeight: 64 }, () => this.refreshFestivalDecor());
+      this.setData(
+        {
+          navHeight: 64,
+          navBarStyle: '--td-navbar-padding-top:20px;--td-navbar-height:44px',
+        },
+        () => this.refreshFestivalDecor(),
+      );
     }
   },
 
@@ -401,7 +446,6 @@ Page({
     const nav = Number(this.data.navHeight) || 64;
     const assets = fest ? getFestivalAssets(fest.id) : {};
     const hasBanner = !!(assets && assets.banner);
-    /* 顶栏图盖满导航；上传 4:1，展示跟导航同高（不上提内容，避免头像卡顶） */
     const festHeaderPx = Math.max(48, Math.round(nav));
     const festivalStyle = fest
       ? [
@@ -449,6 +493,7 @@ Page({
       themeId,
       themeName: (hit && hit.name) || '微信绿',
       themePresets: presets,
+      displaySettingsNote: getDisplaySettingsNote(),
       festivalMode: fest.mode,
       festivalModeLabel: fest.modeLabel,
       festivalActiveName: fest.activeName,
@@ -456,7 +501,7 @@ Page({
       festivalFeatureOn: !!fest.featureOn,
       festivalUserOn: !!fest.userOn,
       festivalFallFull: isFestivalFallFull(),
-      festivalModeOptions: getFestivalModeOptions(),
+      festivalModeOptions: getFestivalPreviewOptions(),
     });
   },
 
@@ -478,18 +523,6 @@ Page({
   onPricingVisibleChange(e) {
     const visible = !!(e.detail && e.detail.visible);
     this.setData({ pricingVisible: visible });
-  },
-
-  copyServiceWechat() {
-    const wxid = this.data.serviceWechat || (this.data.pricing && this.data.pricing.serviceWechat) || '';
-    if (!wxid) {
-      wx.showToast({ title: '暂无客服微信', icon: 'none' });
-      return;
-    }
-    wx.setClipboardData({
-      data: wxid,
-      success: () => wx.showToast({ title: '微信号已复制', icon: 'success' }),
-    });
   },
 
   async onBuyPlan(e) {
@@ -574,6 +607,85 @@ Page({
       themePresets: getThemePresets(),
       themeId: getThemeId(),
     });
+  },
+
+  _displayPrefHint(pref) {
+    const hit = (this.data.displayColumnOptions || getWaterfallColumnOptions()).find(
+      (o) => o.id === pref,
+    );
+    return (hit && hit.hint) || '';
+  },
+
+  _buildDisplayPreview(pref) {
+    const { windowWidth } = getWindowInfoSafe();
+    const preview = buildWaterfallPreviewColumns(pref, { windowWidth });
+    return {
+      displayPrefDraft: pref,
+      displayPreviewColumns: preview.columns,
+      displayPreviewColumnCount: preview.columnCount,
+      displayPreviewIsAuto: preview.isAuto,
+      displayPrefHint: this._displayPrefHint(pref),
+    };
+  },
+
+  openDisplaySettings() {
+    const pref = getWaterfallColumnsPref();
+    const fontId = getFontScaleId();
+    this.setData({
+      displayPopupVisible: true,
+      displayColumnOptions: getWaterfallColumnOptions(),
+      fontScaleOptions: getFontScaleOptions(),
+      fontScaleDraft: fontId,
+      fontPreviewStyle: buildFontScaleStyle(fontId),
+      ...this._buildDisplayPreview(pref),
+    });
+  },
+
+  closeDisplaySettings() {
+    if (!this.data.displayPopupVisible) return;
+    this.setData({ displayPopupVisible: false });
+  },
+
+  onDisplayPopupChange(e) {
+    const visible = !!(e.detail && e.detail.visible);
+    this.setData({ displayPopupVisible: visible });
+  },
+
+  onPickDisplayPref(e) {
+    const raw =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      (e.target && e.target.dataset && e.target.dataset.id) ||
+      '';
+    let pref = raw;
+    if (raw === '1' || raw === '2' || raw === '3') pref = Number(raw);
+    if (pref !== 'auto' && pref !== 1 && pref !== 2 && pref !== 3) return;
+    /* check-tag 点已选项会取消勾选：强制保持选中 */
+    this.setData(this._buildDisplayPreview(pref));
+  },
+
+  onPickFontScale(e) {
+    const raw =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      (e.target && e.target.dataset && e.target.dataset.id) ||
+      '';
+    const id = String(raw || '');
+    if (!getFontScaleOptions().some((o) => o.id === id)) return;
+    this.setData({
+      fontScaleDraft: id,
+      fontPreviewStyle: buildFontScaleStyle(id),
+    });
+  },
+
+  onConfirmDisplaySettings() {
+    setWaterfallColumnsPref(this.data.displayPrefDraft);
+    setFontScaleId(this.data.fontScaleDraft);
+    applyThemeToTabBar();
+    this.setData({
+      themeStyle: getThemeStyle(),
+      displaySettingsNote: getDisplaySettingsNote(),
+      displayPopupVisible: false,
+    });
+    wx.showToast({ title: '显示设置已更新', icon: 'success' });
   },
 
   openFeedback() {
@@ -686,6 +798,11 @@ Page({
     this.setData({ themePopupVisible: visible });
   },
 
+  closeThemePicker() {
+    if (!this.data.themePopupVisible) return;
+    this.setData({ themePopupVisible: false });
+  },
+
   onPickTheme(e) {
     const id =
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '';
@@ -708,6 +825,39 @@ Page({
     this.openPricing();
   },
 
+  /** 弹层内手机预览：跟开关 / 当前节日联动 */
+  refreshFestivalSheetPreview() {
+    const userOn = isFestivalUserOn();
+    const fallFull = isFestivalFallFull();
+    const demo = getFestivalPreviewDemo();
+    const accent = (demo && demo.accent) || '#e34d59';
+    const name = (demo && demo.name) || '春节';
+    const demoId = (demo && demo.id) || 'cny';
+    const active = getActiveFestival();
+    const flakes = userOn
+      ? buildFestivalSheetFlakes(demoId, fallFull ? 'full' : 'header')
+      : [];
+    let hint = '';
+    if (!userOn) {
+      hint = '打开「开启节日效果」后，顶栏与飘落会出现在预览中';
+    } else if (!active) {
+      hint = `当前无进行中节日，预览以「${name}」示意 · ${
+        fallFull ? '全屏飘落' : '仅顶栏飘落'
+      }`;
+    } else {
+      hint = `当前：${name} · ${fallFull ? '全屏飘落' : '仅顶栏飘落'}`;
+    }
+    this.setData({
+      festivalUserOn: userOn,
+      festivalFallFull: fallFull,
+      festivalPreviewAccent: accent,
+      festivalPreviewName: name,
+      festivalPreviewHint: hint,
+      festivalPreviewFlakes: flakes,
+      festivalModeOptions: getFestivalPreviewOptions(),
+    });
+  },
+
   openFestivalPicker() {
     const festivalSolarTableHint = this.data.isAdmin
       ? getFestivalSolarTableAdminHint()
@@ -715,13 +865,14 @@ Page({
     this.setData({
       festivalPopupVisible: true,
       festivalMode: getFestivalMode(),
-      festivalModeOptions: getFestivalModeOptions(),
+      festivalModeOptions: getFestivalPreviewOptions(),
       festivalFeatureOn: isFestivalFeatureEnabled(),
       festivalUserOn: isFestivalUserOn(),
       festivalFallFull: isFestivalFallFull(),
       festivalSolarTableHint,
       benefit: formatBenefitCard(getCachedEntitlement()),
     });
+    this.refreshFestivalSheetPreview();
     /* 先用本地缓存渲染预览图，避免连点两次换签导致图片闪两次 */
     if (this.data.isAdmin) this.refreshFestivalAssetItems();
     loadFestivalConfig({ silent: true }).then(() => {
@@ -734,6 +885,7 @@ Page({
           : '',
       });
       this.syncThemeUi();
+      this.refreshFestivalSheetPreview();
       if (this.data.isAdmin) this.refreshFestivalAssetItems();
     });
   },
@@ -741,6 +893,26 @@ Page({
   onFestivalPopupChange(e) {
     const visible = !!(e.detail && e.detail.visible);
     this.setData({ festivalPopupVisible: visible });
+    if (!visible) {
+      /* 普通用户关掉弹层后恢复跟随日期，避免一直停在预览节日 */
+      const mode = ensureFestivalModeForRole(resolveIsAdmin());
+      if (mode !== this.data.festivalMode) {
+        this.setData({ festivalMode: mode });
+        this.syncThemeUi();
+        this.syncTabBarFestival();
+      }
+    }
+  },
+
+  closeFestivalPicker() {
+    if (!this.data.festivalPopupVisible) return;
+    this.setData({ festivalPopupVisible: false });
+    const mode = ensureFestivalModeForRole(resolveIsAdmin());
+    if (mode !== this.data.festivalMode) {
+      this.setData({ festivalMode: mode });
+      this.syncThemeUi();
+      this.syncTabBarFestival();
+    }
   },
 
   /** 走节日临时链缓存，同 fileID 复用同一 URL，避免预览图反复换签重载 */
@@ -1005,12 +1177,20 @@ Page({
   },
 
   onPickFestivalMode(e) {
-    if (!this.data.isAdmin) return;
     const id =
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
       (e.target && e.target.dataset && e.target.dataset.id) ||
+      (e.mark && e.mark.id) ||
       '';
     if (!id) return;
+    if (id === 'off' && !resolveIsAdmin()) {
+      wx.showToast({ title: '请用上方开关关闭效果', icon: 'none' });
+      return;
+    }
+    if (id !== 'auto' && id !== 'off' && !canAccessFestival(id)) {
+      wx.showToast({ title: '该节日为包月会员权益', icon: 'none' });
+      return;
+    }
     /* check-tag 点已选项会取消勾选：强制保持选中 */
     if (id === this.data.festivalMode) {
       this.setData({ festivalMode: id });
@@ -1018,16 +1198,20 @@ Page({
     }
     setFestivalMode(id);
     this.syncThemeUi();
+    this.updateNavHeight();
     this.syncTabBarFestival();
     /* 只用已解析好的预览列表切换，不再整表换签，避免顶栏/底栏图闪多次 */
     this.setData({
       festivalMode: id,
-      festivalAssetEdit: this.buildFestivalAssetEdit(
-        this.data.festivalBannerItems,
-        this.data.festivalBankItems,
-      ),
+      festivalAssetEdit: this.data.isAdmin
+        ? this.buildFestivalAssetEdit(
+            this.data.festivalBannerItems,
+            this.data.festivalBankItems,
+          )
+        : null,
     });
-    let toast = '预览已切换，回首页查看';
+    this.refreshFestivalSheetPreview();
+    let toast = '预览已切换';
     if (id === 'off') {
       toast = '已关闭节日装饰';
     } else if (!isFestivalUserOn()) {
@@ -1166,12 +1350,13 @@ Page({
   },
 
   async onFestivalFeatureChange(e) {
-    if (!this.data.isAdmin || this.data.festivalFeatureSaving) return;
+    if (!resolveIsAdmin() || this.data.festivalFeatureSaving) return;
     const on = !!(e.detail && e.detail.value);
     this.setData({ festivalFeatureSaving: true, festivalFeatureOn: on });
     try {
       await setFestivalFeatureEnabled(on);
       this.syncThemeUi();
+      this.updateNavHeight();
       this.syncTabBarFestival();
       wx.showToast({
         title: on ? '已开启全员可见' : '已改为仅本机预览',
@@ -1189,7 +1374,7 @@ Page({
   },
 
   onFestivalUserChange(e) {
-    if (!isFestivalFeatureEnabled() && !this.data.isAdmin) {
+    if (!isFestivalFeatureEnabled() && !resolveIsAdmin()) {
       this.setData({ festivalUserOn: isFestivalUserOn() });
       wx.showToast({ title: '近期暂无节日活动', icon: 'none' });
       return;
@@ -1198,7 +1383,9 @@ Page({
     setFestivalUserOn(on);
     this.setData({ festivalUserOn: on });
     this.syncThemeUi();
+    this.updateNavHeight();
     this.syncTabBarFestival();
+    this.refreshFestivalSheetPreview();
     wx.showToast({
       title: on ? '已开启节日效果' : '已关闭节日效果',
       icon: 'none',
@@ -1210,6 +1397,8 @@ Page({
     setFestivalFallFull(on);
     this.setData({ festivalFallFull: on });
     this.syncThemeUi();
+    this.refreshFestivalDecor();
+    this.refreshFestivalSheetPreview();
     wx.showToast({
       title: on ? '已改为全屏飘落' : '已改为仅顶栏飘落',
       icon: 'none',
@@ -1260,7 +1449,6 @@ Page({
       roleTagTheme: buildRoleTagTheme(roleOpts),
       avatarBadge: buildAvatarBadge(roleOpts),
       pricing,
-      serviceWechat: pricing.serviceWechat || config.serviceWechat || 'Shine_Luyang',
       nativeAdUnitId: unitId,
       showNativeAd: !!unitId && shouldShowNativeAds(),
     };
@@ -1297,6 +1485,7 @@ Page({
       if (res && res.homeFeedAdEvery != null) {
         applyHomeFeedAdEveryFromSettings(res);
       }
+      applyDownloadCostsFromSettings(res || {});
       if (res.entitlement) {
         setCachedEntitlement(res.entitlement);
         this.refreshIdentity();
@@ -1613,15 +1802,35 @@ Page({
   onCheckinVisibleChange(e) {
     const visible = !!(e.detail && e.detail.visible);
     this.setData({ checkinVisible: visible });
+    if (!visible) this.refreshCheckinEntry();
   },
 
   onCheckinClose() {
     this.setData({ checkinVisible: false });
+    this.refreshCheckinEntry();
   },
 
   onCheckinSuccess() {
+    this.setData({
+      checkinCheckedToday: true,
+      checkinEntryText: '已签到',
+    });
     this.syncEntitlement();
     this.refreshIdentity();
+  },
+
+  async refreshCheckinEntry() {
+    try {
+      const res = await callFunction('userCheckin', { action: 'status' });
+      const data = (res && res.data) || {};
+      const checkedToday = !!data.checkedToday;
+      this.setData({
+        checkinCheckedToday: checkedToday,
+        checkinEntryText: checkedToday ? '已签到' : '签到',
+      });
+    } catch (e) {
+      /* 入口文案失败时保持默认，不打断页面 */
+    }
   },
 
   formatAdRewardNote(status) {
@@ -1629,7 +1838,10 @@ Page({
     const left = Math.max(0, Number(status && status.leftToday) || 0);
     const dailyMax = Math.max(0, Number(status && status.dailyMax) || 0);
     if (!(status && status.enabled)) return '暂未开放';
-    if (left <= 0) return `今日已达上限（${dailyMax} 次）`;
+    if (left <= 0) {
+      if (resolveIsAdmin()) return `今日已达上限 · 点此可重置`;
+      return `今日已达上限（${dailyMax} 次）`;
+    }
     return `看完 +${points} 积分 · 今日还可 ${left} 次`;
   },
 
@@ -1670,6 +1882,10 @@ Page({
       return;
     }
     if (this.data.adRewardLeftToday <= 0) {
+      if (resolveIsAdmin()) {
+        this.confirmResetAdRewardDay();
+        return;
+      }
       wx.showToast({ title: '今日次数已用完，明天再来', icon: 'none' });
       return;
     }
@@ -1699,6 +1915,45 @@ Page({
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '领取失败', icon: 'none' });
       this.refreshAdRewardStatus();
+    } finally {
+      this.setData({ adRewardClaiming: false });
+    }
+  },
+
+  confirmResetAdRewardDay() {
+    if (!resolveIsAdmin()) return;
+    wx.showModal({
+      title: '重置激励次数',
+      content: '清空今日「看广告领积分 / 保存救急 / 签到再领」计数，方便自测。不影响已得积分。',
+      confirmText: '重置',
+      success: (res) => {
+        if (res.confirm) this.resetAdRewardDay();
+      },
+    });
+  },
+
+  async resetAdRewardDay() {
+    if (!resolveIsAdmin() || this.data.adRewardClaiming) return;
+    this.setData({ adRewardClaiming: true });
+    try {
+      const res = await callFunction('userEntitlement', {
+        action: 'resetAdRewardDay',
+      });
+      if (!res || !res.ok) {
+        wx.showToast({
+          title: (res && res.message) || '重置失败',
+          icon: 'none',
+        });
+        return;
+      }
+      if (res.data && res.data.reward) {
+        this.applyAdRewardStatus(res.data.reward);
+      } else {
+        await this.refreshAdRewardStatus();
+      }
+      wx.showToast({ title: res.message || '已重置', icon: 'success' });
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '重置失败', icon: 'none' });
     } finally {
       this.setData({ adRewardClaiming: false });
     }

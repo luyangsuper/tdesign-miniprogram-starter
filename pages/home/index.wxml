@@ -1,7 +1,8 @@
+<page-meta page-style="{{themeStyle}}" />
 <wxs src="./refresher.wxs" module="rf" />
 <view
   class="home {{selectMode ? 'home--select' : ''}} {{festivalClass}}"
-  style="{{themeStyle}};{{festivalStyle}}"
+  style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}"
 >
   <festival-decor
     id="festivalDecor"
@@ -11,11 +12,12 @@
     nav-height="{{navHeight}}"
   />
   <t-navbar
-    title="{{searchExpanded ? '' : '趣集'}}"
+    title="{{searchExpanded ? '' : '趣图铺子'}}"
     fixed="{{true}}"
     placeholder="{{true}}"
     z-index="{{500}}"
     t-class="home__navbar"
+    custom-style="{{navBarStyle}}"
   />
   <!-- 搜索抬到导航行：展开用 left+right 限位，右缘停在「多选」左侧 -->
   <view
@@ -68,43 +70,57 @@
   >{{selectMode ? '取消' : '多选'}}</view>
 
   <view class="home__fixed" style="top: {{navHeight}}px;">
-    <scroll-view
-      class="home__toolbar"
-      scroll-x
-      enhanced
-      show-scrollbar="{{false}}"
-      enable-flex
-      scroll-with-animation
-      scroll-left="{{catScrollLeft}}"
-    >
-      <view class="home__toolbar-inner">
-        <view
-          wx:for="{{filters}}"
-          wx:key="id"
-          id="cat-{{item.id}}"
-          class="home__cat-wrap"
-        >
-          <t-check-tag
-            t-class="home__cat"
-            size="medium"
-            shape="round"
-            variant="light"
-            content=""
-            checked="{{item.id === categoryId}}"
-            custom-style="{{item.checkStyle}}"
-            data-id="{{item.id}}"
-            bind:change="onCategoryTap"
-          >
-            <view class="home__cat-inner">
-              <text class="home__cat-name">{{item.name}}</text>
-              <text
-                class="home__cat-count {{item.id === categoryId ? 'home__cat-count--show' : ''}}"
-              >{{item.id === categoryId ? listTotal : item.count}}</text>
-            </view>
-          </t-check-tag>
-        </view>
+    <!-- 左：类型胶囊（图标+文案）· 右：主题文字 Tab + 底横条 -->
+    <view class="home__filter-bar">
+      <view
+        class="home__type-capsule"
+        style="{{contentTypeChipStyle}}"
+        hover-class="home__type-capsule--press"
+        hover-stay-time="60"
+        bindtap="openContentTypeSheet"
+        aria-role="button"
+        aria-label="选择合集类型"
+      >
+        <image
+          class="home__type-capsule-icon"
+          src="{{contentTypeIconSrc}}"
+          mode="aspectFit"
+        />
+        <text class="home__type-capsule-text">{{contentTypeName}}</text>
+        <!-- currentColor 跟胶囊文字同色，随类型变绿/紫/蓝/粉 -->
+        <view class="home__type-capsule-caret" aria-hidden="true" />
       </view>
-    </scroll-view>
+      <scroll-view
+        id="homeToolbar"
+        class="home__toolbar"
+        scroll-x
+        enhanced
+        show-scrollbar="{{false}}"
+        enable-flex
+        scroll-with-animation
+        scroll-left="{{catScrollLeft}}"
+      >
+        <view class="home__toolbar-inner home__toolbar-inner--cats">
+          <view
+            wx:for="{{filters}}"
+            wx:key="id"
+            id="cat-{{item.id}}"
+            class="home__tab {{item.id === categoryId ? 'home__tab--on' : ''}}"
+            style="{{item.tabStyle}}"
+            hover-class="home__tab--press"
+            hover-stay-time="60"
+            data-id="{{item.id}}"
+            bindtap="onCategoryTap"
+          >
+            <text class="home__tab-name">{{item.name}}</text>
+            <text
+              class="home__tab-count {{item.id === categoryId ? 'home__tab-count--show' : ''}}"
+            >{{item.id === categoryId ? listTotal : ''}}</text>
+            <view class="home__tab-bar" aria-hidden="true" />
+          </view>
+        </view>
+      </scroll-view>
+    </view>
   </view>
 
   <view
@@ -207,6 +223,8 @@
                         packId="{{pack._id}}"
                         title="{{pack.title}}"
                         coverUrl="{{pack.coverUrl}}"
+                        coverFileID="{{pack.coverFileID}}"
+                        contentType="{{pack.contentType}}"
                         emojiCount="{{pack.emojiCount}}"
                         downloadCount="{{pack.downloadCount}}"
                         categoryId="{{pack.categoryId}}"
@@ -216,6 +234,7 @@
                         showAdmin="{{isAdmin}}"
                         selectMode="{{selectMode}}"
                         selected="{{selectedMap[pack._id] ? true : false}}"
+                        selectDisabled="{{selectMode && batchContentType && (pack.contentType || 'emoji') !== batchContentType && !selectedMap[pack._id]}}"
                         bind:toggle="onTogglePack"
                         bind:ratiochange="onCoverRatioChange"
                         bind:covererror="onCoverError"
@@ -266,13 +285,11 @@
     bind:to-top="onBackToTop"
   />
 
-  <!-- 多选下载底栏：叠在自定义 tabBar 上方 -->
+  <!-- 多选下载底栏：叠在自定义 tabBar 上方；同一次只能选同一类型 -->
   <view class="home__batch" wx:if="{{selectMode}}">
-    <view class="home__batch-meta">
-      已选 {{selectedCount}} 个合集 · 约 {{approxCount}} 张 · {{approxCost}} 积分
-    </view>
+    <view class="home__batch-meta">{{batchMetaText}}</view>
     <view class="home__batch-row">
-      <view class="home__batch-variants">
+      <view class="home__batch-variants" wx:if="{{batchShowVariant}}">
         <t-check-tag
           size="medium"
           shape="round"
@@ -291,6 +308,18 @@
           data-value="anim"
           bind:change="onBatchVariantTap"
         />
+      </view>
+      <view
+        class="home__batch-type"
+        wx:elif="{{batchTypeName}}"
+        style="{{batchContentTypeColorStyle}}"
+      >
+        <image
+          class="home__batch-type-icon"
+          src="{{batchContentTypeIconSrc}}"
+          mode="aspectFit"
+        />
+        <text>{{batchTypeName}}合集</text>
       </view>
       <t-button
         t-class="home__batch-btn"
@@ -406,7 +435,7 @@
   <view class="home__subscribe">
     <view class="home__subscribe-title">开启新合集提醒</view>
     <view class="home__subscribe-desc">
-      有新表情 / 壁纸合集上线时，通过微信服务通知提醒你。可在弹窗中勾选「总是保持以上选择」。
+      有新表情 / 壁纸 / 头像 / 视频合集上线时，通过微信服务通知提醒你。可在弹窗中勾选「总是保持以上选择」。
     </view>
     <t-button
       theme="primary"
@@ -422,6 +451,50 @@
       block
       content="以后再说"
       bind:tap="onSubscribeGuideLater"
+    />
+  </view>
+</t-popup>
+
+<t-popup
+  visible="{{contentTypeSheetVisible}}"
+  placement="bottom"
+  bind:visible-change="onContentTypeSheetVisibleChange"
+>
+  <view class="home__type-sheet">
+    <view class="home__type-sheet-title">筛选合集类型</view>
+    <view class="home__type-sheet-tip">表情 / 壁纸 / 头像 / 视频</view>
+    <view
+      wx:for="{{contentTypeFilters}}"
+      wx:key="id"
+      class="home__type-sheet-item {{item.id === contentType ? 'home__type-sheet-item--on' : ''}}"
+      style="{{item.id === contentType ? item.chipStyle : item.textStyle}}"
+      hover-class="home__type-sheet-item--press"
+      hover-start-time="20"
+      hover-stay-time="150"
+      data-id="{{item.id}}"
+      bindtap="onContentTypeSheetPick"
+    >
+      <image
+        class="home__type-sheet-icon"
+        src="{{item.iconSrc}}"
+        mode="aspectFit"
+      />
+      <text class="home__type-sheet-label">{{item.name}}</text>
+      <t-icon
+        wx:if="{{item.id === contentType}}"
+        name="check"
+        size="36rpx"
+        color="{{item.color}}"
+      />
+    </view>
+    <t-button
+      theme="default"
+      variant="outline"
+      size="large"
+      block
+      shape="round"
+      content="取消"
+      bind:tap="closeContentTypeSheet"
     />
   </view>
 </t-popup>

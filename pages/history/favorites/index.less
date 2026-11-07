@@ -11,16 +11,27 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8rpx 16rpx 4rpx 28rpx;
+  min-height: 64rpx;
+  padding: 8rpx 12rpx 8rpx 28rpx;
+  box-sizing: border-box;
 }
 
 .favorites__bar-count {
   .ui-caption();
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
 }
 
 .favorites__bar-btn {
   margin: 0 !important;
+  padding: 0 12rpx !important;
+  height: 56rpx !important;
+  line-height: 56rpx !important;
   font-weight: 500 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  --td-button-small-height: 56rpx;
 }
 
 .favorites__native-ad {

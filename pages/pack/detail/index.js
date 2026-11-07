@@ -21,7 +21,19 @@ import {
   setCachedEntitlement,
   spendablePoints,
 } from '~/utils/entitlement';
-import { downloadCost } from '~/utils/pricing';
+import {
+  applyDownloadCostsFromSettings,
+  downloadCost,
+  resolveDownloadCostKey,
+} from '~/utils/pricing';
+import {
+  formatItemCount,
+  isEmojiType,
+  normalizeContentType,
+  contentTypeColorStyle,
+  contentTypeIconSrc,
+  contentTypeLabel,
+} from '~/utils/contentType';
 import { resolveIsAdmin } from '~/utils/auth';
 import { applyThemeToPage, getThemeBrand, getThemeStyle } from '~/utils/theme';
 import { getFestivalConfettiColors } from '~/utils/festival';
@@ -58,12 +70,15 @@ function buildSaveLabel(
   hasAnimAny,
   canSaveStatic,
   adRewardReady,
+  contentType = 'emoji',
 ) {
   if (!canSaveStatic) return adRewardReady ? '看广告' : '去兑换';
-  if (hasAnimAny && variant === 'anim' && !slot.hasAnim) return '无动态';
+  if (isEmojiType(contentType) && hasAnimAny && variant === 'anim' && !slot.hasAnim) {
+    return '无动态';
+  }
   if (!downloadReady) return '积分不足';
-  const costTip = `${downloadCost(variant)}积分`;
-  if (!hasAnimAny) return `保存 ·${costTip}`;
+  const costTip = `${downloadCost(resolveDownloadCostKey(contentType, variant))}积分`;
+  if (!isEmojiType(contentType) || !hasAnimAny) return `保存 ·${costTip}`;
   if (variant === 'anim') return `动态 ·${costTip}`;
   return `静态 ·${costTip}`;
 }
@@ -79,6 +94,12 @@ function slotDisplayUrl(slot, variant) {
   if (!slot) return '';
   if (variant === 'anim') return slot.animUrl || '';
   return slot.staticUrl || '';
+}
+
+/** 视频槽海报（封面/预览图）；切勿把 mp4 临时链接塞进 image */
+function slotPosterUrl(slot) {
+  if (!slot) return '';
+  return slot.previewUrl || slot.thumbUrl || slot.posterUrl || '';
 }
 
 function slotUrlPending(slot, variant) {
@@ -101,21 +122,29 @@ function decorateSlots(
   hasAnimAny,
   canSaveStatic,
   adRewardReady,
+  contentType = 'emoji',
 ) {
   return (slots || []).map((s) => {
     const selectable = isSlotSelectable(s, downloadReady, variant);
-    const displayUrl = slotDisplayUrl(s, variant);
+    const mediaKind = s.mediaKind || (contentType === 'video' ? 'video' : 'image');
+    const fileUrl = slotDisplayUrl(s, variant);
+    // 图片：展示原图；视频：海报用预览/封面，播放走 videoUrl
+    const displayUrl = mediaKind === 'video' ? slotPosterUrl(s) : fileUrl;
+    const videoUrl = mediaKind === 'video' ? s.staticUrl || '' : '';
     const prevUrl = s.displayUrl || '';
     const imgReady = displayUrl && displayUrl === prevUrl ? !!s.imgReady : false;
+    const urlPending = slotUrlPending(s, variant);
     return {
       ...s,
       hasAnim: !!s.hasAnim,
+      mediaKind,
       staticReady: !!s.staticReady,
       animReady: !!s.animReady,
       selectable,
       selected: selectable && !!s.selected,
       displayUrl,
-      urlPending: slotUrlPending(s, variant),
+      videoUrl,
+      urlPending,
       imgReady,
       saveLabel: buildSaveLabel(
         s,
@@ -124,16 +153,17 @@ function decorateSlots(
         hasAnimAny,
         canSaveStatic,
         adRewardReady,
+        contentType,
       ),
     };
   });
 }
 
-function summarizeSelection(slots, variant) {
+function summarizeSelection(slots, variant, contentType = 'emoji') {
   const list = slots || [];
   const selected = list.filter((s) => s.selected);
   const selectable = list.filter((s) => s.selectable);
-  const cost = downloadCost(variant);
+  const cost = downloadCost(resolveDownloadCostKey(contentType, variant));
   return {
     selectedCount: selected.length,
     selectedCost: selected.length * cost,
@@ -149,7 +179,6 @@ const CONFIRM_ICONS = {
   static: '/static/emoji/static.png',
   anim: '/static/emoji/anim.png',
 };
-
 Page({
   data: {
     packId: '',
@@ -174,6 +203,15 @@ Page({
     costHint: '',
     entitlementHint: '',
     hasAnimAny: false,
+    showVariantToggle: false,
+    contentType: 'emoji',
+    contentTypeName: '表情',
+    contentTypeIconSrc: contentTypeIconSrc('emoji'),
+    contentTypeColorStyle: contentTypeColorStyle('emoji'),
+    itemCountText: '',
+    saveSectionTitle: '保存原图',
+    costStatic: downloadCost('static'),
+    costAnim: downloadCost('anim'),
     downloadVariant: 'static',
     selectedCount: 0,
     selectedCost: 0,
@@ -329,7 +367,7 @@ Page({
   /** 分享给好友 / 点「分享」按钮 */
   onShareAppMessage() {
     const { pack, packId } = this.data;
-    const title = (pack && pack.title) || '趣集合集';
+    const title = (pack && pack.title) || '趣图铺子合集';
     return shareAppMessage({
       title,
       path: `/pages/pack/detail/index?id=${packId || ''}`,
@@ -340,7 +378,7 @@ Page({
   /** 分享到朋友圈 */
   onShareTimeline() {
     const { pack, packId } = this.data;
-    const title = (pack && pack.title) || '趣集合集';
+    const title = (pack && pack.title) || '趣图铺子合集';
     return shareTimeline({
       title,
       query: `id=${packId || ''}`,
@@ -349,8 +387,8 @@ Page({
   },
 
   applySlots(slots) {
-    const { downloadVariant } = this.data;
-    const summary = summarizeSelection(slots, downloadVariant);
+    const { downloadVariant, contentType } = this.data;
+    const summary = summarizeSelection(slots, downloadVariant, contentType);
     this.setData({
       emojiSlots: slots,
       selectedCount: summary.selectedCount,
@@ -361,9 +399,12 @@ Page({
 
   refreshEntitlementUi() {
     const entitlement = getCachedEntitlement();
-    const { emojiSlots, downloadVariant, hasAnimAny, adRewardReady } = this.data;
-    const canSaveStatic = canAttemptDownload(entitlement, 'static');
-    const downloadReady = canAttemptDownload(entitlement, downloadVariant);
+    const { emojiSlots, downloadVariant, hasAnimAny, adRewardReady, contentType } =
+      this.data;
+    const baseKey = resolveDownloadCostKey(contentType, 'static');
+    const costKey = resolveDownloadCostKey(contentType, downloadVariant);
+    const canSaveStatic = canAttemptDownload(entitlement, baseKey);
+    const downloadReady = canAttemptDownload(entitlement, costKey);
     const isVip = !!entitlement.isVip;
     const unitId = getNativePackDetailAdUnitId();
     const nextSlots = decorateSlots(
@@ -373,8 +414,9 @@ Page({
       hasAnimAny,
       canSaveStatic,
       adRewardReady,
+      contentType,
     );
-    const summary = summarizeSelection(nextSlots, downloadVariant);
+    const summary = summarizeSelection(nextSlots, downloadVariant, contentType);
     this.setData({
       downloadReady,
       canSaveStatic,
@@ -404,8 +446,10 @@ Page({
     const adRewardReady =
       enabled && leftToday > 0 && isSaveAdRewardEnabled();
     const bal = spendablePoints();
-    const staticCost = downloadCost('static');
-    const shortfall = Math.max(0, staticCost - bal);
+    const unitCost = downloadCost(
+      resolveDownloadCostKey(this.data.contentType || 'emoji', 'static'),
+    );
+    const shortfall = Math.max(0, unitCost - bal);
     const adRewardHint = !enabled || !isSaveAdRewardEnabled()
       ? ''
       : leftToday <= 0
@@ -438,6 +482,7 @@ Page({
   async syncEntitlement() {
     try {
       const res = await callFunction('userEntitlement', { action: 'get' });
+      applyDownloadCostsFromSettings(res || {});
       if (res.entitlement) {
         setCachedEntitlement(res.entitlement);
       }
@@ -452,9 +497,10 @@ Page({
     }
   },
 
-  buildHeroSlides(pack) {
+  buildHeroSlides(pack, slots = []) {
     const slides = [];
     const seen = {};
+    const contentType = normalizeContentType(pack && pack.contentType);
     const pushImage = (url) => {
       if (!url || seen[url]) return;
       seen[url] = true;
@@ -475,7 +521,54 @@ Page({
     if (!pack.previewVideoUrl) {
       (pack.slots || []).forEach((s) => pushImage(s && s.previewUrl));
     }
+    // 视频合集无独立预览视频时，用已换签的原视频作顶栏可播（与图片槽位展示原图一致）
+    if (contentType === 'video' && !pack.previewVideoUrl) {
+      (slots || []).forEach((s) => {
+        if (s && s.staticUrl) pushVideo(s.staticUrl);
+      });
+    }
     return slides;
+  },
+
+  /** 视频槽位：系统预览播放（多段可左右滑） */
+  previewSlotVideo(slot) {
+    const currentUrl = (slot && (slot.videoUrl || slot.staticUrl)) || '';
+    if (!currentUrl) {
+      if (slot && !slot.staticReady) {
+        wx.showToast({ title: '视频加载中', icon: 'none' });
+        this.prefetchSlotUrls(this.data.packId, { limit: SLOT_URL_FIRST });
+      } else {
+        wx.showToast({ title: '暂无可播视频', icon: 'none' });
+      }
+      return;
+    }
+    const sources = (this.data.emojiSlots || [])
+      .filter((s) => s && s.mediaKind === 'video' && (s.videoUrl || s.staticUrl))
+      .map((s) => ({
+        url: s.videoUrl || s.staticUrl,
+        type: 'video',
+        poster: slotPosterUrl(s) || '',
+      }));
+    if (!sources.length) return;
+    const current = Math.max(
+      0,
+      sources.findIndex((s) => s.url === currentUrl),
+    );
+    // 关闭长按菜单 / 底栏下载，避免未扣积分就能保存原视频
+    wx.previewMedia({
+      sources,
+      current,
+      showmenu: false,
+      showBottomActionBar: false,
+      fail: () => {
+        wx.showToast({ title: '无法播放该视频', icon: 'none' });
+      },
+    });
+  },
+
+  /** 拦截顶栏 video 长按系统菜单（保存/转发） */
+  onHeroVideoLongPress() {
+    /* no-op：catch 掉默认长按 */
   },
 
   pauseHeroVideoIfNeeded(current) {
@@ -518,23 +611,31 @@ Page({
           url ? reuseTempUrl(packPreviewCacheKey(pack._id, i), url) : '',
         );
       }
-      const hasAnimAny = !!pack.hasAnimAny;
+      const contentType = normalizeContentType(pack.contentType);
+      const contentTypeName = pack.contentTypeName || contentTypeLabel(contentType);
+      const hasAnimAny = isEmojiType(contentType) && !!pack.hasAnimAny;
+      const showVariantToggle = hasAnimAny;
       const downloadVariant = 'static';
       const entitlement = getCachedEntitlement();
-      const canSaveStatic = canAttemptDownload(entitlement, 'static');
-      const downloadReady = canAttemptDownload(entitlement, downloadVariant);
+      const baseKey = resolveDownloadCostKey(contentType, 'static');
+      const costKey = resolveDownloadCostKey(contentType, downloadVariant);
+      const canSaveStatic = canAttemptDownload(entitlement, baseKey);
+      const downloadReady = canAttemptDownload(entitlement, costKey);
       const isVip = !!entitlement.isVip;
+      const defaultLabel =
+        contentType === 'video' ? '视频' : contentType === 'avatar' ? '头像' : '原图';
       const rawSlots =
         pack.slots && pack.slots.length
           ? pack.slots
           : Array.from({ length: pack.emojiCount || 0 }, (_, i) => ({
               index: i,
-              label: `原图 ${i + 1}`,
+              label: `${defaultLabel} ${i + 1}`,
               previewUrl: (pack.previewUrls || [])[i] || '',
               staticUrl: '',
               animUrl: '',
               pairKey: '',
               hasAnim: false,
+              mediaKind: contentType === 'video' ? 'video' : 'image',
               staticReady: false,
               animReady: false,
             }));
@@ -545,6 +646,7 @@ Page({
         const animCached = peekTempUrl(packSlotCacheKey(packId, idx, 'anim'));
         return {
           ...s,
+          mediaKind: s.mediaKind || (contentType === 'video' ? 'video' : 'image'),
           staticUrl: staticCached || s.staticUrl || '',
           animUrl: animCached || s.animUrl || '',
           staticReady: false,
@@ -558,9 +660,19 @@ Page({
         hasAnimAny,
         canSaveStatic,
         this.data.adRewardReady,
+        contentType,
       );
-      const summary = summarizeSelection(emojiSlots, downloadVariant);
-      const heroSlides = this.buildHeroSlides(pack);
+      const summary = summarizeSelection(emojiSlots, downloadVariant, contentType);
+      const heroSlides = this.buildHeroSlides(pack, emojiSlots);
+      const itemCountText = formatItemCount(pack.emojiCount, contentType);
+      const saveSectionTitle =
+        contentType === 'video'
+          ? '保存视频'
+          : contentType === 'avatar'
+            ? '保存头像'
+            : contentType === 'wallpaper'
+              ? '保存壁纸'
+              : '保存原图';
       this._slotUrlPrefetching = false;
       this._lastPrefetchScroll = 0;
       this.setData({
@@ -568,12 +680,23 @@ Page({
         emojiSlots,
         heroSlides,
         heroCurrent: 0,
+        contentType,
+        contentTypeName,
+        contentTypeIconSrc: contentTypeIconSrc(contentType),
+        contentTypeColorStyle: contentTypeColorStyle(contentType),
+        itemCountText,
+        saveSectionTitle,
         hasAnimAny,
+        showVariantToggle,
         downloadVariant,
         downloadReady,
         canSaveStatic,
         isVip,
-        costHint: '先扣本月额度，再扣积分',
+        costStatic: downloadCost(resolveDownloadCostKey(contentType, 'static')),
+        costAnim: downloadCost('anim'),
+        costHint: isEmojiType(contentType)
+          ? '先扣本月额度，再扣积分'
+          : `${contentTypeName} · ${downloadCost(resolveDownloadCostKey(contentType, 'static'))} 积分/项 · 先扣本月额度再扣积分`,
         entitlementHint: formatEntitlementHint(entitlement),
         selectedCount: summary.selectedCount,
         selectedCost: summary.selectedCost,
@@ -633,55 +756,52 @@ Page({
       const downloadReady = this.data.downloadReady;
       const hasAnimAny = this.data.hasAnimAny;
       const canSaveStatic = this.data.canSaveStatic;
-      const next = (this.data.emojiSlots || []).map((s) => {
+      const contentType = this.data.contentType || 'emoji';
+      const mergedList = (this.data.emojiSlots || []).map((s) => {
         const row = patchMap[s.index];
         if (!row) return s;
-        let merged;
         if (variant === 'anim') {
           const animUrl = row.animUrl || s.animUrl || '';
           if (animUrl) rememberTempUrl(packSlotCacheKey(id, s.index, 'anim'), animUrl);
-          merged = {
+          return {
             ...s,
             animUrl,
             hasAnim: row.hasAnim != null ? !!row.hasAnim : s.hasAnim,
             animReady: true,
           };
-        } else {
-          const staticUrl = row.staticUrl || s.staticUrl || '';
-          if (staticUrl) {
-            rememberTempUrl(packSlotCacheKey(id, s.index, 'static'), staticUrl);
-          }
-          merged = {
-            ...s,
-            staticUrl,
-            hasAnim: row.hasAnim != null ? !!row.hasAnim : s.hasAnim,
-            staticReady: true,
-          };
         }
-        const displayUrl = slotDisplayUrl(merged, variant);
+        const staticUrl = row.staticUrl || s.staticUrl || '';
+        if (staticUrl) {
+          rememberTempUrl(packSlotCacheKey(id, s.index, 'static'), staticUrl);
+        }
         return {
-          ...merged,
-          selectable: isSlotSelectable(merged, downloadReady, variant),
-          displayUrl,
-          urlPending: slotUrlPending(merged, variant),
-          imgReady: displayUrl && displayUrl === s.displayUrl ? !!s.imgReady : false,
-          saveLabel: buildSaveLabel(
-            merged,
-            downloadReady,
-            variant,
-            hasAnimAny,
-            canSaveStatic,
-            this.data.adRewardReady,
-          ),
+          ...s,
+          staticUrl,
+          hasAnim: row.hasAnim != null ? !!row.hasAnim : s.hasAnim,
+          staticReady: true,
         };
       });
-      const summary = summarizeSelection(next, variant);
-      this.setData({
+      // 必须走 decorateSlots：视频不能把 staticUrl(mp4) 写进 displayUrl，否则 t-image 裂图且无法播
+      const next = decorateSlots(
+        mergedList,
+        downloadReady,
+        variant,
+        hasAnimAny,
+        canSaveStatic,
+        this.data.adRewardReady,
+        contentType,
+      );
+      const summary = summarizeSelection(next, variant, contentType);
+      const patch = {
         emojiSlots: next,
         selectedCount: summary.selectedCount,
         selectedCost: summary.selectedCost,
         allSelected: summary.allSelected,
-      });
+      };
+      if (contentType === 'video' && this.data.pack) {
+        patch.heroSlides = this.buildHeroSlides(this.data.pack, next);
+      }
+      this.setData(patch);
     } catch (e) {
       console.warn('[slotUrls]', e.message || e);
     } finally {
@@ -738,16 +858,13 @@ Page({
     const value = (e.currentTarget && e.currentTarget.dataset.value) || 'static';
     const downloadVariant = value === 'anim' ? 'anim' : 'static';
     if (downloadVariant === this.data.downloadVariant) return;
-    const cleared = (this.data.emojiSlots || []).map((s) => {
-      const displayUrl = slotDisplayUrl(s, downloadVariant);
-      return {
-        ...s,
-        selected: false,
-        displayUrl,
-        urlPending: slotUrlPending(s, downloadVariant),
-        imgReady: displayUrl && displayUrl === s.displayUrl ? !!s.imgReady : false,
-      };
-    });
+    const cleared = (this.data.emojiSlots || []).map((s) => ({
+      ...s,
+      selected: false,
+      // 变体切换后由 decorateSlots / prefetch 重算展示字段
+      staticReady: downloadVariant === 'static' ? !!s.staticReady : s.staticReady,
+      animReady: downloadVariant === 'anim' ? !!s.animReady : s.animReady,
+    }));
     this._lastPrefetchScroll = 0;
     this.setData({ downloadVariant, emojiSlots: cleared }, () => {
       this.refreshEntitlementUi();
@@ -764,16 +881,26 @@ Page({
     this.setData({ [`emojiSlots[${i}].imgReady`]: true });
   },
 
-  /** 槽位图临时链失效：丢缓存并重新换签 */
+  /** 槽位图临时链失效：丢缓存并重新换签（仅海报/静图；勿清视频 staticUrl） */
   onSlotImgError(e) {
     const index = Number(e.currentTarget.dataset.index);
     if (Number.isNaN(index)) return;
     const id = this.data.packId;
     const variant = this.data.downloadVariant === 'anim' ? 'anim' : 'static';
-    if (id) forgetTempUrl(packSlotCacheKey(id, index, variant));
     const list = this.data.emojiSlots || [];
     const i = list.findIndex((s) => s.index === index);
     if (i < 0) return;
+    const slot = list[i];
+    // 视频槽位的 displayUrl 只是海报；裂图时清海报即可，保留可播的 videoUrl
+    if (slot && slot.mediaKind === 'video') {
+      this.setData({
+        [`emojiSlots[${i}].previewUrl`]: '',
+        [`emojiSlots[${i}].displayUrl`]: '',
+        [`emojiSlots[${i}].imgReady`]: false,
+      });
+      return;
+    }
+    if (id) forgetTempUrl(packSlotCacheKey(id, index, variant));
     const patch =
       variant === 'anim'
         ? {
@@ -798,6 +925,10 @@ Page({
     if (this.data.saving) return;
     const index = Number(e.currentTarget.dataset.index);
     if (Number.isNaN(index)) return;
+    const hit = (this.data.emojiSlots || []).find(
+      (s) => s.index === index && s.selectable,
+    );
+    if (!hit) return;
     const next = (this.data.emojiSlots || []).map((s) => {
       if (s.index !== index || !s.selectable) return s;
       return { ...s, selected: !s.selected };
@@ -805,7 +936,7 @@ Page({
     this.applySlots(next);
   },
 
-  /** 可下载时点封面勾选；静/动原图不允许看大图 */
+  /** 可下载时点封面勾选；视频未勾选态可点开播放；图片仍不开放大图 */
   onCoverTap(e) {
     if (this.data.saving) return;
     const index = Number(e.currentTarget.dataset.index);
@@ -813,12 +944,32 @@ Page({
     const slot = (this.data.emojiSlots || []).find((s) => s.index === index);
     if (this.data.downloadReady && slot && slot.selectable) {
       this.onToggleSelect(e);
+      return;
+    }
+    if (slot && slot.mediaKind === 'video') {
+      this.previewSlotVideo(slot);
     }
   },
 
-  /** 仅管理员视图可长按看原图；预览普通用户与真实用户一致，不可看大图 */
+  /** 播放按钮：多选态下仍可单独播，不跟勾选抢手势 */
+  onSlotVideoPlay(e) {
+    if (this.data.saving) return;
+    const index = Number(e.currentTarget.dataset.index);
+    if (Number.isNaN(index)) return;
+    const slot = (this.data.emojiSlots || []).find((s) => s.index === index);
+    if (slot) this.previewSlotVideo(slot);
+  },
+
+  /** 仅管理员视图可长按看原图；视频长按同样走系统预览播放 */
   onBlockPreview(e) {
     if (!resolveIsAdmin()) return;
+    const index = Number(e.currentTarget.dataset.index);
+    if (Number.isNaN(index)) return;
+    const slot = (this.data.emojiSlots || []).find((s) => s.index === index);
+    if (slot && slot.mediaKind === 'video') {
+      this.previewSlotVideo(slot);
+      return;
+    }
     this.onPreviewTap(e);
   },
 
@@ -945,8 +1096,12 @@ Page({
    * @param {{ need?: number, count?: number, actionLabel?: string, maxRounds?: number }} [opts]
    * @returns {Promise<boolean>} 看完广告并到账后是否已够继续保存
    */
+  packCostKey(variant = 'static') {
+    return resolveDownloadCostKey(this.data.contentType || 'emoji', variant);
+  },
+
   async offerAdOrRedeem(variant = 'static', opts = {}) {
-    const unitCost = downloadCost(variant);
+    const unitCost = downloadCost(this.packCostKey(variant));
     const count = Math.max(1, Number(opts.count) || 1);
     const need = Math.max(
       0,
@@ -1123,7 +1278,7 @@ Page({
     const variant = this.data.downloadVariant === 'anim' ? 'anim' : 'static';
     if (!this.data.canSaveStatic) {
       const ready = await this.offerAdOrRedeem('static', {
-        need: downloadCost('static'),
+        need: downloadCost(this.packCostKey('static')),
         count: 1,
         actionLabel: '保存这张',
       });
@@ -1131,7 +1286,12 @@ Page({
       return;
     }
     if (!this.data.downloadReady) {
-      wx.showToast({ title: '积分不够保存动态，请切回静态', icon: 'none' });
+      wx.showToast({
+        title: this.data.showVariantToggle
+          ? '积分不够保存动态，请切回静态'
+          : '积分不足',
+        icon: 'none',
+      });
       return;
     }
     const index = Number(e.currentTarget.dataset.index);
@@ -1149,12 +1309,13 @@ Page({
    * @param {{ skipAuth?: boolean }} [opts]
    */
   async downloadOne(index, opts = {}) {
-    const { packId, downloadVariant } = this.data;
+    const { packId, downloadVariant, contentType } = this.data;
     const variant = downloadVariant === 'anim' ? 'anim' : 'static';
     return downloadOneShared({
       packId,
       index,
       variant,
+      contentType,
       skipAuth: !!opts.skipAuth,
       onEntitlement: () => this.refreshEntitlementUi(),
       onDownloadCount: (next) => {
@@ -1166,11 +1327,11 @@ Page({
   },
 
   formatSaveTip(stat) {
-    const kind = this.data.hasAnimAny
+    const kind = this.data.showVariantToggle
       ? stat.variant === 'anim'
         ? '动态'
         : '静态'
-      : '';
+      : this.data.contentTypeName || '';
     const { grantType, fromVip, fromPoints, cost } = stat;
     let tip = `已保存${kind}到相册`;
     if (grantType === 'vip' || fromVip) {
@@ -1191,19 +1352,20 @@ Page({
     if (saving || Number.isNaN(index)) return;
 
     const variant = downloadVariant === 'anim' ? 'anim' : 'static';
+    const costKey = this.packCostKey(variant);
     let entitlement = getCachedEntitlement();
-    if (!canAttemptDownload(entitlement, variant)) {
+    if (!canAttemptDownload(entitlement, costKey)) {
       const ready = await this.offerAdOrRedeem(variant, {
-        need: downloadCost(variant),
+        need: downloadCost(costKey),
         count: 1,
         actionLabel: '保存这张',
       });
       if (!ready) return;
       entitlement = getCachedEntitlement();
-      if (!canAttemptDownload(entitlement, variant)) {
+      if (!canAttemptDownload(entitlement, costKey)) {
         const shortfall = Math.max(
           0,
-          downloadCost(variant) - spendablePoints(entitlement),
+          downloadCost(costKey) - spendablePoints(entitlement),
         );
         wx.showToast({
           title: `还差 ${shortfall} 积分，可再看广告或去兑换`,
@@ -1227,7 +1389,7 @@ Page({
       if (/不足|积分|额度|兑换|权益/i.test(msg)) {
         wx.showToast({ title: msg, icon: 'none' });
         this.offerAdOrRedeem(variant, {
-          need: downloadCost(variant),
+          need: downloadCost(this.packCostKey(variant)),
           count: 1,
           actionLabel: '保存这张',
         });
@@ -1253,18 +1415,21 @@ Page({
     if (this.data.saving) return;
     const variant =
       this.data.downloadVariant === 'anim' ? 'anim' : 'static';
+    const contentType = this.data.contentType || 'emoji';
+    const costKey = this.packCostKey(variant);
+    const unit = contentType === 'video' ? '个' : '张';
 
-    const summary = summarizeSelection(this.data.emojiSlots, variant);
+    const summary = summarizeSelection(this.data.emojiSlots, variant, contentType);
     let indexes = summary.selectedIndexes;
 
     if (!indexes.length) {
-      wx.showToast({ title: '请先选择要保存的原图', icon: 'none' });
+      wx.showToast({ title: '请先选择要保存的原文件', icon: 'none' });
       return;
     }
 
     let estimate = estimateBatchAffordable(
       getCachedEntitlement(),
-      variant,
+      costKey,
       indexes.length,
     );
 
@@ -1272,33 +1437,35 @@ Page({
       const ready = await this.offerAdOrRedeem(variant, {
         need: estimate.totalCost,
         count: indexes.length,
-        actionLabel: `保存 ${indexes.length} 张`,
+        actionLabel: `保存 ${indexes.length} ${unit}`,
         maxRounds: 2,
       });
       if (!ready) return;
       estimate = estimateBatchAffordable(
         getCachedEntitlement(),
-        variant,
+        costKey,
         indexes.length,
       );
       if (!estimate.canAll) {
         await this.confirmAsync(
-          `当前 ${estimate.spendable} 积分，只够保存 ${estimate.maxCount} / ${indexes.length} 张（每张 ${estimate.cost} 积分）。请减少勾选后再保存，或继续看广告补积分。`,
+          `当前 ${estimate.spendable} 积分，只够保存 ${estimate.maxCount} / ${indexes.length} ${unit}（每${unit} ${estimate.cost} 积分）。请减少勾选后再保存，或继续看广告补积分。`,
           { title: '积分不太够哦', icon: CONFIRM_ICONS.warn, okText: '去重选' },
         );
         return;
       }
     }
 
-    const kindLabel = this.data.hasAnimAny
+    const kindLabel = this.data.showVariantToggle
       ? variant === 'anim'
         ? '动态 GIF'
         : '静态原图'
-      : '原图';
+      : this.data.contentTypeName
+        ? `${this.data.contentTypeName}原文件`
+        : '原图';
     const kindIcon =
       variant === 'anim' ? CONFIRM_ICONS.anim : CONFIRM_ICONS.static;
     const confirmed = await this.confirmAsync(
-      `将保存 ${indexes.length} 张「${kindLabel}」，预计消耗 ${estimate.totalCost} 积分（先扣本月额度，再扣积分）。确认后按张扣费并写入相册。`,
+      `将保存 ${indexes.length} ${unit}「${kindLabel}」，预计消耗 ${estimate.totalCost} 积分（先扣本月额度，再扣积分）。确认后按条扣费并写入相册。`,
       {
         title: `保存${kindLabel}`,
         icon: kindIcon,
@@ -1311,8 +1478,9 @@ Page({
     let result;
     try {
       result = await runBatchDownload({
-        jobs: [{ packId: this.data.packId, indexes }],
+        jobs: [{ packId: this.data.packId, indexes, contentType }],
         variant,
+        contentType,
         onEntitlement: () => this.refreshEntitlementUi(),
         onDownloadCount: (next) => {
           if (typeof next === 'number' && this.data.pack) {
@@ -1345,14 +1513,14 @@ Page({
     this.setData({ saving: false });
 
     wx.showToast({
-      title: formatBatchResultTip(result),
+      title: formatBatchResultTip({ ...result, unit }),
       icon: result.okCount ? 'success' : 'none',
       duration: 2500,
     });
 
     if (result.stoppedByBalance && !result.okCount) {
       this.offerAdOrRedeem(variant, {
-        need: downloadCost(variant),
+        need: downloadCost(costKey),
         count: 1,
         actionLabel: '继续保存',
       });

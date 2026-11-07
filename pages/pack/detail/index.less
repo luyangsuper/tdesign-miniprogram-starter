@@ -238,7 +238,39 @@
 
   &__meta {
     .ui-caption();
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4rpx;
     margin-top: 16rpx;
+    line-height: 32rpx;
+  }
+
+  &__type {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6rpx;
+    height: 32rpx;
+    line-height: 32rpx;
+  }
+
+  &__type-icon {
+    width: 26rpx;
+    height: 26rpx;
+    flex-shrink: 0;
+    display: block;
+    /* 抵消 image 基线空隙，与文字中线对齐 */
+    margin-top: 1rpx;
+  }
+
+  &__type-text {
+    font-size: var(--ui-fs-caption, @ui-fs-caption);
+    line-height: 32rpx;
+    height: 32rpx;
+    color: inherit;
+    display: block;
   }
 
   &__entitlement {
@@ -412,6 +444,30 @@
     z-index: 1;
     background: rgba(0, 0, 0, 0.18);
     pointer-events: none;
+  }
+
+  &__slot-play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 5;
+    width: 72rpx;
+    height: 72rpx;
+    margin: -36rpx 0 0 -36rpx;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--wait {
+      opacity: 0.55;
+    }
+  }
+
+  &__slot-play-icon {
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__slot-hit {

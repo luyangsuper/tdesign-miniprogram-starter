@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk');
+const { normalizeContentType, isEmojiType } = require('./contentType');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -7,13 +8,12 @@ const _ = db.command;
 
 /**
  * 客户端「成功保存到相册」后调用，才增加 downloadCount。
- * 写入 download_logs（含具体表情 index / variant / fileID），供管理端按用户追溯。
+ * 写入 download_logs（含 index / variant / fileID），供管理端按用户追溯。
  */
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
   const packId = String(event.packId || '').trim();
   const index = Number(event.index);
-  const variant = event.variant === 'anim' ? 'anim' : 'static';
   const grantRaw = String(event.grantType || '').trim().toLowerCase();
   const grantType = ['vip', 'points', 'mixed', 'ad'].includes(grantRaw)
     ? grantRaw
@@ -31,6 +31,24 @@ exports.main = async (event) => {
     const pack = doc.data;
     if (!pack || pack.status !== 'published') {
       return { ok: false, code: 'NOT_FOUND', message: '合集不存在' };
+    }
+
+    const contentType = normalizeContentType(pack.contentType);
+    const emojiOnly = isEmojiType(contentType);
+    const requested = String(event.variant || '').trim();
+    let variant = 'static';
+    if (emojiOnly) {
+      variant = requested === 'anim' ? 'anim' : 'static';
+    } else if (
+      requested === contentType ||
+      requested === 'original' ||
+      requested === 'wallpaper' ||
+      requested === 'avatar' ||
+      requested === 'video'
+    ) {
+      variant = contentType;
+    } else {
+      variant = contentType;
     }
 
     const emojiFileIDs = pack.emojiFileIDs || [];
@@ -53,11 +71,12 @@ exports.main = async (event) => {
         openid: OPENID,
         packId,
         packTitle: String(pack.title || pack.name || '').trim().slice(0, 80),
+        contentType,
         emojiIndex: index,
         variant,
         /** 实际保存的文件 */
         fileID,
-        /** 列表缩略图用静态原图 */
+        /** 列表缩略图用静态/条目原文件 */
         thumbFileID: staticFileID || fileID,
         success: true,
         createdAt: db.serverDate(),

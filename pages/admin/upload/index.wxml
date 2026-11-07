@@ -1,10 +1,35 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="upload-page" style="{{themeStyle}}">
+  <view class="block">
+    <view class="block__label">合集类型</view>
+    <view class="block__tip">表情保留静态/动态；壁纸、头像、视频只上传可保存的原文件</view>
+    <view class="upload-page__cats">
+      <view
+        wx:for="{{contentTypeOptions}}"
+        wx:key="id"
+        class="upload-page__type {{contentType === item.id ? 'upload-page__type--on' : ''}}"
+        style="{{contentType === item.id ? item.chipStyle : item.textStyle}}"
+        hover-class="upload-page__type--press"
+        hover-stay-time="60"
+        data-id="{{item.id}}"
+        bindtap="onContentTypeTap"
+      >
+        <image
+          class="upload-page__type-icon"
+          src="{{item.iconSrc}}"
+          mode="aspectFit"
+        />
+        <text class="upload-page__type-text">{{item.name}}</text>
+      </view>
+    </view>
+  </view>
+
   <view class="block">
     <view class="block__label">标题</view>
     <t-input
       class="block__td-field"
       borderless
-      placeholder="合集名称，如壁纸、表情"
+      placeholder="合集名称，如壁纸、表情、头像"
       value="{{title}}"
       maxlength="{{40}}"
       bind:change="onTitleChange"
@@ -12,9 +37,20 @@
   </view>
 
   <view class="block">
-    <view class="block__label">主题分类</view>
-    <view class="block__tip">可按角色、系列等分类，在「管理分类」中增删</view>
+    <view class="block__label">主题分类{{categoryOptional ? '（可选）' : ''}}</view>
+    <view class="block__tip">{{categoryOptional ? '可不选；不选则归入首页「未分类」。可按角色、系列等分类。' : '必选。可按角色、系列等分类，在「管理分类」中增删'}}</view>
     <view class="upload-page__cats" wx:if="{{!loadingCats}}">
+      <t-check-tag
+        wx:if="{{categoryOptional}}"
+        t-class="upload-page__cat"
+        size="small"
+        shape="round"
+        variant="light"
+        checked="{{!categoryId}}"
+        content="不选"
+        data-id="none"
+        bind:change="onCategoryTap"
+      />
       <t-check-tag
         wx:for="{{categories}}"
         wx:key="id"
@@ -63,16 +99,17 @@
 
   <view class="block">
     <view class="block__label">网盘链接（仅管理员可见）</view>
-    <view class="block__tip">静态、动态原图各填一条。复制作品 ID 可在「我的」按 ID 查回。</view>
+    <view class="block__tip">{{showAnimDrive ? '静态、动态原图各填一条。复制作品 ID 可在「我的」按 ID 查回。' : '选填一条原文件网盘链接。复制作品 ID 可在「我的」按 ID 查回。'}}</view>
     <t-input
       class="block__td-field"
       borderless
-      placeholder="静态原图网盘链接"
+      placeholder="{{drivePlaceholder}}"
       value="{{staticDriveUrl}}"
       maxlength="{{500}}"
       bind:change="onStaticDriveChange"
     />
     <t-input
+      wx:if="{{showAnimDrive}}"
       class="block__td-field"
       borderless
       placeholder="动态原图网盘链接（可选）"
@@ -83,8 +120,8 @@
   </view>
 
   <view class="block">
-    <view class="block__label">封面（1 张，列表展示）</view>
-    <view class="block__tip">从相册选 1 张原图，用于列表展示（不压缩）。上传后可用 AI 根据「主题分类 + 封面」生成标题与简介；需要时再开公众号文案。</view>
+    <view class="block__label">{{coverLabel}}</view>
+    <view class="block__tip">{{coverTip}}</view>
     <t-upload
       media-type="{{['image']}}"
       files="{{coverFiles}}"
@@ -206,18 +243,18 @@
 
   <view class="block block--file block--warn">
     <view class="block__head">
-      <view class="block__label block__label--inline">静态原图</view>
+      <view class="block__label block__label--inline">{{originalsLabel}}</view>
       <t-tag size="small" variant="light" theme="warning">必选 · 保存到相册</t-tag>
     </view>
-    <view class="block__tip">相册多选；拖排序后与动态同序号对齐。</view>
+    <view class="block__tip">{{originalsTip}}</view>
     <t-button
       t-class="pick-btn"
       theme="primary"
       variant="outline"
       size="medium"
       block
-      content="从相册选择静态原图"
-      bind:tap="pickEmojiFromAlbum"
+      content="{{originalsPickLabel}}"
+      bind:tap="pickOriginalsFromAlbum"
     />
     <view class="file-grid js-grid-emojiFiles" wx:if="{{emojiFiles.length}}">
       <view
@@ -239,6 +276,7 @@
           bindtap="onPreviewGridImage"
         >
           <t-image
+            wx:if="{{!item.isVideo}}"
             t-class="file-grid__img"
             t-class-image="file-grid__img-inner"
             src="{{item.url || item.path}}"
@@ -247,6 +285,17 @@
             width="100%"
             height="100%"
           />
+          <view wx:else class="file-grid__video">
+            <image
+              wx:if="{{item.thumb}}"
+              class="file-grid__video-thumb"
+              src="{{item.thumb}}"
+              mode="aspectFill"
+            />
+            <view class="file-grid__play">
+              <image class="file-grid__play-icon" src="/static/emoji/play.png" mode="aspectFit" />
+            </view>
+          </view>
           <view class="file-grid__seq">{{item.seqLabel}}</view>
           <view
             class="file-grid__del"
@@ -259,13 +308,13 @@
         </view>
       </view>
     </view>
-    <view class="file-grid__empty" wx:else bindtap="pickEmojiFromAlbum">
+    <view class="file-grid__empty" wx:else bindtap="pickOriginalsFromAlbum">
       <image class="file-grid__empty-art" src="/static/emoji/static.png" mode="aspectFit" />
-      <text class="file-grid__empty-text">点击上方按钮选择静态原图</text>
+      <text class="file-grid__empty-text">{{originalsEmptyText}}</text>
     </view>
   </view>
 
-  <view class="block block--file">
+  <view class="block block--file" wx:if="{{showAnimSection}}">
     <view class="block__head">
       <view class="block__label block__label--inline">动态原图</view>
       <t-tag size="small" variant="light" theme="primary">可选 · GIF 等</t-tag>

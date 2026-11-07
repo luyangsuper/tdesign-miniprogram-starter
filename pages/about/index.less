@@ -62,6 +62,9 @@
 
 .about__group {
   margin: 0 16rpx !important;
+  /* 分割线左右通栏（TDesign 默认左侧缩进） */
+  --td-cell-border-left-space: 0;
+  --td-cell-border-right-space: 0;
 }
 
 .about__icon {
@@ -70,6 +73,49 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  overflow: hidden;
+}
+
+/* 与「我的」菜单行一致：图标与标题同一中线 */
+.about-cell {
+  align-items: center !important;
+}
+
+.about-cell__left {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  width: 40rpx !important;
+  height: 40rpx !important;
+  margin-right: 24rpx !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+.about-cell__icon {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 40rpx !important;
+  height: 40rpx !important;
+  line-height: 1 !important;
+}
+
+.about-cell__center {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 40rpx;
+  line-height: 40rpx !important;
+}
+
+.about-cell__title {
+  display: flex !important;
+  align-items: center !important;
+  line-height: 40rpx !important;
+  font-weight: 500 !important;
 }
 
 .about__foot {

@@ -238,10 +238,36 @@ function extractJsonObject(text) {
   return null;
 }
 
-function buildPrompt(categoryName, includeArticle) {
-  const theme = String(categoryName || '').trim();
+const CONTENT_TYPE_LABELS = {
+  emoji: '表情',
+  wallpaper: '壁纸',
+  avatar: '头像',
+  video: '视频',
+};
+
+function normalizeContentType(value) {
+  const t = String(value || '').trim();
+  return CONTENT_TYPE_LABELS[t] ? t : 'emoji';
+}
+
+function contentTypeLabel(value) {
+  return CONTENT_TYPE_LABELS[normalizeContentType(value)];
+}
+
+function buildPrompt(categoryName, includeArticle, contentType) {
+  const type = normalizeContentType(contentType);
+  const typeName = contentTypeLabel(type);
+  const theme = String(categoryName || '').trim() || typeName;
+  const typeHint =
+    type === 'wallpaper'
+      ? '这是壁纸合集：文案侧重手机/桌面壁纸观感、构图与氛围，不要写成表情包。'
+      : type === 'avatar'
+        ? '这是头像合集：文案侧重头像气质、适用社交场景，不要写成表情包。'
+        : type === 'video'
+          ? '这是视频合集：文案侧重短视频氛围与适用场景，不要写成静态表情包。'
+          : '这是表情合集：可结合封面风格、配色、表情氛围补充，但角色名须围绕主题。';
   const articleBlock = includeArticle
-    ? `3. article：适合发「微信公众号」的推文正文（纯文本，可分段），约 200～450 字；围绕「${theme}」写亮点、适用场景、结尾引导（如下载小程序「趣集」查看合集），不要写 Markdown 标题符号 #，不要编造不存在的价格/活动。
+    ? `3. article：适合发「微信公众号」的推文正文（纯文本，可分段），约 200～450 字；围绕「${theme}」与「${typeName}合集」写亮点、适用场景、结尾引导（如下载小程序「趣图铺子」查看合集），不要写 Markdown 标题符号 #，不要编造不存在的价格/活动。
 
 只输出一个 JSON 对象，不要其它说明，格式：
 {"title":"...","description":"...","article":"..."}`
@@ -250,16 +276,19 @@ function buildPrompt(categoryName, includeArticle) {
 只输出一个 JSON 对象，不要其它说明，格式：
 {"title":"...","description":"..."}`;
 
-  return `你是微信生态内容运营助手。请根据「主题分类」和这张合集封面图，生成中文文案。
+  return `你是微信生态内容运营助手。请根据「合集类型」「主题分类」和这张合集封面图，生成中文文案。
 
-【主题分类（以它为准识别角色/系列，不要猜错）】
+【合集类型】
+${typeName}
+
+【主题分类（以它为准识别角色/系列，不要猜错；若仅有类型名则按类型写）】
 ${theme}
 
-说明：封面图可能画风抽象，仅靠识图容易认错角色。文案中的角色名、系列名必须围绕上述主题分类展开；可结合封面风格、配色、表情氛围做补充，但不要写成与主题无关的内容。
+说明：封面图可能画风抽象，仅靠识图容易认错角色。文案中的角色名、系列名必须围绕上述主题分类展开。${typeHint}
 
 要求：
-1. title：合集标题，适合小程序列表展示，15 字以内，带一点吸引力，不要引号；应能看出与「${theme}」相关。
-2. description：用户可见简介，1～3 句，可换行，合计不超过 120 字，语气轻松；点明主题「${theme}」。
+1. title：合集标题，适合小程序列表展示，15 字以内，带一点吸引力，不要引号；应能看出与「${theme}」相关，并可自然体现「${typeName}」。
+2. description：用户可见简介，1～3 句，可换行，合计不超过 120 字，语气轻松；点明主题「${theme}」与合集类型「${typeName}」。
 ${articleBlock}`;
 }
 
@@ -270,6 +299,7 @@ async function callDeepSeekOnce(
   base64,
   categoryName,
   includeArticle,
+  contentType,
 ) {
   const base = getApiBase();
   const url = `${base}/chat/completions`;
@@ -279,7 +309,10 @@ async function callDeepSeekOnce(
       {
         role: 'user',
         content: [
-          { type: 'text', text: buildPrompt(categoryName, includeArticle) },
+          {
+            type: 'text',
+            text: buildPrompt(categoryName, includeArticle, contentType),
+          },
           {
             type: 'image_url',
             image_url: {
@@ -320,7 +353,13 @@ async function callDeepSeekOnce(
   };
 }
 
-async function callWithFailover(mimeType, base64, categoryName, includeArticle) {
+async function callWithFailover(
+  mimeType,
+  base64,
+  categoryName,
+  includeArticle,
+  contentType,
+) {
   const keys = getApiKeys();
   if (!keys.length) {
     const err = new Error(
@@ -349,6 +388,7 @@ async function callWithFailover(mimeType, base64, categoryName, includeArticle) 
           base64,
           categoryName,
           includeArticle,
+          contentType,
         );
         return { ...data, model, keyIndex: ki + 1 };
       } catch (e) {
@@ -394,9 +434,12 @@ exports.main = async (event) => {
   }
 
   const coverFileID = (event && event.coverFileID) || '';
+  const contentType = normalizeContentType(event && event.contentType);
   const categoryName = String((event && event.categoryName) || '').trim();
   const includeArticle = !!(event && event.includeArticle);
-  if (!categoryName) {
+  // 壁纸/头像/视频可无主题分类，回退用类型名
+  const promptTheme = categoryName || contentTypeLabel(contentType);
+  if (!promptTheme) {
     return { ok: false, code: 'BAD_PARAM', message: '请先选择主题分类' };
   }
   if (!coverFileID || !String(coverFileID).startsWith('cloud://')) {
@@ -421,12 +464,13 @@ exports.main = async (event) => {
     const data = await callWithFailover(
       mimeType,
       base64,
-      categoryName,
+      promptTheme,
       includeArticle,
+      contentType,
     );
     return {
       ok: true,
-      data: { ...data, categoryName },
+      data: { ...data, categoryName: promptTheme, contentType },
     };
   } catch (e) {
     console.error(e);

@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="codes-page" style="{{themeStyle}}">
   <view class="codes-page__tip">点选档位或批量生成后，会复制一段含权益说明的文案，发给用户即可；用户打开「我的」页可自动识别兑换。</view>
 

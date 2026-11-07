@@ -1,5 +1,6 @@
 const cloud = require('wx-server-sdk');
 const { resolveTempUrls } = require('./tempUrlCache');
+const { normalizeContentType, isEmojiType, contentTypeLabel } = require('./contentType');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -43,10 +44,11 @@ async function getDetail(packId, OPENID) {
     return { ok: false, code: 'NOT_FOUND', message: '合集不存在' };
   }
 
+  const contentType = normalizeContentType(pack.contentType);
   const emojiFileIDs = pack.emojiFileIDs || [];
   const emojiCount = emojiFileIDs.length;
   const { previewFileIDs, previewVideoFileID } = splitPreviewFileIDs(pack);
-  const emojiAnimFileIDs = pack.emojiAnimFileIDs || [];
+  const emojiAnimFileIDs = isEmojiType(contentType) ? pack.emojiAnimFileIDs || [] : [];
   const pairKeys = Array.isArray(pack.pairKeys) ? pack.pairKeys : [];
 
   const urlMap = await resolveTempUrls(cloud, [
@@ -57,19 +59,29 @@ async function getDetail(packId, OPENID) {
 
   const previewUrls = previewFileIDs.map((id) => urlMap[id] || '');
   const previewVideoUrl = (previewVideoFileID && urlMap[previewVideoFileID]) || '';
-  const hasAnimAny = emojiAnimFileIDs.some((id) => String(id || '').trim());
+  const hasAnimAny =
+    isEmojiType(contentType) && emojiAnimFileIDs.some((id) => String(id || '').trim());
+  const defaultLabel =
+    contentType === 'video' ? '视频' : contentType === 'avatar' ? '头像' : '原图';
+  // 视频可不传封面：详情顶图用首张预览图
+  const coverUrl =
+    urlMap[pack.coverFileID] ||
+    (contentType === 'video' ? previewUrls.find(Boolean) || '' : '') ||
+    '';
   const slots = Array.from({ length: emojiCount }, (_, i) => {
     const animId = String(emojiAnimFileIDs[i] || '').trim();
     return {
       index: i,
       pairKey: pairKeys[i] || '',
-      previewUrl: previewUrls[i] || '',
+      // 视频槽无独立预览图时用封面作缩略，避免把视频 URL 塞进 image
+      previewUrl: previewUrls[i] || (contentType === 'video' ? coverUrl : ''),
       staticUrl: '',
       animUrl: '',
-      hasAnim: !!animId,
+      hasAnim: isEmojiType(contentType) && !!animId,
       staticReady: false,
       animReady: false,
-      label: pairKeys[i] ? `#${pairKeys[i]}` : `原图 ${i + 1}`,
+      mediaKind: contentType === 'video' ? 'video' : 'image',
+      label: pairKeys[i] ? `#${pairKeys[i]}` : `${defaultLabel} ${i + 1}`,
     };
   });
 
@@ -78,9 +90,11 @@ async function getDetail(packId, OPENID) {
     _id: pack._id,
     title: pack.title,
     description: pack.description || '',
+    contentType,
+    contentTypeName: contentTypeLabel(contentType),
     categoryId: pack.categoryId || '',
     categoryName: pack.categoryName || '',
-    coverUrl: urlMap[pack.coverFileID] || '',
+    coverUrl,
     previewUrls,
     previewVideoUrl,
     pairKeys,

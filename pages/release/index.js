@@ -1,10 +1,12 @@
-// pages/release/index.js
+import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 
+// pages/release/index.js
 Page({
   /**
    * 页面的初始数据
    */
   data: {
+    themeStyle: '',
     originFiles: [
       {
         url: '/static/image1.png',
@@ -26,6 +28,12 @@ Page({
       count: 1,
     },
     tags: ['AI绘画', '版权素材', '原创', '风格灵动'],
+  },
+  onLoad() {
+    this.setData({ themeStyle: getThemeStyle() });
+  },
+  onShow() {
+    applyThemeToPage(this);
   },
   handleSuccess(e) {
     const { files } = e.detail;

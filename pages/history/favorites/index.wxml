@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="favorites" style="{{themeStyle}}">
   <view class="favorites__bar">
     <text class="favorites__bar-count">{{list.length ? list.length + ' 个合集' : '我的收藏'}}</text>
@@ -64,7 +65,7 @@
       <view class="favorites__main">
         <text class="favorites__title">{{item.title}}</text>
         <text class="favorites__meta">
-          {{item.categoryName ? item.categoryName + ' · ' : ''}}{{item.emojiCount}} 张
+          {{item.contentTypeName || ''}}{{item.contentTypeName && item.categoryName ? ' · ' : ''}}{{item.categoryName ? item.categoryName + ' · ' : ''}}{{item.itemCountText || (item.emojiCount + ' 张')}}
         </text>
         <text wx:if="{{item.createdText}}" class="favorites__time">收藏于 {{item.createdText}}</text>
       </view>
@@ -98,6 +99,7 @@
           packId="{{item.packId}}"
           title="{{item.title}}"
           coverUrl="{{item.coverUrl}}"
+          contentType="{{item.contentType}}"
           emojiCount="{{item.emojiCount}}"
           downloadCount="{{item.downloadCount}}"
           showDownloadCount="{{false}}"

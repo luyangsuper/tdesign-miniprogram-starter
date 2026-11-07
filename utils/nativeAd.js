@@ -26,6 +26,20 @@ export function getHomeFeedAdEvery() {
   return defaultHomeFeedAdEvery();
 }
 
+/**
+ * 按瀑布流列数换算实际插广告间隔。
+ * 管理端 homeFeedAdEvery 按「约 2 列」配置；1 列加密、3/4 列放疏，
+ * 让大约隔相近行数出现一条，避免单列刷很久才见广告。
+ * @param {number} columnCount
+ */
+export function resolveHomeFeedAdEvery(columnCount) {
+  const base = getHomeFeedAdEvery();
+  if (base <= 0) return 0;
+  const cols = Math.max(1, Math.min(4, Math.floor(Number(columnCount) || 2)));
+  const scaled = Math.round((base * cols) / 2);
+  return clampHomeFeedAdEvery(Math.max(2, scaled), base);
+}
+
 export function setHomeFeedAdEvery(n) {
   const v = clampHomeFeedAdEvery(n, defaultHomeFeedAdEvery());
   try {

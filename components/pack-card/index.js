@@ -1,4 +1,11 @@
 import { categoryTagStyle, metaTagStyle } from '~/utils/categories';
+import {
+  contentTypeColorStyle,
+  contentTypeIconSrc,
+  contentTypeLabel,
+  formatItemCount,
+  normalizeContentType,
+} from '~/utils/contentType';
 import { forgetTempUrl, packCoverCacheKey } from '~/utils/tempUrlCache';
 import { getThemeBrand } from '~/utils/theme';
 
@@ -10,6 +17,15 @@ Component({
     packId: String,
     title: String,
     coverUrl: String,
+    /** 云存储 fileID，裂图时供首页单独换签 */
+    coverFileID: {
+      type: String,
+      value: '',
+    },
+    contentType: {
+      type: String,
+      value: 'emoji',
+    },
     emojiCount: {
       type: Number,
       value: 0,
@@ -48,6 +64,11 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 多选时与已选类型不一致，半透明不可点选感 */
+    selectDisabled: {
+      type: Boolean,
+      value: false,
+    },
     /** 收藏等场景不展示「已下载」数量 */
     showDownloadCount: {
       type: Boolean,
@@ -57,6 +78,10 @@ Component({
 
   data: {
     tags: [],
+    /** 张数 / 下载等灰字一行，避免窄卡双行色块标签 */
+    metaLine: '',
+    typeBadge: null,
+    typeBadgeCompact: false,
     mediaHeight: 0,
     coverReady: false,
     brandColor: '#07C160',
@@ -69,9 +94,10 @@ Component({
         this.setData({ adminActionsVisible: false });
       }
     },
-    'emojiCount, downloadCount, categoryId, categoryName, showDownloadCount': function () {
-      this.refreshTags();
-    },
+    'emojiCount, downloadCount, categoryId, categoryName, showDownloadCount, contentType, cardWidth':
+      function () {
+        this.refreshTags();
+      },
     'cardWidth, coverRatio': function () {
       this.updateMediaHeight();
     },
@@ -129,7 +155,29 @@ Component({
     },
 
     refreshTags() {
-      const { emojiCount, downloadCount, categoryId, categoryName, showDownloadCount } = this.data;
+      const {
+        emojiCount,
+        downloadCount,
+        categoryId,
+        categoryName,
+        showDownloadCount,
+        contentType,
+        cardWidth,
+      } = this.data;
+      const type = normalizeContentType(contentType);
+      const w = Number(cardWidth) || 0;
+      /* 窄卡（约 3 列）/ 中卡（约 2 列）/ 宽卡（1 列或平板） */
+      const narrow = !w || w < 150;
+      const medium = w >= 150 && w < 210;
+
+      const typeBadge = {
+        text: contentTypeLabel(type),
+        iconSrc: contentTypeIconSrc(type),
+        /* 仅文字色；半透明白底交给 less，保证封面可读 */
+        customStyle: contentTypeColorStyle(type),
+      };
+      const typeBadgeCompact = narrow;
+
       const tags = [];
       if (categoryName) {
         tags.push({
@@ -138,21 +186,36 @@ Component({
           customStyle: categoryTagStyle(categoryId, categoryName),
         });
       }
-      if (emojiCount) {
-        tags.push({
-          text: `${emojiCount}张`,
-          theme: 'default',
-          customStyle: metaTagStyle('count'),
-        });
+
+      const countText = emojiCount
+        ? formatItemCount(emojiCount, type).replace(/\s/g, '')
+        : '';
+      const dlText =
+        showDownloadCount && downloadCount ? `已下载${downloadCount}` : '';
+      const metaParts = [];
+
+      if (narrow || medium) {
+        /* 类型在封面；信息区只留分类标签 + 灰字 meta，保证单行高度 */
+        if (countText) metaParts.push(countText);
+        if (dlText) metaParts.push(dlText);
+      } else {
+        /* 宽卡：分类 + 张数用标签；下载仍用灰字，避免再挤成两行 */
+        if (countText) {
+          tags.push({
+            text: countText,
+            theme: 'default',
+            customStyle: metaTagStyle('count'),
+          });
+        }
+        if (dlText) metaParts.push(dlText);
       }
-      if (showDownloadCount && downloadCount) {
-        tags.push({
-          text: `已下载${downloadCount}`,
-          theme: 'default',
-          customStyle: metaTagStyle('download'),
-        });
-      }
-      this.setData({ tags });
+
+      this.setData({
+        typeBadge,
+        typeBadgeCompact,
+        tags,
+        metaLine: metaParts.join(' · '),
+      });
     },
 
     onCoverLoad(e) {
@@ -187,16 +250,24 @@ Component({
 
     /** 临时链失效时丢掉本地缓存，让列表静默换签 */
     onCoverError() {
-      const { packId, coverUrl } = this.data;
+      const { packId, coverUrl, coverFileID } = this.data;
       if (packId) forgetTempUrl(packCoverCacheKey(packId));
+      if (coverFileID) forgetTempUrl(coverFileID);
+      // 清掉当前坏链，避免同 URL 回写时 observer 不触发
+      this._coverUrl = '';
       this.setData({ coverReady: false });
-      this.triggerEvent('covererror', { packId, coverUrl });
+      this.triggerEvent('covererror', {
+        packId,
+        coverUrl,
+        coverFileID: coverFileID || '',
+      });
     },
 
     onTap() {
       const { packId, selectMode } = this.data;
       if (!packId) return;
       if (selectMode) {
+        // 类型不一致时仍上报，由首页 toast 提示「只能选同类型」
         this.triggerEvent('toggle', { packId });
         return;
       }

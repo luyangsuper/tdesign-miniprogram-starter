@@ -190,6 +190,11 @@ exports.main = async (event = {}) => {
           saveAdRewardPoints: event.saveAdRewardPoints,
           saveAdRewardDailyMax: event.saveAdRewardDailyMax,
           homeFeedAdEvery: event.homeFeedAdEvery,
+          costStatic: event.costStatic,
+          costAnim: event.costAnim,
+          costWallpaper: event.costWallpaper,
+          costAvatar: event.costAvatar,
+          costVideo: event.costVideo,
         },
         { openid: OPENID },
       );

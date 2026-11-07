@@ -1,10 +1,12 @@
 import { callFunction } from '~/utils/cloud';
-import { ensureAlbumAuth, saveRemoteImageToAlbum } from '~/utils/download';
+import { ensureAlbumAuth, saveRemoteMediaToAlbum } from '~/utils/download';
 import {
   canAttemptDownload,
   getCachedEntitlement,
   setCachedEntitlement,
 } from '~/utils/entitlement';
+import { resolveDownloadCostKey } from '~/utils/pricing';
+import { isEmojiType, normalizeContentType } from '~/utils/contentType';
 
 async function refundDownloadCharge(fromVip, fromPoints, onEntitlement) {
   if (!fromVip && !fromPoints) return;
@@ -24,13 +26,24 @@ async function refundDownloadCharge(fromVip, fromPoints, onEntitlement) {
 }
 
 /**
- * 下载并保存一张；成功返回扣费信息，失败抛错。
- * @param {{ packId: string, index: number, variant?: 'static'|'anim', skipAuth?: boolean, onEntitlement?: Function, onDownloadCount?: Function }} opts
+ * 下载并保存一张/一段；成功返回扣费信息，失败抛错。
+ * @param {{
+ *   packId: string,
+ *   index: number,
+ *   variant?: 'static'|'anim',
+ *   contentType?: string,
+ *   skipAuth?: boolean,
+ *   onEntitlement?: Function,
+ *   onDownloadCount?: Function
+ * }} opts
  */
 export async function downloadOne(opts = {}) {
   const packId = opts.packId;
   const index = Number(opts.index);
-  const variant = opts.variant === 'anim' ? 'anim' : 'static';
+  const contentType = normalizeContentType(opts.contentType);
+  const emojiOnly = isEmojiType(contentType);
+  const variant = emojiOnly && opts.variant === 'anim' ? 'anim' : 'static';
+  const costKey = resolveDownloadCostKey(contentType, variant);
   const onEntitlement = opts.onEntitlement;
   const onDownloadCount = opts.onDownloadCount;
 
@@ -51,6 +64,11 @@ export async function downloadOne(opts = {}) {
   const url = res.data && res.data.url;
   const fromVip = Number((res.data && res.data.fromVip) || 0);
   const fromPoints = Number((res.data && res.data.fromPoints) || 0);
+  const mediaKind =
+    (res.data && res.data.mediaKind) ||
+    (contentType === 'video' ? 'video' : 'image');
+  const reportVariant =
+    (res.data && res.data.variant) || (emojiOnly ? variant : contentType);
   if (!url) throw new Error('未获取到下载链接');
 
   if (res.data.entitlement) {
@@ -59,7 +77,7 @@ export async function downloadOne(opts = {}) {
   }
 
   try {
-    await saveRemoteImageToAlbum(url);
+    await saveRemoteMediaToAlbum(url, mediaKind);
   } catch (saveErr) {
     await refundDownloadCharge(fromVip, fromPoints, onEntitlement);
     throw saveErr;
@@ -70,7 +88,7 @@ export async function downloadOne(opts = {}) {
     const report = await callFunction('reportDownload', {
       packId,
       index,
-      variant,
+      variant: reportVariant,
       grantType: (res.data && res.data.grantType) || '',
     });
     downloadCount = report.data && report.data.downloadCount;
@@ -86,7 +104,9 @@ export async function downloadOne(opts = {}) {
     fromVip,
     fromPoints,
     grantType: (res.data && res.data.grantType) || '',
-    variant,
+    variant: reportVariant,
+    contentType,
+    costKey,
     downloadCount,
     packId,
     index,
@@ -95,17 +115,26 @@ export async function downloadOne(opts = {}) {
 
 /**
  * 跨合集批量下载。
- * @param {{ jobs: Array<{ packId: string, indexes: number[] }>, variant?: 'static'|'anim', onProgress?: Function, onEntitlement?: Function, onDownloadCount?: Function }} opts
+ * @param {{
+ *   jobs: Array<{ packId: string, indexes: number[], contentType?: string }>,
+ *   variant?: 'static'|'anim',
+ *   contentType?: string,
+ *   onProgress?: Function,
+ *   onEntitlement?: Function,
+ *   onDownloadCount?: Function
+ * }} opts
  */
 export async function runBatchDownload(opts = {}) {
+  const defaultType = normalizeContentType(opts.contentType);
   const variant = opts.variant === 'anim' ? 'anim' : 'static';
   const jobs = Array.isArray(opts.jobs) ? opts.jobs : [];
   const tasks = [];
   jobs.forEach((job) => {
     const packId = job && job.packId;
     const indexes = (job && job.indexes) || [];
+    const contentType = normalizeContentType(job.contentType || defaultType);
     indexes.forEach((index) => {
-      tasks.push({ packId, index: Number(index) });
+      tasks.push({ packId, index: Number(index), contentType });
     });
   });
 
@@ -131,7 +160,8 @@ export async function runBatchDownload(opts = {}) {
 
   for (let i = 0; i < tasks.length; i += 1) {
     const task = tasks[i];
-    if (!canAttemptDownload(getCachedEntitlement(), variant)) {
+    const costKey = resolveDownloadCostKey(task.contentType, variant);
+    if (!canAttemptDownload(getCachedEntitlement(), costKey)) {
       stoppedByBalance = true;
       break;
     }
@@ -145,6 +175,7 @@ export async function runBatchDownload(opts = {}) {
         packId: task.packId,
         index: task.index,
         variant,
+        contentType: task.contentType,
         skipAuth: true,
         onEntitlement: opts.onEntitlement,
         onDownloadCount: opts.onDownloadCount,
@@ -175,7 +206,8 @@ export async function runBatchDownload(opts = {}) {
 
 /** 汇总批量结果文案 */
 export function formatBatchResultTip(stat) {
-  const parts = [`成功 ${stat.okCount || 0} 张`];
+  const unit = stat.unit || '张';
+  const parts = [`成功 ${stat.okCount || 0} ${unit}`];
   if (stat.failCount) parts.push(`失败 ${stat.failCount}`);
   if (stat.skippedPacks) parts.push(`跳过 ${stat.skippedPacks} 个无动态合集`);
   if (stat.stoppedByBalance && (stat.okCount || 0) < (stat.total || 0)) {

@@ -152,7 +152,6 @@ function statusTheme(status) {
   if (status === 'cancelled') return 'danger';
   return 'warning';
 }
-
 Page({
   data: {
     themeStyle: '',

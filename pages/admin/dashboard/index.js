@@ -40,7 +40,6 @@ function periodView(period, periods) {
     usersLabel: id === 'all' ? '注册用户' : '新增用户',
   };
 }
-
 Page({
   data: {
     themeStyle: '',

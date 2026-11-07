@@ -1,5 +1,11 @@
-import { callFunction } from '~/utils/cloud';
-import { packCoverCacheKey, peekTempUrl, reuseTempUrl } from '~/utils/tempUrlCache';
+import { callFunction, getTempFileURLs } from '~/utils/cloud';
+import {
+  forgetTempUrl,
+  packCoverCacheKey,
+  peekTempUrl,
+  rememberTempUrl,
+  reuseTempUrl,
+} from '~/utils/tempUrlCache';
 import {
   formatBatchResultTip,
   runBatchDownload,
@@ -7,19 +13,29 @@ import {
 import { getOpenId, resolveIsAdmin } from '~/utils/auth';
 import {
   CATEGORY_FILTER_ALL,
-  categoryCheckTagStyle,
 } from '~/utils/categories';
 import {
-  canAttemptDownload,
-  estimateBatchAffordable,
+  CONTENT_TYPE_ALL,
+  contentTypeChipStyle,
+  contentTypeColorStyle,
+  contentTypeFilterLabel,
+  contentTypeFilterOptions,
+  contentTypeIconSrc,
+  contentTypeLabel,
+  formatItemCount,
+  isEmojiType,
+  normalizeContentType,
+} from '~/utils/contentType';
+import {
   getCachedEntitlement,
   setCachedEntitlement,
+  spendablePoints,
 } from '~/utils/entitlement';
 import { promptSaveAdForPoints } from '~/utils/adReward';
 import {
   applyHomeFeedAdEveryFromSettings,
-  getHomeFeedAdEvery,
   getNativeHomeFeedAdUnitId,
+  resolveHomeFeedAdEvery,
   shouldShowHomeFeedAds,
 } from '~/utils/nativeAd';
 import {
@@ -32,13 +48,22 @@ import {
   applyPendingLotteryInvites,
   applyPendingLotteryResults,
 } from '~/utils/lotteryHint';
-import { downloadCost } from '~/utils/pricing';
-import { getWindowInfoSafe } from '~/utils/systemInfo';
+import {
+  applyDownloadCostsFromSettings,
+  downloadCost,
+  downloadCostForPack,
+} from '~/utils/pricing';
+import { getCustomNavMetrics, getWindowInfoSafe } from '~/utils/systemInfo';
 import {
   requestNewPackSubscribe,
   shouldShowNewPackGuide,
 } from '~/utils/subscribe';
-import { applyThemeToPage, applyThemeToTabBar, getThemeStyle } from '~/utils/theme';
+import {
+  applyThemeToPage,
+  applyThemeToTabBar,
+  getThemeStyle,
+  resolveCategorySwatch,
+} from '~/utils/theme';
 import {
   clearHomeSnapshot,
   readHomeSnapshot,
@@ -51,6 +76,7 @@ import {
   loadFestivalConfig,
   notifyFestivalAccessChange,
 } from '~/utils/festival';
+import { resolveWaterfallColumns } from '~/utils/waterfallColumns';
 
 const CONFIRM_ICONS = {
   warn: '/static/emoji/warn.png',
@@ -103,6 +129,7 @@ function appendColumns(columns, newItems, columnCount) {
 
 /**
  * 瀑布流分段：每凑满 every 个合集插一条通栏原生广告（横版模板适合通栏，不适合塞进单列窄卡）。
+ * every 由 resolveHomeFeedAdEvery(列数) 换算：管理端按约 2 列配置，1 列更密、多列更疏。
  * 不插广告时必须整表一块 grid，禁止按 every 切开——否则列高会在段界重置，VIP/管理员会看到空白间隔。
  * 最后不足一组不插，避免总贴在「没有更多了」上面。
  */
@@ -147,10 +174,9 @@ const BACK_TOP_VISIBLE = 400;
 /** 节流同步 scrollTop 给 t-back-top，避免每帧 setData */
 const BACK_TOP_SYNC_MS = 80;
 
-function listCacheKey(categoryId, keyword) {
-  return `${categoryId || 'all'}::${String(keyword || '').trim()}`;
+function listCacheKey(categoryId, keyword, contentType) {
+  return `${categoryId || 'all'}::${contentType || 'all'}::${String(keyword || '').trim()}`;
 }
-
 Page({
   data: {
     enable: false,
@@ -172,7 +198,15 @@ Page({
     searchExpanded: false,
     searchFocus: false,
     categoryId: CATEGORY_FILTER_ALL,
+    contentType: CONTENT_TYPE_ALL,
+    contentTypeName: contentTypeFilterLabel(CONTENT_TYPE_ALL),
+    contentTypeIconSrc: contentTypeIconSrc(CONTENT_TYPE_ALL),
+    contentTypeChipStyle: contentTypeChipStyle(CONTENT_TYPE_ALL),
+    contentTypeFilters: contentTypeFilterOptions(),
+    contentTypeSheetVisible: false,
     filters: [{ id: 'all', name: '全部', count: 0 }],
+    /** filters 对应的 contentType；与当前类型不一致时角标不信 count，避免闪旧数字 */
+    filtersContentType: CONTENT_TYPE_ALL,
     /** 当前筛选下的合集数，展示在分类下方，不写进标签 */
     listTotal: 0,
     isAdmin: false,
@@ -180,6 +214,7 @@ Page({
     deletePackId: '',
     deleteTitle: '',
     navHeight: 64,
+    navBarStyle: '',
     /** 胶囊按钮几何，用于把「多选」贴在其左侧 */
     menuButton: {
       top: 48,
@@ -194,7 +229,7 @@ Page({
     searchIconSize: '32rpx',
     searchBoxStyle: '',
     /** 仅固定分类栏高度；导航栏靠 t-navbar placeholder 占位，勿再叠加 */
-    fixedOffset: 80,
+    fixedOffset: 48,
     subscribeGuideVisible: false,
     themeStyle: '',
     festivalActive: true,
@@ -208,6 +243,14 @@ Page({
     approxCount: 0,
     approxCost: 0,
     batchVariant: 'static',
+    /** 批量已锁定的合集类型；空表示尚未选中 */
+    batchContentType: '',
+    batchTypeName: '',
+    batchContentTypeIconSrc: contentTypeIconSrc(CONTENT_TYPE_ALL),
+    batchContentTypeColorStyle: contentTypeColorStyle(CONTENT_TYPE_ALL),
+    batchShowVariant: true,
+    batchUnitLabel: '张',
+    batchMetaText: '已选 0 个合集',
     batchSaving: false,
     confirmVisible: false,
     confirmTitle: '',
@@ -221,7 +264,7 @@ Page({
     activityGiftTitle: '',
     activityGiftPoints: 0,
     activityGiftAffordLine: '',
-    activityGiftTip: '感谢参与趣集活动',
+    activityGiftTip: '感谢参与趣图铺子活动',
     /** 列表翻页动画：enter-left / enter-right / 空 */
     pageAnim: '',
     /** 跟手位移（px），横滑时内容跟着走 */
@@ -261,6 +304,7 @@ Page({
   },
 
   _listSeq: 0,
+  _catSeq: 0,
   _listCache: null,
   _confirmResolve: null,
   /** 列表区左右滑切分类 */
@@ -280,6 +324,7 @@ Page({
   onShow() {
     applyThemeToPage(this);
     applyThemeToTabBar();
+    this.updateLayout();
     /* 先恢复 active（仅解暂停），避免先卸图再加载造成闪烁 */
     if (!this.data.festivalActive) {
       this.setData({ festivalActive: true });
@@ -315,7 +360,7 @@ Page({
         this.clearListCache();
         clearHomeSnapshot();
         this.loadCategories();
-        this.loadList(true, { force: true });
+        this.loadList(true, { force: true, forceRefresh: true });
       }
     } catch (e) {
       /* ignore */
@@ -386,6 +431,7 @@ Page({
       if (res && res.homeFeedAdEvery != null) {
         applyHomeFeedAdEveryFromSettings(res);
       }
+      applyDownloadCostsFromSettings(res || {});
       // 权益（VIP）或间隔变化后重建分段，避免留下空广告位/段界空白
       this.refreshFeedAdGate();
       applyPendingPointGifts(res && res.pendingPointGifts);
@@ -547,6 +593,7 @@ Page({
   onLoad(options) {
     this._listCache = Object.create(null);
     this._listSeq = 0;
+    this._catSeq = 0;
     this.setData({ themeStyle: getThemeStyle() });
     this._onThemeChange = () => {
       applyThemeToPage(this);
@@ -562,6 +609,7 @@ Page({
         if (bar && typeof bar.syncFestival === 'function') bar.syncFestival();
       }
     };
+    this._onWaterfallColumnsChange = () => this.updateLayout();
     try {
       const app = getApp();
       if (app && typeof app.captureOaEntry === 'function') {
@@ -576,6 +624,7 @@ Page({
         app.eventBus.on('activityGift', this._onActivityGift);
         app.eventBus.on('adminViewChange', this._onAdminViewChange);
         app.eventBus.on('festivalChange', this._onFestivalChange);
+        app.eventBus.on('waterfallColumnsChange', this._onWaterfallColumnsChange);
       }
     } catch (e) {
       /* ignore */
@@ -619,6 +668,9 @@ Page({
         if (this._onActivityGift) app.eventBus.off('activityGift', this._onActivityGift);
         if (this._onAdminViewChange) app.eventBus.off('adminViewChange', this._onAdminViewChange);
         if (this._onFestivalChange) app.eventBus.off('festivalChange', this._onFestivalChange);
+        if (this._onWaterfallColumnsChange) {
+          app.eventBus.off('waterfallColumnsChange', this._onWaterfallColumnsChange);
+        }
       }
     } catch (e) {
       /* ignore */
@@ -719,8 +771,8 @@ Page({
     try {
       const win = getWindowInfoSafe();
       const menu = wx.getMenuButtonBoundingClientRect();
-      const gap = menu.top - win.statusBarHeight;
-      const navHeight = win.statusBarHeight + gap * 2 + menu.height;
+      const nav = getCustomNavMetrics();
+      const navHeight = nav.navHeight;
       const menuGap = Math.max(8, Math.round(win.windowWidth - menu.left + 8));
       const rpx = (win.windowWidth || 375) / 750;
       const navSearchLeft = Math.round(24 * rpx);
@@ -737,6 +789,7 @@ Page({
       this.setData(
         {
           navHeight,
+          navBarStyle: nav.navBarStyle,
           menuButton: {
             top: menu.top,
             height: menu.height,
@@ -761,6 +814,7 @@ Page({
     } catch (e) {
       const fallback = {
         navHeight: 64,
+        navBarStyle: '--td-navbar-padding-top:20px;--td-navbar-height:44px',
         menuButton: { top: 48, height: 32, gap: 96 },
         navSearchLeft: 12,
         navSearchRight: 160,
@@ -809,12 +863,16 @@ Page({
     return parts.join(';');
   },
 
-  /** 给筛选标签写入与卡片一致的分类色 token */
+  /** 主题 Tab：写入 accent，供文字色 / 底横条使用 */
   decorateFilters(list) {
-    return (list || []).map((f) => ({
-      ...f,
-      checkStyle: categoryCheckTagStyle(f.id, f.name),
-    }));
+    return (list || []).map((f) => {
+      const swatch = resolveCategorySwatch(f.id, f.name);
+      return {
+        ...f,
+        accentColor: swatch.color,
+        tabStyle: `--home-cat-accent:${swatch.color}`,
+      };
+    });
   },
 
   refreshFilterStyles() {
@@ -869,9 +927,7 @@ Page({
 
   updateLayout() {
     const { windowWidth } = getWindowInfoSafe();
-    let columnCount = 2;
-    if (windowWidth >= 560) columnCount = 3;
-    if (windowWidth >= 840) columnCount = 4;
+    const columnCount = resolveWaterfallColumns(windowWidth);
 
     // 页边距与卡片间距同一数值，只扣一次，避免「页边 + 缝」看起来叠宽
     const gap = 6;
@@ -893,7 +949,7 @@ Page({
       patch.feedBlocks = buildFeedBlocks(
         this.data.list,
         columnCount,
-        getHomeFeedAdEvery(),
+        resolveHomeFeedAdEvery(columnCount),
         patch.showFeedAds && !this.data.selectMode,
       );
     }
@@ -911,7 +967,7 @@ Page({
       patch.feedBlocks = buildFeedBlocks(
         this.data.list,
         this.data.columnCount,
-        getHomeFeedAdEvery(),
+        resolveHomeFeedAdEvery(this.data.columnCount),
         show && !this.data.selectMode,
       );
     }
@@ -931,8 +987,34 @@ Page({
 
   filterCount(categoryId) {
     const id = categoryId || this.data.categoryId;
+    const ct = this.data.contentType || CONTENT_TYPE_ALL;
+    const ft = this.data.filtersContentType;
+    // 分类统计尚未对齐当前类型时，不要用旧 count 当角标
+    if (ft != null && ft !== ct) return 0;
     const hit = (this.data.filters || []).find((f) => f.id === id);
     return hit ? Number(hit.count) || 0 : 0;
+  },
+
+  /** 列表 total 校准分类角标；当前分类为 0 时仍保留选中项，其它 0 分类去掉 */
+  syncFilterCount(categoryId, total) {
+    const id = categoryId || this.data.categoryId || 'all';
+    const n = Math.max(0, Number(total) || 0);
+    const filters = this.data.filters || [];
+    if (!filters.length) return;
+    let changed = false;
+    const next = filters
+      .map((f) => {
+        if (f.id !== id) return f;
+        if ((Number(f.count) || 0) === n) return f;
+        changed = true;
+        return { ...f, count: n };
+      })
+      .filter(
+        (f) => f.id === 'all' || f.id === id || (Number(f.count) || 0) > 0,
+      );
+    if (next.length !== filters.length) changed = true;
+    if (!changed) return;
+    this.setData({ filters: this.decorateFilters(next) });
   },
 
   applyListState(payload) {
@@ -953,7 +1035,7 @@ Page({
     const feedBlocks = buildFeedBlocks(
       list,
       this.data.columnCount,
-      getHomeFeedAdEvery(),
+      resolveHomeFeedAdEvery(this.data.columnCount),
       showAds,
     );
     // 不在每次列表更新里写 enable，避免误触 refresher-triggered 抖动
@@ -985,11 +1067,12 @@ Page({
     const snap = readHomeSnapshot();
     if (!snap) return;
     const categoryId = snap.categoryId || 'all';
+    const contentType = snap.contentType || CONTENT_TYPE_ALL;
     const keyword = String(snap.keyword || '').trim();
     if (keyword) return;
     const list = snap.list || [];
     if (!list.length) return;
-    const cacheKey = listCacheKey(categoryId, keyword);
+    const cacheKey = listCacheKey(categoryId, keyword, contentType);
     // at=0：快照只铺壳，随后 loadList 必走静默刷新换新签，避免过期封面裂图
     this._listCache[cacheKey] = {
       at: 0,
@@ -1000,12 +1083,17 @@ Page({
     };
     const patch = {
       categoryId,
+      contentType,
+      contentTypeName: contentTypeFilterLabel(contentType),
+      contentTypeIconSrc: contentTypeIconSrc(contentType),
+      contentTypeChipStyle: contentTypeChipStyle(contentType),
       keyword: '',
       listTotal: snap.total || list.length,
       loading: false,
     };
     if (Array.isArray(snap.filters) && snap.filters.length) {
       patch.filters = this.decorateFilters(snap.filters);
+      patch.filtersContentType = contentType;
     }
     this.setData(patch);
     this.applyListState({
@@ -1021,6 +1109,7 @@ Page({
     if (String(this.data.keyword || '').trim()) return;
     writeHomeSnapshot({
       categoryId: this.data.categoryId,
+      contentType: this.data.contentType || CONTENT_TYPE_ALL,
       keyword: '',
       list: listState.list || this.data.list || [],
       page: listState.page != null ? listState.page : this.data.page,
@@ -1036,12 +1125,20 @@ Page({
   },
 
   async loadCategories() {
+    const contentType = this.data.contentType || CONTENT_TYPE_ALL;
+    const seq = (this._catSeq = (this._catSeq || 0) + 1);
     try {
-      const res = await callFunction('listCategories');
+      const res = await callFunction('listCategories', { contentType });
+      if (seq !== this._catSeq) return;
+      if ((this.data.contentType || CONTENT_TYPE_ALL) !== contentType) return;
+      const resType = res.data && res.data.contentType;
+      // 新云函数会回传 contentType；对不上说明串了类型，丢弃
+      if (resType != null && resType !== contentType) return;
+
       const raw = (res.data && res.data.filters) || [
         { id: 'all', name: '全部', count: 0 },
       ];
-      // 标签只保留名称；数量用 listTotal 单独展示；选中色跟卡片分类标签一致
+      // 标签只保留名称；选中角标用 listTotal（与当前类型一致的统计）
       const filters = raw
         .filter((f) => f.id === 'all' || (f.count || 0) > 0)
         .map((f) => ({
@@ -1052,11 +1149,11 @@ Page({
       const next = this.decorateFilters(
         filters.length ? filters : [{ id: 'all', name: '全部', count: 0 }],
       );
-      const patch = { filters: next };
+      const patch = { filters: next, filtersContentType: contentType };
       if (!next.some((f) => f.id === this.data.categoryId)) {
         patch.categoryId = 'all';
       }
-      // 无搜索词时，用分类统计刷新「共 N 个」
+      // 无搜索词时，用「当前类型」下的分类统计刷新角标，避免闪旧数字
       if (!String(this.data.keyword || '').trim()) {
         const id = patch.categoryId || this.data.categoryId;
         const hit = next.find((f) => f.id === id);
@@ -1068,6 +1165,7 @@ Page({
         this.scrollCategoryIntoView(patch.categoryId || this.data.categoryId);
       });
     } catch (e) {
+      if (seq !== this._catSeq) return;
       console.warn('[categories]', e.message || e);
     }
   },
@@ -1120,6 +1218,59 @@ Page({
     this.switchCategory(id);
   },
 
+  openContentTypeSheet() {
+    this.setData({ contentTypeSheetVisible: true });
+  },
+
+  closeContentTypeSheet() {
+    if (!this.data.contentTypeSheetVisible) return;
+    this.setData({ contentTypeSheetVisible: false });
+  },
+
+  onContentTypeSheetVisibleChange(e) {
+    const visible = !!(e.detail && e.detail.visible);
+    if (!visible && this.data.contentTypeSheetVisible) {
+      this.setData({ contentTypeSheetVisible: false });
+    }
+  },
+
+  onContentTypeSheetPick(e) {
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      '';
+    this.setData({ contentTypeSheetVisible: false });
+    this.applyContentType(id);
+  },
+
+  applyContentType(id) {
+    if (id === undefined || id === null || id === '') return;
+    const next =
+      id === CONTENT_TYPE_ALL ? CONTENT_TYPE_ALL : normalizeContentType(id);
+    if (next === this.data.contentType) return;
+    this.clearPackSelection();
+    // 作废进行中的旧分类请求，避免切类型后旧 filters/count 写回
+    this._catSeq = (this._catSeq || 0) + 1;
+    this.setData(
+      {
+        contentType: next,
+        contentTypeName: contentTypeFilterLabel(next),
+        contentTypeIconSrc: contentTypeIconSrc(next),
+        contentTypeChipStyle: contentTypeChipStyle(next),
+        // 立刻丢掉上一类型的分类条，避免还能点到「表情里的蜡笔小新」并闪出旧数字
+        categoryId: 'all',
+        listTotal: 0,
+        filtersContentType: next,
+        filters: this.decorateFilters([{ id: 'all', name: '全部', count: 0 }]),
+      },
+      () => {
+        this.resetListScroll();
+        this.loadCategories();
+        this.loadList(true);
+        setTimeout(() => this.measureFixedBar(), 30);
+      },
+    );
+  },
+
   /**
    * 切换分类。
    * dir: -1 左滑进下一项（内容从右入），1 右滑进上一项（内容从左入），0 无方向动画。
@@ -1133,6 +1284,7 @@ Page({
     if (!filters.some((f) => f.id === id)) return false;
 
     const keepSwipe = !!(options && options.keepSwipe);
+    // 角标用当前类型下的分类统计；列表返回后再用 total 校准
     const listTotal = this.filterCount(id);
     const pageAnim = dir < 0 ? 'enter-right' : dir > 0 ? 'enter-left' : '';
     this.clearPackSelection();
@@ -1189,8 +1341,8 @@ Page({
 
     const run = () => {
       const q = wx.createSelectorQuery();
-      q.select('.home__toolbar').boundingClientRect();
-      q.select('.home__toolbar').scrollOffset();
+      q.select('#homeToolbar').boundingClientRect();
+      q.select('#homeToolbar').scrollOffset();
       q.select(`#cat-${targetId}`).boundingClientRect();
       q.exec((res) => {
         const bar = res && res[0];
@@ -1550,32 +1702,79 @@ Page({
   },
 
   clearPackSelection() {
-    if (!this.data.selectedCount && !Object.keys(this.data.selectedMap || {}).length) {
-      return;
-    }
+    const hasSelected =
+      this.data.selectedCount || Object.keys(this.data.selectedMap || {}).length;
+    if (!hasSelected && !this.data.batchContentType) return;
     this.setData({
       selectedMap: {},
       selectedCount: 0,
       approxCount: 0,
       approxCost: 0,
+      batchContentType: '',
+      batchTypeName: '',
+      batchShowVariant: this.data.selectMode ? false : this.data.batchShowVariant,
+      batchUnitLabel: '张',
+      batchMetaText: this.data.selectMode
+        ? '请选择同一类型的合集'
+        : '已选 0 个合集',
+      batchVariant: 'static',
     });
   },
 
-  computeBatchMeta(selectedMap, variant) {
+  resolveSelectedContentType(selectedMap) {
     const map = selectedMap || {};
-    const v = variant === 'anim' ? 'anim' : 'static';
-    const cost = downloadCost(v);
+    let locked = '';
+    (this.data.list || []).some((item) => {
+      if (!item || !map[item._id]) return false;
+      locked = normalizeContentType(item.contentType);
+      return true;
+    });
+    return locked;
+  },
+
+  computeBatchMeta(selectedMap, variant, lockedType) {
+    const map = selectedMap || {};
+    const type = lockedType || this.resolveSelectedContentType(map);
+    const emojiOnly = !type || isEmojiType(type);
+    const v = emojiOnly && variant === 'anim' ? 'anim' : 'static';
     let selectedCount = 0;
     let approxCount = 0;
+    let approxCost = 0;
     (this.data.list || []).forEach((item) => {
       if (!item || !map[item._id]) return;
       selectedCount += 1;
-      approxCount += Math.max(0, Number(item.emojiCount) || 0);
+      const itemType = normalizeContentType(item.contentType);
+      if (type && itemType !== type) return;
+      const n = Math.max(0, Number(item.emojiCount) || 0);
+      approxCount += n;
+      approxCost += n * downloadCostForPack(itemType, v);
     });
+    const typeName = type ? contentTypeLabel(type) : '';
+    const unitLabel =
+      type === 'video' || type === 'avatar' ? '个' : '张';
+    const countText = type
+      ? formatItemCount(approxCount, type)
+      : `约 ${approxCount} 张`;
+    const metaParts = [`已选 ${selectedCount} 个合集`];
+    if (typeName) metaParts.push(typeName);
+    if (approxCount) metaParts.push(countText);
+    if (approxCost) metaParts.push(`${approxCost} 积分`);
     return {
       selectedCount,
       approxCount,
-      approxCost: approxCount * cost,
+      approxCost,
+      batchContentType: type || '',
+      batchTypeName: typeName,
+      batchContentTypeIconSrc: type
+        ? contentTypeIconSrc(type)
+        : contentTypeIconSrc(CONTENT_TYPE_ALL),
+      batchContentTypeColorStyle: type
+        ? contentTypeColorStyle(type)
+        : contentTypeColorStyle(CONTENT_TYPE_ALL),
+      batchShowVariant: emojiOnly && !!type,
+      batchUnitLabel: unitLabel,
+      batchVariant: v,
+      batchMetaText: metaParts.join(' · '),
     };
   },
 
@@ -1589,11 +1788,17 @@ Page({
         selectedCount: 0,
         approxCount: 0,
         approxCost: 0,
+        batchContentType: '',
+        batchTypeName: '',
+        batchShowVariant: true,
+        batchUnitLabel: '张',
+        batchMetaText: '已选 0 个合集',
+        batchVariant: 'static',
         showFeedAds: showAds,
         feedBlocks: buildFeedBlocks(
           this.data.list,
           this.data.columnCount,
-          getHomeFeedAdEvery(),
+          resolveHomeFeedAdEvery(this.data.columnCount),
           showAds,
         ),
       });
@@ -1602,10 +1807,19 @@ Page({
     // 多选时先藏广告，避免误触、也少占勾选空间
     this.setData({
       selectMode: true,
+      selectedMap: {},
+      selectedCount: 0,
+      approxCount: 0,
+      approxCost: 0,
+      batchContentType: '',
+      batchTypeName: '',
+      batchShowVariant: false,
+      batchMetaText: '请选择同一类型的合集',
+      batchVariant: 'static',
       feedBlocks: buildFeedBlocks(
         this.data.list,
         this.data.columnCount,
-        getHomeFeedAdEvery(),
+        resolveHomeFeedAdEvery(this.data.columnCount),
         false,
       ),
     });
@@ -1615,23 +1829,38 @@ Page({
     if (!this.data.selectMode || this.data.batchSaving) return;
     const packId = e.detail && e.detail.packId;
     if (!packId) return;
+    const pack = (this.data.list || []).find((p) => p && p._id === packId);
+    if (!pack) return;
+    const packType = normalizeContentType(pack.contentType);
     const selectedMap = { ...(this.data.selectedMap || {}) };
-    if (selectedMap[packId]) delete selectedMap[packId];
-    else selectedMap[packId] = true;
+    if (selectedMap[packId]) {
+      delete selectedMap[packId];
+    } else {
+      const locked = this.data.batchContentType;
+      if (locked && locked !== packType) {
+        wx.showToast({
+          title: `只能选同类型：已选「${contentTypeLabel(locked)}」`,
+          icon: 'none',
+        });
+        return;
+      }
+      selectedMap[packId] = true;
+    }
+    const meta = this.computeBatchMeta(selectedMap, this.data.batchVariant);
     this.setData({
       selectedMap,
-      ...this.computeBatchMeta(selectedMap, this.data.batchVariant),
+      ...meta,
     });
   },
 
   onBatchVariantTap(e) {
+    if (!this.data.batchShowVariant) return;
     const value =
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.value) ||
       '';
     const batchVariant = value === 'anim' ? 'anim' : 'static';
     if (batchVariant === this.data.batchVariant) return;
     this.setData({
-      batchVariant,
       ...this.computeBatchMeta(this.data.selectedMap, batchVariant),
     });
   },
@@ -1688,22 +1917,34 @@ Page({
     return !!res.ok;
   },
 
-  async buildBatchJobs(packIds, variant) {
+  async buildBatchJobs(packIds, variant, lockedType) {
     const jobs = [];
     let skippedPacks = 0;
+    let mixedType = false;
+    const expected = lockedType ? normalizeContentType(lockedType) : '';
     for (let i = 0; i < packIds.length; i += 1) {
       const packId = packIds[i];
       // eslint-disable-next-line no-await-in-loop
       const res = await callFunction('getPackDetail', { packId });
       const data = (res && res.data) || {};
+      const contentType = normalizeContentType(data.contentType);
+      if (expected && contentType !== expected) {
+        mixedType = true;
+        skippedPacks += 1;
+        continue;
+      }
       const slots = Array.isArray(data.slots) ? data.slots : [];
       let indexes;
-      if (variant === 'anim') {
+      if (variant === 'anim' && contentType === 'emoji') {
         indexes = slots.filter((s) => s && s.hasAnim).map((s) => Number(s.index));
         if (!indexes.length) {
           skippedPacks += 1;
           continue;
         }
+      } else if (variant === 'anim' && contentType !== 'emoji') {
+        // 非表情合集无动态；批量选「动态」时跳过
+        skippedPacks += 1;
+        continue;
       } else {
         const count = Math.max(
           0,
@@ -1718,9 +1959,9 @@ Page({
         skippedPacks += 1;
         continue;
       }
-      jobs.push({ packId, indexes });
+      jobs.push({ packId, indexes, contentType });
     }
-    return { jobs, skippedPacks };
+    return { jobs, skippedPacks, mixedType };
   },
 
   async onBatchDownload() {
@@ -1732,16 +1973,36 @@ Page({
       return;
     }
 
-    const variant = this.data.batchVariant === 'anim' ? 'anim' : 'static';
-    const unitCost = downloadCost(variant);
-    if (!canAttemptDownload(getCachedEntitlement(), variant)) {
+    const lockedType =
+      this.data.batchContentType || this.resolveSelectedContentType(selectedMap);
+    // 列表侧再校一遍：禁止不同类型混下
+    const mixedInList = (this.data.list || []).some((item) => {
+      if (!item || !selectedMap[item._id]) return false;
+      return normalizeContentType(item.contentType) !== normalizeContentType(lockedType);
+    });
+    if (!lockedType || mixedInList) {
+      wx.showToast({ title: '请只选择同一类型的合集', icon: 'none' });
+      return;
+    }
+
+    const variant =
+      isEmojiType(lockedType) && this.data.batchVariant === 'anim'
+        ? 'anim'
+        : 'static';
+    // 预检：用勾选合集均价估一把，避免明显不够还进流程
+    const preMeta = this.computeBatchMeta(selectedMap, variant, lockedType);
+    const minUnit =
+      preMeta.approxCount > 0
+        ? Math.max(1, Math.floor(preMeta.approxCost / preMeta.approxCount))
+        : downloadCostForPack(lockedType, variant);
+    if (spendablePoints(getCachedEntitlement()) < minUnit) {
       const ready = await this.offerAdOrRedeem({
-        need: unitCost,
+        need: minUnit,
         count: 1,
-        unitCost,
-        actionLabel: '保存原图',
+        unitCost: minUnit,
+        actionLabel: '保存原文件',
       });
-      if (!ready || !canAttemptDownload(getCachedEntitlement(), variant)) return;
+      if (!ready || spendablePoints(getCachedEntitlement()) < minUnit) return;
     }
 
     this.setData({ batchSaving: true });
@@ -1750,9 +2011,15 @@ Page({
     let jobs = [];
     let skippedPacks = 0;
     try {
-      const built = await this.buildBatchJobs(packIds, variant);
+      const built = await this.buildBatchJobs(packIds, variant, lockedType);
       jobs = built.jobs;
       skippedPacks = built.skippedPacks;
+      if (built.mixedType) {
+        wx.hideLoading();
+        this.setData({ batchSaving: false });
+        wx.showToast({ title: '请只选择同一类型的合集', icon: 'none' });
+        return;
+      }
     } catch (err) {
       wx.hideLoading();
       this.setData({ batchSaving: false });
@@ -1761,6 +2028,12 @@ Page({
     }
 
     const totalCount = jobs.reduce((sum, j) => sum + (j.indexes || []).length, 0);
+    const totalCost = jobs.reduce((sum, j) => {
+      const n = (j.indexes || []).length;
+      return sum + n * downloadCostForPack(j.contentType, variant);
+    }, 0);
+    const avgUnit =
+      totalCount > 0 ? Math.max(1, Math.round(totalCost / totalCount)) : downloadCost(variant);
     wx.hideLoading();
 
     if (!totalCount) {
@@ -1772,29 +2045,25 @@ Page({
       return;
     }
 
-    let estimate = estimateBatchAffordable(
-      getCachedEntitlement(),
-      variant,
-      totalCount,
-    );
+    let spendable = spendablePoints(getCachedEntitlement());
+    let canAll = spendable >= totalCost;
+    let maxCount = avgUnit > 0 ? Math.floor(spendable / avgUnit) : 0;
 
-    if (!estimate.canAll) {
+    if (!canAll) {
       this.setData({ batchSaving: false });
       const ready = await this.offerAdOrRedeem({
-        need: estimate.totalCost,
+        need: totalCost,
         count: totalCount,
-        unitCost: estimate.cost,
-        actionLabel: `保存 ${totalCount} 张`,
+        unitCost: avgUnit,
+        actionLabel: `保存 ${totalCount} 项`,
       });
       if (!ready) return;
-      estimate = estimateBatchAffordable(
-        getCachedEntitlement(),
-        variant,
-        totalCount,
-      );
-      if (!estimate.canAll) {
+      spendable = spendablePoints(getCachedEntitlement());
+      canAll = spendable >= totalCost;
+      maxCount = avgUnit > 0 ? Math.floor(spendable / avgUnit) : 0;
+      if (!canAll) {
         await this.confirmAsync(
-          `当前 ${estimate.spendable} 积分，只够保存 ${estimate.maxCount} / ${totalCount} 张（每张 ${estimate.cost} 积分）。请减少合集后再下载，或继续看广告补积分。`,
+          `当前 ${spendable} 积分，约够保存 ${maxCount} / ${totalCount} 项（预计共 ${totalCost} 积分）。请减少合集后再下载，或继续看广告补积分。`,
           { title: '积分不太够哦', icon: CONFIRM_ICONS.warn, okText: '去重选' },
         );
         return;
@@ -1802,11 +2071,21 @@ Page({
       this.setData({ batchSaving: true });
     }
 
-    const kindLabel = variant === 'anim' ? '动态 GIF' : '静态原图';
+    const typeName = contentTypeLabel(lockedType);
+    const kindLabel =
+      variant === 'anim'
+        ? '动态 GIF'
+        : lockedType === 'video'
+          ? '原视频'
+          : lockedType === 'avatar'
+            ? '头像原图'
+            : lockedType === 'wallpaper'
+              ? '壁纸原图'
+              : '静态原图';
     const kindIcon = variant === 'anim' ? CONFIRM_ICONS.anim : CONFIRM_ICONS.static;
-    let confirmText = `将保存 ${packIds.length} 个合集共 ${totalCount} 张「${kindLabel}」，预计消耗 ${estimate.totalCost} 积分（先扣本月额度，再扣积分）。确认后按张扣费并写入相册。`;
+    let confirmText = `将保存 ${jobs.length} 个「${typeName}」合集共 ${totalCount} 项「${kindLabel}」，预计消耗 ${totalCost} 积分（先扣本月额度，再扣积分）。确认后按条扣费并写入相册。`;
     if (skippedPacks) {
-      confirmText += `（另有 ${skippedPacks} 个合集无可用原图将跳过）`;
+      confirmText += `（另有 ${skippedPacks} 个合集无可用原文件将跳过）`;
     }
     const confirmed = await this.confirmAsync(confirmText, {
       title: `保存${kindLabel}`,
@@ -1919,39 +2198,118 @@ Page({
     const feedBlocks = buildFeedBlocks(
       list,
       this.data.columnCount,
-      getHomeFeedAdEvery(),
+      resolveHomeFeedAdEvery(this.data.columnCount),
       showAds,
     );
     this.setData({ list, columns, feedBlocks });
 
-    const cacheKey = listCacheKey(this.data.categoryId, this.data.keyword);
+    const cacheKey = listCacheKey(
+      this.data.categoryId,
+      this.data.keyword,
+      this.data.contentType,
+    );
     if (this._listCache && this._listCache[cacheKey] && this._listCache[cacheKey].list) {
       this._listCache[cacheKey].list = this._listCache[cacheKey].list.map(patchItem);
     }
   },
 
-  /** 封面临时链失效：清列表缓存并静默换签（防抖，避免瀑布流连环触发） */
-  onCoverError() {
+  /** 单条封面换成新签并刷新瀑布流对应项 */
+  patchPackCover(packId, coverUrl, coverFileID) {
+    const id = String(packId || '').trim();
+    const url = String(coverUrl || '').trim();
+    if (!id || !url) return;
+    const patchItem = (item) => {
+      if (!item || item._id !== id) return item;
+      return {
+        ...item,
+        coverUrl: url,
+        coverFileID: coverFileID || item.coverFileID || '',
+        slides: [url],
+      };
+    };
+    const list = (this.data.list || []).map(patchItem);
+    const columns = (this.data.columns || []).map((col) =>
+      (col || []).map(patchItem),
+    );
+    const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
+    const feedBlocks = buildFeedBlocks(
+      list,
+      this.data.columnCount,
+      resolveHomeFeedAdEvery(this.data.columnCount),
+      showAds,
+    );
+    this.setData({ list, columns, feedBlocks });
+    const cacheKey = listCacheKey(
+      this.data.categoryId,
+      this.data.keyword,
+      this.data.contentType,
+    );
+    if (this._listCache && this._listCache[cacheKey] && this._listCache[cacheKey].list) {
+      this._listCache[cacheKey].list = this._listCache[cacheKey].list.map(patchItem);
+    }
+  },
+
+  /**
+   * 封面临时链失效：优先按 coverFileID 客户端换新签；失败再整表强制刷新。
+   * 防抖避免瀑布流连环 error 打爆云函数。
+   */
+  async onCoverError(e) {
+    const detail = (e && e.detail) || {};
+    const packId = String(detail.packId || '').trim();
+    const item =
+      (this.data.list || []).find((row) => row && row._id === packId) || null;
+    const coverFileID = String(
+      (item && item.coverFileID) || detail.coverFileID || '',
+    ).trim();
+
+    if (packId) forgetTempUrl(packCoverCacheKey(packId));
+    if (coverFileID) forgetTempUrl(coverFileID);
+
+    if (coverFileID && packId && !this._coverResignInflight) {
+      this._coverResignInflight = true;
+      try {
+        const urls = await getTempFileURLs([coverFileID]);
+        const next = String((urls && urls[0]) || '').trim();
+        if (next && next !== (item && item.coverUrl)) {
+          rememberTempUrl(packCoverCacheKey(packId), next);
+          this.patchPackCover(packId, next, coverFileID);
+          return;
+        }
+      } catch (err) {
+        /* fall through */
+      } finally {
+        this._coverResignInflight = false;
+      }
+    }
+
     if (this._coverErrorRefreshing) return;
     this._coverErrorRefreshing = true;
-    const cacheKey = listCacheKey(this.data.categoryId, this.data.keyword);
+    const cacheKey = listCacheKey(
+      this.data.categoryId,
+      this.data.keyword,
+      this.data.contentType,
+    );
     if (this._listCache && this._listCache[cacheKey]) {
       this._listCache[cacheKey].at = 0;
     }
-    Promise.resolve(this.loadList(true, { force: true })).finally(() => {
-      setTimeout(() => {
-        this._coverErrorRefreshing = false;
-      }, 2500);
-    });
+    Promise.resolve(this.loadList(true, { force: true, forceRefresh: true })).finally(
+      () => {
+        setTimeout(() => {
+          this._coverErrorRefreshing = false;
+        }, 2500);
+      },
+    );
   },
 
   async loadList(reset = false, options = {}) {
     const force = !!(options && options.force);
+    let forceRefresh = !!(options && options.forceRefresh);
     if (!this._listCache) this._listCache = Object.create(null);
 
     const categoryId = this.data.categoryId;
+    const contentType = this.data.contentType || CONTENT_TYPE_ALL;
     const keyword = String(this.data.keyword || '').trim();
-    const cacheKey = listCacheKey(categoryId, keyword);
+    const cacheKey = listCacheKey(categoryId, keyword, contentType);
 
     // 重置时用序号作废进行中的旧请求，避免快切分类写回错数据
     if (reset) {
@@ -1979,6 +2337,8 @@ Page({
         if (coversOk) {
           return;
         }
+        // 本地链不可用：必须让服务端跳过旧签缓存
+        forceRefresh = true;
         // 过期 / 封面链失效：静默后台刷新，不闪整页 loading
       } else {
         this.applyListState({
@@ -1992,6 +2352,8 @@ Page({
     } else if (reset && force && !this.data.list.length) {
       this.setData({ loading: true, loadingMore: false, page: 1, hasMore: true });
     }
+
+    if (force) forceRefresh = true;
 
     if (!reset) {
       if (!this.data.hasMore) return;
@@ -2007,6 +2369,8 @@ Page({
         pageSize: 10,
         keyword,
         categoryId,
+        contentType,
+        forceRefresh,
       });
       if (seq !== this._listSeq) return;
 
@@ -2017,9 +2381,14 @@ Page({
       } = res.data || {};
       const withStableCover = (list || []).map((item) => {
         if (!item || !item._id || !item.coverUrl) return item;
+        // 强制换签时不要复用客户端旧链（可能 CDN 已拒但 TTL 未到）
+        const coverUrl = forceRefresh
+          ? rememberTempUrl(packCoverCacheKey(item._id), item.coverUrl)
+          : reuseTempUrl(packCoverCacheKey(item._id), item.coverUrl);
         return {
           ...item,
-          coverUrl: reuseTempUrl(packCoverCacheKey(item._id), item.coverUrl),
+          coverFileID: item.coverFileID || '',
+          coverUrl,
         };
       });
       const withRatio = await this.resolveCoverRatios(withStableCover, seq);
@@ -2045,7 +2414,9 @@ Page({
         // 分页追加：不重排已有列，避免旧卡片重挂封面空白
         appendItems: reset ? null : withRatio,
       });
+      // 用列表真实 total 校准分类 count，避免角标残留其它类型的数字
       if (reset && !keyword) {
+        this.syncFilterCount(categoryId, nextTotal);
         this.persistHomeSnapshot({
           list: nextList,
           page: nextPage,
@@ -2088,7 +2459,7 @@ Page({
     this.clearPackSelection();
     this.clearListCache();
     this.loadCategories();
-    Promise.resolve(this.loadList(true, { force: true })).finally(() => {
+    Promise.resolve(this.loadList(true, { force: true, forceRefresh: true })).finally(() => {
       this._freshing = false;
       this.setData({ enable: false });
     });
@@ -2146,7 +2517,7 @@ Page({
       wx.showToast({ title: '已删除', icon: 'success' });
       this.clearListCache();
       this.loadCategories();
-      this.loadList(true, { force: true });
+      this.loadList(true, { force: true, forceRefresh: true });
     } catch (err) {
       wx.hideLoading();
       wx.showToast({ title: err.message || '删除失败', icon: 'none' });

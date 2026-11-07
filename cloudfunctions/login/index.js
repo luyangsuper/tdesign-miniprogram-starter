@@ -190,6 +190,19 @@ exports.main = async (event = {}) => {
     } catch (err) {
       /* ignore */
     }
+    let downloadCosts = null;
+    try {
+      const settings = await getPointsSettings(db);
+      downloadCosts = {
+        static: settings.costStatic,
+        anim: settings.costAnim,
+        wallpaper: settings.costWallpaper,
+        avatar: settings.costAvatar,
+        video: settings.costVideo,
+      };
+    } catch (e) {
+      /* ignore */
+    }
     return {
       ok: true,
       openid: OPENID,
@@ -199,6 +212,7 @@ exports.main = async (event = {}) => {
       avatarUrl,
       entitlement: buildEntitlement(user),
       pricingProducts,
+      downloadCosts,
     };
   }
 
@@ -244,6 +258,19 @@ exports.main = async (event = {}) => {
   } catch (err) {
     /* ignore */
   }
+  let downloadCosts = null;
+  try {
+    const settings = await getPointsSettings(db);
+    downloadCosts = {
+      static: settings.costStatic,
+      anim: settings.costAnim,
+      wallpaper: settings.costWallpaper,
+      avatar: settings.costAvatar,
+      video: settings.costVideo,
+    };
+  } catch (e) {
+    /* ignore */
+  }
   return {
     ok: true,
     openid: OPENID,
@@ -256,6 +283,7 @@ exports.main = async (event = {}) => {
     pendingPointGifts,
     pendingLotteryInvites,
     pricingProducts,
+    downloadCosts,
     // 开奖结果不在此返回：只走 userLottery.pending（校验已参与）
   };
 };

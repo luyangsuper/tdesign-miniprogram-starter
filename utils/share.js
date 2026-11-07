@@ -3,7 +3,7 @@
 const SHARE_MENUS = ['shareAppMessage', 'shareTimeline'];
 
 export const HOME_PATH = '/pages/home/index';
-export const DEFAULT_SHARE_TITLE = '趣集 · 发现表情和壁纸合集';
+export const DEFAULT_SHARE_TITLE = '趣图铺子 · 发现表情、壁纸、头像和视频合集';
 
 function httpsUrl(url) {
   return url && /^https?:\/\//i.test(url) ? url : '';

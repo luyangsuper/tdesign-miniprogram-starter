@@ -8,7 +8,7 @@
 const TTL_MS = 45 * 60 * 1000;
 const MAX_ENTRIES = 1200;
 /** bump key 丢掉旧版可能已失效的持久化链 */
-const STORAGE_KEY = 'temp_url_cache_v3';
+const STORAGE_KEY = 'temp_url_cache_v4';
 const FLUSH_DELAY_MS = 600;
 
 /** @type {Record<string, { url: string, expireAt: number }>} */
@@ -25,6 +25,7 @@ function hydrateFromStorage() {
     try {
       wx.removeStorageSync('temp_url_cache_v1');
       wx.removeStorageSync('temp_url_cache_v2');
+      wx.removeStorageSync('temp_url_cache_v3');
     } catch (e) {
       /* ignore */
     }
@@ -206,6 +207,7 @@ export function clearAllTempUrlCache() {
     wx.removeStorageSync(STORAGE_KEY);
     wx.removeStorageSync('temp_url_cache_v1');
     wx.removeStorageSync('temp_url_cache_v2');
+    wx.removeStorageSync('temp_url_cache_v3');
   } catch (e) {
     /* ignore */
   }

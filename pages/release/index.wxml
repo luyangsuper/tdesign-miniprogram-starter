@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <t-navbar title="发布动态" left-arrow placeholder="{{true}}" z-index="{{500}}" />
 <view class="page">
   <view class="release-container">

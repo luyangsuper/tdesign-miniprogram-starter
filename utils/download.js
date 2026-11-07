@@ -26,6 +26,40 @@ export function saveRemoteImageToAlbum(url) {
   });
 }
 
+/** 下载网络视频并保存到系统相册（一次一段） */
+export function saveRemoteVideoToAlbum(url) {
+  return new Promise((resolve, reject) => {
+    if (!url) {
+      reject(new Error('没有可保存的视频'));
+      return;
+    }
+
+    wx.downloadFile({
+      url,
+      success: (res) => {
+        if (res.statusCode !== 200 || !res.tempFilePath) {
+          reject(new Error('下载失败'));
+          return;
+        }
+        wx.saveVideoToPhotosAlbum({
+          filePath: res.tempFilePath,
+          success: resolve,
+          fail: (err) =>
+            reject(new Error((err && (err.errMsg || err.message)) || '保存视频到相册失败')),
+        });
+      },
+      fail: (err) =>
+        reject(new Error((err && (err.errMsg || err.message)) || '下载失败')),
+    });
+  });
+}
+
+/** @param {'image'|'video'} [mediaKind] */
+export function saveRemoteMediaToAlbum(url, mediaKind = 'image') {
+  if (mediaKind === 'video') return saveRemoteVideoToAlbum(url);
+  return saveRemoteImageToAlbum(url);
+}
+
 /** 确保有「保存到相册」权限 */
 export function ensureAlbumAuth() {
   return new Promise((resolve, reject) => {

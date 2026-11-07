@@ -39,6 +39,9 @@ const PLAN_META = {
 const MONTHLY_QUOTA = 48;
 const ANIM_COST = 2;
 const STATIC_COST = 1;
+const WALLPAPER_COST = 4;
+const AVATAR_COST = 4;
+const VIDEO_COST = 8;
 
 function formatYuan(n) {
   const v = Number(n);
@@ -59,7 +62,7 @@ function buildDisplay(item) {
   if (isPoints) {
     displayTitle = `${value} 积分`;
     period = `共 ${value} 积分`;
-    desc = `约 ${Math.floor(value / ANIM_COST)} 张动态 / ${Math.floor(value / STATIC_COST)} 张静态`;
+    desc = `约 ${Math.floor(value / ANIM_COST)} 动 / ${Math.floor(value / STATIC_COST)} 静 · 壁纸${WALLPAPER_COST}/头像${AVATAR_COST}/视频${VIDEO_COST}`;
   } else {
     period = `${value || 0} 天`;
     if (meta.tone === 'month') {
@@ -186,7 +189,6 @@ function yuanToFen(yuan) {
   if (Number.isNaN(n) || n <= 0) return NaN;
   return Math.round(n * 100);
 }
-
 Page({
   data: {
     themeStyle: '',

@@ -574,7 +574,7 @@ async function runDraw(cloud, db, lotteryId, { force = false } = {}) {
       if (!row) break;
       winners.push({
         openid: row.openid,
-        nickName: row.nickName || '趣集用户',
+        nickName: row.nickName || '趣图铺子用户',
         points: amounts[i],
       });
     }

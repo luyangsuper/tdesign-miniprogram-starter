@@ -18,7 +18,6 @@ import { spendablePoints, getCachedEntitlement } from '~/utils/entitlement';
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
 Page({
   data: {
     themeStyle: '',
@@ -289,8 +288,8 @@ Page({
   onShareAppMessage() {
     const id = this.data.id || this._id || '';
     const title = this.data.title
-      ? `趣集抽奖 · ${this.data.title}`
-      : '趣集抽奖';
+      ? `趣图铺子抽奖 · ${this.data.title}`
+      : '趣图铺子抽奖';
     return shareAppMessage({
       title,
       path: `/pages/lottery/detail/index?id=${id}`,
@@ -300,8 +299,8 @@ Page({
   onShareTimeline() {
     const id = this.data.id || this._id || '';
     const title = this.data.title
-      ? `趣集抽奖 · ${this.data.title}`
-      : '趣集抽奖';
+      ? `趣图铺子抽奖 · ${this.data.title}`
+      : '趣图铺子抽奖';
     return shareTimeline({
       title,
       query: `id=${id}`,

@@ -14,6 +14,13 @@
   transform: scale(0.98);
   opacity: 0.96;
 }
+.pack-card--disabled {
+  opacity: 0.42;
+  filter: grayscale(0.25);
+}
+.pack-card--disabled .pack-card__title {
+  opacity: 0.85;
+}
 .pack-card__media {
   width: 100%;
   background: var(--td-bg-color-secondarycontainer);
@@ -61,8 +68,36 @@
 .pack-card__tag-group {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8rpx;
   margin-top: 8rpx;
+}
+/* 与 t-tag size=small 同高 */
+.pack-card__type-chip {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+  box-sizing: border-box;
+  padding: var(--td-tag-small-padding, 2rpx 10rpx);
+  border: 2rpx solid transparent;
+  border-radius: var(--td-tag-square-border-radius, 8rpx);
+  font: var(
+    --td-tag-small-font,
+    var(--td-font-body-extraSmall, 20rpx / 32rpx var(--td-font-family, PingFang SC, Microsoft YaHei, Arial Regular))
+  );
+  line-height: 32rpx;
+}
+.pack-card__type-chip-icon {
+  width: var(--td-tag-small-icon-size, 24rpx);
+  height: var(--td-tag-small-icon-size, 24rpx);
+  flex-shrink: 0;
+  display: block;
+}
+.pack-card__type-chip-text {
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 .pack-card__admin {
   display: flex;

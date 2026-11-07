@@ -24,3 +24,9 @@
 | swipe-next.png | RightC | 滑向下一分类 |
 | swipe-end.png | SmilingFace | 分类滑到头 |
 | play.png | Play | 详情预览视频 |
+| type-all.png | ApplicationOne | 类型·全部 |
+| type-emoji.png | EmotionHappy | 类型·表情 |
+| type-wallpaper.png | PictureOne | 类型·壁纸 |
+| type-avatar.png | Avatar | 类型·头像 |
+| type-video.png | Video | 类型·视频 |
+| type-caret.png | Down | 类型下拉箭头 |

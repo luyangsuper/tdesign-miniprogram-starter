@@ -61,9 +61,10 @@ page {
   --app-brand-light: var(--td-brand-color-light);
   --app-warning: var(--td-warning-color);
   --app-warning-light: var(--td-warning-color-light);
+  /* 字号实际值由各页 page-meta page-style / 根节点 themeStyle 覆盖 --ui-fs-* */
 }
 
-/* custom-tab-bar / 组件内需挂 .page 才能吃到同一套 token */
+/* custom-tab-bar / 组件内需挂 .page 才能吃到同一套 token；themeStyle 会写入缩放后的 --ui-fs-* */
 .page {
   .ui-type-tokens();
   background-color: var(--td-bg-color-page);

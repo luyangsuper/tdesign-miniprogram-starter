@@ -48,6 +48,7 @@ export function writeHomeSnapshot(payload = {}) {
       previewCount: item.previewCount || 0,
       emojiCount: item.emojiCount || 0,
       downloadCount: item.downloadCount || 0,
+      contentType: item.contentType || 'emoji',
       categoryId: item.categoryId || '',
       categoryName: item.categoryName || '',
       previewUrls: [],
@@ -57,6 +58,7 @@ export function writeHomeSnapshot(payload = {}) {
     wx.setStorageSync(STORAGE_KEY, {
       at: Date.now(),
       categoryId: payload.categoryId || 'all',
+      contentType: payload.contentType || 'all',
       keyword: String(payload.keyword || '').trim(),
       list,
       page: Number(payload.page) || 2,

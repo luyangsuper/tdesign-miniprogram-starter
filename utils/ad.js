@@ -1,18 +1,11 @@
 import config from '~/config';
 
 /**
- * @param {'reward'|'save'} [slot]
- * - reward：我的页主动领积分（30s）
- * - save：积分不足保存（15s，未配置则回退 reward）
+ * @param {'reward'|'save'|'checkin'} [slot]
+ * 所有激励位统一走约 30s 广告单元；slot 仅区分云端领取额度/日限。
  */
 export function getRewardedAdUnitId(slot = 'reward') {
-  if (slot === 'save') {
-    return (
-      String(config.saveRewardedAdUnitId || '').trim() ||
-      String(config.rewardedAdUnitId || '').trim() ||
-      ''
-    );
-  }
+  void slot;
   return String(config.rewardedAdUnitId || '').trim() || '';
 }
 
@@ -21,7 +14,7 @@ export function isRewardedAdReady(slot = 'reward') {
   return !!getRewardedAdUnitId(slot);
 }
 
-/** 页面级：按广告位 ID 缓存实例（同页可并存 30s / 15s 两个） */
+/** 页面级：按广告位 ID 缓存实例 */
 const pageAdMap = new WeakMap();
 
 function getPageAd(page, unitId) {
@@ -41,11 +34,12 @@ function getPageAd(page, unitId) {
 
 /**
  * 播放激励视频广告。
- * @param {{ page?: any, slot?: 'reward'|'save', unitId?: string }} [opts]
+ * @param {{ page?: any, slot?: 'reward'|'save'|'checkin', unitId?: string }} [opts]
  * @returns {Promise<boolean>} 是否完整观看
  */
 export function showRewardedAd(opts = {}) {
-  const slot = opts.slot === 'save' ? 'save' : 'reward';
+  const raw = String(opts.slot || '').trim();
+  const slot = raw === 'save' || raw === 'checkin' ? raw : 'reward';
   const unitId = String(opts.unitId || getRewardedAdUnitId(slot)).trim();
   if (!unitId) {
     wx.showToast({ title: '暂未配置广告，请先兑换', icon: 'none' });

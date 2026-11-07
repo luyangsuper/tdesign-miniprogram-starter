@@ -1,6 +1,7 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="admin-points" style="{{themeStyle}}">
   <view class="admin-points__tip">
-    见面礼 / 签到 / 公众号入口 / 信息流广告间隔改完立即生效（首页下次拉取权益时应用）。活动发积分只发给云库里已有账号的用户，从未登录的人不会预建、也不会发到。公众号路径示例：pages/home/index?oaId=文章ID
+    见面礼 / 签到 / 公众号入口 / 信息流广告间隔 / 保存单价改完立即生效（扣费以云端为准，首页下次拉权益同步展示）。活动发积分只发给云库里已有账号的用户。公众号路径示例：pages/home/index?oaId=文章ID
   </view>
 
   <view wx:if="{{loading}}" class="admin-points__loading">
@@ -63,8 +64,8 @@
     <view class="admin-points__card">
       <view class="admin-points__row">
         <view class="admin-points__meta">
-          <view class="admin-points__label">主动看广告奖励</view>
-          <view class="admin-points__hint">「我的」入口 · 建议 2 · 0 关闭</view>
+          <view class="admin-points__label">主动领奖励</view>
+          <view class="admin-points__hint">约 30s · 「我的」主动领取 · 建议 2 · 0 关闭</view>
         </view>
         <t-input
           class="admin-points__field admin-points__field--num"
@@ -80,8 +81,8 @@
     <view class="admin-points__card">
       <view class="admin-points__row">
         <view class="admin-points__meta">
-          <view class="admin-points__label">主动广告每日上限</view>
-          <view class="admin-points__hint">建议 5 · 0 关闭</view>
+          <view class="admin-points__label">主动领每日上限</view>
+          <view class="admin-points__hint">仅「我的」主动领取 · 建议 5 · 0 关闭</view>
         </view>
         <t-input
           class="admin-points__field admin-points__field--num"
@@ -97,8 +98,8 @@
     <view class="admin-points__card">
       <view class="admin-points__row">
         <view class="admin-points__meta">
-          <view class="admin-points__label">救急看广告奖励</view>
-          <view class="admin-points__hint">保存/抽奖积分不足 · 建议 1 · 0 关闭</view>
+          <view class="admin-points__label">再领 / 救急奖励</view>
+          <view class="admin-points__hint">约 30s · 签到后再领（每天 1 次）/ 保存不够 · 建议 1 · 0 关闭</view>
         </view>
         <t-input
           class="admin-points__field admin-points__field--num"
@@ -115,7 +116,7 @@
       <view class="admin-points__row">
         <view class="admin-points__meta">
           <view class="admin-points__label">救急广告每日上限</view>
-          <view class="admin-points__hint">建议 8 · 0 关闭</view>
+          <view class="admin-points__hint">仅保存不够时计数；签到再领单独每天 1 次 · 建议 8 · 0 关闭</view>
         </view>
         <t-input
           class="admin-points__field admin-points__field--num"
@@ -132,7 +133,7 @@
       <view class="admin-points__row">
         <view class="admin-points__meta">
           <view class="admin-points__label">首页信息流广告间隔</view>
-          <view class="admin-points__hint">每隔 N 个合集插 1 条 · 建议 6～8 · 0 关闭</view>
+          <view class="admin-points__hint">按约 2 列口径：每隔 N 个合集插 1 条；会随列数缩放（1 列更密）· 建议 6～8 · 0 关闭</view>
         </view>
         <t-input
           class="admin-points__field admin-points__field--num"
@@ -145,15 +146,146 @@
         />
       </view>
     </view>
+
+    <view class="admin-points__section">保存单价</view>
+    <view class="admin-points__tip admin-points__tip--inline">
+      单次保存扣积分；改完立即对云端扣费生效。表情静/动，壁纸/头像/视频无动静之分。
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label" style="color:#07c160;">
+            <image class="admin-points__type-icon" src="/static/emoji/type-emoji.png" mode="aspectFit" />
+            表情 · 静态
+          </view>
+          <view class="admin-points__hint">默认 1</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costStatic}}"
+          bind:change="onCostStaticChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label" style="color:#07c160;">
+            <image class="admin-points__type-icon" src="/static/emoji/type-emoji.png" mode="aspectFit" />
+            表情 · 动态
+          </view>
+          <view class="admin-points__hint">默认 2</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costAnim}}"
+          bind:change="onCostAnimChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label" style="color:#8b5cf6;">
+            <image class="admin-points__type-icon" src="/static/emoji/type-wallpaper.png" mode="aspectFit" />
+            壁纸
+          </view>
+          <view class="admin-points__hint">默认 4</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costWallpaper}}"
+          bind:change="onCostWallpaperChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label" style="color:#3b82f6;">
+            <image class="admin-points__type-icon" src="/static/emoji/type-avatar.png" mode="aspectFit" />
+            头像
+          </view>
+          <view class="admin-points__hint">默认 4</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costAvatar}}"
+          bind:change="onCostAvatarChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label" style="color:#ec4899;">
+            <image class="admin-points__type-icon" src="/static/emoji/type-video.png" mode="aspectFit" />
+            视频
+          </view>
+          <view class="admin-points__hint">默认 8</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costVideo}}"
+          bind:change="onCostVideoChange"
+        />
+      </view>
+    </view>
+
     <view class="admin-points__actions">
       <t-button
         theme="primary"
         size="large"
         block
         loading="{{saving}}"
-        disabled="{{saving || granting}}"
+        disabled="{{saving || granting || repairing}}"
         content="保存规则"
         bind:tap="onSave"
+      />
+    </view>
+
+    <view class="admin-points__section">数据维护</view>
+    <view class="admin-points__card">
+      <view class="admin-points__label">对齐云库结构</view>
+      <view class="admin-points__hint admin-points__hint--block">
+        按当前代码 schema（合集、积分配置等）扫描线上数据：缺字段补默认、非法值纠正。以后扩展新字段部署云函数后，仍点此按钮即可；可重复执行，已对齐的不会改坏。
+      </view>
+      <view wx:if="{{schemaVersionText}}" class="admin-points__hint">
+        {{schemaVersionText}}
+      </view>
+      <view wx:if="{{repairResultText}}" class="admin-points__hint admin-points__hint--block">
+        {{repairResultText}}
+      </view>
+      <t-button
+        theme="success"
+        variant="outline"
+        size="medium"
+        block
+        icon="refresh"
+        content="对齐云库结构"
+        loading="{{repairing}}"
+        disabled="{{repairing || saving || granting}}"
+        bind:tap="onAlignSchema"
       />
     </view>
 
@@ -193,7 +325,7 @@
         size="large"
         block
         loading="{{granting}}"
-        disabled="{{saving || granting}}"
+        disabled="{{saving || granting || repairing}}"
         content="发给全部已注册用户"
         bind:tap="onGrant"
       />

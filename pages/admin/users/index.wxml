@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="users-page" style="{{themeStyle}}">
   <view class="users-page__tip">点选用户管理包月 / 积分，查看流水与下载合集。共 <text class="users-page__tip-count">{{total}}</text> 人。</view>
 

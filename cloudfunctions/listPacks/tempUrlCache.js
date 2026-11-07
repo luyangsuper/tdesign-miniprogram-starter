@@ -1,9 +1,10 @@
 /**
  * 云存储临时链短缓存（热实例内存）。
- * 微信临时链约 2 小时有效；这里 50 分钟过期，给客户端缓存留余量。
+ * 微信临时链约 2 小时有效；这里 30 分钟过期，给 CDN/客户端留余量。
+ * forceRefresh 时跳过内存缓存，避免「缓存未过期但 CDN 已拒」导致首页裂图。
  */
 
-const TTL_MS = 50 * 60 * 1000;
+const TTL_MS = 30 * 60 * 1000;
 const MAX_ENTRIES = 2000;
 
 /** @type {Map<string, { url: string, expireAt: number }>} */
@@ -29,9 +30,11 @@ function pruneIfNeeded() {
 /**
  * @param {object} cloud wx-server-sdk cloud
  * @param {string[]} fileIds
+ * @param {{ forceRefresh?: boolean }} [options]
  * @returns {Promise<Record<string, string>>} fileID → tempURL
  */
-async function resolveTempUrls(cloud, fileIds = []) {
+async function resolveTempUrls(cloud, fileIds = [], options = {}) {
+  const forceRefresh = !!(options && options.forceRefresh);
   const ids = Array.from(
     new Set((fileIds || []).map((id) => String(id || '').trim()).filter(Boolean)),
   );
@@ -41,6 +44,11 @@ async function resolveTempUrls(cloud, fileIds = []) {
   const now = Date.now();
   const miss = [];
   ids.forEach((id) => {
+    if (forceRefresh) {
+      mem.delete(id);
+      miss.push(id);
+      return;
+    }
     const hit = mem.get(id);
     if (hit && hit.url && hit.expireAt > now) {
       urlMap[id] = hit.url;
@@ -59,6 +67,16 @@ async function resolveTempUrls(cloud, fileIds = []) {
       const temp = await cloud.getTempFileURL({ fileList: chunk });
       (temp.fileList || []).forEach((item) => {
         if (!item || !item.fileID) return;
+        // status===0 成功；部分环境下无 status 但有 tempFileURL 也可用
+        if (item.status != null && Number(item.status) !== 0) {
+          console.warn(
+            '[tempUrlCache] getTempFileURL fail',
+            item.fileID,
+            item.status,
+            item.errMsg || '',
+          );
+          return;
+        }
         const url = item.tempFileURL || '';
         if (url) {
           urlMap[item.fileID] = url;

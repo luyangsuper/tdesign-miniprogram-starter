@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk');
+const { normalizeContentType } = require('./contentType');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
@@ -94,12 +95,27 @@ exports.main = async (event) => {
       })
       .filter(Boolean);
 
+    const contentType = normalizeContentType(pack.contentType);
+    const originalKind = contentType === 'video' ? 'video' : 'image';
+    const coverThumb =
+      (pack.coverFileID && urlMap[pack.coverFileID]) || '';
+    const emojiFiles = mapFiles(pack.emojiFileIDs, originalKind).map((f) =>
+      f && f.isVideo
+        ? {
+            ...f,
+            // 编辑回填无视频封面时，用合集封面顶一下，避免空格子
+            thumb: f.thumb || coverThumb,
+          }
+        : f,
+    );
+
     return {
       ok: true,
       data: {
         _id: pack._id,
         title: pack.title || '',
         description: pack.description || '',
+        contentType,
         staticDriveUrl: pack.staticDriveUrl || '',
         animDriveUrl: pack.animDriveUrl || '',
         categoryId: pack.categoryId || '',
@@ -114,8 +130,8 @@ exports.main = async (event) => {
           ...mapFiles(pack.previewFileIDs),
           ...mapFiles(pack.previewVideoFileID ? [pack.previewVideoFileID] : [], 'video'),
         ],
-        emojiFiles: mapFiles(pack.emojiFileIDs),
-        emojiAnimFiles,
+        emojiFiles,
+        emojiAnimFiles: contentType === 'emoji' ? emojiAnimFiles : [],
         notifiedAt: toMs(pack.notifiedAt),
       },
     };

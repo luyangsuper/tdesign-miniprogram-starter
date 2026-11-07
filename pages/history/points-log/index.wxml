@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="points-log" style="{{themeStyle}}">
   <view class="points-log__balance">
     <text class="points-log__balance-label">可用总额</text>

@@ -84,7 +84,7 @@
   "compileType": "miniprogram",
   "libVersion": "3.7.8",
   "appid": "wxc53da678dce0b8d1",
-  "projectname": "趣集",
+  "projectname": "趣图铺子",
   "cloudfunctionRoot": "cloudfunctions/",
   "condition": {
     "miniprogram": {

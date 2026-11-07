@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="about" style="{{themeStyle}}">
   <view class="about__hero">
     <image class="about__logo" src="/static/emoji/ok.png" mode="aspectFit" />
@@ -12,29 +13,39 @@
   </view>
 
   <t-cell-group theme="card" t-class="about__group">
-    <t-cell title="用户协议" arrow hover bind:click="openAgreement">
+    <t-cell
+      t-class="about-cell"
+      t-class-left="about-cell__left"
+      t-class-left-icon="about-cell__icon"
+      t-class-center="about-cell__center"
+      t-class-title="about-cell__title"
+      title="用户协议"
+      arrow
+      hover
+      bind:click="openAgreement"
+    >
       <view slot="left-icon" class="about__icon">
         <t-icon name="file-1" size="40rpx" color="#2F80ED" />
       </view>
     </t-cell>
-    <t-cell title="隐私政策" arrow hover bind:click="openPrivacy">
+    <t-cell
+      t-class="about-cell"
+      t-class-left="about-cell__left"
+      t-class-left-icon="about-cell__icon"
+      t-class-center="about-cell__center"
+      t-class-title="about-cell__title"
+      title="隐私政策"
+      arrow
+      hover
+      bind:click="openPrivacy"
+    >
       <view slot="left-icon" class="about__icon">
         <t-icon name="secured" size="40rpx" color="#27AE60" />
       </view>
     </t-cell>
-    <t-cell
-      title="联系客服"
-      note="微信 {{serviceWechat}}"
-      hover
-      bind:click="copyServiceWechat"
-    >
-      <view slot="left-icon" class="about__icon">
-        <t-icon name="service" size="40rpx" color="#07c160" />
-      </view>
-    </t-cell>
   </t-cell-group>
 
-  <view class="about__foot">趣集由个人开发者运营 · 素材仅供个人使用</view>
+  <view class="about__foot">趣图铺子由个人开发者运营 · 素材仅供个人使用</view>
 
   <t-popup
     visible="{{legalVisible}}"

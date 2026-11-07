@@ -1,0 +1,9 @@
+{
+  "name": "adminAlignSchema",
+  "version": "1.0.0",
+  "description": "管理员对齐云库结构（可扩展 schema aligners）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

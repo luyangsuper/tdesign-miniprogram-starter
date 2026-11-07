@@ -44,7 +44,7 @@
   "window": {
     "backgroundTextStyle": "@bgTextStyle",
     "navigationBarBackgroundColor": "@navBgColor",
-    "navigationBarTitleText": "趣集",
+    "navigationBarTitleText": "趣图铺子",
     "navigationBarTextStyle": "@navTextStyle",
     "navigationStyle": "custom",
     "backgroundColor": "@bgColor"

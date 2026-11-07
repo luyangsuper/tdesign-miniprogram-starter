@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="dash" style="{{themeStyle}}">
   <view class="dash__tip">
     今日实时；累计可切近七日 / 当月 / 全部。更新于 {{updatedText || '—'}}

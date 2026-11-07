@@ -1,13 +1,17 @@
 import { formatDate } from '~/utils/time';
-import { downloadCost } from '~/utils/pricing';
+import { downloadCost, resolveDownloadCostKey } from '~/utils/pricing';
 
 function affordHint(totalPoints) {
   const n = Math.max(0, Number(totalPoints) || 0);
   const staticCost = downloadCost('static');
   const animCost = downloadCost('anim');
+  const wallpaperCost = downloadCost('wallpaper');
+  const videoCost = downloadCost('video');
   const staticN = staticCost > 0 ? Math.floor(n / staticCost) : 0;
   const animN = animCost > 0 ? Math.floor(n / animCost) : 0;
-  return `约 ${staticN} 张静态 / ${animN} 张动态`;
+  const wallN = wallpaperCost > 0 ? Math.floor(n / wallpaperCost) : 0;
+  const videoN = videoCost > 0 ? Math.floor(n / videoCost) : 0;
+  return `约 ${staticN} 静 / ${animN} 动 / ${wallN} 壁纸 / ${videoN} 视频`;
 }
 
 const ENTITLEMENT_KEY = 'user_entitlement';
@@ -63,22 +67,22 @@ export function setCachedEntitlement(entitlement) {
 /**
  * 本月额度 + 购买积分足够当前类型 → 可下载。
  * @param {object} [entitlement]
- * @param {'static'|'anim'} [variant]
+ * @param {string} [costKeyOrVariant] static|anim|wallpaper|avatar|video
  */
-export function canAttemptDownload(entitlement, variant = 'static') {
+export function canAttemptDownload(entitlement, costKeyOrVariant = 'static') {
   const e = entitlement || getCachedEntitlement();
-  return spendablePoints(e) >= downloadCost(variant);
+  return spendablePoints(e) >= downloadCost(costKeyOrVariant);
 }
 
 /**
  * 批量下载预估：单张消耗、余额够几张、是否够全部。
  * @param {object} [entitlement]
- * @param {'static'|'anim'} [variant]
+ * @param {string} [costKeyOrVariant]
  * @param {number} count
  */
-export function estimateBatchAffordable(entitlement, variant = 'static', count = 0) {
+export function estimateBatchAffordable(entitlement, costKeyOrVariant = 'static', count = 0) {
   const e = entitlement || getCachedEntitlement();
-  const cost = downloadCost(variant);
+  const cost = downloadCost(costKeyOrVariant);
   const spendable = spendablePoints(e);
   const n = Math.max(0, Number(count) || 0);
   const maxCount = cost > 0 ? Math.floor(spendable / cost) : 0;
@@ -91,6 +95,15 @@ export function estimateBatchAffordable(entitlement, variant = 'static', count =
     canAll: n > 0 && maxCount >= n,
     canAny: maxCount > 0,
   };
+}
+
+/** @param {string} contentType @param {'static'|'anim'} [variant] @param {number} count */
+export function estimateBatchAffordableForPack(entitlement, contentType, variant, count) {
+  return estimateBatchAffordable(
+    entitlement,
+    resolveDownloadCostKey(contentType, variant),
+    count,
+  );
 }
 
 /**
@@ -113,11 +126,17 @@ export function formatBenefitCard(entitlement) {
     else if (monthPercent <= 25) monthBarColor = '#e37318';
   }
 
-  const staticCost = downloadCost('static');
-  const animCost = downloadCost('anim');
-
   // 到期只留日期，省高度
   const expireDate = String(e.vipExpireText || '').split(' ')[0] || '有效期内';
+  const affordLine = empty ? '' : affordHint(total);
+  /* VIP：包月状态；非 VIP：约能下几张。固定两行，去掉单价脚注与额度条 */
+  let subLine = affordLine;
+  if (isVip) {
+    const parts = [`包月至 ${expireDate}`, '免广告', '全节日'];
+    if (points > 0) parts.push(`已购 ${points}`);
+    else if (monthTotal > 0) parts.push(`本月 ${monthLeft}/${monthTotal}`);
+    subLine = parts.join(' · ');
+  }
 
   return {
     empty,
@@ -131,8 +150,9 @@ export function formatBenefitCard(entitlement) {
     festivalAllLabel: isVip ? '生效中' : '',
     total,
     totalValueText: String(total),
-    affordLine: empty ? '' : affordHint(total),
-    showMonth: isVip,
+    affordLine,
+    subLine,
+    showMonth: false,
     monthLeft,
     monthTotal,
     monthPercent,
@@ -140,11 +160,9 @@ export function formatBenefitCard(entitlement) {
     monthLeftText: String(monthLeft),
     monthTotalText: String(monthTotal),
     points,
-    showBoughtPoints: points > 0,
+    showBoughtPoints: false,
     pointsText: String(points),
-    footLine: isVip
-      ? `包月至 ${expireDate} · 应用内免广告 · 全节日氛围`
-      : `静${staticCost}/动${animCost} 积分/张 · 已购积分可累计`,
+    footLine: '',
   };
 }
 

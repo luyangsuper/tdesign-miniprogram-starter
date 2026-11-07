@@ -1,10 +1,26 @@
 const cloud = require('wx-server-sdk');
 const { resolveTempUrls } = require('./tempUrlCache');
+const { normalizeContentType, CONTENT_TYPES } = require('./contentType');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
 const _ = db.command;
+
+function buildContentTypeCond(contentType) {
+  const raw = String(contentType || 'all').trim() || 'all';
+  if (!raw || raw === 'all') return null;
+  if (!CONTENT_TYPES.includes(raw)) return null;
+  if (raw === 'emoji') {
+    return _.or([
+      { contentType: 'emoji' },
+      { contentType: _.exists(false) },
+      { contentType: null },
+      { contentType: '' },
+    ]);
+  }
+  return { contentType: raw };
+}
 
 function buildKeywordCond(keyword) {
   if (!keyword) return null;
@@ -34,7 +50,9 @@ function buildCategoryConds(categoryId) {
 const PACK_FIELDS = {
   title: true,
   description: true,
+  contentType: true,
   coverFileID: true,
+  previewFileIDs: true,
   previewCount: true,
   emojiCount: true,
   downloadCount: true,
@@ -45,11 +63,22 @@ const PACK_FIELDS = {
   createdAt: true,
 };
 
-async function mapPacksWithCovers(packs) {
-  const fileIds = packs.map((p) => p.coverFileID).filter(Boolean);
-  const urlMap = await resolveTempUrls(cloud, fileIds);
+function resolveCoverFileID(pack) {
+  if (pack && pack.coverFileID) return pack.coverFileID;
+  // 视频可不传封面：列表用首张预览图顶上
+  if (pack && normalizeContentType(pack.contentType) === 'video') {
+    const first = Array.isArray(pack.previewFileIDs) ? pack.previewFileIDs.find(Boolean) : '';
+    return first || '';
+  }
+  return '';
+}
+
+async function mapPacksWithCovers(packs, { forceRefresh = false } = {}) {
+  const fileIds = packs.map((p) => resolveCoverFileID(p)).filter(Boolean);
+  const urlMap = await resolveTempUrls(cloud, fileIds, { forceRefresh });
   return packs.map((p) => {
-    const coverUrl = urlMap[p.coverFileID] || '';
+    const coverId = resolveCoverFileID(p);
+    const coverUrl = (coverId && urlMap[coverId]) || '';
     const cw = Number(p.coverWidth) || 0;
     const ch = Number(p.coverHeight) || 0;
     const coverRatio = cw > 0 && ch > 0 ? ch / cw : 0;
@@ -57,6 +86,8 @@ async function mapPacksWithCovers(packs) {
       _id: p._id,
       title: p.title,
       description: p.description || '',
+      contentType: normalizeContentType(p.contentType),
+      coverFileID: coverId || '',
       coverUrl,
       coverRatio,
       previewUrls: [],
@@ -71,7 +102,7 @@ async function mapPacksWithCovers(packs) {
 }
 
 /**
- * 合集列表：keyword（标题/简介/分类名）/ categoryId；按 createdAt 倒序
+ * 合集列表：keyword / categoryId / contentType；按 createdAt 倒序
  */
 exports.main = async (event = {}) => {
   const page = Math.max(1, Number(event.page) || 1);
@@ -81,6 +112,8 @@ exports.main = async (event = {}) => {
     .trim()
     .slice(0, 40);
   const categoryId = String(event.categoryId || 'all').trim() || 'all';
+  const contentType = String(event.contentType || 'all').trim() || 'all';
+  const forceRefresh = !!(event.forceRefresh || event.refreshCovers);
 
   try {
     const conds = [{ status: 'published' }];
@@ -88,6 +121,8 @@ exports.main = async (event = {}) => {
     if (kw) conds.push(kw);
     const cat = buildCategoryConds(categoryId);
     if (cat) conds.push(cat);
+    const typeCond = buildContentTypeCond(contentType);
+    if (typeCond) conds.push(typeCond);
     const where = conds.length === 1 ? conds[0] : _.and(conds);
 
     const countRes = await db.collection('packs').where(where).count();
@@ -101,7 +136,7 @@ exports.main = async (event = {}) => {
       .get();
 
     const packs = listRes.data || [];
-    const list = await mapPacksWithCovers(packs);
+    const list = await mapPacksWithCovers(packs, { forceRefresh });
 
     return {
       ok: true,

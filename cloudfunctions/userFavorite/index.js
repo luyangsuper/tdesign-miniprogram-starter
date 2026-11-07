@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk');
+const { normalizeContentType } = require('./contentType');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -8,6 +9,7 @@ const _ = db.command;
 const MAX_FAVORITES = 200;
 const PACK_FIELDS = {
   title: true,
+  contentType: true,
   coverFileID: true,
   emojiCount: true,
   downloadCount: true,
@@ -202,6 +204,7 @@ async function listFavorites(openid, event = {}) {
       title: pack.title || '未命名合集',
       coverUrl: urlMap[pack.coverFileID] || '',
       coverRatio: cw > 0 && ch > 0 ? ch / cw : 0,
+      contentType: normalizeContentType(pack.contentType),
       emojiCount: pack.emojiCount || 0,
       downloadCount: pack.downloadCount || 0,
       categoryId: pack.categoryId || '',

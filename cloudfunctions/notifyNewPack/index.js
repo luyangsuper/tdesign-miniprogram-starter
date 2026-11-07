@@ -1,5 +1,6 @@
 const cloud = require('wx-server-sdk');
 const { formatDateTimeCn } = require('./time');
+const { normalizeContentType, contentTypeLabel } = require('./contentType');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
@@ -65,11 +66,13 @@ exports.main = async (event) => {
   let title = String(event.title || '').trim();
   let categoryName = String(event.categoryName || '').trim();
   let description = String(event.description || '').trim();
+  let contentType = normalizeContentType(event.contentType);
+  let emojiCount = Number(event.emojiCount) || 0;
   const packId = event.packId || event.id || '';
   const mpState = resolveMpState(event);
 
   try {
-    if (packId && (!title || !categoryName)) {
+    if (packId && (!title || !categoryName || !event.contentType)) {
       const doc = await db.collection('packs').doc(packId).get();
       const pack = doc.data;
       if (!pack) {
@@ -78,23 +81,32 @@ exports.main = async (event) => {
       title = title || pack.title || '';
       categoryName = categoryName || pack.categoryName || '';
       description = description || pack.description || '';
+      contentType = normalizeContentType(pack.contentType || contentType);
+      if (!emojiCount) emojiCount = Number(pack.emojiCount) || 0;
     }
 
     if (!title) {
       return { ok: false, code: 'BAD_PARAM', message: '缺少标题' };
     }
 
+    const typeName = contentTypeLabel(contentType);
+    const typeFallback = `${typeName}合集`;
     const page = packId
       ? `pages/pack/detail/index?id=${packId}`
       : 'pages/home/index';
-    const intro =
-      description ||
-      (event.emojiCount ? `共 ${event.emojiCount} 张` : '新合集已上线，快来看看');
+    const countHint = emojiCount
+      ? contentType === 'video'
+        ? `共 ${emojiCount} 个视频`
+        : contentType === 'avatar'
+          ? `共 ${emojiCount} 个头像`
+          : `共 ${emojiCount} 张`
+      : '';
+    const intro = description || countHint || `${typeFallback}已上线，快来看看`;
 
     // time 类型须用「2019年10月1日 15:01」，YYYY-MM-DD 会被微信拒收（47003）
     const data = {
       thing1: { value: clipThing(title, '新合集') },
-      thing2: { value: clipThing(categoryName, '合集') },
+      thing2: { value: clipThing(categoryName || typeFallback, typeFallback) },
       time3: { value: formatDateTimeCn() },
       thing4: { value: clipThing(intro, '新合集已上线') },
     };

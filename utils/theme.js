@@ -1,3 +1,5 @@
+import { buildFontScaleStyle } from '~/utils/fontScale';
+
 const THEME_STORAGE_KEY = 'app_theme_id';
 
 /**
@@ -224,11 +226,17 @@ function resolveSwatch(entry) {
 }
 
 export function getThemePresets() {
-  return THEME_PRESETS.map((t) => ({
-    id: t.id,
-    name: t.name,
-    brand: t.brand,
-  }));
+  return THEME_PRESETS.map((t) => {
+    const soft = (t.scale && t.scale[1]) || hexToRgba(t.brand, 0.14);
+    return {
+      id: t.id,
+      name: t.name,
+      brand: t.brand,
+      soft,
+      /** 选中行：品牌字色 + 浅底 */
+      chipStyle: `color:${t.brand};background-color:${soft};`,
+    };
+  });
 }
 
 export function getThemeById(id) {
@@ -287,6 +295,9 @@ export function buildThemeStyle(theme) {
   parts.push(`--td-text-color-link:${brandText}`);
   parts.push(`--app-brand:${brandText}`);
   parts.push(`--app-brand-light:${brandSoft}`);
+  // 字号缩放与主题一并注入，避免各页漏挂
+  const fontStyle = buildFontScaleStyle();
+  if (fontStyle) parts.push(fontStyle);
   return parts.join(';');
 }
 

@@ -26,8 +26,8 @@ export function formatRedeemShareText(opts = {}) {
     (opts.label && String(opts.label).trim()) ||
     benefitLabel(opts.type, opts.value);
 
-  const head = `【趣集】兑换码\n权益：${benefit}`;
-  const tip = '打开「趣集」小程序 →「我的」页，可自动识别并兑换';
+  const head = `【趣图铺子】兑换码\n权益：${benefit}`;
+  const tip = '打开「趣图铺子」小程序 →「我的」页，可自动识别并兑换';
 
   if (codes.length === 1) {
     return `${head}\n兑换码：${codes[0]}\n\n${tip}`;

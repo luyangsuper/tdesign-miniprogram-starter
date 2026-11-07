@@ -5,9 +5,15 @@ import {
   shouldShowNativeAds,
 } from '~/utils/nativeAd';
 import { getWindowInfoSafe } from '~/utils/systemInfo';
+import {
+  contentTypeLabel,
+  formatItemCount,
+  normalizeContentType,
+} from '~/utils/contentType';
 import { packCoverCacheKey, reuseTempUrl } from '~/utils/tempUrlCache';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
+import { resolveWaterfallColumns } from '~/utils/waterfallColumns';
 
 const LAYOUT_KEY = 'favorites_layout';
 
@@ -59,9 +65,16 @@ function withCoverRatio(item) {
     item.packId && item.coverUrl
       ? reuseTempUrl(packCoverCacheKey(item.packId), item.coverUrl)
       : item.coverUrl;
-  return { ...item, coverRatio: ratio, coverUrl };
+  const contentType = normalizeContentType(item.contentType);
+  return {
+    ...item,
+    coverRatio: ratio,
+    coverUrl,
+    contentType,
+    contentTypeName: contentTypeLabel(contentType),
+    itemCountText: formatItemCount(item.emojiCount, contentType),
+  };
 }
-
 Page({
   data: {
     themeStyle: '',
@@ -91,12 +104,14 @@ Page({
     this._onFavoriteChange = (payload) => this.applyFavoriteChange(payload);
     this._onAdminViewChange = () => this.refreshNativeAd();
     this._onEntitlementChange = () => this.refreshNativeAd();
+    this._onWaterfallColumnsChange = () => this.updateLayout();
     try {
       const app = getApp();
       if (app && app.eventBus) {
         app.eventBus.on('favoriteChange', this._onFavoriteChange);
         app.eventBus.on('adminViewChange', this._onAdminViewChange);
         app.eventBus.on('entitlementChange', this._onEntitlementChange);
+        app.eventBus.on('waterfallColumnsChange', this._onWaterfallColumnsChange);
       }
     } catch (e) {
       /* ignore */
@@ -117,6 +132,9 @@ Page({
         if (this._onEntitlementChange) {
           app.eventBus.off('entitlementChange', this._onEntitlementChange);
         }
+        if (this._onWaterfallColumnsChange) {
+          app.eventBus.off('waterfallColumnsChange', this._onWaterfallColumnsChange);
+        }
       }
     } catch (e) {
       /* ignore */
@@ -126,6 +144,7 @@ Page({
   onShow() {
     applyThemeToPage(this);
     this.refreshNativeAd();
+    this.updateLayout();
   },
 
   refreshNativeAd() {
@@ -150,9 +169,7 @@ Page({
 
   updateLayout() {
     const { windowWidth } = getWindowInfoSafe();
-    let columnCount = 2;
-    if (windowWidth >= 560) columnCount = 3;
-    if (windowWidth >= 840) columnCount = 4;
+    const columnCount = resolveWaterfallColumns(windowWidth);
     const gap = 6;
     const rowGap = 6;
     const cardWidth = Math.floor(

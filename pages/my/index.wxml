@@ -1,4 +1,5 @@
-<view class="my-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}}">
+<view class="my-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
+<!-- 节日 virtualHost 不占流；顶栏与首页一致：fixed + placeholder + 胶囊公式 CSS 变量 -->
 <festival-decor
   id="festivalDecor"
   mode="my"
@@ -6,7 +7,13 @@
   header-height="{{festHeaderPx}}"
   nav-height="{{navHeight}}"
 />
-<t-navbar title="我的" fixed="{{true}}" placeholder="{{true}}" z-index="{{500}}" />
+<t-navbar
+  title="我的"
+  fixed="{{true}}"
+  placeholder="{{true}}"
+  z-index="{{500}}"
+  custom-style="{{navBarStyle}}"
+/>
 <view class="my">
   <view class="my__profile">
     <view class="my__avatar-wrap">
@@ -42,6 +49,16 @@
         <text class="my__id" bindtap="copyOpenId">{{shortId}}</text>
       </view>
     </view>
+    <t-button
+      t-class="my__checkin-btn {{checkinCheckedToday ? 'my__checkin-btn--done' : ''}}"
+      theme="{{checkinCheckedToday ? 'default' : 'primary'}}"
+      variant="{{checkinCheckedToday ? 'outline' : 'base'}}"
+      size="small"
+      shape="round"
+      icon="{{checkinCheckedToday ? 'check' : 'calendar'}}"
+      content="{{checkinEntryText}}"
+      bind:tap="goCheckin"
+    />
   </view>
 
   <view class="my__benefit">
@@ -59,48 +76,18 @@
         <view class="my__benefit-sum">
           <text class="my__benefit-sum-num">{{benefit.totalValueText}}</text>
           <view class="my__benefit-sum-meta">
-            <text class="my__benefit-sum-title">可用积分</text>
-            <text class="my__benefit-sum-sub">{{benefit.affordLine}}</text>
+            <view class="my__benefit-sum-head">
+              <text class="my__benefit-sum-title">可用积分</text>
+              <view class="my__pricing-links my__pricing-links--inline">
+                <text class="my__pricing-link" bindtap="openPricing">定价</text>
+                <text class="my__pricing-link-sep">·</text>
+                <text class="my__pricing-link" bindtap="onRecoverOrders">补发</text>
+              </view>
+            </view>
+            <text class="my__benefit-sum-sub">{{benefit.subLine}}</text>
           </view>
         </view>
-        <view class="my__pricing-links">
-          <text class="my__pricing-link" bindtap="openPricing">看定价</text>
-          <text class="my__pricing-link" bindtap="onRecoverOrders">补发权益</text>
-        </view>
       </view>
-
-      <view wx:if="{{benefit.showMonth}}" class="my__benefit-row">
-        <text class="my__benefit-k">本月额度</text>
-        <text class="my__benefit-v">{{benefit.monthLeftText}} / {{benefit.monthTotalText}}</text>
-      </view>
-      <view wx:if="{{benefit.showMonth}}" class="my__benefit-bar">
-        <view class="my__benefit-bar-track">
-          <view
-            class="my__benefit-bar-fill"
-            style="width: {{benefit.monthPercent}}%; background: {{benefit.monthBarColor}};"
-          />
-        </view>
-      </view>
-
-      <view wx:if="{{benefit.showBoughtPoints}}" class="my__benefit-row">
-        <text class="my__benefit-k">已购积分</text>
-        <text class="my__benefit-v">{{benefit.pointsText}}</text>
-      </view>
-
-      <view wx:if="{{benefit.adFreeActive}}" class="my__benefit-row my__benefit-row--perk">
-        <text class="my__benefit-k">应用内免广告</text>
-        <view class="my__benefit-perk">
-          <t-tag size="small" variant="light" theme="success">{{benefit.adFreeLabel}}</t-tag>
-        </view>
-      </view>
-      <view wx:if="{{benefit.festivalAllActive}}" class="my__benefit-row my__benefit-row--perk">
-        <text class="my__benefit-k">全节日氛围</text>
-        <view class="my__benefit-perk">
-          <t-tag size="small" variant="light" theme="success">{{benefit.festivalAllLabel}}</t-tag>
-        </view>
-      </view>
-
-      <text class="my__benefit-foot">{{benefit.footLine}}</text>
     </block>
     <view class="my__pricing-strip" bindtap="openPricing">
       <view
@@ -136,12 +123,6 @@
           </view>
         </view>
       </view>
-    </view>
-    <view class="my__pricing-cost">{{pricing.costLine}}</view>
-    <view class="my__service" bindtap="copyServiceWechat">
-      <t-icon name="service" size="32rpx" color="#07c160" />
-      <text class="my__service-text">客服微信 {{serviceWechat}}</text>
-      <text class="my__service-copy">复制</text>
     </view>
     <view class="my__redeem">
       <input
@@ -206,6 +187,23 @@
       t-class-center="my-menu-cell__center"
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
+      title="显示设置"
+      note="{{displaySettingsNote}}"
+      arrow
+      hover
+      bind:click="openDisplaySettings"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="view-module" size="40rpx" color="{{themeBrand}}" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
       title="节日氛围"
       note="{{festivalMenuNote}}"
       arrow
@@ -248,22 +246,6 @@
     >
       <view slot="left-icon" class="my-menu-icon">
         <t-icon name="root-list" size="40rpx" color="#27AE60" />
-      </view>
-    </t-cell>
-    <t-cell
-      t-class="my-menu-cell"
-      t-class-left="my-menu-cell__left"
-      t-class-left-icon="my-menu-cell__icon"
-      t-class-center="my-menu-cell__center"
-      t-class-title="my-menu-cell__title"
-      t-class-note="my-menu-cell__note"
-      title="每日签到"
-      note="弹窗签到 · 每日领积分"
-      hover
-      bind:click="goCheckin"
-    >
-      <view slot="left-icon" class="my-menu-icon">
-        <image class="my-menu-icon__img" src="/static/emoji/checkin.png" mode="aspectFit" />
       </view>
     </t-cell>
     <t-cell
@@ -427,6 +409,22 @@
         t-class-left-icon="my-menu-cell__icon"
         t-class-center="my-menu-cell__center"
         t-class-title="my-menu-cell__title"
+        t-class-note="my-menu-cell__note"
+        title="重置今日激励"
+        note="看广告 / 签到再领次数"
+        hover
+        bind:click="confirmResetAdRewardDay"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <t-icon name="refresh" size="40rpx" color="#0052D9" />
+        </view>
+      </t-cell>
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
         title="定价方案"
         note="售价 / 同步微信道具"
         arrow
@@ -497,22 +495,6 @@
       t-class-center="my-menu-cell__center"
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
-      title="联系客服"
-      note="微信 {{serviceWechat}}"
-      hover
-      bind:click="copyServiceWechat"
-    >
-      <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="service" size="40rpx" color="#07c160" />
-      </view>
-    </t-cell>
-    <t-cell
-      t-class="my-menu-cell"
-      t-class-left="my-menu-cell__left"
-      t-class-left-icon="my-menu-cell__icon"
-      t-class-center="my-menu-cell__center"
-      t-class-title="my-menu-cell__title"
-      t-class-note="my-menu-cell__note"
       title="如何添加表情"
       note="保存到微信自定义表情"
       arrow
@@ -547,7 +529,7 @@
       t-class-center="my-menu-cell__center"
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
-      title="关于趣集"
+      title="关于趣图铺子"
       note="说明 / 协议 / 版本"
       arrow
       hover
@@ -620,7 +602,7 @@
     <scroll-view scroll-y class="my__guide-scroll" enhanced show-scrollbar="{{false}}">
       <image class="my__guide-art" src="/static/emoji/guide.png" mode="aspectFit" />
       <view class="my__guide-tip">
-        趣集负责把原图保存到相册；导入微信需在微信里完成下面几步（不同系统文案可能略有差异）。
+        趣图铺子负责把原图保存到相册；导入微信需在微信里完成下面几步（不同系统文案可能略有差异）。
       </view>
       <view
         class="my__guide-step"
@@ -729,24 +711,6 @@
           <t-icon name="secured" size="32rpx" color="#07c160" />
         </view>
         <text class="my__pricing-vip-perk-text">{{pricing.vipPerkLine}}</text>
-      </view>
-
-      <view class="my__pricing-service" bindtap="copyServiceWechat">
-        <view class="my__pricing-service-icon">
-          <t-icon name="logo-wechat-stroke" size="40rpx" color="#07c160" />
-        </view>
-        <view class="my__pricing-service-main">
-          <text class="my__pricing-service-label">联系客服</text>
-          <text class="my__pricing-service-id">{{serviceWechat}}</text>
-        </view>
-        <t-button
-          t-class="my__pricing-service-btn"
-          size="small"
-          theme="light"
-          variant="base"
-          content="复制微信号"
-          catch:tap="copyServiceWechat"
-        />
       </view>
 
       <view class="my__pricing-section-title">
@@ -871,6 +835,144 @@
 </t-popup>
 
 <t-popup
+  visible="{{displayPopupVisible}}"
+  placement="bottom"
+  bind:visible-change="onDisplayPopupChange"
+>
+  <view class="my__theme-sheet my__display-sheet">
+    <view class="my__theme-sheet-title">显示设置</view>
+    <view class="my__theme-sheet-desc">调节合集浏览密度与文字大小</view>
+    <scroll-view scroll-y class="my__display-sheet-scroll" enhanced show-scrollbar="{{false}}">
+
+    <!-- 布局参考：上预览 + 下 Chip/Segmented（Material / iOS Settings 常见做法） -->
+    <view class="my__display-section">
+      <view class="my__display-section-title">浏览密度</view>
+      <view class="my__display-phone">
+        <view class="my__display-phone-notch" />
+        <view class="my__display-phone-screen">
+          <view class="my__display-phone-bar">
+            <view class="my__display-phone-bar-dot" />
+            <view class="my__display-phone-bar-line" />
+          </view>
+          <view class="my__display-feed">
+            <view
+              class="my__display-feed-col"
+              wx:for="{{displayPreviewColumns}}"
+              wx:for-item="col"
+              wx:for-index="colIndex"
+              wx:key="colIndex"
+            >
+              <view
+                class="my__display-card my__display-card--tone{{card.tone}}"
+                wx:for="{{col}}"
+                wx:for-item="card"
+                wx:key="key"
+              >
+                <view class="my__display-card-cover" style="padding-bottom: {{card.coverPct}}%;" />
+                <view class="my__display-card-body">
+                  <view class="my__display-card-title" style="width: {{card.titleW}}%;" />
+                  <view class="my__display-card-meta" style="width: {{card.metaW}}%;" />
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="my__display-meta">
+        <text class="my__display-meta-main">
+          <text wx:if="{{displayPreviewIsAuto}}">本机 {{displayPreviewColumnCount}} 列</text>
+          <text wx:else>固定 {{displayPreviewColumnCount}} 列</text>
+        </text>
+        <text class="my__display-meta-sub">{{displayPrefHint}}</text>
+      </view>
+      <view class="my__display-chips">
+        <t-check-tag
+          wx:for="{{displayColumnOptions}}"
+          wx:key="id"
+          t-class="my__display-chip"
+          size="medium"
+          shape="round"
+          variant="outline"
+          content="{{item.label}}"
+          checked="{{displayPrefDraft === item.id}}"
+          data-id="{{item.id}}"
+          bind:change="onPickDisplayPref"
+        />
+      </view>
+    </view>
+
+    <view class="my__display-section">
+      <view class="my__display-section-title">文字大小</view>
+      <view class="my__display-phone my__display-phone--font" style="{{fontPreviewStyle}}">
+        <view class="my__display-phone-notch" />
+        <view class="my__display-phone-screen my__display-phone-screen--font">
+          <view class="my__font-phone-nav">
+            <text class="my__font-phone-nav-title">趣图铺子</text>
+          </view>
+          <view class="my__font-phone-card">
+            <view class="my__font-phone-cover" />
+            <view class="my__font-phone-card-main">
+              <text class="my__font-phone-card-title">海绵宝宝表情合集</text>
+              <text class="my__font-phone-card-meta">表情 · 48 张</text>
+            </view>
+          </view>
+          <view class="my__font-phone-cells">
+            <view class="my__font-phone-cell">
+              <text class="my__font-phone-cell-title">主题色</text>
+              <text class="my__font-phone-cell-note">微信绿</text>
+            </view>
+            <view class="my__font-phone-cell">
+              <text class="my__font-phone-cell-title">显示设置</text>
+              <text class="my__font-phone-cell-note">跟随设备</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="my__display-chips my__display-chips--font">
+        <text class="my__font-scale-a my__font-scale-a--sm" aria-hidden="true">A</text>
+        <view class="my__display-chips-main">
+          <t-check-tag
+            wx:for="{{fontScaleOptions}}"
+            wx:key="id"
+            t-class="my__display-chip"
+            size="medium"
+            shape="round"
+            variant="outline"
+            content="{{item.label}}"
+            checked="{{fontScaleDraft === item.id}}"
+            data-id="{{item.id}}"
+            bind:change="onPickFontScale"
+          />
+        </view>
+        <text class="my__font-scale-a my__font-scale-a--lg" aria-hidden="true">A</text>
+      </view>
+    </view>
+
+    </scroll-view>
+
+    <view class="my__display-sheet-foot">
+      <t-button
+        t-class="my__display-foot-btn"
+        theme="default"
+        variant="outline"
+        size="large"
+        shape="round"
+        content="取消"
+        bind:tap="closeDisplaySettings"
+      />
+      <t-button
+        t-class="my__display-foot-btn"
+        theme="primary"
+        size="large"
+        shape="round"
+        content="应用"
+        bind:tap="onConfirmDisplaySettings"
+      />
+    </view>
+  </view>
+</t-popup>
+
+<t-popup
   visible="{{themePopupVisible}}"
   placement="bottom"
   bind:visible-change="onThemePopupChange"
@@ -918,65 +1020,138 @@
       {{festivalSolarTableHint}}
     </view>
 
-    <!-- 管理员：向全员开放 -->
-    <view wx:if="{{isAdmin}}" class="my__festival-fx">
-      <view class="my__festival-fx-text">
-        <text class="my__festival-fx-label">全员可见</text>
-        <text class="my__festival-fx-hint">关闭后用户不可见；本机请点下方节日预览</text>
-      </view>
-      <t-switch
-        value="{{festivalFeatureOn}}"
-        disabled="{{festivalFeatureSaving}}"
-        bind:change="onFestivalFeatureChange"
-      />
-    </view>
-
-    <!-- 本机开关（普通用户仅此项） -->
-    <view class="my__festival-fx {{isAdmin ? '' : 'my__festival-fx--solo'}}">
-      <view class="my__festival-fx-text">
-        <text class="my__festival-fx-label">开启节日效果</text>
-        <text class="my__festival-fx-hint">{{festivalFeatureOn ? '节日前后几天自动换肤，不只当天' : '近期暂无节日活动'}}</text>
-      </view>
-      <t-switch
-        value="{{festivalUserOn}}"
-        disabled="{{!isAdmin && !festivalFeatureOn}}"
-        bind:change="onFestivalUserChange"
-      />
-    </view>
-
-    <view class="my__festival-fx">
-      <view class="my__festival-fx-text">
-        <text class="my__festival-fx-label">全屏飘落</text>
-        <text class="my__festival-fx-hint">默认只在顶栏飘；打开后铺满首页</text>
-      </view>
-      <t-switch
-        value="{{festivalFallFull}}"
-        disabled="{{!festivalUserOn && !isAdmin}}"
-        bind:change="onFestivalFallFullChange"
-      />
-    </view>
-
-    <!-- 管理员：预览标签 + 顶栏上传 -->
-    <block wx:if="{{isAdmin}}">
-      <view class="my__festival-section">
-        <view class="my__festival-section-title">效果预览</view>
-        <view class="my__festival-admin-desc">「跟随日期」按各节日窗口生效（窗口已错开；同日优先列表靠前的，如中秋优先于国庆）；点具体节日可强制预览，亦可改持续日期</view>
-        <view class="my__festival-tags">
-          <t-check-tag
-            wx:for="{{festivalModeOptions}}"
-            wx:key="id"
-            t-class="my__festival-tag"
-            size="medium"
-            shape="round"
-            variant="light"
-            content="{{item.name}}"
-            checked="{{festivalMode === item.id}}"
-            data-id="{{item.id}}"
-            bind:change="onPickFestivalMode"
-          />
+    <!-- 手机预览：跟开关联动，边框/卡片对齐显示设置 -->
+    <view class="my__festival-section my__festival-section--preview">
+      <view class="my__festival-section-title">效果预览</view>
+      <view
+        class="my__display-phone my__festival-phone {{festivalUserOn ? 'is-on' : 'is-off'}} {{festivalFallFull ? 'is-full' : ''}}"
+        style="--fest-preview-accent: {{festivalPreviewAccent}};"
+      >
+        <view class="my__display-phone-notch" />
+        <view class="my__display-phone-screen my__festival-phone-screen">
+          <view class="my__festival-phone-nav">
+            <view wx:if="{{festivalUserOn}}" class="my__festival-phone-nav-tint" />
+            <text class="my__festival-phone-nav-title">趣图铺子</text>
+          </view>
+          <view
+            wx:if="{{festivalUserOn}}"
+            class="my__festival-phone-flakes {{festivalFallFull ? 'is-full' : ''}}"
+          >
+            <view
+              class="my__festival-phone-flake"
+              wx:for="{{festivalPreviewFlakes}}"
+              wx:key="id"
+              style="{{item.wrapStyle}}"
+            >
+              <image
+                class="my__festival-phone-flake-img"
+                src="{{item.src}}"
+                mode="aspectFit"
+              />
+            </view>
+          </view>
+          <view class="my__festival-phone-feed">
+            <view class="my__festival-phone-col">
+              <view class="my__display-card my__display-card--tone0">
+                <view class="my__display-card-cover" style="padding-bottom: 92%;" />
+                <view class="my__display-card-body">
+                  <view class="my__display-card-title" style="width: 72%;" />
+                  <view class="my__display-card-meta" style="width: 44%;" />
+                </view>
+              </view>
+              <view class="my__display-card my__display-card--tone2">
+                <view class="my__display-card-cover" style="padding-bottom: 70%;" />
+                <view class="my__display-card-body">
+                  <view class="my__display-card-title" style="width: 64%;" />
+                  <view class="my__display-card-meta" style="width: 40%;" />
+                </view>
+              </view>
+            </view>
+            <view class="my__festival-phone-col">
+              <view class="my__display-card my__display-card--tone1">
+                <view class="my__display-card-cover" style="padding-bottom: 78%;" />
+                <view class="my__display-card-body">
+                  <view class="my__display-card-title" style="width: 68%;" />
+                  <view class="my__display-card-meta" style="width: 36%;" />
+                </view>
+              </view>
+              <view class="my__display-card my__display-card--tone0">
+                <view class="my__display-card-cover" style="padding-bottom: 100%;" />
+                <view class="my__display-card-body">
+                  <view class="my__display-card-title" style="width: 76%;" />
+                  <view class="my__display-card-meta" style="width: 42%;" />
+                </view>
+              </view>
+            </view>
+          </view>
+          <view wx:if="{{!festivalUserOn}}" class="my__festival-phone-off">节日效果已关闭</view>
         </view>
       </view>
+      <view class="my__festival-preview-hint">{{festivalPreviewHint}}</view>
+    </view>
 
+    <view class="my__festival-fx-list">
+      <!-- 管理员：向全员开放 -->
+      <view wx:if="{{isAdmin}}" class="my__festival-fx">
+        <view class="my__festival-fx-text">
+          <text class="my__festival-fx-label">全员可见</text>
+          <text class="my__festival-fx-hint">关闭后用户不可见；本机请点下方节日预览</text>
+        </view>
+        <t-switch
+          value="{{festivalFeatureOn}}"
+          disabled="{{festivalFeatureSaving}}"
+          bind:change="onFestivalFeatureChange"
+        />
+      </view>
+
+      <view class="my__festival-fx">
+        <view class="my__festival-fx-text">
+          <text class="my__festival-fx-label">开启节日效果</text>
+          <text class="my__festival-fx-hint">{{festivalFeatureOn ? '节日前后几天自动换肤，不只当天' : '近期暂无节日活动'}}</text>
+        </view>
+        <t-switch
+          value="{{festivalUserOn}}"
+          disabled="{{!isAdmin && !festivalFeatureOn}}"
+          bind:change="onFestivalUserChange"
+        />
+      </view>
+
+      <view class="my__festival-fx">
+        <view class="my__festival-fx-text">
+          <text class="my__festival-fx-label">全屏飘落</text>
+          <text class="my__festival-fx-hint">默认只在顶栏飘；打开后铺满首页</text>
+        </view>
+        <t-switch
+          value="{{festivalFallFull}}"
+          disabled="{{!festivalUserOn && !isAdmin}}"
+          bind:change="onFestivalFallFullChange"
+        />
+      </view>
+    </view>
+
+    <view class="my__festival-section">
+      <view class="my__festival-section-title">试试节日</view>
+      <view class="my__festival-admin-desc">
+        {{isAdmin ? '「跟随日期」按窗口生效；点节日可强制预览。普通用户关闭弹层后恢复跟随日期。' : '点节日可在本机预览效果（免费：春节/圣诞；更多为会员权益）。关掉弹层后恢复跟随日期。'}}
+      </view>
+      <view class="my__festival-tags">
+        <t-check-tag
+          wx:for="{{festivalModeOptions}}"
+          wx:key="id"
+          t-class="my__festival-tag"
+          size="medium"
+          shape="round"
+          variant="light"
+          content="{{item.name}}"
+          checked="{{festivalMode === item.id}}"
+          data-id="{{item.id}}"
+          bind:change="onPickFestivalMode"
+        />
+      </view>
+    </view>
+
+    <!-- 管理员：顶栏/底栏素材 -->
+    <block wx:if="{{isAdmin}}">
       <view class="my__festival-section">
         <view class="my__festival-section-title">节日素材</view>
         <view wx:if="{{!festivalAssetEdit}}" class="my__festival-admin-desc">

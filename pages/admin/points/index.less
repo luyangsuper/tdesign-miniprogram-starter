@@ -41,10 +41,26 @@
 
   &__label {
     .form-label();
+    display: inline-flex;
+    align-items: center;
+    gap: 8rpx;
+  }
+
+  &__type-icon {
+    width: 28rpx;
+    height: 28rpx;
+    flex-shrink: 0;
   }
 
   &__hint {
     .form-hint();
+
+    &--block {
+      display: block;
+      margin: 8rpx 0 16rpx;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
   }
 
   &__field {

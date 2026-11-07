@@ -1,16 +1,35 @@
 const { dayjs, toMs, formatDate } = require('./time');
 const { recordPointsLog } = require('./pointsLog');
+const { DOWNLOAD_COSTS } = require('./contentType');
+const {
+  getPointsSettings,
+  downloadCostsFromSettings,
+} = require('./pointsSettings');
 
 const TZ = 'Asia/Shanghai';
 const MONTHLY_QUOTA = 48;
-const COST = { static: 1, anim: 2 };
+/** 离线默认；扣费前会再读 app_config/points */
+const COST = { ...DOWNLOAD_COSTS };
 
 function periodKey(ms = Date.now()) {
   return dayjs(ms).tz(TZ).format('YYYY-MM');
 }
 
-function downloadCost(variant) {
-  return variant === 'anim' ? COST.anim : COST.static;
+/** @param {string} costKey static|anim|wallpaper|avatar|video @param {object} [costMap] */
+function downloadCost(costKey, costMap) {
+  const table = costMap && typeof costMap === 'object' ? costMap : COST;
+  const key = String(costKey || 'static');
+  const n = Number(table[key]);
+  return n > 0 ? n : Number(table.static) || COST.static;
+}
+
+async function resolveDownloadCosts(db) {
+  try {
+    const settings = await getPointsSettings(db);
+    return downloadCostsFromSettings(settings);
+  } catch (e) {
+    return { ...COST };
+  }
 }
 
 /** 包月有效时：本月未发放则视为满额（展示用，真正发放走 syncVipMonthQuota） */
@@ -120,14 +139,19 @@ async function syncVipMonthQuota(ref, user, serverDate, db) {
 
 /**
  * 先扣本月额度，再扣购买积分。
+ * @param {string} costKey static|anim|wallpaper|avatar|video
+ * @param {string} [kindLabel] 文案：静态/动态/壁纸/…
+ * @param {object} [costMap] 云端单价表
  */
-async function consumeDownload(ref, user, variant, command, serverDate) {
-  const cost = downloadCost(variant);
+async function consumeDownload(ref, user, costKey, command, serverDate, kindLabel, costMap) {
+  const cost = downloadCost(costKey, costMap);
   let vipMonthQuota = Math.max(0, Number(user.vipMonthQuota) || 0);
   let points = Math.max(0, Number(user.points) || 0);
 
   if (vipMonthQuota + points < cost) {
-    const kind = variant === 'anim' ? '动态' : '静态';
+    const kind =
+      kindLabel ||
+      (costKey === 'anim' ? '动态' : costKey === 'static' ? '静态' : String(costKey));
     return {
       ok: false,
       code: 'NO_GRANT',
@@ -230,6 +254,7 @@ module.exports = {
   COST,
   periodKey,
   downloadCost,
+  resolveDownloadCosts,
   buildEntitlement,
   syncVipMonthQuota,
   consumeDownload,

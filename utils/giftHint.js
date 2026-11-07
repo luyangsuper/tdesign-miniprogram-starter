@@ -63,7 +63,7 @@ export function summarizePendingPointGifts(list) {
       total: 0,
       count: 0,
       title: '活动奖励到账',
-      tip: '感谢参与趣集活动',
+      tip: '感谢参与趣图铺子活动',
       affordLine: formatGiftAffordLine(0),
     };
   }
@@ -73,7 +73,7 @@ export function summarizePendingPointGifts(list) {
       total,
       count,
       title: gifts[0].title || '活动奖励',
-      tip: '感谢参与趣集活动',
+      tip: '感谢参与趣图铺子活动',
       affordLine: formatGiftAffordLine(total),
     };
   }

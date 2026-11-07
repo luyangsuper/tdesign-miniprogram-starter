@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 内容变更后清短缓存（分类计数 / 看板），下次请求重建。
  */
 async function invalidateAppConfigDocs(db, docIds = []) {
@@ -21,7 +21,15 @@ async function invalidateAppConfigDocs(db, docIds = []) {
 }
 
 async function invalidateListCaches(db) {
-  await invalidateAppConfigDocs(db, ['category_counts', 'dashboard_cache']);
+  // 分类计数按 contentType 分文档缓存（all + 四类）
+  await invalidateAppConfigDocs(db, [
+    'category_counts',
+    'category_counts_emoji',
+    'category_counts_wallpaper',
+    'category_counts_avatar',
+    'category_counts_video',
+    'dashboard_cache',
+  ]);
 }
 
 module.exports = {

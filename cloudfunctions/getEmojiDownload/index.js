@@ -3,11 +3,18 @@ const {
   buildEntitlement,
   consumeDownload,
   downloadCost,
+  resolveDownloadCosts,
   refundDownload,
   syncVipMonthQuota,
 } = require('./membership');
 const { recordPointsLog } = require('./pointsLog');
 const { resolveTempUrls } = require('./tempUrlCache');
+const {
+  normalizeContentType,
+  isEmojiType,
+  resolveCostKey,
+  costKindLabel,
+} = require('./contentType');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -15,9 +22,9 @@ const db = cloud.database();
 const _ = db.command;
 
 /**
- * 下发一张原图临时链接。
+ * 下发一张/一段原文件临时链接。
  * 鉴权：本月包月额度 → 购买积分（广告通道关闭）。
- * 先确认原图可下发，再扣费；相册保存失败可 action=refund 原路退回。
+ * 先确认原文件可下发，再扣费；相册保存失败可 action=refund 原路退回。
  * 不增加 packs.downloadCount（相册保存成功后由 reportDownload 负责）。
  */
 
@@ -35,11 +42,11 @@ async function ensureUser(openid) {
   }
 }
 
-function denyGrant(user, variant) {
-  const cost = downloadCost(variant);
+function denyGrant(user, costKey, kindLabel, costMap) {
+  const cost = downloadCost(costKey, costMap);
   const vipMonthQuota = Math.max(0, Number(user.vipMonthQuota) || 0);
   const points = Math.max(0, Number(user.points) || 0);
-  const kind = variant === 'anim' ? '动态' : '静态';
+  const kind = kindLabel || '原图';
   return {
     ok: false,
     code: 'NO_GRANT',
@@ -51,8 +58,8 @@ function denyGrant(user, variant) {
   };
 }
 
-function canAfford(user, variant) {
-  const cost = downloadCost(variant);
+function canAfford(user, costKey, costMap) {
+  const cost = downloadCost(costKey, costMap);
   const vipMonthQuota = Math.max(0, Number(user.vipMonthQuota) || 0);
   const points = Math.max(0, Number(user.points) || 0);
   return vipMonthQuota + points >= cost;
@@ -113,23 +120,33 @@ exports.main = async (event) => {
 
   const packId = event.packId;
   const index = Number(event.index);
-  const variant = event.variant === 'anim' ? 'anim' : 'static';
+  const requestedVariant = event.variant === 'anim' ? 'anim' : 'static';
 
   if (!packId || Number.isNaN(index) || index < 0) {
     return { ok: false, code: 'BAD_PARAM', message: '参数错误' };
   }
 
   try {
-    const { ref, data: user } = await ensureUser(OPENID);
-    const synced = await syncVipMonthQuota(ref, user, db.serverDate(), db);
-    if (!canAfford(synced, variant)) {
-      return denyGrant(synced, variant);
-    }
-
     const doc = await db.collection('packs').doc(packId).get();
     const pack = doc.data;
     if (!pack || pack.status !== 'published') {
       return { ok: false, code: 'NOT_FOUND', message: '合集不存在' };
+    }
+
+    const contentType = normalizeContentType(pack.contentType);
+    const emojiOnly = isEmojiType(contentType);
+    if (!emojiOnly && requestedVariant === 'anim') {
+      return { ok: false, code: 'BAD_PARAM', message: '该合集无动态原图' };
+    }
+    const variant = emojiOnly ? requestedVariant : 'static';
+    const costKey = resolveCostKey(contentType, variant);
+    const kindLabel = costKindLabel(contentType, variant);
+    const costMap = await resolveDownloadCosts(db);
+
+    const { ref, data: user } = await ensureUser(OPENID);
+    const synced = await syncVipMonthQuota(ref, user, db.serverDate(), db);
+    if (!canAfford(synced, costKey, costMap)) {
+      return denyGrant(synced, costKey, kindLabel, costMap);
     }
 
     const emojiFileIDs = pack.emojiFileIDs || [];
@@ -154,7 +171,15 @@ exports.main = async (event) => {
 
     const freshSnap = await ref.get();
     const freshUser = { ...synced, ...(freshSnap.data || {}) };
-    const auth = await consumeDownload(ref, freshUser, variant, _, db.serverDate());
+    const auth = await consumeDownload(
+      ref,
+      freshUser,
+      costKey,
+      _,
+      db.serverDate(),
+      kindLabel,
+      costMap,
+    );
     if (!auth.ok) {
       return auth;
     }
@@ -177,19 +202,25 @@ exports.main = async (event) => {
           packId,
           packTitle,
           index,
-          variant,
+          variant: emojiOnly ? variant : contentType,
+          contentType,
+          costKey,
           fromVip,
           fromPoints,
         },
       });
     }
 
+    const logVariant = emojiOnly ? variant : contentType;
+
     return {
       ok: true,
       data: {
         url: tempUrl,
         index,
-        variant,
+        variant: logVariant,
+        contentType,
+        mediaKind: contentType === 'video' ? 'video' : 'image',
         cost: auth.cost,
         fromVip: auth.fromVip || 0,
         fromPoints: auth.fromPoints || 0,

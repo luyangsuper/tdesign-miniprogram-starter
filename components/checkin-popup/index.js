@@ -4,7 +4,7 @@ import {
   defaultSaveAdRewardPoints,
   fetchAdRewardStatus,
   formatAdClaimToast,
-  isSaveAdRewardEnabled,
+  isCheckinAdRewardEnabled,
   watchAdAndClaimPoints,
 } from '~/utils/adReward';
 import { getFestivalConfettiColors } from '~/utils/festival';
@@ -107,12 +107,15 @@ Component({
     buildAdBonusBtnText(points, leftToday) {
       const p = Math.max(1, Number(points) || defaultSaveAdRewardPoints());
       const left = Math.max(0, Number(leftToday) || 0);
-      if (left <= 0) return '今日广告奖励已用完';
+      if (left <= 0) return '今日已领过广告奖励';
       return `看广告再领 +${p}`;
     },
 
-    async refreshAdBonusStatus() {
-      if (!isSaveAdRewardEnabled()) {
+    /**
+     * @param {boolean} [checkedTodayOverride] setData 未落地时传入，避免读到旧的 checkedToday
+     */
+    async refreshAdBonusStatus(checkedTodayOverride) {
+      if (!isCheckinAdRewardEnabled()) {
         this.setData({
           adBonusVisible: false,
           adBonusPoints: defaultSaveAdRewardPoints(),
@@ -121,15 +124,20 @@ Component({
         });
         return;
       }
-      const status = await fetchAdRewardStatus('save');
+      // 签到专用 slot：云端日限 1 次（广告单元与全站同为约 30s）
+      const status = await fetchAdRewardStatus('checkin');
       const points = Math.max(
         1,
         Number(status && status.points) || defaultSaveAdRewardPoints(),
       );
       const leftToday = Math.max(0, Number(status && status.leftToday) || 0);
       const enabled = !!(status && status.enabled) && leftToday > 0;
+      const checkedToday =
+        checkedTodayOverride != null
+          ? !!checkedTodayOverride
+          : !!this.data.checkedToday;
       // 今日已签到（或刚签完）才露出「再领」入口，避免抢签到主按钮
-      const visible = enabled && !!this.data.checkedToday;
+      const visible = enabled && checkedToday;
       this.setData({
         adBonusVisible: visible,
         adBonusPoints: points,
@@ -190,7 +198,7 @@ Component({
         nextMakeupDateKey,
         nextMakeupLabel: formatDateLabel(nextMakeupDateKey),
       });
-      this.refreshAdBonusStatus();
+      this.refreshAdBonusStatus(checkedToday);
     },
 
     async loadStatus(monthKey) {
@@ -307,8 +315,8 @@ Component({
           title: isMakeup ? '补签成功' : '签到成功',
           tip: res.message || '',
         });
-        // 签到成功后露出 15s 广告再领
-        this.refreshAdBonusStatus();
+        // 签到/补签成功后必已签到，显式传入避免 setData 竞态
+        this.refreshAdBonusStatus(true);
       } catch (e) {
         wx.showToast({ title: (e && e.message) || '签到失败', icon: 'none' });
       } finally {
@@ -332,7 +340,7 @@ Component({
         return;
       }
       if (this.data.adBonusLeftToday <= 0) {
-        wx.showToast({ title: '今日广告奖励已用完', icon: 'none' });
+        wx.showToast({ title: '今日已领过广告奖励', icon: 'none' });
         return;
       }
 
@@ -341,7 +349,7 @@ Component({
         const pages =
           typeof getCurrentPages === 'function' ? getCurrentPages() : [];
         const page = pages.length ? pages[pages.length - 1] : null;
-        const res = await watchAdAndClaimPoints({ page, slot: 'save' });
+        const res = await watchAdAndClaimPoints({ page, slot: 'checkin' });
         if (!res || !res.ok) {
           if (res && res.reason === 'SKIPPED') return;
           wx.showToast({

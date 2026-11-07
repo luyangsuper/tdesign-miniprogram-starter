@@ -1,3 +1,4 @@
+<page-meta page-style="{{themeStyle}}" />
 <view class="lottery-detail" style="{{themeStyle}}">
   <view wx:if="{{loading}}" class="lottery-detail__loading">
     <t-loading theme="circular" size="40rpx" text="加载中" />
