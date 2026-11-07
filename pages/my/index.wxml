@@ -1134,19 +1134,24 @@
       <view class="my__festival-admin-desc">
         {{isAdmin ? '「跟随日期」按窗口生效；点节日可强制预览。普通用户关闭弹层后恢复跟随日期。' : '点节日可在本机预览效果（免费：春节/圣诞；更多为会员权益）。关掉弹层后恢复跟随日期。'}}
       </view>
+      <!-- 等宽网格：长短名对齐，仍用 t-check-tag -->
       <view class="my__festival-tags">
-        <t-check-tag
+        <view
+          class="my__festival-tag-cell"
           wx:for="{{festivalModeOptions}}"
           wx:key="id"
-          t-class="my__festival-tag"
-          size="medium"
-          shape="round"
-          variant="light"
-          content="{{item.name}}"
-          checked="{{festivalMode === item.id}}"
-          data-id="{{item.id}}"
-          bind:change="onPickFestivalMode"
-        />
+        >
+          <t-check-tag
+            t-class="my__festival-tag"
+            size="medium"
+            shape="round"
+            variant="light"
+            content="{{item.name}}"
+            checked="{{festivalMode === item.id}}"
+            data-id="{{item.id}}"
+            bind:change="onPickFestivalMode"
+          />
+        </view>
       </view>
     </view>
 

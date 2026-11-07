@@ -1323,11 +1323,12 @@
   }
 }
 
-.my__festival-sheet {
+.my__festival-sheet.my__theme-sheet {
   display: flex;
   flex-direction: column;
   max-height: 78vh;
-  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  /* 覆盖 theme-sheet 底 padding：scroll-view 底 padding 常不进可滚区 */
+  padding: 32rpx 24rpx 0;
   box-sizing: border-box;
 }
 
@@ -1340,6 +1341,15 @@
 
 .my__festival-sheet-scroll-pad {
   height: 24rpx;
+}
+
+/* 滚到底时的安全区 + 操作留白，避免清除/上传被 Home 条挡住 */
+.my__festival-sheet-foot {
+  width: 100%;
+  height: calc(56rpx + constant(safe-area-inset-bottom));
+  height: calc(56rpx + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
 .my__festival-sheet-perk {
@@ -1638,15 +1648,29 @@
 }
 
 .my__festival-tags {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12rpx;
   margin: 0 0 4rpx;
   padding: 0 2rpx;
+  box-sizing: border-box;
+}
+
+.my__festival-tag-cell {
+  min-width: 0;
+  display: flex;
 }
 
 .my__festival-tag {
+  flex: 1;
+  width: 100% !important;
   margin: 0 !important;
+  box-sizing: border-box !important;
+  justify-content: center !important;
+  /* 超长名省略，避免撑破格子 */
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 .my__festival-admin-desc {
