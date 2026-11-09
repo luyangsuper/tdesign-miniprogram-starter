@@ -149,7 +149,7 @@ const META_SWATCHES = [
   { hue: 'teal', light: { bg: '#e8faf8', color: '#078d85' }, dark: { bg: 'rgba(20,184,166,0.2)', color: '#5eead4' } },
 ];
 
-/** 分类色库（带 hue） */
+/** 分类色库（带 hue）；尽量多且可辨，减少大量角色撞色 */
 const CATEGORY_SWATCHES = [
   { hue: 'purple', light: { bg: '#f3e8ff', color: '#7a3db8' }, dark: { bg: 'rgba(155,81,224,0.22)', color: '#d0a6ff' } },
   { hue: 'pink', light: { bg: '#ffe8f1', color: '#c9347a' }, dark: { bg: 'rgba(236,72,153,0.22)', color: '#f9a8d4' } },
@@ -157,27 +157,44 @@ const CATEGORY_SWATCHES = [
   { hue: 'amber', light: { bg: '#fff1e9', color: '#d97706' }, dark: { bg: 'rgba(245,158,11,0.2)', color: '#fbbf24' } },
   { hue: 'indigo', light: { bg: '#eef2ff', color: '#4f46e5' }, dark: { bg: 'rgba(99,102,241,0.22)', color: '#a5b4fc' } },
   { hue: 'cyan', light: { bg: '#ecfeff', color: '#0e7490' }, dark: { bg: 'rgba(34,211,238,0.18)', color: '#67e8f9' } },
-  { hue: 'orange', light: { bg: '#fef3c7', color: '#b45309' }, dark: { bg: 'rgba(249,115,22,0.2)', color: '#fdba74' } },
+  { hue: 'orange', light: { bg: '#ffedd5', color: '#c2410c' }, dark: { bg: 'rgba(249,115,22,0.2)', color: '#fdba74' } },
   { hue: 'blue', light: { bg: '#e8f3ff', color: '#2f80ed' }, dark: { bg: 'rgba(47,128,237,0.22)', color: '#8bb8ff' } },
   { hue: 'green', light: { bg: '#e8f8ef', color: '#07c160' }, dark: { bg: 'rgba(7,193,96,0.22)', color: '#6ee7a8' } },
   { hue: 'red', light: { bg: '#fff0ed', color: '#d54941' }, dark: { bg: 'rgba(213,73,65,0.22)', color: '#fca5a5' } },
+  { hue: 'violet', light: { bg: '#f5f3ff', color: '#6d28d9' }, dark: { bg: 'rgba(139,92,246,0.22)', color: '#c4b5fd' } },
+  { hue: 'rose', light: { bg: '#fff1f2', color: '#e11d48' }, dark: { bg: 'rgba(244,63,94,0.22)', color: '#fda4af' } },
+  { hue: 'lime', light: { bg: '#f7fee7', color: '#65a30d' }, dark: { bg: 'rgba(132,204,22,0.2)', color: '#bef264' } },
+  { hue: 'sky', light: { bg: '#f0f9ff', color: '#0284c7' }, dark: { bg: 'rgba(14,165,233,0.2)', color: '#7dd3fc' } },
+  { hue: 'fuchsia', light: { bg: '#fdf4ff', color: '#c026d3' }, dark: { bg: 'rgba(217,70,239,0.22)', color: '#f0abfc' } },
+  { hue: 'brown', light: { bg: '#f5ebe0', color: '#9a3412' }, dark: { bg: 'rgba(180,83,9,0.22)', color: '#fdba74' } },
+  { hue: 'slate', light: { bg: '#f1f5f9', color: '#475569' }, dark: { bg: 'rgba(100,116,139,0.25)', color: '#cbd5e1' } },
+  { hue: 'yellow', light: { bg: '#fefce8', color: '#ca8a04' }, dark: { bg: 'rgba(234,179,8,0.2)', color: '#fde047' } },
 ];
 
-const BUILTIN_TAG_INDEX = {
-  spongebob: 6,
-  doraemon: 0,
-  kuromi: 1,
-  shinchan: 3,
+/** 内置角色固定色相（用 hue 而不是下标，避免色库过滤后错位） */
+const BUILTIN_TAG_HUE = {
+  spongebob: 'yellow',
+  doraemon: 'sky',
+  kuromi: 'fuchsia',
+  shinchan: 'orange',
 };
 
 const HUE_NEAR = {
-  green: ['green', 'teal'],
-  blue: ['blue', 'indigo', 'cyan'],
-  orange: ['orange', 'amber'],
-  purple: ['purple', 'indigo'],
-  pink: ['pink', 'red'],
-  cyan: ['cyan', 'teal', 'blue'],
-  red: ['red', 'pink', 'orange'],
+  green: ['green', 'teal', 'lime'],
+  blue: ['blue', 'indigo', 'cyan', 'sky'],
+  orange: ['orange', 'amber', 'brown', 'yellow'],
+  purple: ['purple', 'indigo', 'violet'],
+  pink: ['pink', 'red', 'rose', 'fuchsia'],
+  cyan: ['cyan', 'teal', 'blue', 'sky'],
+  red: ['red', 'pink', 'rose', 'orange'],
+  violet: ['violet', 'purple', 'indigo'],
+  rose: ['rose', 'pink', 'red'],
+  lime: ['lime', 'green', 'teal'],
+  sky: ['sky', 'cyan', 'blue'],
+  fuchsia: ['fuchsia', 'pink', 'purple'],
+  brown: ['brown', 'orange', 'amber'],
+  slate: ['slate'],
+  yellow: ['yellow', 'amber', 'orange'],
 };
 
 function nearHues(hue) {
@@ -439,7 +456,10 @@ export function metaTagStyle(kind, theme) {
   return tagCustomStyle(c);
 }
 
-/** 解析分类色（与卡片标签同一套算法） */
+/**
+ * 解析分类色（与卡片标签同一套算法）。
+ * 只避开主题品牌近色，不再叠元信息色规避——否则微信绿主题下色库会被压成紫/粉/红三两色。
+ */
 export function resolveCategorySwatch(id, name, theme) {
   const t = theme || getCurrentTheme();
   // 「全部」跟主题品牌色，和未选分类时的默认选中态一致
@@ -451,17 +471,22 @@ export function resolveCategorySwatch(id, name, theme) {
       bg: dark ? hexToRgba(t.scale[7], 0.22) : t.scale[1],
     };
   }
-  const meta = getMetaSwatches(t);
-  const avoid = nearHues(t.hue)
-    .concat(nearHues(meta.count.hue))
-    .concat(nearHues(meta.download.hue));
-  const pool = CATEGORY_SWATCHES.filter((s) => avoid.indexOf(s.hue) < 0);
-  const palette = pool.length ? pool : CATEGORY_SWATCHES;
-  const builtinIdx = BUILTIN_TAG_INDEX[id];
-  const idx =
-    builtinIdx != null
-      ? builtinIdx % palette.length
-      : hashToIndex(String(name || id || ''), palette.length);
+
+  const avoidTheme = nearHues(t.hue);
+  let palette = CATEGORY_SWATCHES.filter((s) => avoidTheme.indexOf(s.hue) < 0);
+  // 色库被滤得太少时回退全量，优先保证角色之间可辨
+  if (palette.length < 8) palette = CATEGORY_SWATCHES.slice();
+
+  const builtinHue = BUILTIN_TAG_HUE[id];
+  if (builtinHue) {
+    const hit =
+      palette.find((s) => s.hue === builtinHue) ||
+      CATEGORY_SWATCHES.find((s) => s.hue === builtinHue);
+    if (hit) return resolveSwatch(hit);
+  }
+
+  // 用稳定 id 哈希；名字变更不改色
+  const idx = hashToIndex(String(id || name || ''), palette.length);
   return resolveSwatch(palette[idx]);
 }
 

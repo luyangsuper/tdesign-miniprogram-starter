@@ -62,6 +62,7 @@ import {
   getThemeId,
   getThemePresets,
   getThemeStyle,
+  resolveCategorySwatch,
   setThemeId,
 } from '~/utils/theme';
 import {
@@ -114,6 +115,23 @@ import {
   getFontScaleOptions,
   setFontScaleId,
 } from '~/utils/fontScale';
+import {
+  clearHomePref,
+  getHomePref,
+  getHomePrefBrief,
+  getHomePrefNote,
+  reorderFiltersByPref,
+  setHomePref,
+} from '~/utils/homePref';
+import {
+  CONTENT_TYPE_ALL,
+  contentTypeChipStyle,
+  contentTypeFilterLabel,
+  contentTypeFilterOptions,
+  contentTypeIconSrc,
+  normalizeContentType,
+} from '~/utils/contentType';
+import { CATEGORY_FILTER_ALL } from '~/utils/categories';
 
 /**
  * 预览普通用户：只隐藏管理员身份，仍按真实权益显示 VIP / 积分
@@ -201,6 +219,18 @@ Page({
     fontScaleOptions: getFontScaleOptions(),
     fontPreviewStyle: buildFontScaleStyle('standard'),
     displayPopupVisible: false,
+    homePrefNote: getHomePrefNote(),
+    homePrefPopupVisible: false,
+    homePrefContentTypeDraft: CONTENT_TYPE_ALL,
+    homePrefCategoryIdsDraft: [],
+    homePrefTypeOptions: contentTypeFilterOptions(),
+    homePrefCategoryOptions: [],
+    homePrefCatsLoading: false,
+    homePrefPreviewTypeName: contentTypeFilterLabel(CONTENT_TYPE_ALL),
+    homePrefPreviewTypeIcon: contentTypeIconSrc(CONTENT_TYPE_ALL),
+    homePrefPreviewTypeStyle: contentTypeChipStyle(CONTENT_TYPE_ALL),
+    homePrefPreviewCats: [{ id: 'all', name: '全部', tabStyle: '' }],
+    homePrefPreviewHint: '未设置偏好时进入首页为全部合集',
     navHeight: 64,
     navBarStyle: '',
     festivalActive: true,
@@ -494,6 +524,7 @@ Page({
       themeName: (hit && hit.name) || '微信绿',
       themePresets: presets,
       displaySettingsNote: getDisplaySettingsNote(),
+      homePrefNote: getHomePrefNote(),
       festivalMode: fest.mode,
       festivalModeLabel: fest.modeLabel,
       festivalActiveName: fest.activeName,
@@ -686,6 +717,282 @@ Page({
       displayPopupVisible: false,
     });
     wx.showToast({ title: '显示设置已更新', icon: 'success' });
+  },
+
+  /**
+   * @param {Array} list
+   * @param {string[]} selectedIds
+   * @param {{ reorder?: boolean }} [opts] 仅打开/加载时重排；点选时保持当前位置，避免「点一次乱一次」
+   */
+  _decorateHomePrefCategories(list, selectedIds, opts = {}) {
+    const selected = Array.isArray(selectedIds) ? selectedIds : [];
+    const selectedSet = new Set(selected);
+    const base = opts.reorder
+      ? reorderFiltersByPref(list || [], selected)
+      : Array.isArray(list)
+        ? list.slice()
+        : [];
+    return base.map((f) => {
+      const id = f.id || CATEGORY_FILTER_ALL;
+      const name = f.name || '';
+      const swatch = resolveCategorySwatch(id, name);
+      const checked =
+        id === CATEGORY_FILTER_ALL
+          ? selected.length === 0
+          : selectedSet.has(id);
+      // 颜色走 CSS 变量，由 .is-on 切换底/边，便于过渡动画
+      const chipStyle = `--cat-color:${swatch.color};--cat-bg:${swatch.bg};`;
+      return {
+        id,
+        name,
+        count: f.count || 0,
+        checked,
+        chipStyle,
+        accentColor: swatch.color,
+        tabStyle: `--home-cat-accent:${swatch.color}`,
+      };
+    });
+  },
+
+  _buildHomePrefPreview(contentType, categoryIds, categoryOptions) {
+    const type =
+      contentType === CONTENT_TYPE_ALL
+        ? CONTENT_TYPE_ALL
+        : normalizeContentType(contentType);
+    const ids = Array.isArray(categoryIds) ? categoryIds : [];
+    const options = Array.isArray(categoryOptions) ? categoryOptions : [];
+    // 预览不重排列表，只按当前选项取展示
+    const decorated = this._decorateHomePrefCategories(options, ids, {
+      reorder: false,
+    });
+    const allTab = (() => {
+      const hit = decorated.find((c) => c.id === CATEGORY_FILTER_ALL);
+      if (hit) return hit;
+      const swatch = resolveCategorySwatch('all', '全部');
+      return {
+        id: 'all',
+        name: '全部',
+        tabStyle: `--home-cat-accent:${swatch.color}`,
+      };
+    })();
+    let previewCats = [];
+    if (!ids.length) {
+      // 未选角色 → 首页落在「全部」
+      previewCats = [allTab];
+    } else if (ids.length === 1) {
+      // 单选 → 首页直接进该角色
+      const hit = decorated.find((c) => c.id === ids[0]);
+      previewCats = hit ? [hit] : [allTab];
+    } else {
+      // 多选 → 首页仍是「全部」，偏好角色仅置顶；预览与真实行为一致
+      const pinned = ids
+        .map((id) => decorated.find((c) => c.id === id))
+        .filter(Boolean)
+        .slice(0, 3);
+      previewCats = [allTab].concat(pinned);
+    }
+    const draftPref = {
+      saved: true,
+      contentType: type,
+      categoryIds: ids,
+      categoryNames: ids.map((id) => {
+        const hit = decorated.find((c) => c.id === id);
+        return (hit && hit.name) || '';
+      }),
+    };
+    const typeOpts = contentTypeFilterOptions();
+    const typeHit = typeOpts.find((o) => o.id === type);
+    return {
+      // 与下方选项文案一致（不限 / 表情…），避免预览写「类型」、选项写「不限」
+      homePrefPreviewTypeName: (typeHit && typeHit.name) || contentTypeFilterLabel(type),
+      homePrefPreviewTypeIcon: contentTypeIconSrc(type),
+      homePrefPreviewTypeStyle: contentTypeChipStyle(type),
+      homePrefPreviewCats: previewCats,
+      homePrefPreviewHint: getHomePrefBrief(draftPref) || '进入首页将按此筛选',
+    };
+  },
+
+  openHomePrefSettings() {
+    const pref = getHomePref();
+    const contentType =
+      pref.contentType === CONTENT_TYPE_ALL
+        ? CONTENT_TYPE_ALL
+        : normalizeContentType(pref.contentType);
+    const categoryIds = Array.isArray(pref.categoryIds) ? pref.categoryIds.slice() : [];
+    this.setData({
+      homePrefPopupVisible: true,
+      homePrefContentTypeDraft: contentType,
+      homePrefCategoryIdsDraft: categoryIds,
+      homePrefTypeOptions: contentTypeFilterOptions(),
+      homePrefCategoryOptions: [],
+      ...this._buildHomePrefPreview(contentType, categoryIds, []),
+    });
+    this.loadHomePrefCategories(contentType, categoryIds);
+  },
+
+  closeHomePrefSettings() {
+    if (!this.data.homePrefPopupVisible) return;
+    this.setData({ homePrefPopupVisible: false });
+  },
+
+  onHomePrefPopupChange(e) {
+    const visible = !!(e.detail && e.detail.visible);
+    this.setData({ homePrefPopupVisible: visible });
+  },
+
+  async loadHomePrefCategories(contentType, keepCategoryIds) {
+    const seq = (this._homePrefCatSeq = (this._homePrefCatSeq || 0) + 1);
+    this.setData({ homePrefCatsLoading: true });
+    try {
+      const res = await callFunction('listCategories', { contentType });
+      if (seq !== this._homePrefCatSeq) return;
+      const raw = (res.data && res.data.filters) || [
+        { id: 'all', name: '全部', count: 0 },
+      ];
+      const base = raw
+        .filter((f) => f.id === 'all' || (f.count || 0) > 0)
+        .map((f) => ({
+          id: f.id,
+          name: f.name || f.label || '',
+          count: f.count || 0,
+        }));
+      const keep = Array.isArray(keepCategoryIds)
+        ? keepCategoryIds
+        : this.data.homePrefCategoryIdsDraft || [];
+      const validKeep = keep.filter((id) =>
+        base.some((f) => f.id === id && f.id !== CATEGORY_FILTER_ALL),
+      );
+      // 打开时按已保存偏好把角色顶到前面；之后点选不再重排
+      const decorated = this._decorateHomePrefCategories(
+        base.length ? base : [{ id: 'all', name: '全部', count: 0 }],
+        validKeep,
+        { reorder: true },
+      );
+      this.setData({
+        homePrefCategoryOptions: decorated,
+        homePrefCategoryIdsDraft: validKeep,
+        homePrefCatsLoading: false,
+        ...this._buildHomePrefPreview(
+          contentType || this.data.homePrefContentTypeDraft,
+          validKeep,
+          decorated,
+        ),
+      });
+    } catch (e) {
+      if (seq !== this._homePrefCatSeq) return;
+      const fallback = this._decorateHomePrefCategories(
+        [{ id: 'all', name: '全部', count: 0 }],
+        [],
+        { reorder: false },
+      );
+      this.setData({
+        homePrefCategoryOptions: fallback,
+        homePrefCategoryIdsDraft: [],
+        homePrefCatsLoading: false,
+        ...this._buildHomePrefPreview(
+          contentType || this.data.homePrefContentTypeDraft,
+          [],
+          fallback,
+        ),
+      });
+    }
+  },
+
+  onPickHomePrefType(e) {
+    const raw =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      (e.target && e.target.dataset && e.target.dataset.id) ||
+      '';
+    const next =
+      raw === CONTENT_TYPE_ALL ? CONTENT_TYPE_ALL : normalizeContentType(raw);
+    if (next === this.data.homePrefContentTypeDraft) return;
+    this.setData({
+      homePrefContentTypeDraft: next,
+      homePrefCategoryIdsDraft: [],
+      homePrefCategoryOptions: [],
+      ...this._buildHomePrefPreview(next, [], []),
+    });
+    this.loadHomePrefCategories(next, []);
+  },
+
+  onPickHomePrefCategory(e) {
+    const raw =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      (e.target && e.target.dataset && e.target.dataset.id) ||
+      '';
+    const id = String(raw || CATEGORY_FILTER_ALL);
+    const options = this.data.homePrefCategoryOptions || [];
+    if (!options.some((f) => f.id === id)) return;
+
+    let nextIds = (this.data.homePrefCategoryIdsDraft || []).slice();
+    if (id === CATEGORY_FILTER_ALL) {
+      // 点「全部」= 不限定角色
+      nextIds = [];
+    } else {
+      const idx = nextIds.indexOf(id);
+      if (idx >= 0) nextIds.splice(idx, 1);
+      else nextIds.push(id);
+    }
+    // 保持当前列表顺序，只切换勾选态
+    const decorated = this._decorateHomePrefCategories(
+      options.map((f) => ({ id: f.id, name: f.name, count: f.count })),
+      nextIds,
+      { reorder: false },
+    );
+    this.setData({
+      homePrefCategoryIdsDraft: nextIds,
+      homePrefCategoryOptions: decorated,
+      ...this._buildHomePrefPreview(
+        this.data.homePrefContentTypeDraft,
+        nextIds,
+        decorated,
+      ),
+    });
+  },
+
+  onConfirmHomePrefSettings() {
+    const contentType = this.data.homePrefContentTypeDraft || CONTENT_TYPE_ALL;
+    const categoryIds = (this.data.homePrefCategoryIdsDraft || []).slice();
+    const options = this.data.homePrefCategoryOptions || [];
+    const categoryNames = categoryIds.map((id) => {
+      const hit = options.find((f) => f.id === id);
+      return (hit && hit.name) || '';
+    });
+    const pref = setHomePref({
+      saved: true,
+      contentType,
+      categoryIds,
+      categoryNames,
+    });
+    this.setData({
+      homePrefNote: getHomePrefNote(pref),
+      homePrefPopupVisible: false,
+    });
+    wx.showToast({ title: '首页偏好已保存', icon: 'success' });
+  },
+
+  onClearHomePrefSettings() {
+    clearHomePref();
+    this.setData({
+      homePrefNote: getHomePrefNote(),
+      homePrefPopupVisible: false,
+      homePrefContentTypeDraft: CONTENT_TYPE_ALL,
+      homePrefCategoryIdsDraft: [],
+    });
+    wx.showToast({ title: '已恢复默认首页', icon: 'none' });
+  },
+
+  /** 偏好里缺角色 / 资源少 → 关掉偏好，打开意见反馈 */
+  onHomePrefGoFeedback() {
+    const patch = {
+      homePrefPopupVisible: false,
+      feedbackVisible: true,
+    };
+    // 输入框为空时带一句提示，方便直接写想要的角色
+    if (!String(this.data.feedbackContent || '').trim()) {
+      patch.feedbackContent = '希望增加角色：';
+    }
+    this.setData(patch);
   },
 
   openFeedback() {

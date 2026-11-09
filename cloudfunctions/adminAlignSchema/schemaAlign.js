@@ -2,7 +2,7 @@
  * 云库结构对齐（可扩展）
  *
  * 代码里的 create/update 会写新字段，但线上旧文档可能缺字段或取值不合规。
- * 管理端「对齐云库结构」会跑这里登记的全部 aligner，把线上数据拉齐到当前 schema。
+ * 管理端「对齐云库结构」会跑这里登记的全部 aligner，把线上数据/索引拉齐到当前 schema。
  *
  * ——— 以后扩展字段时 ———
  * 1. 业务写入（adminCreatePack / login / …）加上新字段
@@ -13,6 +13,7 @@
  * aligner 形态：
  * - kind: 'collection' → 扫集合，alignDoc(doc, ctx) => { patch, fields } | null
  * - kind: 'config'     → 单次配置对齐，align(db, ctx) => { patched, detail }
+ * - kind: 'indexes'    → 幂等补复合索引（dbIndexes.js），align(db, ctx) => { patched, detail }
  */
 
 const {
@@ -21,9 +22,14 @@ const {
   isEmojiType,
 } = require('./contentType');
 const { repairPointsConfig } = require('./pointsSettings');
+const {
+  PACK_INDEXES,
+  ensurePackIndexes,
+  summarizeIndexResults,
+} = require('./dbIndexes');
 
 /** 当前代码期望的云库结构版本；加字段/规则时 +1 */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 function asString(v) {
   return v == null ? '' : String(v);
@@ -223,6 +229,43 @@ const ALIGNERS = [
         dryRun: ctx.dryRun,
         openid: ctx.openid,
       });
+    },
+  },
+  {
+    id: 'packs.indexes',
+    kind: 'indexes',
+    collection: 'packs',
+    label: '合集索引 packs',
+    description:
+      '热门/最新列表复合索引（status + downloadCount / categoryId / contentType 等），幂等创建',
+    async align(_db, ctx) {
+      const planned = PACK_INDEXES.map((x) => x.name);
+      if (ctx.dryRun) {
+        // 扫描阶段不调开放接口；真正写入时再幂等 ensure
+        return {
+          patched: false,
+          missingKeys: [],
+          detail: {
+            mode: 'ensure_on_apply',
+            planned,
+            count: planned.length,
+          },
+        };
+      }
+      const list = await ensurePackIndexes(ctx.cloud);
+      const sum = summarizeIndexResults(list);
+      const failed = list.filter((x) => x.status === 'failed');
+      return {
+        // 有新建或失败都算「触及」，方便摘要展示
+        patched: sum.created > 0 || sum.failed > 0,
+        missingKeys: failed.map((x) => x.name),
+        detail: {
+          mode: 'ensure',
+          planned,
+          results: list,
+          ...sum,
+        },
+      };
     },
   },
   // —— 以后在这里追加，例如：

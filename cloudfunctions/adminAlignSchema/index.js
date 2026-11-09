@@ -6,6 +6,7 @@ const {
   listAligners,
   asString,
 } = require('./schemaAlign');
+const { PACK_INDEXES } = require('./dbIndexes');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
@@ -96,7 +97,7 @@ async function runCollectionAligner(aligner, { dryRun, openid }) {
 }
 
 async function runConfigAligner(aligner, { dryRun, openid }) {
-  const result = await aligner.align(db, { dryRun, openid, serverDate });
+  const result = await aligner.align(db, { dryRun, openid, serverDate, cloud });
   const missingKeys = (result && result.missingKeys) || [];
   const patched = !!(result && result.patched);
   return {
@@ -112,6 +113,44 @@ async function runConfigAligner(aligner, { dryRun, openid }) {
     }, {}),
     samples: [],
     changed: patched,
+    detail: result || {},
+  };
+}
+
+async function runIndexesAligner(aligner, { dryRun, openid }) {
+  const result = await aligner.align(db, { dryRun, openid, serverDate, cloud });
+  const detail = (result && result.detail) || {};
+  const planned = Array.isArray(detail.planned)
+    ? detail.planned
+    : PACK_INDEXES.map((x) => x.name);
+  const indexResults = Array.isArray(detail.results) ? detail.results : [];
+  const createdN = Number(detail.created) || 0;
+  const skippedN = Number(detail.skipped) || 0;
+  const failedN = Number(detail.failed) || 0;
+  const fieldCounts = {};
+  if (dryRun) {
+    fieldCounts.planned = planned.length;
+  } else {
+    if (createdN) fieldCounts.created = createdN;
+    if (skippedN) fieldCounts.skipped = skippedN;
+    if (failedN) fieldCounts.failed = failedN;
+  }
+  const touched = createdN + failedN;
+  return {
+    id: aligner.id,
+    kind: 'indexes',
+    label: aligner.label,
+    description: aligner.description,
+    scanned: planned.length || 1,
+    // 扫描阶段不计入「需写字段」；真正 ensure 时用新建/失败条数
+    patched: dryRun ? 0 : touched,
+    fieldCounts,
+    samples: indexResults.slice(0, 8).map((x) => ({
+      id: x.name,
+      title: x.name,
+      fields: [x.status],
+    })),
+    changed: !dryRun && touched > 0,
     detail: result || {},
   };
 }
@@ -133,6 +172,9 @@ async function runAllAligners({ dryRun, openid, onlyIds }) {
     } else if (aligner.kind === 'config') {
       // eslint-disable-next-line no-await-in-loop
       one = await runConfigAligner(aligner, { dryRun, openid });
+    } else if (aligner.kind === 'indexes') {
+      // eslint-disable-next-line no-await-in-loop
+      one = await runIndexesAligner(aligner, { dryRun, openid });
     } else {
       one = {
         id: aligner.id,
@@ -179,8 +221,9 @@ async function writeSchemaMeta({ openid, dryRun, results }) {
 /**
  * action:
  * - info：当前 schema 版本与 aligner 清单（不加扫描）
- * - scan：只统计，不写库
- * - applyAll：跑完全部 aligner 并写入
+ * - scan：只统计，不写库（索引仅预告，真正 ensure 在 apply）
+ * - applyAll / apply：跑 aligner 并写入
+ * - ensureIndexes：只补 packs 复合索引（字段已齐时前端会走这条）
  * only：可选 string[]，只跑指定 aligner id
  */
 exports.main = async (event = {}) => {
@@ -191,9 +234,12 @@ exports.main = async (event = {}) => {
   }
 
   const action = String(event.action || 'scan').trim();
-  const only = Array.isArray(event.only)
+  let only = Array.isArray(event.only)
     ? event.only.map(String).filter(Boolean)
     : [];
+  if (action === 'ensureIndexes') {
+    only = ['packs.indexes'];
+  }
 
   if (action === 'info') {
     return {
@@ -206,7 +252,12 @@ exports.main = async (event = {}) => {
   }
 
   const dryRun = action === 'scan' || !!event.dryRun;
-  if (action !== 'scan' && action !== 'applyAll' && action !== 'apply') {
+  if (
+    action !== 'scan' &&
+    action !== 'applyAll' &&
+    action !== 'apply' &&
+    action !== 'ensureIndexes'
+  ) {
     return { ok: false, code: 'BAD_ACTION', message: '未知操作' };
   }
 

@@ -6,7 +6,7 @@ Page({
   data: {
     themeStyle: '',
     appName: '趣图铺子',
-    appVersion: config.appVersion || '3.1.0',
+    appVersion: config.appVersion || '3.2.3',
     intro:
       '趣图铺子用来发现和保存表情、壁纸、头像、视频等素材合集。首页看封面，详情看预览；用包月额度或积分把原文件存进相册，也可以先收藏，改天再来。',
     tips: [

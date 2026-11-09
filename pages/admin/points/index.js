@@ -187,6 +187,25 @@ Page({
     const results = Array.isArray(data.results) ? data.results : [];
     if (results.length) {
       results.forEach((r) => {
+        if (r.kind === 'indexes') {
+          const fc = r.fieldCounts || {};
+          if (data.dryRun) {
+            parts.push(
+              `${r.label || r.id}：写入时确保 ${fc.planned || r.scanned || 0} 个索引`,
+            );
+            return;
+          }
+          const bits = [];
+          if (fc.created) bits.push(`新建 ${fc.created}`);
+          if (fc.skipped) bits.push(`已有 ${fc.skipped}`);
+          if (fc.failed) bits.push(`失败 ${fc.failed}`);
+          parts.push(
+            bits.length
+              ? `${r.label || r.id}：${bits.join(' · ')}`
+              : `${r.label || r.id}：已齐`,
+          );
+          return;
+        }
         const verb = data.dryRun ? '需改' : '已改';
         const line = `${r.label || r.id}：扫 ${r.scanned || 0}，${verb} ${r.patched || 0}`;
         const keys = Object.keys(r.fieldCounts || {});
@@ -228,7 +247,7 @@ Page({
     wx.showModal({
       title: '对齐云库结构',
       content:
-        '按当前代码 schema 扫描线上数据（合集、积分配置等），缺字段补默认、非法值纠正。以后扩展字段部署后仍用此按钮。是否开始？',
+        '按当前代码 schema 扫描线上数据（合集、积分配置等），缺字段补默认；并确保热门/最新列表复合索引。是否开始？',
       confirmText: '开始扫描',
       success: (r) => {
         if (r.confirm) this.doAlignSchema();
@@ -251,11 +270,23 @@ Page({
 
       const need = Number(scanData.patched) || 0;
       if (!need) {
-        const text = this.formatAlignSummary(scanData);
-        this.setData({ repairResultText: text || '已与当前 schema 一致' });
+        // 字段已齐：仍一键补索引（幂等）
+        wx.showLoading({ title: '补索引中', mask: true });
+        const idxRes = await callFunction('adminAlignSchema', {
+          action: 'ensureIndexes',
+        });
+        wx.hideLoading();
+        const idxData = (idxRes && idxRes.data) || {};
+        const text = [
+          this.formatAlignSummary(scanData),
+          this.formatAlignSummary({ ...idxData, dryRun: false }),
+        ]
+          .filter(Boolean)
+          .join('\n');
+        this.setData({ repairResultText: text || '字段已齐，索引已检查' });
         wx.showModal({
-          title: '无需写入',
-          content: text || '线上数据已与当前代码 schema 一致。',
+          title: '对齐完成',
+          content: text || '字段已齐；索引已检查/补齐。',
           showCancel: false,
         });
         return;

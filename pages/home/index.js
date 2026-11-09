@@ -69,6 +69,11 @@ import {
   readHomeSnapshot,
   writeHomeSnapshot,
 } from '~/utils/homeSnapshot';
+import {
+  getHomePref,
+  reorderFiltersByPref,
+  resolveHomePrefCategoryId,
+} from '~/utils/homePref';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
 import {
   getActiveFestival,
@@ -128,9 +133,8 @@ function appendColumns(columns, newItems, columnCount) {
 }
 
 /**
- * 瀑布流分段：每凑满 every 个合集插一条通栏原生广告（横版模板适合通栏，不适合塞进单列窄卡）。
- * every 由 resolveHomeFeedAdEvery(列数) 换算：管理端按约 2 列配置，1 列更密、多列更疏。
- * 不插广告时必须整表一块 grid，禁止按 every 切开——否则列高会在段界重置，VIP/管理员会看到空白间隔。
+ * 瀑布流：竖版广告卡插入列内（与合集卡同宽），不再通栏切开。
+ * every 由 resolveHomeFeedAdEvery(列数) 换算；不插广告时整表一块 grid。
  * 最后不足一组不插，避免总贴在「没有更多了」上面。
  */
 function buildFeedBlocks(list, columnCount, every, showAds) {
@@ -146,25 +150,30 @@ function buildFeedBlocks(list, columnCount, every, showAds) {
     ];
   }
   const n = Math.max(1, Number(every) || 6);
-  const blocks = [];
+  const mixed = [];
   let adSeq = 0;
-  for (let i = 0; i < items.length; i += n) {
-    const chunk = items.slice(i, i + n);
-    blocks.push({
-      key: `g-${i}`,
-      type: 'grid',
-      columns: buildColumns(chunk, columnCount),
-    });
-    if (chunk.length >= n) {
-      blocks.push({
+  for (let i = 0; i < items.length; i += 1) {
+    mixed.push(items[i]);
+    // 每满 every 条插一张；不贴在列表末尾，避免紧挨「没有更多了」
+    if ((i + 1) % n === 0 && i + 1 < items.length) {
+      mixed.push({
+        _id: `feed-ad-${adSeq}`,
         key: `ad-${adSeq}`,
-        type: 'ad',
+        isAd: true,
         hidden: false,
+        // 竖版卡占位，接近合集封面比例，避免列高估算偏差过大
+        coverRatio: 1.2,
       });
       adSeq += 1;
     }
   }
-  return blocks;
+  return [
+    {
+      key: 'g-all',
+      type: 'grid',
+      columns: buildColumns(mixed, columnCount),
+    },
+  ];
 }
 
 /** 列表元数据内存缓存；封面链另用 tempUrlCache，过期则静默换签 */
@@ -355,6 +364,12 @@ Page({
     this.maybeShowSubscribeGuide();
     try {
       const app = getApp();
+      if (this._pendingHomePrefApply) {
+        this._pendingHomePrefApply = false;
+        if (app.globalData) app.globalData.homeNeedRefresh = false;
+        this.applyHomePrefOnBoot({ forceReload: true });
+        return;
+      }
       if (app.globalData && app.globalData.homeNeedRefresh) {
         app.globalData.homeNeedRefresh = false;
         this.clearListCache();
@@ -610,6 +625,9 @@ Page({
       }
     };
     this._onWaterfallColumnsChange = () => this.updateLayout();
+    this._onHomePrefChange = () => {
+      this._pendingHomePrefApply = true;
+    };
     try {
       const app = getApp();
       if (app && typeof app.captureOaEntry === 'function') {
@@ -625,6 +643,7 @@ Page({
         app.eventBus.on('adminViewChange', this._onAdminViewChange);
         app.eventBus.on('festivalChange', this._onFestivalChange);
         app.eventBus.on('waterfallColumnsChange', this._onWaterfallColumnsChange);
+        app.eventBus.on('homePrefChange', this._onHomePrefChange);
       }
     } catch (e) {
       /* ignore */
@@ -633,7 +652,8 @@ Page({
     this.updateLayout();
     this.updateScrollerHeight();
     this.refreshAdmin();
-    // 本地快照先出壳，再拉分类 + 静默刷新列表
+    // 有保存偏好则先套默认筛选，再出快照壳 / 拉列表
+    this.applyHomePrefOnBoot();
     this.hydrateFromSnapshot();
     this.loadCategories();
     this.loadList(true);
@@ -670,6 +690,9 @@ Page({
         if (this._onFestivalChange) app.eventBus.off('festivalChange', this._onFestivalChange);
         if (this._onWaterfallColumnsChange) {
           app.eventBus.off('waterfallColumnsChange', this._onWaterfallColumnsChange);
+        }
+        if (this._onHomePrefChange) {
+          app.eventBus.off('homePrefChange', this._onHomePrefChange);
         }
       }
     } catch (e) {
@@ -979,9 +1002,21 @@ Page({
       ? e.currentTarget.dataset.key
       : '';
     if (!key) return;
-    const feedBlocks = (this.data.feedBlocks || []).map((b) =>
-      b && b.key === key ? { ...b, hidden: true } : b,
-    );
+    const feedBlocks = (this.data.feedBlocks || []).map((b) => {
+      if (!b || b.type !== 'grid') {
+        return b && b.key === key ? { ...b, hidden: true } : b;
+      }
+      return {
+        ...b,
+        columns: (b.columns || []).map((col) =>
+          (col || []).map((item) =>
+            item && (item.key === key || item._id === key)
+              ? { ...item, hidden: true }
+              : item,
+          ),
+        ),
+      };
+    });
     this.setData({ feedBlocks });
   },
 
@@ -1062,16 +1097,99 @@ Page({
     clearHomeSnapshot();
   },
 
+  /**
+   * 冷启动 / 偏好变更：套用已保存的默认筛选。
+   * 同步写入 this.data，保证紧随其后的 hydrate / loadList 读到新筛选。
+   * @param {{ forceReload?: boolean }} [options]
+   */
+  applyHomePrefOnBoot(options = {}) {
+    const pref = getHomePref();
+    // 无偏好：冷启动保持默认；清除偏好后 forceReload 时复位到全部
+    if (!pref.saved) {
+      this._preferredCategoryIds = [];
+      if (!options.forceReload) return;
+      const contentType = CONTENT_TYPE_ALL;
+      const categoryId = CATEGORY_FILTER_ALL;
+      this._catSeq = (this._catSeq || 0) + 1;
+      const patch = {
+        contentType,
+        contentTypeName: contentTypeFilterLabel(contentType),
+        contentTypeIconSrc: contentTypeIconSrc(contentType),
+        contentTypeChipStyle: contentTypeChipStyle(contentType),
+        categoryId,
+        listTotal: 0,
+        filtersContentType: contentType,
+        filters: this.decorateFilters([{ id: 'all', name: '全部', count: 0 }]),
+      };
+      Object.assign(this.data, patch);
+      this.setData(patch, () => {
+        this.clearListCache();
+        clearHomeSnapshot();
+        this.resetListScroll();
+        this.loadCategories();
+        this.loadList(true, { force: true, forceRefresh: true });
+        setTimeout(() => this.measureFixedBar(), 30);
+      });
+      return;
+    }
+    const contentType =
+      pref.contentType === CONTENT_TYPE_ALL
+        ? CONTENT_TYPE_ALL
+        : normalizeContentType(pref.contentType);
+    const categoryId = resolveHomePrefCategoryId(pref);
+    this._preferredCategoryIds = Array.isArray(pref.categoryIds)
+      ? pref.categoryIds.slice()
+      : [];
+    this._catSeq = (this._catSeq || 0) + 1;
+    const patch = {
+      contentType,
+      contentTypeName: contentTypeFilterLabel(contentType),
+      contentTypeIconSrc: contentTypeIconSrc(contentType),
+      contentTypeChipStyle: contentTypeChipStyle(contentType),
+      categoryId,
+      listTotal: 0,
+      filtersContentType: contentType,
+      filters: this.decorateFilters([{ id: 'all', name: '全部', count: 0 }]),
+    };
+    // 同步写入，保证紧随其后的 hydrate / loadList 读到新筛选
+    Object.assign(this.data, patch);
+    this.setData(patch, () => {
+      if (options.forceReload) {
+        this.clearListCache();
+        clearHomeSnapshot();
+        this.resetListScroll();
+        this.loadCategories();
+        this.loadList(true, { force: true, forceRefresh: true });
+        setTimeout(() => this.measureFixedBar(), 30);
+      }
+    });
+  },
+
   /** 二次打开：用本地快照先铺瀑布流，减少白屏 */
   hydrateFromSnapshot() {
     const snap = readHomeSnapshot();
     if (!snap) return;
-    const categoryId = snap.categoryId || 'all';
-    const contentType = snap.contentType || CONTENT_TYPE_ALL;
     const keyword = String(snap.keyword || '').trim();
     if (keyword) return;
     const list = snap.list || [];
     if (!list.length) return;
+
+    const pref = getHomePref();
+    let categoryId = snap.categoryId || 'all';
+    let contentType = snap.contentType || CONTENT_TYPE_ALL;
+
+    if (pref.saved) {
+      // 有偏好时只接受与偏好一致的壳，避免闪出未偏好筛选
+      categoryId = this.data.categoryId || categoryId;
+      contentType = this.data.contentType || contentType;
+      if (
+        (snap.categoryId || 'all') !== categoryId ||
+        (snap.contentType || CONTENT_TYPE_ALL) !== contentType
+      ) {
+        return;
+      }
+    }
+
     const cacheKey = listCacheKey(categoryId, keyword, contentType);
     // at=0：快照只铺壳，随后 loadList 必走静默刷新换新签，避免过期封面裂图
     this._listCache[cacheKey] = {
@@ -1092,7 +1210,13 @@ Page({
       loading: false,
     };
     if (Array.isArray(snap.filters) && snap.filters.length) {
-      patch.filters = this.decorateFilters(snap.filters);
+      const prefIds =
+        this._preferredCategoryIds ||
+        (pref.saved && pref.categoryIds) ||
+        [];
+      patch.filters = this.decorateFilters(
+        reorderFiltersByPref(snap.filters, prefIds),
+      );
       patch.filtersContentType = contentType;
     }
     this.setData(patch);
@@ -1146,9 +1270,16 @@ Page({
           name: f.name || f.label || '',
           count: f.count || 0,
         }));
-      const next = this.decorateFilters(
+      const pref = getHomePref();
+      const prefIds =
+        this._preferredCategoryIds ||
+        (pref.saved && Array.isArray(pref.categoryIds) ? pref.categoryIds : []) ||
+        [];
+      const ordered = reorderFiltersByPref(
         filters.length ? filters : [{ id: 'all', name: '全部', count: 0 }],
+        prefIds,
       );
+      const next = this.decorateFilters(ordered);
       const patch = { filters: next, filtersContentType: contentType };
       if (!next.some((f) => f.id === this.data.categoryId)) {
         patch.categoryId = 'all';
@@ -2370,6 +2501,8 @@ Page({
         keyword,
         categoryId,
         contentType,
+        // 无搜索：最新为主并插花热门/旧合集；有搜索：纯最新
+        mode: keyword ? 'newest' : 'mixed',
         forceRefresh,
       });
       if (seq !== this._listSeq) return;
@@ -2394,7 +2527,17 @@ Page({
       const withRatio = await this.resolveCoverRatios(withStableCover, seq);
       if (!withRatio || seq !== this._listSeq) return;
 
-      const nextList = reset ? withRatio : this.data.list.concat(withRatio);
+      // 混排翻页可能把上一页热门又插进来：追加时按 _id 去重
+      let incoming = withRatio;
+      if (!reset) {
+        const seen = new Set(
+          (this.data.list || []).map((row) => row && row._id).filter(Boolean),
+        );
+        incoming = (withRatio || []).filter(
+          (row) => row && row._id && !seen.has(row._id),
+        );
+      }
+      const nextList = reset ? withRatio : this.data.list.concat(incoming);
       const nextPage = page + 1;
       const nextTotal = Number(total) >= 0 ? Number(total) : nextList.length;
 
@@ -2412,7 +2555,7 @@ Page({
         hasMore,
         total: nextTotal,
         // 分页追加：不重排已有列，避免旧卡片重挂封面空白
-        appendItems: reset ? null : withRatio,
+        appendItems: reset ? null : incoming,
       });
       // 用列表真实 total 校准分类 count，避免角标残留其它类型的数字
       if (reset && !keyword) {

@@ -332,6 +332,67 @@
         </view>
       </view>
     </view>
+
+    <view
+      class="detail__section detail__recommend"
+      wx:if="{{recommendLoading || recommendItems.length}}"
+    >
+      <view class="detail__section-title">推荐合集</view>
+      <view wx:if="{{recommendLoading && !recommendItems.length}}" class="detail__recommend-loading">
+        <fun-loading />
+      </view>
+      <view wx:else class="detail__recommend-scroll">
+        <scroll-view
+          class="detail__recommend-scroller"
+          scroll-x
+          enhanced
+          show-scrollbar="{{false}}"
+          enable-flex
+        >
+          <view class="detail__recommend-row" style="gap: {{recommendGap}}px;">
+            <block wx:for="{{recommendItems}}" wx:key="key">
+              <view
+                wx:if="{{item.type === 'pack' && item.pack}}"
+                class="detail__recommend-item"
+                style="width: {{recommendCardWidth}}px;"
+              >
+                <pack-card
+                  packId="{{item.pack._id}}"
+                  title="{{item.pack.title}}"
+                  coverUrl="{{item.pack.coverUrl}}"
+                  coverFileID="{{item.pack.coverFileID}}"
+                  contentType="{{item.pack.contentType}}"
+                  emojiCount="{{item.pack.emojiCount}}"
+                  downloadCount="{{item.pack.downloadCount}}"
+                  showDownloadCount="{{false}}"
+                  categoryId="{{item.pack.categoryId}}"
+                  categoryName="{{item.pack.categoryName}}"
+                  coverRatio="{{item.pack.coverRatio || 0}}"
+                  cardWidth="{{recommendCardWidth}}"
+                  linkMode="redirect"
+                />
+              </view>
+              <view
+                wx:elif="{{item.type === 'ad' && !item.hidden && showRecommendAd && recommendAdUnitId}}"
+                class="detail__recommend-item detail__recommend-ad"
+                style="width: {{recommendAdWidth}}px; height: {{recommendAdHeight}}px;"
+              >
+                <ad-custom
+                  unit-id="{{recommendAdUnitId}}"
+                  data-key="{{item.key}}"
+                  binderror="onRecommendAdError"
+                />
+              </view>
+            </block>
+          </view>
+        </scroll-view>
+        <view
+          wx:if="{{recommendItems.length > recommendColumns}}"
+          class="detail__recommend-fade"
+          aria-hidden="true"
+        />
+      </view>
+    </view>
   </view>
   </block>
 

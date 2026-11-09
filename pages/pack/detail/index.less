@@ -292,6 +292,78 @@
     margin-bottom: 16rpx;
   }
 
+  &__recommend {
+    /* 用次级底衬托白卡片，避免信息区与区块白底糊成一片 */
+    padding-right: 0;
+    background: var(--td-bg-color-secondarycontainer);
+  }
+
+  &__recommend-loading {
+    display: flex;
+    justify-content: center;
+    padding: 24rpx 32rpx 8rpx 0;
+  }
+
+  &__recommend-scroll {
+    position: relative;
+    width: 100%;
+  }
+
+  &__recommend-scroller {
+    width: 100%;
+  }
+
+  &__recommend-row {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    /* 不拉齐高度，封面比例不同则卡片高低不同 */
+    align-items: flex-start;
+    gap: 6px;
+    /* 右侧多留空隙，滑到底仍舒服 */
+    padding-right: 48rpx;
+    box-sizing: border-box;
+  }
+
+  &__recommend-item {
+    flex-shrink: 0;
+    align-self: flex-start;
+    border-radius: 9px;
+    overflow: hidden;
+    background: var(--td-bg-color-container);
+    box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  }
+
+  /* 横滑横版广告：宽卡 + 固定 16:9，避免塞进竖卡方框被压扁 */
+  &__recommend-ad {
+    box-sizing: border-box;
+    padding: 0;
+    overflow: hidden;
+    background: var(--td-bg-color-container);
+
+    ad-custom {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  /* 右侧淡出，强化「后面还有」 */
+  &__recommend-fade {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 48rpx;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0),
+      var(--td-bg-color-secondarycontainer)
+    );
+  }
+
   &__hint {
     .ui-caption();
     margin-bottom: 24rpx;

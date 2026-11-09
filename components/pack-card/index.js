@@ -74,6 +74,16 @@ Component({
       type: Boolean,
       value: true,
     },
+    /** 首页已筛主分类时可不显示封面上的类型角标，避免重复 */
+    showTypeBadge: {
+      type: Boolean,
+      value: true,
+    },
+    /** navigate：压栈；redirect：详情推荐跳转，避免层层详情 */
+    linkMode: {
+      type: String,
+      value: 'navigate',
+    },
   },
 
   data: {
@@ -94,7 +104,7 @@ Component({
         this.setData({ adminActionsVisible: false });
       }
     },
-    'emojiCount, downloadCount, categoryId, categoryName, showDownloadCount, contentType, cardWidth':
+    'emojiCount, downloadCount, categoryId, categoryName, showDownloadCount, contentType, cardWidth, showTypeBadge':
       function () {
         this.refreshTags();
       },
@@ -163,6 +173,7 @@ Component({
         showDownloadCount,
         contentType,
         cardWidth,
+        showTypeBadge,
       } = this.data;
       const type = normalizeContentType(contentType);
       const w = Number(cardWidth) || 0;
@@ -170,12 +181,14 @@ Component({
       const narrow = !w || w < 150;
       const medium = w >= 150 && w < 210;
 
-      const typeBadge = {
-        text: contentTypeLabel(type),
-        iconSrc: contentTypeIconSrc(type),
-        /* 仅文字色；半透明白底交给 less，保证封面可读 */
-        customStyle: contentTypeColorStyle(type),
-      };
+      const typeBadge = showTypeBadge
+        ? {
+            text: contentTypeLabel(type),
+            iconSrc: contentTypeIconSrc(type),
+            /* 仅文字色；半透明白底交给 less，保证封面可读 */
+            customStyle: contentTypeColorStyle(type),
+          }
+        : null;
       const typeBadgeCompact = narrow;
 
       const tags = [];
@@ -264,16 +277,19 @@ Component({
     },
 
     onTap() {
-      const { packId, selectMode } = this.data;
+      const { packId, selectMode, linkMode } = this.data;
       if (!packId) return;
       if (selectMode) {
         // 类型不一致时仍上报，由首页 toast 提示「只能选同类型」
         this.triggerEvent('toggle', { packId });
         return;
       }
-      wx.navigateTo({
-        url: `/pages/pack/detail/index?id=${packId}`,
-      });
+      const url = `/pages/pack/detail/index?id=${packId}`;
+      if (linkMode === 'redirect') {
+        wx.redirectTo({ url });
+        return;
+      }
+      wx.navigateTo({ url });
     },
 
     onLongPress() {

@@ -38,6 +38,7 @@ import { resolveIsAdmin } from '~/utils/auth';
 import { applyThemeToPage, getThemeBrand, getThemeStyle } from '~/utils/theme';
 import { getFestivalConfettiColors } from '~/utils/festival';
 import { getWindowInfoSafe } from '~/utils/systemInfo';
+import { resolveWaterfallColumns } from '~/utils/waterfallColumns';
 import { getFavoriteCached, queueFavorite, rememberFavorite } from '~/utils/favoriteQueue';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
 import {
@@ -50,6 +51,7 @@ import {
 } from '~/utils/adReward';
 import {
   getNativePackDetailAdUnitId,
+  getNativePackRecommendAdUnitId,
   shouldShowNativeAds,
 } from '~/utils/nativeAd';
 import { showPointsReward } from '~/utils/pointsReward';
@@ -61,6 +63,86 @@ function calcSwiperHeight() {
   } catch (e) {
     return 375;
   }
+}
+
+/**
+ * 推荐卡宽跟显示设置列数走；略收窄并露出下一张一截，暗示可横滑。
+ * 高度不拉齐，交给各卡 coverRatio 自然撑开。
+ * 横版广告单独给宽卡 + 16:9，避免塞进竖卡方框被压扁。
+ */
+function calcRecommendLayout() {
+  try {
+    const { windowWidth } = getWindowInfoSafe();
+    const columnCount = Math.max(1, resolveWaterfallColumns(windowWidth) || 2);
+    const gap = 6;
+    // 与区块左内边距（32rpx）对齐
+    const sidePad = Math.max(12, Math.round((32 / 750) * windowWidth));
+    // 露出下一张约 1/5 卡宽，让用户知道还能滑
+    const peek = Math.max(36, Math.round(windowWidth * 0.11));
+    const cardWidth = Math.floor(
+      (windowWidth - sidePad - peek - gap * (columnCount - 1)) / columnCount,
+    );
+    const recommendCardWidth = Math.max(96, cardWidth);
+    // 横版广告约两卡宽，高度按 16:9（模板常见比）
+    const recommendAdWidth = Math.min(
+      windowWidth - sidePad - peek,
+      recommendCardWidth * 2 + gap,
+    );
+    const recommendAdHeight = Math.max(
+      72,
+      Math.round((recommendAdWidth * 9) / 16),
+    );
+    return {
+      recommendCardWidth,
+      recommendAdWidth,
+      recommendAdHeight,
+      recommendGap: gap,
+      recommendColumns: columnCount,
+    };
+  } catch (e) {
+    return {
+      recommendCardWidth: 148,
+      recommendAdWidth: 302,
+      recommendAdHeight: 170,
+      recommendGap: 6,
+      recommendColumns: 2,
+    };
+  }
+}
+
+/**
+ * 合集卡片之间插入卡片广告：每 2 个合集后插 1 条，最多 2 条。
+ * @param {Array} packs
+ * @param {{ showAd?: boolean }} [opts]
+ */
+function buildRecommendItems(packs, opts = {}) {
+  const list = Array.isArray(packs) ? packs : [];
+  const items = [];
+  let adCount = 0;
+  const allowAd = !!opts.showAd;
+  list.forEach((pack, i) => {
+    if (!pack || !pack._id) return;
+    items.push({
+      type: 'pack',
+      key: pack._id,
+      pack,
+    });
+    // 每 2 个合集后插广告；不贴在最后一张后面
+    if (
+      allowAd &&
+      (i + 1) % 2 === 0 &&
+      i + 1 < list.length &&
+      adCount < 2
+    ) {
+      items.push({
+        type: 'ad',
+        key: `rec-ad-${adCount}`,
+        hidden: false,
+      });
+      adCount += 1;
+    }
+  });
+  return items;
 }
 
 function buildSaveLabel(
@@ -229,6 +311,8 @@ Page({
     adRewardHint: '',
     nativeAdUnitId: getNativePackDetailAdUnitId(),
     showNativeAd: false,
+    recommendAdUnitId: getNativePackRecommendAdUnitId(),
+    showRecommendAd: false,
     confirmVisible: false,
     confirmTitle: '',
     confirmContent: '',
@@ -236,18 +320,28 @@ Page({
     confirmOkText: '继续',
     themeStyle: '',
     themeBrand: '',
+    recommendList: [],
+    recommendItems: [],
+    recommendLoading: false,
+    recommendCardWidth: 148,
+    recommendAdWidth: 302,
+    recommendAdHeight: 170,
+    recommendGap: 6,
+    recommendColumns: 2,
   },
 
   _confirmResolve: null,
 
   onLoad(options) {
     const packId = options.id || '';
+    const recommendLayout = calcRecommendLayout();
     this.setData({
       packId,
       swiperHeight: calcSwiperHeight(),
       isAdmin: resolveIsAdmin(),
       themeStyle: getThemeStyle(),
       themeBrand: getThemeBrand(),
+      ...recommendLayout,
     });
     this.refreshEntitlementUi();
     this._onAdminViewChange = () => {
@@ -255,11 +349,15 @@ Page({
       this.refreshEntitlementUi();
     };
     this._onFavoriteChange = (payload) => this.applyFavoriteChange(payload);
+    this._onWaterfallColumnsChange = () => {
+      this.setData(calcRecommendLayout());
+    };
     try {
       const app = getApp();
       if (app && app.eventBus) {
         app.eventBus.on('adminViewChange', this._onAdminViewChange);
         app.eventBus.on('favoriteChange', this._onFavoriteChange);
+        app.eventBus.on('waterfallColumnsChange', this._onWaterfallColumnsChange);
       }
     } catch (e) {
       /* ignore */
@@ -274,6 +372,9 @@ Page({
       if (app && app.eventBus) {
         if (this._onAdminViewChange) app.eventBus.off('adminViewChange', this._onAdminViewChange);
         if (this._onFavoriteChange) app.eventBus.off('favoriteChange', this._onFavoriteChange);
+        if (this._onWaterfallColumnsChange) {
+          app.eventBus.off('waterfallColumnsChange', this._onWaterfallColumnsChange);
+        }
       }
     } catch (e) {
       /* ignore */
@@ -286,6 +387,7 @@ Page({
     this.refreshEntitlementUi();
     this.syncEntitlement();
     this.refreshFavorite();
+    this.setData(calcRecommendLayout());
   },
 
   applyAdminView() {
@@ -407,6 +509,9 @@ Page({
     const downloadReady = canAttemptDownload(entitlement, costKey);
     const isVip = !!entitlement.isVip;
     const unitId = getNativePackDetailAdUnitId();
+    const recommendAdUnitId = getNativePackRecommendAdUnitId();
+    const showAds = shouldShowNativeAds();
+    const showRecommendAd = !!recommendAdUnitId && showAds;
     const nextSlots = decorateSlots(
       emojiSlots,
       downloadReady,
@@ -417,7 +522,7 @@ Page({
       contentType,
     );
     const summary = summarizeSelection(nextSlots, downloadVariant, contentType);
-    this.setData({
+    const patch = {
       downloadReady,
       canSaveStatic,
       isVip,
@@ -428,12 +533,32 @@ Page({
       selectedCost: summary.selectedCost,
       allSelected: summary.allSelected,
       nativeAdUnitId: unitId,
-      showNativeAd: !!unitId && shouldShowNativeAds(),
-    });
+      showNativeAd: !!unitId && showAds,
+      recommendAdUnitId,
+      showRecommendAd,
+    };
+    // VIP / 管理员状态变化时，重排推荐里的广告卡
+    if (this.data.recommendList && this.data.recommendList.length) {
+      patch.recommendItems = buildRecommendItems(this.data.recommendList, {
+        showAd: showRecommendAd,
+      });
+    }
+    this.setData(patch);
   },
 
   onNativeAdError() {
     this.setData({ showNativeAd: false });
+  },
+
+  onRecommendAdError(e) {
+    const key =
+      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.key) ||
+      '';
+    if (!key) return;
+    const items = (this.data.recommendItems || []).map((it) =>
+      it && it.key === key ? { ...it, hidden: true } : it,
+    );
+    this.setData({ recommendItems: items });
   },
 
   applyAdRewardStatus(status) {
@@ -599,7 +724,14 @@ Page({
   },
 
   async loadDetail(packId) {
-    this.setData({ loading: true, heroSlides: [], heroCurrent: 0, heroVideoPlaying: false });
+    this.setData({
+      loading: true,
+      heroSlides: [],
+      heroCurrent: 0,
+      heroVideoPlaying: false,
+      recommendList: [],
+      recommendItems: [],
+    });
     try {
       const res = await callFunction('getPackDetail', { packId });
       const pack = res.data;
@@ -707,9 +839,59 @@ Page({
       wx.setNavigationBarTitle({ title: pack.title || '合集详情' });
       // 只拉当前变体原图；首屏一批，滚动再补（不用 preview 顶原图）
       this.prefetchSlotUrls(packId, { limit: SLOT_URL_FIRST });
+      this.loadRecommend(pack);
     } catch (e) {
-      this.setData({ loading: false, heroSlides: [] });
+      this.setData({
+        loading: false,
+        heroSlides: [],
+        recommendList: [],
+        recommendItems: [],
+      });
       wx.showToast({ title: e.message || '加载失败', icon: 'none' });
+    }
+  },
+
+  /** 底部推荐：同角色优先，随机若干合集抬曝光；合集间插入卡片广告 */
+  async loadRecommend(pack) {
+    const packId = (pack && pack._id) || this.data.packId;
+    if (!packId) return;
+    const seq = (this._recommendSeq = (this._recommendSeq || 0) + 1);
+    this.setData({ recommendLoading: true });
+    try {
+      const res = await callFunction('listPacks', {
+        mode: 'recommend',
+        excludePackId: packId,
+        categoryId: (pack && pack.categoryId) || 'all',
+        contentType: normalizeContentType((pack && pack.contentType) || this.data.contentType),
+        limit: 6,
+        pageSize: 6,
+      });
+      if (seq !== this._recommendSeq || this.data.packId !== packId) return;
+      const list = ((res.data && res.data.list) || [])
+        .filter((item) => item && item._id && item._id !== packId)
+        .map((item) => ({
+          ...item,
+          coverUrl: item.coverUrl
+            ? reuseTempUrl(packCoverCacheKey(item._id), item.coverUrl)
+            : '',
+        }));
+      const recommendAdUnitId = getNativePackRecommendAdUnitId();
+      const showRecommendAd =
+        !!recommendAdUnitId && shouldShowNativeAds();
+      this.setData({
+        recommendList: list,
+        recommendItems: buildRecommendItems(list, { showAd: showRecommendAd }),
+        recommendAdUnitId,
+        showRecommendAd,
+        recommendLoading: false,
+      });
+    } catch (e) {
+      if (seq !== this._recommendSeq) return;
+      this.setData({
+        recommendList: [],
+        recommendItems: [],
+        recommendLoading: false,
+      });
     }
   },
 

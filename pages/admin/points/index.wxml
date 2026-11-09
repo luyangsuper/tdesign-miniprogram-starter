@@ -268,7 +268,7 @@
     <view class="admin-points__card">
       <view class="admin-points__label">对齐云库结构</view>
       <view class="admin-points__hint admin-points__hint--block">
-        按当前代码 schema（合集、积分配置等）扫描线上数据：缺字段补默认、非法值纠正。以后扩展新字段部署云函数后，仍点此按钮即可；可重复执行，已对齐的不会改坏。
+        按当前代码 schema 扫描线上数据：缺字段补默认、非法值纠正；并一键补齐合集列表所需复合索引（热门/最新）。以后扩展字段或索引后部署云函数，仍点此按钮即可；可重复执行。
       </view>
       <view wx:if="{{schemaVersionText}}" class="admin-points__hint">
         {{schemaVersionText}}

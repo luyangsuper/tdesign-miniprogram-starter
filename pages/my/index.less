@@ -1030,13 +1030,9 @@
   margin-bottom: 0;
 }
 
+/* 预览刘海灰条：按产品要求隐藏 */
 .my__display-phone-notch {
-  width: 96rpx;
-  height: 10rpx;
-  margin: 0 auto 10rpx;
-  border-radius: 999rpx;
-  background: var(--td-component-border);
-  flex-shrink: 0;
+  display: none;
 }
 
 .my__display-phone-screen {
@@ -1299,6 +1295,276 @@
   margin-top: 16rpx;
   display: flex;
   gap: 16rpx;
+}
+
+.my__home-pref-loading {
+  .ui-caption();
+  padding: 8rpx 0 4rpx;
+}
+
+.my__home-pref-foot {
+  gap: 16rpx;
+}
+
+.my__home-pref-phone {
+  max-width: 460rpx;
+}
+
+.my__home-pref-phone-screen {
+  height: 360rpx;
+  min-height: 360rpx;
+  max-height: 360rpx;
+  padding: 10rpx 12rpx 12rpx;
+}
+
+.my__home-pref-phone-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48rpx;
+  margin-bottom: 8rpx;
+}
+
+.my__home-pref-phone-nav-title {
+  .ui-strong();
+  font-size: 22rpx;
+}
+
+.my__home-pref-phone-filter {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 10rpx;
+  min-width: 0;
+  height: 40rpx;
+}
+
+.my__home-pref-phone-type {
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  height: 40rpx;
+  padding: 0 12rpx;
+  border-radius: 999rpx;
+  box-sizing: border-box;
+}
+
+.my__home-pref-phone-type-icon {
+  width: 22rpx;
+  height: 22rpx;
+  display: block;
+  flex-shrink: 0;
+}
+
+.my__home-pref-phone-type-text {
+  font-size: 20rpx;
+  font-weight: 600;
+  line-height: 40rpx;
+  height: 40rpx;
+  color: inherit;
+}
+
+.my__home-pref-phone-cats {
+  flex: 1;
+  min-width: 0;
+  height: 40rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.my__home-pref-phone-cats-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
+  height: 40rpx;
+  white-space: nowrap;
+}
+
+.my__home-pref-phone-tab {
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 40rpx;
+  padding: 0 10rpx;
+  font-size: 20rpx;
+  line-height: 40rpx;
+  color: var(--td-text-color-secondary);
+  box-sizing: border-box;
+
+  &.is-on {
+    color: var(--home-cat-accent, var(--td-brand-color));
+    font-weight: 600;
+  }
+}
+
+.my__home-pref-phone-feed {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8rpx;
+  overflow: hidden;
+}
+
+.my__home-pref-type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.my__home-pref-type-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  min-height: 80rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 16rpx;
+  background: var(--td-bg-color-secondarycontainer);
+  box-sizing: border-box;
+  transition: opacity 0.16s ease;
+
+  &.is-on {
+    font-weight: 600;
+  }
+
+  &--press {
+    opacity: 0.78;
+  }
+}
+
+.my__home-pref-type-icon {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  display: block;
+}
+
+.my__home-pref-type-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--ui-fs-strong, @ui-fs-strong);
+  line-height: 1.3;
+  color: inherit;
+}
+
+.my__home-pref-cat-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 14rpx 12rpx;
+}
+
+.my__home-pref-cat {
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  max-width: 100%;
+  min-height: 60rpx;
+  padding: 10rpx 22rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+  color: var(--td-text-color-primary);
+  background-color: var(--td-bg-color-secondarycontainer);
+  box-shadow: 0 0 0 rgba(15, 40, 30, 0);
+  transition:
+    color 0.22s ease,
+    background-color 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.18s ease,
+    gap 0.2s ease,
+    padding 0.2s ease;
+
+  &.is-on {
+    font-weight: 600;
+    color: var(--cat-color, var(--td-brand-color));
+    background-color: var(--cat-bg, var(--td-bg-color-secondarycontainer));
+    border-color: var(--cat-color, var(--td-brand-color));
+    box-shadow: 0 4rpx 14rpx rgba(15, 40, 30, 0.08);
+    gap: 6rpx;
+  }
+
+  &--press {
+    opacity: 0.82;
+    transform: scale(0.97);
+  }
+}
+
+.my__home-pref-cat-text {
+  max-width: 280rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--ui-fs-strong, @ui-fs-strong);
+  line-height: 1.25;
+  color: inherit;
+  transition: color 0.22s ease;
+}
+
+.my__home-pref-cat-check {
+  flex-shrink: 0;
+  width: 0;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: scale(0.6);
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1),
+    width 0.2s ease,
+    max-width 0.2s ease;
+
+  &.is-show {
+    width: 28rpx;
+    max-width: 28rpx;
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.my__home-pref-feedback {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-top: 20rpx;
+  padding: 4rpx 0 0;
+}
+
+.my__home-pref-feedback-tip {
+  flex: 1;
+  min-width: 0;
+  .ui-caption();
+  color: var(--td-text-color-secondary);
+}
+
+.my__home-pref-feedback-btn {
+  flex-shrink: 0;
+  height: auto !important;
+  /* 保留按钮左右内边距，只压字号与左侧一致 */
+  padding: 0 12rpx !important;
+  --td-button-font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
+  --td-button-small-font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
+  --td-button-extra-small-font-size: var(--ui-fs-caption, @ui-fs-caption) !important;
+  --td-button-small-height: auto !important;
+  font-weight: 400 !important;
 }
 
 .my__display-foot-btn {

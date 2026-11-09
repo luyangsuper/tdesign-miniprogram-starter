@@ -218,41 +218,49 @@
                     wx:key="colIndex"
                     style="width: {{cardWidth}}px; gap: {{rowGap}}px;"
                   >
-                    <view class="home__item" wx:for="{{col}}" wx:for-item="pack" wx:key="_id">
-                      <pack-card
-                        packId="{{pack._id}}"
-                        title="{{pack.title}}"
-                        coverUrl="{{pack.coverUrl}}"
-                        coverFileID="{{pack.coverFileID}}"
-                        contentType="{{pack.contentType}}"
-                        emojiCount="{{pack.emojiCount}}"
-                        downloadCount="{{pack.downloadCount}}"
-                        categoryId="{{pack.categoryId}}"
-                        categoryName="{{pack.categoryName}}"
-                        coverRatio="{{pack.coverRatio}}"
-                        cardWidth="{{cardWidth}}"
-                        showAdmin="{{isAdmin}}"
-                        selectMode="{{selectMode}}"
-                        selected="{{selectedMap[pack._id] ? true : false}}"
-                        selectDisabled="{{selectMode && batchContentType && (pack.contentType || 'emoji') !== batchContentType && !selectedMap[pack._id]}}"
-                        bind:toggle="onTogglePack"
-                        bind:ratiochange="onCoverRatioChange"
-                        bind:covererror="onCoverError"
-                        bind:edit="onEditPack"
-                        bind:delete="onDeletePack"
-                      />
-                    </view>
+                    <block wx:for="{{col}}" wx:for-item="pack" wx:key="_id">
+                      <view
+                        wx:if="{{!pack.isAd || (!pack.hidden && showFeedAds && !selectMode && nativeAdUnitId)}}"
+                        class="home__item"
+                      >
+                        <pack-card
+                          wx:if="{{!pack.isAd}}"
+                          packId="{{pack._id}}"
+                          title="{{pack.title}}"
+                          coverUrl="{{pack.coverUrl}}"
+                          coverFileID="{{pack.coverFileID}}"
+                          contentType="{{pack.contentType}}"
+                          emojiCount="{{pack.emojiCount}}"
+                          downloadCount="{{pack.downloadCount}}"
+                          categoryId="{{pack.categoryId}}"
+                          categoryName="{{pack.categoryName}}"
+                          coverRatio="{{pack.coverRatio}}"
+                          cardWidth="{{cardWidth}}"
+                          showAdmin="{{isAdmin}}"
+                          showTypeBadge="{{contentType === 'all'}}"
+                          selectMode="{{selectMode}}"
+                          selected="{{selectedMap[pack._id] ? true : false}}"
+                          selectDisabled="{{selectMode && batchContentType && (pack.contentType || 'emoji') !== batchContentType && !selectedMap[pack._id]}}"
+                          bind:toggle="onTogglePack"
+                          bind:ratiochange="onCoverRatioChange"
+                          bind:covererror="onCoverError"
+                          bind:edit="onEditPack"
+                          bind:delete="onDeletePack"
+                        />
+                        <view
+                          wx:else
+                          class="home__feed-ad-card"
+                          style="width: {{cardWidth}}px; min-height: {{cardWidth}}px;"
+                        >
+                          <ad-custom
+                            unit-id="{{nativeAdUnitId}}"
+                            data-key="{{pack.key}}"
+                            binderror="onFeedAdError"
+                          />
+                        </view>
+                      </view>
+                    </block>
                   </view>
-                </view>
-                <view
-                  wx:elif="{{item.type === 'ad' && showFeedAds && !selectMode && !item.hidden && nativeAdUnitId}}"
-                  class="home__feed-ad"
-                >
-                  <ad-custom
-                    unit-id="{{nativeAdUnitId}}"
-                    data-key="{{item.key}}"
-                    binderror="onFeedAdError"
-                  />
                 </view>
               </block>
               <view class="home__footer" wx:if="{{loadingMore}}">

@@ -1,5 +1,12 @@
-<!-- 唯一根：fixed + 0 尺寸，避免宿主/子节点挤占导航下方 -->
-<view class="fest-portal" style="position:fixed;left:0;top:0;width:0;height:0;overflow:visible;pointer-events:none;z-index:90;">
+<!--
+  拆成两个 fixed 根：皮肤/灯带 z=90 仍被分类条(100)盖住；
+  飘落单独 z=460，高于分类、低于导航(500)/搜索(510)，全屏飘落才能看见。
+  virtualHost 多根注入页面，避免共用 z=90 层叠上下文把飘落困住。
+-->
+<view
+  class="fest-portal fest-portal--under"
+  style="position:fixed;left:0;top:0;width:0;height:0;overflow:visible;pointer-events:none;z-index:90;"
+>
   <!-- ① 顶栏背景图 -->
   <view
     wx:if="{{visible && showSkin && assets.banner}}"
@@ -11,7 +18,7 @@
     <view class="fest-skin__fade" />
   </view>
 
-  <!-- ② 灯带 + 微光 -->
+  <!-- ② 灯带 + 微光（高度仅导航区，与分类条不重叠） -->
   <view
     wx:if="{{visible && showChrome}}"
     class="fest-chrome fest-chrome--{{festivalId}} {{paused ? 'fest--paused' : ''}}"
@@ -44,10 +51,15 @@
       </view>
     </view>
   </view>
+</view>
 
-  <!-- ③ 飘落 -->
+<!-- ③ 飘落：独立层叠，全屏时可越过分类条 -->
+<view
+  wx:if="{{visible && showAmbient}}"
+  class="fest-portal fest-portal--ambient"
+  style="position:fixed;left:0;top:0;width:0;height:0;overflow:visible;pointer-events:none;z-index:460;"
+>
   <view
-    wx:if="{{visible && showAmbient}}"
     class="fest-ambient fest-ambient--{{fallScope}} fest-ambient--{{festivalId}} {{paused ? 'fest--paused' : ''}}"
     style="position:fixed;z-index:460;pointer-events:none;overflow:hidden;{{ambientStyle}}"
   >

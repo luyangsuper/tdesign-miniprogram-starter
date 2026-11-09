@@ -73,6 +73,15 @@ export function getNativePackDetailAdUnitId() {
   return String(config.nativePackDetailAdUnitId || '').trim() || '';
 }
 
+/** 详情推荐横滑（横版）；未配置时回退详情横版位，不回退首页竖版卡 */
+export function getNativePackRecommendAdUnitId() {
+  return (
+    String(config.nativePackRecommendAdUnitId || '').trim() ||
+    getNativePackDetailAdUnitId() ||
+    ''
+  );
+}
+
 export function getNativeMyPageAdUnitId() {
   return String(config.nativeMyPageAdUnitId || '').trim() || '';
 }

@@ -67,7 +67,7 @@
 
 建议索引：
 
-- `packs`：`status` + `createdAt`（降序）
+- `packs`：`status` + `createdAt`（降序）；热门列表还需 `status` + `downloadCount`（降序）等。管理端「对齐云库结构」会幂等补齐这些复合索引（也可在控制台手工建）
 - `redeem_codes`：`code`（唯一）；`status` + `createdAt`
 - `download_logs`：`openid` + `createdAt`（降序）；`createdAt`（降序）
 - `points_logs`：`openid` + `createdAt`（降序）

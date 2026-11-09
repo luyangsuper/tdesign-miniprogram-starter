@@ -6,6 +6,7 @@
   "enableShareTimeline": true,
   "usingComponents": {
     "fun-loading": "/components/fun-loading/index",
+    "pack-card": "/components/pack-card/index",
     "t-button": "tdesign-miniprogram/button/button",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-swiper-nav": "tdesign-miniprogram/swiper-nav/swiper-nav",

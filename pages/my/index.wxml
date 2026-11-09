@@ -204,6 +204,23 @@
       t-class-center="my-menu-cell__center"
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
+      title="首页偏好"
+      note="{{homePrefNote}}"
+      arrow
+      hover
+      bind:click="openHomePrefSettings"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <t-icon name="bookmark" size="40rpx" color="{{themeBrand}}" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
       title="节日氛围"
       note="{{festivalMenuNote}}"
       arrow
@@ -967,6 +984,147 @@
         shape="round"
         content="应用"
         bind:tap="onConfirmDisplaySettings"
+      />
+    </view>
+  </view>
+</t-popup>
+
+<t-popup
+  visible="{{homePrefPopupVisible}}"
+  placement="bottom"
+  bind:visible-change="onHomePrefPopupChange"
+>
+  <view class="my__theme-sheet my__display-sheet my__home-pref-sheet">
+    <view class="my__theme-sheet-title">首页偏好</view>
+    <view class="my__theme-sheet-desc">下次打开首页按此加载；只选 1 个角色会直接进入，多选则置顶在分类栏</view>
+    <scroll-view scroll-y class="my__display-sheet-scroll" enhanced show-scrollbar="{{false}}">
+      <view class="my__display-section">
+        <view class="my__display-section-title">效果预览</view>
+        <view class="my__display-phone my__home-pref-phone">
+          <view class="my__display-phone-notch" />
+          <view class="my__display-phone-screen my__home-pref-phone-screen">
+            <view class="my__home-pref-phone-nav">
+              <text class="my__home-pref-phone-nav-title">趣图铺子</text>
+            </view>
+            <view class="my__home-pref-phone-filter">
+              <view class="my__home-pref-phone-type" style="{{homePrefPreviewTypeStyle}}">
+                <image
+                  class="my__home-pref-phone-type-icon"
+                  src="{{homePrefPreviewTypeIcon}}"
+                  mode="aspectFit"
+                />
+                <text class="my__home-pref-phone-type-text">{{homePrefPreviewTypeName}}</text>
+              </view>
+              <view class="my__home-pref-phone-cats">
+                <view class="my__home-pref-phone-cats-inner">
+                  <view
+                    wx:for="{{homePrefPreviewCats}}"
+                    wx:key="id"
+                    class="my__home-pref-phone-tab {{index === 0 ? 'is-on' : ''}}"
+                    style="{{item.tabStyle}}"
+                  >{{item.name}}</view>
+                </view>
+              </view>
+            </view>
+            <view class="my__home-pref-phone-feed">
+              <view class="my__display-card my__display-card--tone0">
+                <view class="my__display-card-cover" style="padding-bottom: 88%;" />
+                <view class="my__display-card-body">
+                  <view class="my__display-card-title" style="width: 70%;" />
+                  <view class="my__display-card-meta" style="width: 42%;" />
+                </view>
+              </view>
+              <view class="my__display-card my__display-card--tone1">
+                <view class="my__display-card-cover" style="padding-bottom: 72%;" />
+                <view class="my__display-card-body">
+                  <view class="my__display-card-title" style="width: 62%;" />
+                  <view class="my__display-card-meta" style="width: 36%;" />
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view class="my__display-meta">
+          <text class="my__display-meta-main">{{homePrefPreviewHint}}</text>
+          <text class="my__display-meta-sub">自动套用主分类；单选进角色，多选只置顶</text>
+        </view>
+      </view>
+
+      <view class="my__display-section">
+        <view class="my__display-section-title">主分类</view>
+        <view class="my__home-pref-type-list">
+          <view
+            wx:for="{{homePrefTypeOptions}}"
+            wx:key="id"
+            class="my__home-pref-type-item {{homePrefContentTypeDraft === item.id ? 'is-on' : ''}}"
+            style="{{homePrefContentTypeDraft === item.id ? item.chipStyle : item.textStyle}}"
+            hover-class="my__home-pref-type-item--press"
+            data-id="{{item.id}}"
+            bindtap="onPickHomePrefType"
+          >
+            <image class="my__home-pref-type-icon" src="{{item.iconSrc}}" mode="aspectFit" />
+            <text class="my__home-pref-type-label">{{item.name}}</text>
+            <t-icon
+              wx:if="{{homePrefContentTypeDraft === item.id}}"
+              name="check"
+              size="32rpx"
+              color="{{item.color}}"
+            />
+          </view>
+        </view>
+      </view>
+
+      <view class="my__display-section">
+        <view class="my__display-section-title">角色分类（可多选）</view>
+        <view wx:if="{{homePrefCatsLoading}}" class="my__home-pref-loading">加载分类中…</view>
+        <view wx:else class="my__home-pref-cat-chips">
+          <view
+            wx:for="{{homePrefCategoryOptions}}"
+            wx:key="id"
+            class="my__home-pref-cat {{item.checked ? 'is-on' : ''}}"
+            style="{{item.chipStyle}}"
+            hover-class="my__home-pref-cat--press"
+            hover-stay-time="60"
+            data-id="{{item.id}}"
+            bindtap="onPickHomePrefCategory"
+          >
+            <text class="my__home-pref-cat-text">{{item.name}}</text>
+            <view class="my__home-pref-cat-check {{item.checked ? 'is-show' : ''}}" aria-hidden="true">
+              <t-icon name="check" size="28rpx" color="{{item.accentColor}}" />
+            </view>
+          </view>
+        </view>
+        <view class="my__home-pref-feedback">
+          <text class="my__home-pref-feedback-tip">没有喜欢的角色，或资源太少？</text>
+          <t-button
+            t-class="my__home-pref-feedback-btn"
+            theme="primary"
+            variant="text"
+            size="extra-small"
+            icon="chat"
+            content="去反馈"
+            bind:tap="onHomePrefGoFeedback"
+          />
+        </view>
+      </view>
+    </scroll-view>
+    <view class="my__display-sheet-foot my__home-pref-foot">
+      <t-button
+        t-class="my__display-foot-btn"
+        theme="default"
+        variant="outline"
+        size="large"
+        shape="round"
+        content="清除偏好"
+        bind:tap="onClearHomePrefSettings"
+      />
+      <t-button
+        t-class="my__display-foot-btn"
+        theme="primary"
+        size="large"
+        shape="round"
+        content="保存"
+        bind:tap="onConfirmHomePrefSettings"
       />
     </view>
   </view>

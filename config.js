@@ -14,20 +14,22 @@
  */
 export default {
   /** 关于页展示；与 package.json version 对齐即可 */
-  appVersion: '3.1.0',
+  appVersion: '3.2.3',
   cloudEnv: 'cloud1-d4g0731mc55f853ef',
   /** 约 30s，全站激励广告 */
   rewardedAdUnitId: 'adunit-b77d32dfa7a29761',
   /** @deprecated 原 15s 短广告，已不再使用 */
   saveRewardedAdUnitId: '',
   /**
-   * 原生模板广告（横版优选 · 20:7 / 16:9）
+   * 原生模板广告（按坑位选横/竖模板）
    * 空=该位置不展示；VIP 客户端不展示被动原生广告
    */
-  /** 首页瀑布流通栏 */
-  nativeHomeFeedAdUnitId: 'adunit-2cd86e0e56e6d718',
-  /** 合集详情 · 保存原图上方 */
+  /** 首页瀑布流 · 竖版卡片（插在列里，与合集卡同宽） */
+  nativeHomeFeedAdUnitId: 'adunit-3ed8b8cc8f0409b9',
+  /** 合集详情 · 保存原图上方（横版） */
   nativePackDetailAdUnitId: 'adunit-955ce8dea99a2a65',
+  /** 合集详情 · 推荐横滑（横版） */
+  nativePackRecommendAdUnitId: 'adunit-2cd86e0e56e6d718',
   /** 「我的」积分区下方 */
   nativeMyPageAdUnitId: 'adunit-95a12cc17e9ca0d1',
   /** 收藏列表原生广告 */
