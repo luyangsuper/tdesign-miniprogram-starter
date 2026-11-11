@@ -70,17 +70,8 @@
       />
     </view>
   </view>
-  <!-- 本版 t-navbar 无 right 插槽，贴胶囊左侧放多选/取消 -->
-  <view
-    class="home__nav-action"
-    style="top: {{menuButton.top}}px; height: {{menuButton.height}}px; right: {{menuButton.gap}}px;"
-    hover-class="home__nav-action--press"
-    hover-stay-time="60"
-    bindtap="onToggleSelectMode"
-  >{{selectMode ? '取消' : '多选'}}</view>
-
   <view class="home__fixed" style="top: {{navHeight}}px;">
-    <!-- 左：类型胶囊（图标+文案）· 右：主题文字 Tab + 底横条 -->
+    <!-- 左：类型胶囊 · 中：主题 Tab · 右：多选（让出顶栏给品牌标题） -->
     <view class="home__filter-bar">
       <view
         class="home__type-capsule"
@@ -130,6 +121,13 @@
           </view>
         </view>
       </scroll-view>
+      <view
+        class="home__select-toggle {{selectMode ? 'home__select-toggle--on' : ''}}"
+        hover-class="home__select-toggle--press"
+        hover-stay-time="60"
+        bindtap="onToggleSelectMode"
+        aria-role="button"
+      >{{selectMode ? '取消' : '多选'}}</view>
     </view>
   </view>
 

@@ -500,8 +500,8 @@
       transform: scale(0.98);
     }
 
-    &--selected .detail__slot-cover-wrap {
-      box-shadow: 0 0 0 4rpx var(--td-brand-color);
+    &--selected .detail__slot-check {
+      transform: scale(1.06);
     }
   }
 
@@ -527,14 +527,6 @@
       width: 100% !important;
       height: 100% !important;
     }
-  }
-
-  &__slot-mask {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: rgba(0, 0, 0, 0.18);
-    pointer-events: none;
   }
 
   &__slot-play {
@@ -569,25 +561,43 @@
 
   &__slot-check {
     position: absolute;
-    top: 10rpx;
-    right: 10rpx;
+    top: 12rpx;
+    right: 12rpx;
     z-index: 4;
-    width: 40rpx;
-    height: 40rpx;
+    width: 44rpx;
+    height: 44rpx;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.28);
-    border: 2rpx solid rgba(255, 255, 255, 0.85);
+    /* 与首页 pack-card 多选勾一致：浅底 + 主题勾 */
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 1;
     box-sizing: border-box;
     pointer-events: none;
+    transition:
+      transform 0.2s ease,
+      background-color 0.2s ease;
+  }
 
-    &--on {
-      background: var(--td-brand-color);
-      border-color: var(--td-brand-color);
-    }
+  &__slot-bar {
+    height: 6rpx;
+    width: 100%;
+    margin-top: 8rpx;
+    border-radius: 999rpx;
+    background: var(--td-brand-color);
+    transform: scaleX(0);
+    transform-origin: center;
+    opacity: 0;
+    transition:
+      transform 0.22s ease,
+      opacity 0.18s ease;
+  }
+
+  &__slot-bar--on {
+    transform: scaleX(1);
+    opacity: 1;
   }
 
   &__slot-cover {
@@ -636,7 +646,7 @@
   }
 
   &__slot-label {
-    margin: 12rpx 0;
+    margin: 8rpx 0 12rpx;
     .ui-caption();
     color: var(--td-text-color-primary);
     text-align: center;

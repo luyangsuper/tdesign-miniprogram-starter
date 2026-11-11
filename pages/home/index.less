@@ -20,12 +20,6 @@
     box-shadow: 0 6rpx 16rpx rgba(15, 40, 30, 0.04);
   }
 
-  &--fest &__nav-action {
-    color: var(--fest-nav-color, #fff);
-    background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(8px);
-  }
-
   &--fest &__search-fab {
     background: rgba(255, 255, 255, 0.22);
     color: var(--fest-nav-color, #fff);
@@ -40,26 +34,6 @@
     padding-bottom: calc(
       @tab-bar-height + @tab-bar-page-gap + 168rpx + env(safe-area-inset-bottom)
     );
-  }
-
-  &__nav-action {
-    position: fixed;
-    z-index: 520;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 12rpx;
-    .ui-strong();
-    color: var(--td-brand-color);
-    font-weight: 500;
-    box-sizing: border-box;
-    /* 避免被搜索条半透明叠色 */
-    background: var(--td-bg-color-container);
-    border-radius: 8rpx;
-
-    &--press {
-      opacity: 0.7;
-    }
   }
 
   &__brand {
@@ -207,7 +181,37 @@
     align-items: center;
     height: @toolbar-h;
     padding-left: 20rpx;
+    padding-right: 12rpx;
     box-sizing: border-box;
+  }
+
+  &__select-toggle {
+    flex-shrink: 0;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: @cat-h;
+    padding: 0 18rpx;
+    margin-left: 4rpx;
+    border-radius: 999rpx;
+    .ui-strong();
+    font-weight: 500;
+    line-height: 1;
+    color: var(--td-brand-color);
+    background: var(--td-brand-color-light);
+    box-sizing: border-box;
+    transition: opacity 0.16s ease, transform 0.16s ease, background-color 0.16s ease;
+
+    &--on {
+      color: #fff;
+      background: var(--td-brand-color);
+    }
+
+    &--press {
+      opacity: 0.78;
+      transform: scale(0.97);
+    }
   }
 
   /* 类型胶囊：配色由 contentTypeChipStyle 内联（跟图标色一致） */
@@ -284,18 +288,18 @@
 
     &--cats {
       padding-left: 8rpx;
-      padding-right: 24rpx;
+      padding-right: 8rpx;
     }
   }
 
-  /* 主题：文字 Tab + 底横条；未选次要色，选中用分类 accent */
+  /* 主题：文字 Tab + 底横条；横条绝对定位，不占位，避免文字被顶偏 */
   &__tab {
     position: relative;
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     height: @toolbar-h;
-    padding: 0 16rpx 8rpx;
+    padding: 0 16rpx;
     box-sizing: border-box;
     color: var(--td-text-color-secondary);
     transition: color 0.2s ease, opacity 0.16s ease;
@@ -340,14 +344,15 @@
   &__tab-bar {
     position: absolute;
     left: 50%;
-    /* 文字与横条间距取中：比最初近、比上一版略松 */
-    bottom: 12rpx;
+    /* 贴底绘制，不挤文字；与类型/多选共中线 */
+    bottom: 8rpx;
     width: 36rpx;
     height: 6rpx;
     border-radius: 999rpx;
     background: var(--home-cat-accent, var(--td-brand-color));
     transform: translateX(-50%) scaleX(0);
     opacity: 0;
+    pointer-events: none;
     transition: transform 0.22s ease, opacity 0.18s ease;
   }
 

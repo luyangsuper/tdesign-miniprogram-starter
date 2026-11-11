@@ -301,11 +301,6 @@
             >
               <image class="detail__slot-play-icon" src="/static/emoji/play.png" mode="aspectFit" />
             </view>
-            <view
-              wx:if="{{item.selected}}"
-              class="detail__slot-mask"
-              aria-hidden="true"
-            />
             <!-- 点选勾选；长按由管理员视图决定是否预览 -->
             <view
               class="detail__slot-hit"
@@ -315,16 +310,21 @@
             />
             <view
               wx:if="{{downloadReady && item.selectable}}"
-              class="detail__slot-check {{item.selected ? 'detail__slot-check--on' : ''}}"
+              class="detail__slot-check"
               aria-hidden="true"
             >
               <kubai-icon
                 name="{{item.selected ? 'check-circle-filled' : 'circle'}}"
-                size="36rpx"
-                color="{{item.selected ? '#fff' : 'rgba(255,255,255,0.95)'}}"
+                size="40rpx"
+                color="{{item.selected ? themeBrand : 'rgba(255,255,255,0.92)'}}"
               />
             </view>
           </view>
+          <view
+            wx:if="{{downloadReady && item.selectable}}"
+            class="detail__slot-bar {{item.selected ? 'detail__slot-bar--on' : ''}}"
+            aria-hidden="true"
+          />
           <view class="detail__slot-label">{{item.label}}</view>
           <t-button
             size="small"

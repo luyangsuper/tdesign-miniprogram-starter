@@ -789,7 +789,7 @@ Page({
     this.updateScrollerHeight();
   },
 
-  /** 自定义导航栏高度（状态栏 + 标题栏）+ 胶囊旁多选 / 左侧搜索几何 */
+  /** 自定义导航栏高度（状态栏 + 标题栏）+ 左侧搜索几何 */
   updateNavHeight() {
     try {
       const win = getWindowInfoSafe();
@@ -799,10 +799,9 @@ Page({
       const menuGap = Math.max(8, Math.round(win.windowWidth - menu.left + 8));
       const rpx = (win.windowWidth || 375) / 750;
       const navSearchLeft = Math.round(24 * rpx);
-      // 多选 right=menuGap；再为「多选/取消」文案 + 间距留空，展开用 right 限位更稳
-      const selectBtnW = Math.round(88 * rpx);
-      const searchSelectGap = Math.round(12 * rpx);
-      const navSearchRight = menuGap + selectBtnW + searchSelectGap;
+      // 多选已挪到分类栏；展开搜索只需避开微信胶囊
+      const searchCapsuleGap = Math.round(12 * rpx);
+      const navSearchRight = menuGap + searchCapsuleGap;
       // 搜索条用 64rpx 完整胶囊圆角；勿锁成胶囊高度，否则 overflow 会裁成扁椭圆
       const searchBarHeight = Math.max(menu.height, Math.round(64 * rpx));
       const searchTop = Math.round(menu.top + (menu.height - searchBarHeight) / 2);
@@ -840,7 +839,7 @@ Page({
         navBarStyle: '--td-navbar-padding-top:20px;--td-navbar-height:44px',
         menuButton: { top: 48, height: 32, gap: 96 },
         navSearchLeft: 12,
-        navSearchRight: 160,
+        navSearchRight: 100,
         searchBarHeight: 32,
         searchTop: 48,
         searchIconSize: '24px',
