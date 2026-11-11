@@ -8,7 +8,6 @@
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
     "fun-empty": "/components/fun-empty/index",
-    "t-icon": "tdesign-miniprogram/icon/icon",
     "t-switch": "tdesign-miniprogram/switch/switch",
     "t-date-time-picker": "tdesign-miniprogram/date-time-picker/date-time-picker",
     "lottery-host": "/components/lottery-host/index"

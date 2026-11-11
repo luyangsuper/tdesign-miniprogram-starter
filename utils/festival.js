@@ -159,7 +159,7 @@ export function getFestivalCropOutSize(kind) {
  * @property {string[]} [ranges] 兼容旧写死区间
  * @property {FestivalAssets} assets
  * @property {'none'|string} motion
- * @property {string[]} [motionIcons] IconPark 生成的粒子图路径
+ * @property {string[]} [motionIcons] Kubai 生成的粒子图路径
  * @property {string[]} [motionChars] 兼容旧字段，优先用 motionIcons
  * @property {string[]} [motionKinds]
  * @property {number} [motionCount]
@@ -1025,6 +1025,104 @@ function findMatchedFestival(date) {
   return null;
 }
 
+/** 签到日历格子短名（2～3 字） */
+const CALENDAR_SHORT_NAMES = {
+  newyear: '元旦',
+  laba: '腊八',
+  xiaonian: '小年',
+  chuxi: '除夕',
+  cny: '春节',
+  lantern: '元宵',
+  dragonhead: '龙抬头',
+  valentine: '情人',
+  women: '妇女',
+  tree: '植树',
+  qingming: '清明',
+  easter: '复活',
+  labor: '劳动',
+  youth: '青年',
+  mothers: '母亲',
+  day520: '520',
+  dragonboat: '端午',
+  children: '儿童',
+  fathers: '父亲',
+  party: '建党',
+  qixi: '七夕',
+  army: '建军',
+  midautumn: '中秋',
+  teacher: '教师',
+  chongyang: '重阳',
+  national: '国庆',
+  halloween: '万圣',
+  thanksgiving: '感恩',
+  dongzhi: '冬至',
+  christmas: '圣诞',
+};
+
+/**
+ * 氛围用 solarRange / pad 可跨多天；签到日历只标「正日」。
+ * 未列出的 solarRange 默认取区间起点。
+ */
+const CALENDAR_DAY_ANCHORS = {
+  national: [10, 1],
+  christmas: [12, 25],
+};
+
+/** @param {FestivalPreset} preset */
+function calendarExactRule(preset) {
+  const rule = preset && preset.rule;
+  if (!rule) return null;
+  if (rule.type === 'solarRange') {
+    const anchor = CALENDAR_DAY_ANCHORS[preset.id];
+    const [m, d] = anchor || rule.start || [];
+    if (!m || !d) return null;
+    return { type: 'solar', month: m, day: d, padBefore: 0, padAfter: 0 };
+  }
+  return {
+    ...rule,
+    padBefore: 0,
+    padAfter: 0,
+    pad: undefined,
+  };
+}
+
+/**
+ * 签到日历用：只标节日正日（忽略氛围区间 / pad），不看开关 / VIP
+ * @param {Date|string|number} dateOrKey Date 或 YYYY-MM-DD
+ * @returns {FestivalPreset|null}
+ */
+export function findFestivalForCalendarDate(dateOrKey) {
+  let date;
+  if (dateOrKey instanceof Date) {
+    date = dateOrKey;
+  } else if (typeof dateOrKey === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateOrKey)) {
+    const [y, m, d] = dateOrKey.split('-').map(Number);
+    date = new Date(y, m - 1, d);
+  } else {
+    date = new Date(dateOrKey);
+  }
+  if (Number.isNaN(date.getTime())) return null;
+  for (let i = 0; i < FESTIVAL_PRESETS.length; i += 1) {
+    const preset = FESTIVAL_PRESETS[i];
+    const exact = calendarExactRule(preset);
+    if (!exact) continue;
+    if (matchFestivalRule(date, exact)) return preset;
+  }
+  return null;
+}
+
+/**
+ * @param {FestivalPreset|null|undefined} preset
+ * @returns {string}
+ */
+export function festivalCalendarShortName(preset) {
+  if (!preset) return '';
+  if (CALENDAR_SHORT_NAMES[preset.id]) return CALENDAR_SHORT_NAMES[preset.id];
+  const name = String(preset.name || '').trim();
+  if (!name) return '';
+  return name.replace(/节$/, '').slice(0, 3);
+}
+
 /**
  * 当前生效节日
  * - 「开启节日效果」是硬开关：关了就一律不展示（预览模式也不绕过）
@@ -1482,7 +1580,7 @@ export function getMotionKinds(festivalId) {
   return f && Array.isArray(f.motionKinds) ? f.motionKinds.slice() : [];
 }
 
-/** IconPark 粒子图列表 */
+/** Kubai 粒子图列表 */
 export function getMotionIcons(festivalId) {
   const f = getFestivalPreset(festivalId) || getActiveFestival();
   return f && Array.isArray(f.motionIcons) ? f.motionIcons.filter(Boolean) : [];

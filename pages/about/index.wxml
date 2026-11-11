@@ -1,14 +1,22 @@
 <page-meta page-style="{{themeStyle}}" />
 <view class="about" style="{{themeStyle}}">
   <view class="about__hero">
-    <image class="about__logo" src="/static/emoji/ok.png" mode="aspectFit" />
+    <image
+      class="about__logo"
+      src="/static/brand/logo.png"
+      mode="aspectFill"
+      aria-label="趣图铺子"
+    />
     <view class="about__name">{{appName}}</view>
     <view class="about__ver">版本 {{appVersion}}</view>
     <view class="about__intro">{{intro}}</view>
   </view>
 
   <view class="about__card">
-    <view class="about__card-title">如何使用</view>
+    <view class="about__card-title">
+      <kubai-icon name="map" size="36rpx" color="#f59e0b" />
+      <text>如何使用</text>
+    </view>
     <view class="about__tip" wx:for="{{tips}}" wx:key="*this">{{item}}</view>
   </view>
 
@@ -25,7 +33,7 @@
       bind:click="openAgreement"
     >
       <view slot="left-icon" class="about__icon">
-        <t-icon name="file-1" size="40rpx" color="#2F80ED" />
+        <kubai-icon name="file-1" size="52rpx" color="#2F80ED" />
       </view>
     </t-cell>
     <t-cell
@@ -40,7 +48,7 @@
       bind:click="openPrivacy"
     >
       <view slot="left-icon" class="about__icon">
-        <t-icon name="secured" size="40rpx" color="#27AE60" />
+        <kubai-icon name="secured" size="52rpx" color="#27AE60" />
       </view>
     </t-cell>
   </t-cell-group>

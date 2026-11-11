@@ -28,7 +28,7 @@
         />
       </button>
       <view wx:if="{{avatarBadge}}" class="my__avatar-badge my__avatar-badge--{{avatarBadge.tone}}">
-        <t-icon name="{{avatarBadge.icon}}" size="20rpx" color="#ffffff" />
+        <kubai-icon name="{{avatarBadge.icon}}" size="20rpx" color="#ffffff" />
         <text wx:if="{{avatarBadge.text}}" class="my__avatar-badge-text">{{avatarBadge.text}}</text>
       </view>
     </view>
@@ -49,16 +49,20 @@
         <text class="my__id" bindtap="copyOpenId">{{shortId}}</text>
       </view>
     </view>
-    <t-button
-      t-class="my__checkin-btn {{checkinCheckedToday ? 'my__checkin-btn--done' : ''}}"
-      theme="{{checkinCheckedToday ? 'default' : 'primary'}}"
-      variant="{{checkinCheckedToday ? 'outline' : 'base'}}"
-      size="small"
-      shape="round"
-      icon="{{checkinCheckedToday ? 'check' : 'calendar'}}"
-      content="{{checkinEntryText}}"
-      bind:tap="goCheckin"
-    />
+    <view
+      class="my__checkin-btn {{checkinCheckedToday ? 'my__checkin-btn--done' : ''}}"
+      hover-class="my__checkin-btn--press"
+      hover-stay-time="80"
+      bindtap="goCheckin"
+      aria-role="button"
+    >
+      <kubai-icon
+        name="{{checkinCheckedToday ? 'check' : 'calendar-check'}}"
+        size="32rpx"
+        color="{{checkinCheckedToday ? '#8a8a8a' : '#ffffff'}}"
+      />
+      <text class="my__checkin-btn-text">{{checkinEntryText}}</text>
+    </view>
   </view>
 
   <view class="my__benefit">
@@ -77,7 +81,10 @@
           <text class="my__benefit-sum-num">{{benefit.totalValueText}}</text>
           <view class="my__benefit-sum-meta">
             <view class="my__benefit-sum-head">
-              <text class="my__benefit-sum-title">可用积分</text>
+              <view class="my__benefit-sum-title-row">
+                <kubai-icon name="ticket" size="28rpx" color="{{themeBrand}}" />
+                <text class="my__benefit-sum-title">可用积分</text>
+              </view>
               <view class="my__pricing-links my__pricing-links--inline">
                 <text class="my__pricing-link" bindtap="openPricing">定价</text>
                 <text class="my__pricing-link-sep">·</text>
@@ -125,6 +132,9 @@
       </view>
     </view>
     <view class="my__redeem">
+      <view class="my__redeem-lead" aria-hidden="true">
+        <kubai-icon name="ticket" size="36rpx" color="{{themeBrand}}" />
+      </view>
       <input
         class="my__redeem-native"
         placeholder="输入或点粘贴识别"
@@ -177,7 +187,7 @@
       bind:click="openThemePicker"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <view class="my__theme-dot" style="background: {{themeBrand}};" />
+        <kubai-icon name="palette" size="52rpx" color="{{themeBrand}}" />
       </view>
     </t-cell>
     <t-cell
@@ -194,7 +204,7 @@
       bind:click="openDisplaySettings"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="view-module" size="40rpx" color="{{themeBrand}}" />
+        <kubai-icon name="view-module" size="52rpx" color="{{themeBrand}}" />
       </view>
     </t-cell>
     <t-cell
@@ -211,7 +221,7 @@
       bind:click="openHomePrefSettings"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="bookmark" size="40rpx" color="{{themeBrand}}" />
+        <kubai-icon name="bookmark" size="52rpx" color="{{themeBrand}}" />
       </view>
     </t-cell>
     <t-cell
@@ -228,7 +238,7 @@
       bind:click="openFestivalPicker"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="gift" size="40rpx" color="#c41e3a" />
+        <kubai-icon name="gift" size="52rpx" color="#c41e3a" />
       </view>
     </t-cell>
     <t-cell
@@ -245,7 +255,7 @@
       bind:click="goFavorites"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="heart" size="40rpx" color="#EB5757" />
+        <kubai-icon name="heart" size="52rpx" color="#EB5757" />
       </view>
     </t-cell>
     <t-cell
@@ -262,7 +272,7 @@
       bind:click="goPointsLog"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="root-list" size="40rpx" color="#27AE60" />
+        <kubai-icon name="root-list" size="52rpx" color="#27AE60" />
       </view>
     </t-cell>
     <t-cell
@@ -279,7 +289,7 @@
       bind:click="onWatchAdReward"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="play-circle" size="40rpx" color="#0052D9" />
+        <kubai-icon name="play-circle" size="52rpx" color="#0052D9" />
       </view>
     </t-cell>
     <t-cell
@@ -300,7 +310,7 @@
         <text wx:if="{{!gridLotteryOn && lotteryOpenCount <= 0}}" class="my-menu-cell__note">暂无活动</text>
       </view>
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="star" size="40rpx" color="#F2C94C" />
+        <kubai-icon name="star" size="52rpx" color="#F2C94C" />
       </view>
     </t-cell>
     <t-cell
@@ -316,7 +326,7 @@
       bind:click="onSubscribeNewPack"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="notification" size="40rpx" color="{{themeBrand}}" />
+        <kubai-icon name="notification" size="52rpx" color="{{themeBrand}}" />
       </view>
     </t-cell>
   </t-cell-group>
@@ -341,7 +351,7 @@
         bind:click="goDashboard"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <t-icon name="chart-bar" size="40rpx" color="#2D9CDB" />
+          <kubai-icon name="chart-bar" size="52rpx" color="#2D9CDB" />
         </view>
       </t-cell>
       <t-cell
@@ -356,7 +366,7 @@
         bind:click="goUpload"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <t-icon name="upload" size="40rpx" color="#2F80ED" />
+          <kubai-icon name="upload" size="52rpx" color="#2F80ED" />
         </view>
       </t-cell>
       <t-cell
@@ -371,7 +381,7 @@
         bind:click="goCategories"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <t-icon name="view-list" size="40rpx" color="#9B51E0" />
+          <kubai-icon name="view-list" size="52rpx" color="#9B51E0" />
         </view>
       </t-cell>
       <t-cell
@@ -386,7 +396,7 @@
         bind:click="goCodes"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <t-icon name="gift" size="40rpx" color="#F2994A" />
+          <kubai-icon name="gift" size="52rpx" color="#F2994A" />
         </view>
       </t-cell>
       <t-cell
@@ -401,7 +411,7 @@
         bind:click="goUsers"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <t-icon name="user-vip" size="40rpx" color="#EB5757" />
+          <kubai-icon name="user-vip" size="52rpx" color="#EB5757" />
         </view>
       </t-cell>
       <t-cell
@@ -417,7 +427,7 @@
         bind:click="goPointsSettings"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <image class="my-menu-icon__img" src="/static/emoji/gift.png" mode="aspectFit" />
+          <kubai-icon name="ticket" size="52rpx" color="#07c160" />
         </view>
       </t-cell>
       <t-cell
@@ -433,7 +443,7 @@
         bind:click="confirmResetAdRewardDay"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <t-icon name="refresh" size="40rpx" color="#0052D9" />
+          <kubai-icon name="refresh" size="52rpx" color="#0052D9" />
         </view>
       </t-cell>
       <t-cell
@@ -449,7 +459,7 @@
         bind:click="goPricingSettings"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <image class="my-menu-icon__img" src="/static/pricing/month.png" mode="aspectFit" />
+          <kubai-icon name="badge-percent" size="52rpx" color="#ed7b2f" />
         </view>
       </t-cell>
       <t-cell
@@ -465,7 +475,7 @@
         bind:click="goAdminLottery"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <t-icon name="star" size="40rpx" color="#F2C94C" />
+          <kubai-icon name="star" size="52rpx" color="#F2C94C" />
         </view>
       </t-cell>
       <t-cell
@@ -482,7 +492,7 @@
         bind:click="openLookup"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <t-icon name="search" size="40rpx" color="#56CCF2" />
+          <kubai-icon name="search" size="52rpx" color="#56CCF2" />
         </view>
       </t-cell>
       <t-cell
@@ -498,7 +508,7 @@
         bind:click="onSubscribeFeedbackNotify"
       >
         <view slot="left-icon" class="my-menu-icon">
-          <t-icon name="mail" size="40rpx" color="#E34D59" />
+          <kubai-icon name="mail" size="52rpx" color="#E34D59" />
         </view>
       </t-cell>
     </t-cell-group>
@@ -519,7 +529,7 @@
       bind:click="openGuide"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="help-circle" size="40rpx" color="#27AE60" />
+        <kubai-icon name="help-circle" size="52rpx" color="#27AE60" />
       </view>
     </t-cell>
     <t-cell
@@ -536,7 +546,7 @@
       bind:click="openFeedback"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="chat" size="40rpx" color="#0052D9" />
+        <kubai-icon name="chat" size="52rpx" color="#0052D9" />
       </view>
     </t-cell>
     <t-cell
@@ -553,7 +563,7 @@
       bind:click="goAbout"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon name="info-circle" size="40rpx" color="#828282" />
+        <kubai-icon name="info-circle" size="52rpx" color="#828282" />
       </view>
     </t-cell>
     <t-cell
@@ -570,9 +580,9 @@
       bind:click="onTogglePreviewAsUser"
     >
       <view slot="left-icon" class="my-menu-icon">
-        <t-icon
+        <kubai-icon
           name="{{previewAsUser ? 'user-vip' : 'user'}}"
-          size="40rpx"
+          size="52rpx"
           color="#BB6BD9"
         />
       </view>
@@ -606,7 +616,10 @@
 >
   <view class="my__guide">
     <view class="my__guide-head">
-      <view class="my__guide-title">如何把合集加到微信表情</view>
+      <view class="my__guide-title">
+        <kubai-icon name="map" size="40rpx" color="#f59e0b" />
+        <text>如何把合集加到微信表情</text>
+      </view>
       <t-button
         t-class="my__guide-close-btn"
         size="small"
@@ -618,6 +631,15 @@
     </view>
     <scroll-view scroll-y class="my__guide-scroll" enhanced show-scrollbar="{{false}}">
       <image class="my__guide-art" src="/static/emoji/guide.png" mode="aspectFit" />
+      <view class="my__guide-highlight">
+        <view class="my__guide-highlight-icon" aria-hidden="true">
+          <kubai-icon name="play-circle" size="40rpx" color="#C2410C" />
+        </view>
+        <view class="my__guide-highlight-body">
+          <text class="my__guide-highlight-title">不会操作？先看短视频</text>
+          <text class="my__guide-highlight-text">去抖音、快手、小红书搜索「如何导入微信自定义表情」，跟着视频做最快。</text>
+        </view>
+      </view>
       <view class="my__guide-tip">
         趣图铺子负责把原图保存到相册；导入微信需在微信里完成下面几步（不同系统文案可能略有差异）。
       </view>
@@ -626,7 +648,9 @@
         wx:for="{{guideSteps}}"
         wx:key="title"
       >
-        <view class="my__guide-index">{{index + 1}}</view>
+        <view class="my__guide-index" style="background: {{item.iconBg}};">
+          <kubai-icon name="{{item.icon}}" size="36rpx" color="{{item.iconColor}}" />
+        </view>
         <view class="my__guide-body">
           <view class="my__guide-step-title">{{item.title}}</view>
           <view class="my__guide-step-desc">{{item.desc}}</view>
@@ -646,7 +670,10 @@
 >
   <view class="my__feedback">
     <view class="my__feedback-head">
-      <view class="my__feedback-title">意见反馈</view>
+      <view class="my__feedback-title">
+        <kubai-icon name="chat" size="40rpx" color="#0052D9" />
+        <text>意见反馈</text>
+      </view>
       <t-button
         t-class="my__feedback-close"
         size="small"
@@ -704,7 +731,10 @@
 >
   <view class="my__pricing-sheet">
     <view class="my__pricing-sheet-head">
-      <view class="my__pricing-sheet-title">会员与积分</view>
+      <view class="my__pricing-sheet-title">
+        <kubai-icon name="crown" size="40rpx" color="#a855f7" />
+        <text>会员与积分</text>
+      </view>
       <t-button
         t-class="my__feedback-close"
         size="small"
@@ -725,7 +755,7 @@
       <view class="my__pricing-sheet-rule">{{pricing.ruleLine}}</view>
       <view wx:if="{{pricing.vipPerkLine}}" class="my__pricing-vip-perk">
         <view class="my__pricing-vip-perk-icon">
-          <t-icon name="secured" size="32rpx" color="#07c160" />
+          <kubai-icon name="secured" size="32rpx" color="#07c160" />
         </view>
         <text class="my__pricing-vip-perk-text">{{pricing.vipPerkLine}}</text>
       </view>
@@ -857,7 +887,10 @@
   bind:visible-change="onDisplayPopupChange"
 >
   <view class="my__theme-sheet my__display-sheet">
-    <view class="my__theme-sheet-title">显示设置</view>
+    <view class="my__theme-sheet-title">
+      <kubai-icon name="view-module" size="40rpx" color="{{themeBrand}}" />
+      <text>显示设置</text>
+    </view>
     <view class="my__theme-sheet-desc">调节合集浏览密度与文字大小</view>
     <scroll-view scroll-y class="my__display-sheet-scroll" enhanced show-scrollbar="{{false}}">
 
@@ -995,8 +1028,11 @@
   bind:visible-change="onHomePrefPopupChange"
 >
   <view class="my__theme-sheet my__display-sheet my__home-pref-sheet">
-    <view class="my__theme-sheet-title">首页偏好</view>
-    <view class="my__theme-sheet-desc">下次打开首页按此加载；只选 1 个角色会直接进入，多选则置顶在分类栏</view>
+    <view class="my__theme-sheet-title">
+      <kubai-icon name="bookmark" size="40rpx" color="{{themeBrand}}" />
+      <text>首页偏好</text>
+    </view>
+    <view class="my__theme-sheet-desc">下次打开首页按此加载；只选 1 个角色会直接进入，多选则把这些角色置顶，其它分类仍可切换，「全部」仍是全部合集</view>
     <scroll-view scroll-y class="my__display-sheet-scroll" enhanced show-scrollbar="{{false}}">
       <view class="my__display-section">
         <view class="my__display-section-title">效果预览</view>
@@ -1051,7 +1087,10 @@
       </view>
 
       <view class="my__display-section">
-        <view class="my__display-section-title">主分类</view>
+        <view class="my__display-section-title">
+          <kubai-icon name="layout-dashboard" size="32rpx" color="{{themeBrand}}" />
+          <text>主分类</text>
+        </view>
         <view class="my__home-pref-type-list">
           <view
             wx:for="{{homePrefTypeOptions}}"
@@ -1064,10 +1103,10 @@
           >
             <image class="my__home-pref-type-icon" src="{{item.iconSrc}}" mode="aspectFit" />
             <text class="my__home-pref-type-label">{{item.name}}</text>
-            <t-icon
+            <kubai-icon
               wx:if="{{homePrefContentTypeDraft === item.id}}"
               name="check"
-              size="32rpx"
+              size="48rpx"
               color="{{item.color}}"
             />
           </view>
@@ -1075,7 +1114,10 @@
       </view>
 
       <view class="my__display-section">
-        <view class="my__display-section-title">角色分类（可多选）</view>
+        <view class="my__display-section-title">
+          <kubai-icon name="smile" size="32rpx" color="{{themeBrand}}" />
+          <text>角色分类（可多选）</text>
+        </view>
         <view wx:if="{{homePrefCatsLoading}}" class="my__home-pref-loading">加载分类中…</view>
         <view wx:else class="my__home-pref-cat-chips">
           <view
@@ -1090,7 +1132,7 @@
           >
             <text class="my__home-pref-cat-text">{{item.name}}</text>
             <view class="my__home-pref-cat-check {{item.checked ? 'is-show' : ''}}" aria-hidden="true">
-              <t-icon name="check" size="28rpx" color="{{item.accentColor}}" />
+              <kubai-icon name="check" size="44rpx" color="{{item.accentColor}}" />
             </view>
           </view>
         </view>
@@ -1136,7 +1178,10 @@
   bind:visible-change="onThemePopupChange"
 >
   <view class="my__theme-sheet">
-    <view class="my__theme-sheet-title">选择主题色</view>
+    <view class="my__theme-sheet-title">
+      <kubai-icon name="palette" size="40rpx" color="{{themeBrand}}" />
+      <text>选择主题色</text>
+    </view>
     <view class="my__theme-sheet-desc">按钮、链接等会跟随；合集卡片标签会自动避开撞色</view>
     <view class="my__theme-grid">
       <view
@@ -1148,10 +1193,10 @@
       >
         <view class="my__theme-swatch" style="background: {{item.brand}};" />
         <text class="my__theme-label">{{item.name}}</text>
-        <t-icon
+        <kubai-icon
           wx:if="{{themeId === item.id}}"
           name="check"
-          size="32rpx"
+          size="48rpx"
           color="{{item.brand}}"
         />
       </view>
@@ -1165,7 +1210,10 @@
   bind:visible-change="onFestivalPopupChange"
 >
   <scroll-view scroll-y class="my__theme-sheet my__festival-sheet" enhanced show-scrollbar="{{false}}">
-    <view class="my__theme-sheet-title">节日氛围</view>
+    <view class="my__theme-sheet-title">
+      <kubai-icon name="sparkles" size="40rpx" color="#f59e0b" />
+      <text>节日氛围</text>
+    </view>
     <view class="my__festival-sheet-desc">跟随日期会在节日前后窗口内自动换肤（不只当天），可随时关闭</view>
     <view wx:if="{{benefit.festivalAllActive || isAdmin}}" class="my__festival-sheet-perk">
       已享全节日氛围（含元宵、中秋、国庆等）

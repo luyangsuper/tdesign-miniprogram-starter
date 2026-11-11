@@ -12,7 +12,6 @@
     "fun-empty": "/components/fun-empty/index",
     "t-popup": "tdesign-miniprogram/popup/popup",
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
-    "t-icon": "tdesign-miniprogram/icon/icon",
     "t-avatar": "tdesign-miniprogram/avatar/avatar",
     "t-cell": "tdesign-miniprogram/cell/cell",
     "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",

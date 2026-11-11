@@ -290,6 +290,9 @@
   &__section-title {
     .ui-strong();
     margin-bottom: 16rpx;
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
   }
 
   &__recommend {
@@ -480,13 +483,16 @@
   }
 
   &__slots {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 20rpx;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   &__slot {
-    width: 210rpx;
+    width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     transition: transform 0.16s ease;
 
@@ -501,13 +507,26 @@
 
   &__slot-cover-wrap {
     position: relative;
-    width: 210rpx;
-    height: 280rpx;
+    width: 100%;
+    /* 原 210×280 → 3:4，随列宽等比 */
+    height: 0;
+    padding-bottom: 133.333%;
     border-radius: 12rpx;
     overflow: hidden;
     /* aspectFit 原图四周留白底 */
     background: var(--td-bg-color-secondarycontainer);
     animation: detail-fade-in 0.28s ease 0.04s both;
+
+    > .detail__slot-cover,
+    > .detail__slot-skeleton {
+      position: absolute;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 100% !important;
+      height: 100% !important;
+    }
   }
 
   &__slot-mask {
@@ -573,8 +592,8 @@
 
   &__slot-cover {
     display: block !important;
-    width: 210rpx;
-    height: 280rpx;
+    width: 100%;
+    height: 100%;
     --td-image-round-radius: 12rpx;
 
     &--empty {

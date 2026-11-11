@@ -3,6 +3,10 @@
   <grid-lottery />
 
   <view class="lottery-list__subscribe">
+    <view class="lottery-list__subscribe-title">
+      <kubai-icon name="notification" size="36rpx" color="#07c160" />
+      <text>抽奖提醒</text>
+    </view>
     <t-button
       theme="primary"
       variant="outline"
@@ -14,7 +18,10 @@
     <view class="lottery-list__subscribe-hint">{{lotteryNotifyHint}}</view>
   </view>
 
-  <view class="lottery-list__section">限时活动</view>
+  <view class="lottery-list__section">
+    <kubai-icon name="trophy" size="32rpx" color="#eab308" />
+    <text>限时活动</text>
+  </view>
 
   <view wx:if="{{loading}}" class="lottery-list__loading lottery-list__loading--list">
     <t-loading theme="circular" size="40rpx" text="加载中" />

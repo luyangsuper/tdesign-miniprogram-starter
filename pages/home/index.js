@@ -235,7 +235,7 @@ Page({
     navSearchRight: 160,
     searchBarHeight: 32,
     searchTop: 48,
-    searchIconSize: '32rpx',
+    searchIconSize: '40rpx',
     searchBoxStyle: '',
     /** 仅固定分类栏高度；导航栏靠 t-navbar placeholder 占位，勿再叠加 */
     fixedOffset: 48,
@@ -806,8 +806,8 @@ Page({
       // 搜索条用 64rpx 完整胶囊圆角；勿锁成胶囊高度，否则 overflow 会裁成扁椭圆
       const searchBarHeight = Math.max(menu.height, Math.round(64 * rpx));
       const searchTop = Math.round(menu.top + (menu.height - searchBarHeight) / 2);
-      // 收起/展开共用图标尺寸
-      const iconPx = Math.max(16, Math.round(searchBarHeight * 0.44));
+      // 收起/展开共用图标尺寸：贴近胶囊高度，避免发虚也别留太多内边距
+      const iconPx = Math.max(24, Math.round(searchBarHeight * 0.72));
       const searchIconSize = `${iconPx}px`;
       this.setData(
         {
@@ -843,7 +843,7 @@ Page({
         navSearchRight: 160,
         searchBarHeight: 32,
         searchTop: 48,
-        searchIconSize: '16px',
+        searchIconSize: '24px',
       };
       this.setData(
         {

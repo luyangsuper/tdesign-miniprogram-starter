@@ -286,7 +286,7 @@ Page({
     gridLotteryOn: false,
     checkinVisible: false,
     checkinCheckedToday: false,
-    checkinEntryText: '签到',
+    checkinEntryText: '签到领积分',
     adRewardVisible: false,
     adRewardNote: '看完视频领积分',
     adRewardPoints: defaultAdRewardPoints(),
@@ -299,26 +299,44 @@ Page({
       {
         title: '在趣图铺子里选合集',
         desc: '打开首页，可按表情 / 壁纸 / 头像 / 视频筛选，点进喜欢的合集预览。批量保存时一次只能选同一类型。',
+        icon: 'smile',
+        iconColor: '#27AE60',
+        iconBg: 'rgba(39, 174, 96, 0.14)',
       },
       {
         title: '获取下载权限',
         desc: `在「我的」购买或兑换包月（每月 ${config.monthlyQuota || 48} 积分，月底清零）与积分。保存单价：表情静态 ${downloadCost('static')} / 动态 ${downloadCost('anim')}，壁纸 ${downloadCost('wallpaper')}，头像 ${downloadCost('avatar')}，视频 ${downloadCost('video')}（以「我的」与管理端规则为准）。`,
+        icon: 'ticket',
+        iconColor: '#D97706',
+        iconBg: 'rgba(245, 158, 11, 0.16)',
       },
       {
         title: '保存原文件到相册',
         desc: '表情合集可选「静态 / 动态」原图；壁纸、头像、视频直接保存原文件。授权相册后写入手机。',
+        icon: 'download',
+        iconColor: '#0052D9',
+        iconBg: 'rgba(0, 82, 217, 0.12)',
       },
       {
         title: '打开微信表情面板',
         desc: '若保存的是表情：回到微信，进入任意聊天，点输入框旁的表情图标，打开表情面板。壁纸 / 头像可直接设系统壁纸或头像；视频可在相册播放。',
+        icon: 'chat',
+        iconColor: '#07C160',
+        iconBg: 'rgba(7, 193, 96, 0.14)',
       },
       {
         title: '进入「添加的单个表情」',
         desc: '点面板右上角设置（齿轮），进入「我的表情」→「添加的单个表情」（有的版本在「我」→「表情」→ 右上角设置）。',
+        icon: 'settings',
+        iconColor: '#5F6368',
+        iconBg: 'rgba(95, 99, 104, 0.12)',
       },
       {
         title: '从相册导入',
         desc: '点「+」→「从相册选择」，选中刚保存的图片或 GIF，按提示裁剪后点「完成 / 使用」。之后就能在自定义表情里发送了。',
+        icon: 'upload',
+        iconColor: '#9B51E0',
+        iconBg: 'rgba(187, 107, 217, 0.14)',
       },
     ],
   },
@@ -784,12 +802,17 @@ Page({
       const hit = decorated.find((c) => c.id === ids[0]);
       previewCats = hit ? [hit] : [allTab];
     } else {
-      // 多选 → 首页仍是「全部」，偏好角色仅置顶；预览与真实行为一致
+      // 多选 → 「全部」+ 置顶角色（预览里再跟 1 个其余角色示意仍可切换）
       const pinned = ids
         .map((id) => decorated.find((c) => c.id === id))
         .filter(Boolean)
         .slice(0, 3);
+      const pinnedSet = new Set(pinned.map((c) => c.id));
+      const rest = decorated.find(
+        (c) => c.id !== CATEGORY_FILTER_ALL && !pinnedSet.has(c.id),
+      );
       previewCats = [allTab].concat(pinned);
+      if (rest) previewCats.push(rest);
     }
     const draftPref = {
       saved: true,
@@ -2133,7 +2156,7 @@ Page({
       const checkedToday = !!data.checkedToday;
       this.setData({
         checkinCheckedToday: checkedToday,
-        checkinEntryText: checkedToday ? '已签到' : '签到',
+        checkinEntryText: checkedToday ? '已签到' : '签到领积分',
       });
     } catch (e) {
       /* 入口文案失败时保持默认，不打断页面 */

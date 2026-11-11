@@ -62,6 +62,9 @@
       }
     ]
   },
+  "usingComponents": {
+    "kubai-icon": "/components/kubai-icon/index"
+  },
   "resolveAlias": {
     "~/*": "/*"
   },

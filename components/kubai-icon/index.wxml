@@ -1,0 +1,13 @@
+<view
+  class="kubai-icon-wrap {{playing ? 'is-play' : ''}} {{motion ? '' : 'is-static'}}"
+  style="{{boxStyle}}"
+  bindtap="onTap"
+  aria-hidden="true"
+>
+  <image
+    class="kubai-icon"
+    src="{{src}}"
+    mode="aspectFit"
+    lazy-load
+  />
+</view>

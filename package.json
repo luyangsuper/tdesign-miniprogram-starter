@@ -8,7 +8,7 @@
     "lint:fix": "npm run lint:fix-eslint && npm run lint:fix-prettier",
     "lint:fix-eslint": "eslint --ext .js,.ts ./ --max-warnings 0 --ignore-path .gitignore --ignore-path .eslintignore --fix",
     "lint:fix-prettier": "prettier ./ --ignore-path .gitignore --ignore-path .eslintignore --ignore-path .prettierignore --write './**/*.{js,ts}' --ignore-unknown",
-    "icons:gen": "node scripts/generate-iconpark-assets.js",
+    "icons:gen": "node scripts/generate-kubai-assets.js",
     "festival:gen": "node scripts/generate-festival-assets.js",
     "festival:fit": "node scripts/fit-festival-image.js",
     "festival:solar": "node scripts/gen-festival-solar-table.js",
@@ -28,8 +28,6 @@
     "tdesign-miniprogram": "^1.11.2"
   },
   "devDependencies": {
-    "lunar-javascript": "^1.7.7",
-    "@icon-park/svg": "^1.4.2",
     "eslint": "^8.49.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-prettier": "^9.0.0",
@@ -38,6 +36,7 @@
     "husky": "^8.0.3",
     "less": "^4.9.1",
     "lint-staged": "^14.0.1",
+    "lunar-javascript": "^1.7.7",
     "prettier": "^3.0.2",
     "sharp": "^0.35.5"
   },

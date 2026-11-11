@@ -47,7 +47,7 @@ function buildKeywordCond(keyword) {
   ]);
 }
 
-function buildCategoryConds(categoryId) {
+function buildCategoryConds(categoryId, categoryIds) {
   if (categoryId === 'uncategorized') {
     return _.or([
       { categoryId: _.exists(false) },
@@ -58,6 +58,12 @@ function buildCategoryConds(categoryId) {
   if (categoryId && categoryId !== 'all') {
     return { categoryId };
   }
+  /* 首页偏好多选：点「全部」时只查所选角色 */
+  const ids = Array.isArray(categoryIds)
+    ? categoryIds.map((x) => String(x || '').trim()).filter((id) => id && id !== 'all' && id !== 'uncategorized')
+    : [];
+  if (ids.length === 1) return { categoryId: ids[0] };
+  if (ids.length > 1) return { categoryId: _.in(ids) };
   return null;
 }
 
@@ -115,11 +121,11 @@ async function mapPacksWithCovers(packs, { forceRefresh = false } = {}) {
   });
 }
 
-function buildWhere({ keyword, categoryId, contentType }) {
+function buildWhere({ keyword, categoryId, categoryIds, contentType }) {
   const conds = [{ status: 'published' }];
   const kw = buildKeywordCond(keyword);
   if (kw) conds.push(kw);
-  const cat = buildCategoryConds(categoryId);
+  const cat = buildCategoryConds(categoryId, categoryIds);
   if (cat) conds.push(cat);
   const typeCond = buildContentTypeCond(contentType);
   if (typeCond) conds.push(typeCond);
@@ -376,6 +382,9 @@ exports.main = async (event = {}) => {
     .trim()
     .slice(0, 40);
   const categoryId = String(event.categoryId || 'all').trim() || 'all';
+  const categoryIds = Array.isArray(event.categoryIds)
+    ? event.categoryIds.map((x) => String(x || '').trim()).filter(Boolean)
+    : [];
   const contentType = String(event.contentType || 'all').trim() || 'all';
   const forceRefresh = !!(event.forceRefresh || event.refreshCovers);
   const excludePackId = String(event.excludePackId || event.packId || '').trim();
@@ -411,7 +420,7 @@ exports.main = async (event = {}) => {
       };
     }
 
-    const where = buildWhere({ keyword, categoryId, contentType });
+    const where = buildWhere({ keyword, categoryId, categoryIds, contentType });
     const countRes = await db.collection('packs').where(where).count();
     const total = countRes.total || 0;
 

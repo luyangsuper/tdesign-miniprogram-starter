@@ -13,7 +13,7 @@ const PRODUCT_ORDER = [
   'points_170',
 ];
 
-/** IconPark 套餐图（npm run icons:gen → static/pricing）作默认道具图 */
+/** Kubai 套餐图（npm run icons:gen → static/pricing）作默认道具图 */
 const DEFAULT_PROP_ICONS = {
   vip_month: '/static/pricing/month.png',
   vip_quarter: '/static/pricing/quarter.png',
@@ -371,7 +371,7 @@ Page({
   },
 
   /**
-   * 把 static/pricing 的 IconPark 图上传到云存储并写入定价配置
+   * 把 static/pricing 的 Kubai 图上传到云存储并写入定价配置
    * @param {{ silent?: boolean, onlyMissing?: boolean }} opts
    */
   async fillDefaultIcons(opts = {}) {

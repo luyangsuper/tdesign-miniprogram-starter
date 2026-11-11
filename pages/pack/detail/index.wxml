@@ -177,7 +177,14 @@
     </view>
 
     <view class="detail__section">
-      <view class="detail__section-title">{{canSaveStatic ? saveSectionTitle : '预览'}}</view>
+      <view class="detail__section-title">
+        <kubai-icon
+          name="{{canSaveStatic ? 'image-down' : 'eye'}}"
+          size="36rpx"
+          color="{{themeBrand}}"
+        />
+        <text>{{canSaveStatic ? saveSectionTitle : '预览'}}</text>
+      </view>
       <view class="detail__hint">
         <block wx:if="{{downloadReady}}">
           {{entitlementHint}} · {{costHint}}
@@ -231,7 +238,7 @@
           bindtap="onToggleSelectAll"
           aria-role="button"
         >
-          <t-icon
+          <kubai-icon
             name="{{allSelected ? 'check-circle-filled' : 'circle'}}"
             size="36rpx"
             color="{{allSelected ? themeBrand : '#bbb'}}"
@@ -269,8 +276,8 @@
               lazy
               loading="slot"
               show-menu-by-longpress="{{false}}"
-              width="210rpx"
-              height="280rpx"
+              width="100%"
+              height="100%"
               data-index="{{item.index}}"
               bind:load="onSlotImgLoad"
               bind:error="onSlotImgError"
@@ -311,7 +318,7 @@
               class="detail__slot-check {{item.selected ? 'detail__slot-check--on' : ''}}"
               aria-hidden="true"
             >
-              <t-icon
+              <kubai-icon
                 name="{{item.selected ? 'check-circle-filled' : 'circle'}}"
                 size="36rpx"
                 color="{{item.selected ? '#fff' : 'rgba(255,255,255,0.95)'}}"
@@ -337,7 +344,10 @@
       class="detail__section detail__recommend"
       wx:if="{{recommendLoading || recommendItems.length}}"
     >
-      <view class="detail__section-title">推荐合集</view>
+      <view class="detail__section-title">
+        <kubai-icon name="sparkles" size="36rpx" color="{{themeBrand}}" />
+        <text>推荐合集</text>
+      </view>
       <view wx:if="{{recommendLoading && !recommendItems.length}}" class="detail__recommend-loading">
         <fun-loading />
       </view>

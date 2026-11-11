@@ -4,6 +4,7 @@ import { getFestivalConfettiColors } from '~/utils/festival';
 import { getLotteryAudio } from '~/utils/lotteryAudio';
 import { promptSaveAdForPoints } from '~/utils/adReward';
 import { spendablePoints, getCachedEntitlement } from '~/utils/entitlement';
+import { getThemeBrand } from '~/utils/theme';
 
 const ART = {
   miss: '/static/lottery/miss.png',
@@ -89,6 +90,7 @@ Component({
     goLiveArt: '/static/lottery/go.png',
     goArtPulse: '',
     soundMuted: false,
+    themeBrand: '#07c160',
     isAdmin: false,
     resetting: false,
   },
@@ -96,7 +98,11 @@ Component({
   lifetimes: {
     attached() {
       const audio = getLotteryAudio();
-      this.setData({ soundMuted: audio.isMuted(), isAdmin: canBeAdmin() });
+      this.setData({
+        soundMuted: audio.isMuted(),
+        isAdmin: canBeAdmin(),
+        themeBrand: getThemeBrand(),
+      });
       this.loadConfig();
     },
     detached() {
@@ -108,7 +114,11 @@ Component({
   pageLifetimes: {
     show() {
       const audio = getLotteryAudio();
-      this.setData({ soundMuted: audio.isMuted(), isAdmin: canBeAdmin() });
+      this.setData({
+        soundMuted: audio.isMuted(),
+        isAdmin: canBeAdmin(),
+        themeBrand: getThemeBrand(),
+      });
       if (!this.data.spinning) this.loadConfig({ silent: true });
     },
   },

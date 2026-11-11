@@ -54,15 +54,20 @@
 
   &__hero {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 18rpx;
-    padding: 4rpx 160rpx 20rpx 0;
+    /* 右侧留给角上「补签/关闭」的空间只挡标题行，副标题可占满剩余宽 */
+    padding: 4rpx 0 20rpx;
   }
 
   &__hero-icon {
     width: 72rpx;
     height: 72rpx;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2rpx;
   }
 
   &__hero-main {
@@ -73,15 +78,50 @@
     gap: 8rpx;
   }
 
+  &__hero-title-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6rpx;
+    min-width: 0;
+    /* 避免标题和右上角按钮叠在一起 */
+    padding-right: 160rpx;
+    box-sizing: border-box;
+  }
+
   &__hero-title {
     .ui-title();
     font-weight: 700;
     line-height: 1.2;
   }
 
+  &__hero-fest {
+    display: inline-flex;
+    align-items: center;
+    gap: 4rpx;
+    max-width: 100%;
+    padding: 2rpx 10rpx 2rpx 6rpx;
+    border-radius: 999rpx;
+    background: rgba(245, 158, 11, 0.14);
+    box-sizing: border-box;
+  }
+
+  &__hero-fest-text {
+    .ui-caption();
+    color: #d97706;
+    font-weight: 600;
+    line-height: 1.2;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
   &__hero-sub {
     .ui-caption();
     color: var(--td-text-color-secondary);
+    line-height: 1.35;
+    /* 中文尽量不在字中间硬拆；宽度已不再被右上角按钮整块裁掉 */
+    word-break: keep-all;
   }
 
   &__month-bar {
@@ -110,7 +150,7 @@
 
   &__cal {
     position: relative;
-    min-height: 380rpx;
+    min-height: 420rpx;
   }
 
   &__loading-mask {
@@ -138,8 +178,10 @@
 
   &__cell {
     flex: 1;
-    height: 72rpx;
+    min-height: 76rpx;
+    height: auto;
     margin: 4rpx;
+    padding: 6rpx 0;
     border-radius: 16rpx;
     display: flex;
     flex-direction: column;
@@ -194,24 +236,45 @@
       background: rgba(245, 158, 11, 0.08);
       box-shadow: inset 0 0 0 2rpx rgba(245, 158, 11, 0.7);
     }
+
+    &.is-fest:not(.is-checked):not(.is-makeup):not(.is-today):not(.is-next-makeup) {
+      background: rgba(236, 72, 153, 0.08);
+    }
+
+    &.is-fest {
+      .ckp__fest {
+        color: #db2777;
+      }
+    }
+
+    &.is-checked.is-fest .ckp__fest {
+      color: #059669;
+    }
+
+    &.is-makeup.is-fest .ckp__fest {
+      color: #d97706;
+    }
   }
 
   &__day {
     .ui-body();
     font-weight: 600;
-    line-height: 1.2;
+    line-height: 1.15;
   }
 
-  &__dot {
-    width: 8rpx;
-    height: 8rpx;
-    margin-top: 4rpx;
-    border-radius: 50%;
-    background: #10b981;
-
-    &.is-makeup {
-      background: #f59e0b;
-    }
+  &__fest {
+    margin-top: 2rpx;
+    max-width: 100%;
+    padding: 0 2rpx;
+    font-size: 18rpx;
+    line-height: 1.1;
+    font-weight: 600;
+    color: #db2777;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: center;
+    box-sizing: border-box;
   }
 
   &__stats {

@@ -71,7 +71,7 @@
         <view class="users-page__sub">{{item.statusText}} · 积分 {{item.entitlement.points}} 分{{item.entitlement.isVip ? ' · 本月额度 ' + item.entitlement.vipMonthQuota + ' 分' : ''}} · <text class="users-page__paid {{item.paidFen > 0 ? 'users-page__paid--on' : ''}}">{{item.paidText}}</text></view>
         <view class="users-page__sub">{{item.shortId}}{{item.lastLoginText ? ' · ' + item.lastLoginText : ''}}</view>
       </view>
-      <t-icon name="chevron-right" size="36rpx" />
+      <kubai-icon name="chevron-right" size="44rpx" color="#999999" />
     </view>
     <view class="users-page__footer">
       {{listHasMore ? (listLoading ? '加载中...' : '上拉加载更多') : '没有更多了'}}
@@ -304,13 +304,13 @@
                   mode="aspectFill"
                 />
                 <view wx:else class="users-page__dl-cover users-page__dl-cover--empty">
-                  <t-icon name="image" size="36rpx" />
+                  <kubai-icon name="image" size="44rpx" color="#999999" />
                 </view>
                 <view class="users-page__dl-meta">
                   <text class="users-page__dl-title">{{item.title}}</text>
                   <text class="users-page__dl-sub">{{item.emojiCount}} 张 · 保存 {{item.count}} 次{{item.lastText ? ' · ' + item.lastText : ''}}</text>
                 </view>
-                <t-icon name="chevron-right" size="32rpx" />
+                <kubai-icon name="chevron-right" size="40rpx" color="#999999" />
               </view>
               <view wx:if="{{item.emojis.length}}" class="users-page__dl-emojis">
                 <view
@@ -328,7 +328,7 @@
                     mode="aspectFill"
                   />
                   <view wx:else class="users-page__dl-emoji-img users-page__dl-emoji-img--empty">
-                    <t-icon name="image" size="28rpx" />
+                    <kubai-icon name="image" size="34rpx" color="#999999" />
                   </view>
                   <text class="users-page__dl-emoji-label">{{em.label}}</text>
                   <text class="users-page__dl-emoji-count">×{{em.count}}</text>

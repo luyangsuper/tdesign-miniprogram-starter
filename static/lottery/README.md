@@ -1,17 +1,17 @@
 # 九宫格奖池插图
 
-装饰图来自 [IconPark](https://iconpark.oceanengine.com/)（`@icon-park/svg` two-tone）。
+装饰图来自 [Kubai Icons](https://icons.kubai.design/)（Color 变体）。
 
-- 许可：**Apache-2.0**
+- 许可：见 [Kubai License](https://icons.kubai.design/)
 - 生成：`npm run icons:gen`
 
-| File | IconPark | Use |
-|------|----------|-----|
-| miss.png | DisappointedFace | 谢谢参与 |
-| pts1.png | Ticket | 1积分 |
-| pts2.png | Gift | 2积分 |
-| pts4.png | GiftBox | 4积分 |
-| pts8.png | Trophy | 8积分 |
-| pts12.png | Diamond | 12积分 |
-| pts18.png | Crown | 18积分大奖 |
-| go.png | GiftBox | 中间抽奖钮 |
+| File | Kubai | Use |
+|------|-------|-----|
+| miss.png | frown | 谢谢参与 |
+| pts1.png | ticket | 1积分 |
+| pts2.png | gift | 2积分 |
+| pts4.png | gift-bag | 4积分 |
+| pts8.png | trophy | 8积分 |
+| pts12.png | gem | 12积分 |
+| go.png | gift-bag | 中间抽奖钮 |
+| pts18.png | crown | 18积分大奖 |

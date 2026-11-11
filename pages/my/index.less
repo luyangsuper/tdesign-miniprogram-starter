@@ -143,20 +143,38 @@
     white-space: nowrap;
   }
 
-  /* 资料卡右侧签到：填空、提高触达 */
+  /* 资料卡右侧签到：Kubai 图标 + 文案 */
   &__checkin-btn {
-    flex-shrink: 0 !important;
-    margin: 0 0 0 12rpx !important;
-    padding: 0 20rpx !important;
-    height: 56rpx !important;
-    line-height: 56rpx !important;
-    --td-button-small-height: 56rpx;
-    --td-button-small-font-size: 24rpx;
+    flex-shrink: 0;
+    margin: 0 0 0 12rpx;
+    padding: 0 18rpx 0 14rpx;
+    height: 56rpx;
+    border-radius: 999rpx;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6rpx;
+    background: var(--td-brand-color);
+    color: #fff;
+    border: 2rpx solid transparent;
+  }
+
+  &__checkin-btn-text {
+    font-size: 24rpx;
+    font-weight: 600;
+    line-height: 1.1;
+    color: inherit;
   }
 
   &__checkin-btn--done {
-    color: var(--td-text-color-secondary) !important;
-    border-color: var(--td-component-border) !important;
+    background: transparent;
+    color: var(--td-text-color-secondary);
+    border-color: var(--td-component-border);
+  }
+
+  &__checkin-btn--press {
+    opacity: 0.86;
   }
 
   &__benefit {
@@ -225,6 +243,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 12rpx;
+    min-width: 0;
+  }
+
+  &__benefit-sum-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6rpx;
     min-width: 0;
   }
 
@@ -338,12 +363,12 @@
     position: relative;
     flex: 1;
     min-width: 0;
-    padding: 12rpx 10rpx;
+    padding: 14rpx 10rpx;
     border-radius: 14rpx;
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 8rpx;
+    gap: 10rpx;
     box-sizing: border-box;
   }
 
@@ -376,8 +401,8 @@
   }
 
   &__pricing-chip-icon {
-    width: 36rpx;
-    height: 36rpx;
+    width: 44rpx;
+    height: 44rpx;
     flex-shrink: 0;
   }
 
@@ -435,8 +460,15 @@
     gap: 12rpx;
     background: var(--td-bg-color-secondarycontainer, var(--td-bg-color-page));
     border-radius: 12rpx;
-    padding: 6rpx 8rpx 6rpx 16rpx;
+    padding: 6rpx 8rpx 6rpx 12rpx;
     min-height: 64rpx;
+  }
+
+  &__redeem-lead {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   &__redeem-native {
@@ -504,6 +536,10 @@
 
 .my__pricing-sheet-title {
   .ui-title();
+  display: inline-flex;
+  align-items: center;
+  gap: 10rpx;
+  min-width: 0;
 }
 
 .my__pricing-sheet-scroll {
@@ -634,9 +670,9 @@
 }
 
 .my__pricing-card-icon {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 22rpx;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 20rpx;
   background: var(--plan-icon-bg);
   display: flex;
   align-items: center;
@@ -645,8 +681,8 @@
 }
 
 .my__pricing-card-emoji {
-  width: 56rpx;
-  height: 56rpx;
+  width: 52rpx;
+  height: 52rpx;
 }
 
 .my__pricing-card-main {
@@ -882,25 +918,45 @@
 }
 
 .my-menu-icon {
-  width: 40rpx;
-  height: 40rpx;
+  width: 52rpx;
+  height: 52rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   line-height: 1;
-  overflow: hidden;
+  overflow: visible;
 
   &__img {
-    width: 40rpx;
-    height: 40rpx;
+    width: 52rpx;
+    height: 52rpx;
     display: block;
   }
 }
 
+/* 点整行菜单时也带一下图标弹跳（对齐 kubai-icon 点击动效） */
+.my-menu-cell:active .kubai-icon-wrap {
+  animation: kubai-tap-page 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes kubai-tap-page {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  28% {
+    transform: scale(0.86) rotate(-6deg);
+  }
+  62% {
+    transform: scale(1.1) rotate(4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 .my__theme-dot {
-  width: 40rpx;
-  height: 40rpx;
+  width: 44rpx;
+  height: 44rpx;
   border-radius: 50%;
   box-sizing: border-box;
   border: 2rpx solid rgba(0, 0, 0, 0.06);
@@ -934,6 +990,9 @@
   .ui-title();
   flex: 1;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10rpx;
 }
 
 .my__feedback-close {
@@ -981,6 +1040,10 @@
 
 .my__theme-sheet-title {
   .ui-strong();
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
   text-align: center;
 }
 
@@ -1016,6 +1079,9 @@
 .my__display-section-title {
   .ui-strong();
   margin: 0 0 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
 }
 
 /* 上预览（定高）+ 下 Chip 行：Material / iOS Settings 常见组合 */
@@ -1443,8 +1509,8 @@
 }
 
 .my__home-pref-type-icon {
-  width: 36rpx;
-  height: 36rpx;
+  width: 44rpx;
+  height: 44rpx;
   flex-shrink: 0;
   display: block;
 }
@@ -1521,8 +1587,12 @@
   flex-shrink: 0;
   width: 0;
   max-width: 0;
+  height: 44rpx;
   opacity: 0;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transform: scale(0.6);
   transition:
     opacity 0.2s ease,
@@ -1531,10 +1601,11 @@
     max-width 0.2s ease;
 
   &.is-show {
-    width: 28rpx;
-    max-width: 28rpx;
+    width: 44rpx;
+    max-width: 44rpx;
     opacity: 1;
     transform: scale(1);
+    overflow: visible;
   }
 }
 
@@ -2202,6 +2273,9 @@
   .ui-title();
   flex: 1;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10rpx;
 }
 
 .my__guide-close-btn {
@@ -2219,7 +2293,52 @@
   display: block;
   width: 96rpx;
   height: 96rpx;
-  margin: 4rpx auto 16rpx;
+  margin: 0 auto 16rpx;
+}
+
+.my__guide-highlight {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  margin: 4rpx 0 20rpx;
+  padding: 20rpx 18rpx;
+  border-radius: 16rpx;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(249, 115, 22, 0.12));
+  border: 2rpx solid rgba(234, 88, 12, 0.28);
+  box-sizing: border-box;
+}
+
+.my__guide-highlight-icon {
+  flex-shrink: 0;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.my__guide-highlight-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.my__guide-highlight-title {
+  .ui-strong();
+  color: #9a3412;
+  font-size: 28rpx;
+  line-height: 1.35;
+}
+
+.my__guide-highlight-text {
+  .ui-caption();
+  color: #9a3412;
+  line-height: 1.55;
+  opacity: 0.92;
 }
 
 .my__guide-tip {
@@ -2240,17 +2359,15 @@
 
 .my__guide-index {
   flex-shrink: 0;
-  width: 40rpx;
-  height: 40rpx;
+  width: 56rpx;
+  height: 56rpx;
   border-radius: 50%;
   background: var(--td-brand-color-light);
-  color: var(--td-brand-color);
-  .ui-caption();
-  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2rpx;
+  margin-top: 0;
+  box-sizing: border-box;
 }
 
 .my__guide-body {
@@ -2271,6 +2388,9 @@
 .my__guide-foot {
   .ui-caption();
   margin-top: 20rpx;
+  padding-bottom: 8rpx;
+  color: var(--td-text-color-secondary);
+  line-height: 1.55;
 }
 
 /* 走 t-class / t-class-*：整行、左图标、标题、备注同一中线 */

@@ -40,7 +40,7 @@
       <text wx:if="{{!typeBadgeCompact}}" class="pack-card__type-badge-text">{{typeBadge.text}}</text>
     </view>
     <view wx:if="{{selectMode}}" class="pack-card__check" aria-hidden="true">
-      <t-icon
+      <kubai-icon
         name="{{selected ? 'check-circle-filled' : 'circle'}}"
         size="40rpx"
         color="{{selected ? brandColor : 'rgba(255,255,255,0.92)'}}"

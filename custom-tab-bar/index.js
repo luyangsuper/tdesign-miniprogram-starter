@@ -1,4 +1,3 @@
-import { getThemeStyle } from '~/utils/theme';
 import {
   getActiveFestival,
   getFestivalAssets,
@@ -33,7 +32,6 @@ Component({
   },
   data: {
     value: '',
-    themeStyle: '',
     festivalId: '',
     bankSrc: '',
     bankMaxPx: 80,
@@ -46,18 +44,15 @@ Component({
       const cur = pages[pages.length - 1];
       this.setData({
         value: routeToValue(cur && cur.route),
-        themeStyle: getThemeStyle(),
         bankMaxPx: bankMaxHeightPx(),
       });
       this.syncFestival();
-      this._onThemeChange = () => this.syncTheme();
       this._onFestivalChange = () => {
         this.syncFestival();
       };
       try {
         const app = getApp();
         if (app && app.eventBus) {
-          app.eventBus.on('themeChange', this._onThemeChange);
           app.eventBus.on('festivalChange', this._onFestivalChange);
         }
       } catch (e) {
@@ -68,7 +63,6 @@ Component({
       try {
         const app = getApp();
         if (app && app.eventBus) {
-          if (this._onThemeChange) app.eventBus.off('themeChange', this._onThemeChange);
           if (this._onFestivalChange) app.eventBus.off('festivalChange', this._onFestivalChange);
         }
       } catch (e) {
@@ -78,7 +72,6 @@ Component({
   },
   pageLifetimes: {
     show() {
-      this.syncTheme();
       this.syncFestival();
       const pages = getCurrentPages();
       const cur = pages[pages.length - 1];
@@ -86,11 +79,7 @@ Component({
     },
   },
   methods: {
-    syncTheme() {
-      const themeStyle = getThemeStyle();
-      if (this.data.themeStyle !== themeStyle) this.setData({ themeStyle });
-    },
-    /** 底栏背景跟节日走；栏体始终实心，底图只作装饰 */
+    /** 底栏背景跟节日走；栏体始终实心，底图只作装饰；文字色不跟主题 */
     syncFestival(opts = {}) {
       const token = (this._festToken || 0) + 1;
       this._festToken = token;

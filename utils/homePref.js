@@ -1,6 +1,6 @@
 /**
  * 首页偏好：默认主分类 + 多选角色分类。
- * 本地持久化；保存后下次进首页按此加载（类型筛选 + 角色 Tab 前排）。
+ * 本地持久化；保存后下次进首页按此加载（类型筛选；多选角色仅置顶，不隐藏其它分类）。
  */
 import {
   CONTENT_TYPE_ALL,
@@ -184,7 +184,10 @@ export function clearHomePref() {
   return next;
 }
 
-/** 把偏好角色排到「全部」之后、其余角色之前 */
+/**
+ * 有偏好角色时：把所选角色紧挨「全部」之后置顶，其余角色仍保留
+ * 无偏好：原样返回
+ */
 export function reorderFiltersByPref(filters, preferredIds) {
   const list = Array.isArray(filters) ? filters.slice() : [];
   if (!list.length) return list;
@@ -195,20 +198,21 @@ export function reorderFiltersByPref(filters, preferredIds) {
 
   const all = list.filter((f) => f && f.id === CATEGORY_FILTER_ALL);
   const rest = list.filter((f) => f && f.id !== CATEGORY_FILTER_ALL);
-  const prefSet = new Set(pref);
   const head = [];
+  const prefSet = Object.create(null);
   pref.forEach((id) => {
+    prefSet[id] = true;
     const hit = rest.find((f) => f.id === id);
     if (hit) head.push(hit);
   });
-  const tail = rest.filter((f) => !prefSet.has(f.id));
+  const tail = rest.filter((f) => !prefSet[f.id]);
   return all.concat(head, tail);
 }
 
 /**
  * 冷启动默认选中的角色：
  * - 只选 1 个 → 直接进该角色
- * - 多选 → 进「全部」，偏好角色仅置顶在分类栏
+ * - 多选 → 进「全部」（完整合集；偏好角色仅在分类栏置顶）
  * - 未选 → 全部
  */
 export function resolveHomePrefCategoryId(pref = getHomePref()) {

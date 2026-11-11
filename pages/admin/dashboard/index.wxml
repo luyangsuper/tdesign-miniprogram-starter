@@ -117,13 +117,13 @@
             mode="aspectFill"
           />
           <view wx:else class="dash__pack-cover dash__pack-cover--empty">
-            <t-icon name="image" size="32rpx" />
+            <kubai-icon name="image" size="40rpx" color="#999999" />
           </view>
           <view class="dash__pack-meta">
             <text class="dash__pack-title">{{item.title}}</text>
             <text class="dash__pack-sub">今日 {{item.count}} 次</text>
           </view>
-          <t-icon name="chevron-right" size="32rpx" />
+          <kubai-icon name="chevron-right" size="40rpx" color="#999999" />
         </view>
       </block>
     </view>
@@ -147,13 +147,13 @@
             mode="aspectFill"
           />
           <view wx:else class="dash__pack-cover dash__pack-cover--empty">
-            <t-icon name="image" size="32rpx" />
+            <kubai-icon name="image" size="40rpx" color="#999999" />
           </view>
           <view class="dash__pack-meta">
             <text class="dash__pack-title">{{item.title}}</text>
             <text class="dash__pack-sub">累计 {{item.count}} 次</text>
           </view>
-          <t-icon name="chevron-right" size="32rpx" />
+          <kubai-icon name="chevron-right" size="40rpx" color="#999999" />
         </view>
       </block>
     </view>

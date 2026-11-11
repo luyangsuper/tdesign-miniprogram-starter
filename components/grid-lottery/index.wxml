@@ -6,10 +6,10 @@
         <view class="grid-lot__title-row">
           <text class="grid-lot__title">每日九宫格</text>
           <view class="grid-lot__sound {{soundMuted ? 'is-off' : ''}}" catchtap="onToggleSound">
-            <t-icon
+            <kubai-icon
               name="{{soundMuted ? 'sound-mute' : 'sound'}}"
-              size="36rpx"
-              color="{{soundMuted ? 'var(--td-text-color-placeholder)' : 'var(--td-brand-color)'}}"
+              size="44rpx"
+              color="{{soundMuted ? '#999999' : themeBrand}}"
             />
           </view>
         </view>

@@ -7,10 +7,46 @@ import {
   isCheckinAdRewardEnabled,
   watchAdAndClaimPoints,
 } from '~/utils/adReward';
-import { getFestivalConfettiColors } from '~/utils/festival';
+import {
+  festivalCalendarShortName,
+  findFestivalForCalendarDate,
+  getFestivalConfettiColors,
+} from '~/utils/festival';
 import { showPointsReward } from '~/utils/pointsReward';
 import { getThemeStyle } from '~/utils/theme';
 import { defaultCheckinPoints } from '~/utils/giftHint';
+
+function enrichWeeksWithFestival(weeks) {
+  if (!Array.isArray(weeks) || !weeks.length) return weeks || [];
+  return weeks.map((week) => {
+    if (!Array.isArray(week)) return week;
+    return week.map((cell) => {
+      if (!cell || cell.type !== 'day' || !cell.dateKey) {
+        return {
+          ...cell,
+          hasFestival: false,
+          festivalName: '',
+          festivalShort: '',
+        };
+      }
+      const fest = findFestivalForCalendarDate(cell.dateKey);
+      if (!fest) {
+        return {
+          ...cell,
+          hasFestival: false,
+          festivalName: '',
+          festivalShort: '',
+        };
+      }
+      return {
+        ...cell,
+        hasFestival: true,
+        festivalName: fest.name || '',
+        festivalShort: festivalCalendarShortName(fest),
+      };
+    });
+  });
+}
 
 const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -86,6 +122,9 @@ Component({
     adBonusPoints: defaultSaveAdRewardPoints(),
     adBonusLeftToday: 0,
     adBonusBtnText: '看广告再领 +1',
+    todayFestivalName: '',
+    todayFestivalShort: '',
+    hasTodayFestival: false,
   },
 
   observers: {
@@ -162,7 +201,9 @@ Component({
         ? Math.max(0, rawPts)
         : defaultCheckinPoints();
       const nextMakeupDateKey = data.nextMakeupDateKey || '';
-      const weeks = Array.isArray(data.weeks) && data.weeks.length ? data.weeks : this.data.weeks;
+      const rawWeeks = Array.isArray(data.weeks) && data.weeks.length ? data.weeks : this.data.weeks;
+      const weeks = enrichWeeksWithFestival(rawWeeks);
+      const todayFest = todayKey ? findFestivalForCalendarDate(todayKey) : null;
       this.setData({
         monthKey: mk,
         monthTitle: formatMonthTitle(mk),
@@ -170,6 +211,9 @@ Component({
         currentMonthKey,
         isCurrentMonth,
         weeks,
+        hasTodayFestival: !!todayFest,
+        todayFestivalName: todayFest ? todayFest.name || '' : '',
+        todayFestivalShort: todayFest ? festivalCalendarShortName(todayFest) : '',
         checkedToday,
         canCheckinNow: isCurrentMonth && !checkedToday && checkinPoints > 0,
         checkinBtnText:

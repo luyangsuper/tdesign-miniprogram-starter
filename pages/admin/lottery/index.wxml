@@ -220,7 +220,7 @@
         <view class="admin-lottery__hint">至少晚于现在 1 分钟 · 约 {{userCount}} 人可邀</view>
         <view class="admin-lottery__field admin-lottery__picker" bind:tap="onOpenDrawAtPicker">
           <text class="admin-lottery__picker-text">{{drawAtText || '请选择开奖时间'}}</text>
-          <t-icon name="chevron-right" size="36rpx" />
+          <kubai-icon name="chevron-right" size="44rpx" color="#999999" />
         </view>
       </view>
     </view>

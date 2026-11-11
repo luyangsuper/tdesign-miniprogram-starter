@@ -2,8 +2,6 @@
   "navigationBarTitleText": "积分流水",
   "navigationStyle": "default",
   "enablePullDownRefresh": true,
-  "enableShareAppMessage": true,
-  "enableShareTimeline": true,
   "usingComponents": {
     "t-loading": "tdesign-miniprogram/loading/loading",
     "fun-empty": "/components/fun-empty/index",

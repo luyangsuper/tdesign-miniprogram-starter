@@ -1,7 +1,10 @@
 <page-meta page-style="{{themeStyle}}" />
 <view class="points-log" style="{{themeStyle}}">
   <view class="points-log__balance">
-    <text class="points-log__balance-label">可用总额</text>
+    <view class="points-log__balance-label">
+      <kubai-icon name="ticket" size="36rpx" color="#07c160" />
+      <text>可用总额</text>
+    </view>
     <text class="points-log__balance-num">{{balance}}</text>
   </view>
 

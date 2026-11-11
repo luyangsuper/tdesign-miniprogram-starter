@@ -1165,7 +1165,7 @@ Page({
     this.applySlots(next);
   },
 
-  /** IconPark 图文确认框（替代系统 Modal） */
+  /** Kubai 图文确认框（替代系统 Modal） */
   confirmAsync(content, options = {}) {
     const {
       title = '确认保存',

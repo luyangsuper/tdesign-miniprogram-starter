@@ -12,8 +12,17 @@
   box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.08);
   --td-tab-bar-height: @tab-bar-item-height;
   --td-tab-bar-bg-color: transparent;
-  --td-tab-bar-color: var(--td-text-color-placeholder);
-  --td-tab-bar-active-color: var(--td-brand-color);
+  /* 与 static/tab 图标配色固定：闲置灰 / 首页绿 / 我的橙，不跟主题色 */
+  --td-tab-bar-color: #c8c3bd;
+  --td-tab-bar-active-color: #07c160;
+}
+
+.page.custom-tab-bar.custom-tab-bar--my {
+  --td-tab-bar-active-color: #fa9d3b;
+}
+
+.page.custom-tab-bar.custom-tab-bar--home {
+  --td-tab-bar-active-color: #07c160;
 }
 
 /* 底图只作装饰，且只覆盖图标内容区（安全区留白由栏体实色填充）；
@@ -46,6 +55,36 @@
 .tab-bar-item {
   height: @tab-bar-item-height !important;
   margin: @tab-bar-item-margin-y 0 !important;
+  overflow: visible !important;
+}
+
+/* TDesign 默认 icon 槽 height:20px + display:contents，彩色 PNG 会被裁/偏小 */
+.tab-bar-item .t-tab-bar-item__content {
+  justify-content: center !important;
+  gap: 2rpx;
+  overflow: visible !important;
+}
+
+.tab-bar-item .t-tab-bar-item__icon {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 48rpx !important;
+  height: 48rpx !important;
+  overflow: visible !important;
+  flex-shrink: 0 !important;
+}
+
+.tab-bar-item .t-tab-bar-item__text {
+  line-height: 1.05 !important;
+  margin-top: 0 !important;
+  font-size: 20rpx !important;
+}
+
+.custom-tab-bar__icon {
+  width: 48rpx;
+  height: 48rpx;
+  display: block;
 }
 
 @media (prefers-color-scheme: dark) {

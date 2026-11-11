@@ -12,13 +12,23 @@
     nav-height="{{navHeight}}"
   />
   <t-navbar
-    title="{{searchExpanded ? '' : '趣图铺子'}}"
+    title=""
     fixed="{{true}}"
     placeholder="{{true}}"
     z-index="{{500}}"
     t-class="home__navbar"
     custom-style="{{navBarStyle}}"
-  />
+  >
+    <view wx:if="{{!searchExpanded}}" slot="title" class="home__brand">
+      <image
+        class="home__brand-logo"
+        src="/static/brand/logo.png"
+        mode="aspectFill"
+        aria-hidden="true"
+      />
+      <text class="home__brand-name">趣图铺子</text>
+    </view>
+  </t-navbar>
   <!-- 搜索抬到导航行：展开用 left+right 限位，右缘停在「多选」左侧 -->
   <view
     class="home__search {{searchExpanded ? 'home__search--open' : ''}}"
@@ -32,7 +42,7 @@
       aria-role="button"
       aria-label="搜索"
     >
-      <t-icon name="search" size="{{searchIconSize}}" />
+      <kubai-icon name="zoom-in" size="{{searchIconSize}}" color="{{themeBrand}}" />
       <view wx:if="{{keyword && !searchExpanded}}" class="home__search-dot" aria-hidden="true" />
     </view>
     <view class="home__search-panel" style="height: {{searchBarHeight}}px;">
@@ -44,7 +54,7 @@
         aria-role="button"
         aria-label="收起搜索"
       >
-        <t-icon name="chevron-left" size="{{searchIconSize}}" />
+        <kubai-icon name="chevron-left" size="{{searchIconSize}}" color="{{themeBrand}}" />
       </view>
       <t-search
         t-class="home__search-input"
@@ -295,7 +305,10 @@
 
   <!-- 多选下载底栏：叠在自定义 tabBar 上方；同一次只能选同一类型 -->
   <view class="home__batch" wx:if="{{selectMode}}">
-    <view class="home__batch-meta">{{batchMetaText}}</view>
+    <view class="home__batch-meta">
+      <kubai-icon name="image-down" size="28rpx" color="{{themeBrand}}" />
+      <text>{{batchMetaText}}</text>
+    </view>
     <view class="home__batch-row">
       <view class="home__batch-variants" wx:if="{{batchShowVariant}}">
         <t-check-tag
@@ -380,7 +393,10 @@
 >
   <view class="home__gift">
     <image class="home__gift-icon" src="/static/emoji/gift.png" mode="aspectFit" />
-    <view class="home__gift-title">见面就送好礼！</view>
+    <view class="home__gift-title">
+      <kubai-icon name="sparkles" size="40rpx" color="#f59e0b" />
+      <text>见面就送好礼！</text>
+    </view>
     <view class="home__gift-points">+{{giftPoints}} 积分</view>
     <view class="home__gift-desc">
       <text class="home__gift-desc-line">已放进你的账户</text>
@@ -413,7 +429,10 @@
 >
   <view class="home__gift">
     <image class="home__gift-icon" src="/static/emoji/gift.png" mode="aspectFit" />
-    <view class="home__gift-title">{{activityGiftTitle}}</view>
+    <view class="home__gift-title">
+      <kubai-icon name="sparkles" size="40rpx" color="#f59e0b" />
+      <text>{{activityGiftTitle}}</text>
+    </view>
     <view class="home__gift-points">+{{activityGiftPoints}} 积分</view>
     <view class="home__gift-desc">
       <text class="home__gift-desc-line">已放进你的账户</text>
@@ -469,7 +488,10 @@
   bind:visible-change="onContentTypeSheetVisibleChange"
 >
   <view class="home__type-sheet">
-    <view class="home__type-sheet-title">筛选合集类型</view>
+    <view class="home__type-sheet-title">
+      <kubai-icon name="layout-dashboard" size="40rpx" color="{{themeBrand}}" />
+      <text>筛选合集类型</text>
+    </view>
     <view class="home__type-sheet-tip">表情 / 壁纸 / 头像 / 视频</view>
     <view
       wx:for="{{contentTypeFilters}}"
@@ -488,10 +510,10 @@
         mode="aspectFit"
       />
       <text class="home__type-sheet-label">{{item.name}}</text>
-      <t-icon
+      <kubai-icon
         wx:if="{{item.id === contentType}}"
         name="check"
-        size="36rpx"
+        size="48rpx"
         color="{{item.color}}"
       />
     </view>

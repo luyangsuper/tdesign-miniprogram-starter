@@ -1,7 +1,10 @@
 <page-meta page-style="{{themeStyle}}" />
 <view class="favorites" style="{{themeStyle}}">
   <view class="favorites__bar">
-    <text class="favorites__bar-count">{{list.length ? list.length + ' 个合集' : '我的收藏'}}</text>
+    <view class="favorites__bar-count">
+      <kubai-icon name="heart" size="32rpx" color="#EB5757" />
+      <text>{{list.length ? list.length + ' 个合集' : '我的收藏'}}</text>
+    </view>
     <t-button
       t-class="favorites__bar-btn"
       theme="light"
@@ -76,7 +79,7 @@
         aria-role="button"
         aria-label="取消收藏"
       >
-        <t-icon name="heart-filled" size="44rpx" color="#EB5757" />
+        <kubai-icon name="heart-filled" size="44rpx" color="#EB5757" />
       </view>
     </view>
   </view>
@@ -117,7 +120,7 @@
           aria-role="button"
           aria-label="取消收藏"
         >
-          <t-icon name="heart-filled" size="36rpx" color="#EB5757" />
+          <kubai-icon name="heart-filled" size="44rpx" color="#EB5757" />
         </view>
       </view>
     </view>

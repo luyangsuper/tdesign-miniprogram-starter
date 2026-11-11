@@ -8,7 +8,6 @@
     "fun-empty": "/components/fun-empty/index",
     "fun-line-chart": "/components/fun-line-chart/index",
     "t-button": "tdesign-miniprogram/button/button",
-    "t-icon": "tdesign-miniprogram/icon/icon",
     "lottery-host": "/components/lottery-host/index"
   }
 }

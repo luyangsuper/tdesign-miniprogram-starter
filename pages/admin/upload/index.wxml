@@ -230,7 +230,7 @@
             data-field="previewFiles"
             catchtap="onRemoveNamedFile"
           >
-            <t-icon name="close" size="28rpx" />
+            <kubai-icon name="close" size="34rpx" color="#999999" />
           </view>
         </view>
       </view>
@@ -303,7 +303,7 @@
             data-field="emojiFiles"
             catchtap="onRemoveNamedFile"
           >
-            <t-icon name="close" size="28rpx" />
+            <kubai-icon name="close" size="34rpx" color="#999999" />
           </view>
         </view>
       </view>
@@ -364,7 +364,7 @@
             data-field="emojiAnimFiles"
             catchtap="onRemoveNamedFile"
           >
-            <t-icon name="close" size="28rpx" />
+            <kubai-icon name="close" size="34rpx" color="#999999" />
           </view>
         </view>
       </view>

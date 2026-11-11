@@ -1,4 +1,4 @@
-/** 统一空状态：IconPark 插图 + 文案，水平垂直居中 */
+/** 统一空状态：Kubai 插图 + 文案，水平垂直居中 */
 
 Component({
   options: {

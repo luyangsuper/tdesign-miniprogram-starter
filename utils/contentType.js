@@ -12,7 +12,7 @@ const LABELS = {
 };
 
 /**
- * 与 IconPark type-*.png 配色一致（generate-iconpark-assets 的 palette）
+ * 与 Kubai type-*.png 配色一致（generate-kubai-assets 的 palette）
  * color：文字 / 描边；bg：浅底
  */
 const THEMES = {
@@ -23,7 +23,7 @@ const THEMES = {
   video: { color: '#ec4899', bg: 'rgba(236, 72, 153, 0.14)' },
 };
 
-/** IconPark PNG（见 static/emoji/type-*.png，npm run icons:gen） */
+/** Kubai PNG（见 static/emoji/type-*.png，npm run icons:gen） */
 const ICON_SRC = {
   all: '/static/emoji/type-all.png',
   emoji: '/static/emoji/type-emoji.png',
@@ -63,7 +63,7 @@ export function contentTypeLabel(value) {
   return LABELS[normalizeContentType(value)] || LABELS.emoji;
 }
 
-/** IconPark 图路径；value 可为 all */
+/** Kubai 图路径；value 可为 all */
 export function contentTypeIconSrc(value) {
   return ICON_SRC[resolveTypeKey(value)] || ICON_SRC.emoji;
 }

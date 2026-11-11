@@ -62,6 +62,30 @@
     }
   }
 
+  &__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10rpx;
+    max-width: 100%;
+    pointer-events: none;
+  }
+
+  &__brand-logo {
+    width: 56rpx;
+    height: 56rpx;
+    border-radius: 12rpx;
+    flex-shrink: 0;
+    background: #3aa0e6;
+  }
+
+  &__brand-name {
+    .ui-strong();
+    font-size: 32rpx;
+    line-height: 1.2;
+    color: inherit;
+    white-space: nowrap;
+  }
+
   /* 导航行搜索：64rpx 完整胶囊圆角；展开靠 left/right，勿写死 width 盖住多选 */
   &__search {
     position: fixed;
@@ -142,7 +166,7 @@
 
   &__search-collapse {
     flex-shrink: 0;
-    width: 48rpx;
+    width: 64rpx;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -207,8 +231,8 @@
 
   &__type-capsule-icon {
     flex-shrink: 0;
-    width: 28rpx;
-    height: 28rpx;
+    width: 34rpx;
+    height: 34rpx;
     display: block;
     transform: translateY(1rpx);
   }
@@ -561,6 +585,10 @@
   &__gift-title {
     .ui-title();
     font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8rpx;
   }
 
   &__gift-points {
@@ -641,6 +669,9 @@
     .ui-caption();
     color: var(--td-text-color-secondary);
     margin-bottom: 14rpx;
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
   }
 
   &__batch-row {
@@ -673,8 +704,8 @@
   }
 
   &__batch-type-icon {
-    width: 28rpx;
-    height: 28rpx;
+    width: 34rpx;
+    height: 34rpx;
     flex-shrink: 0;
   }
 
@@ -687,6 +718,10 @@
 
   &__type-sheet-title {
     .ui-strong();
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10rpx;
     text-align: center;
   }
 
@@ -725,11 +760,11 @@
   }
 
   &__type-sheet-icon {
-    width: 36rpx;
-    height: 36rpx;
+    width: 44rpx;
+    height: 44rpx;
     flex-shrink: 0;
     display: block;
-    /* IconPark 视觉重心略偏上，下移对齐汉字中线 */
+    /* Kubai 视觉重心略偏上，下移对齐汉字中线 */
     transform: translateY(1rpx);
   }
 

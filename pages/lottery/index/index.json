@@ -1,8 +1,6 @@
 {
   "navigationBarTitleText": "抽奖活动",
   "navigationStyle": "default",
-  "enableShareAppMessage": true,
-  "enableShareTimeline": true,
   "usingComponents": {
     "t-loading": "tdesign-miniprogram/loading/loading",
     "fun-empty": "/components/fun-empty/index",

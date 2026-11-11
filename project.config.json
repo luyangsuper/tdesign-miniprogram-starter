@@ -29,6 +29,178 @@
       {
         "type": "folder",
         "value": "node_modules"
+      },
+      {
+        "type": "folder",
+        "value": "static/kubai-ui"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/calendar"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/color-picker"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/cascader"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/guide"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/qrcode"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/slider"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/action-sheet"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/drawer"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/indexes"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/indexes-anchor"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/tree-select"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/rate"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/watermark"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/fab"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/footer"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/side-bar"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/side-bar-item"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/attachments"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/chat-actionbar"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/chat-content"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/chat-list"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/chat-loading"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/chat-markdown"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/chat-message"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/chat-sender"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/chat-thinking"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/skeleton"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/steps"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/step-item"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/stepper"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/swipe-cell"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/popover"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/progress"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/result"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/count-down"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/dropdown-menu"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/dropdown-item"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/notice-bar"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/pull-down-refresh"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/avatar-group"
+      },
+      {
+        "type": "glob",
+        "value": "static/**/*.md"
+      },
+      {
+        "type": "folder",
+        "value": "pages/release"
       }
     ],
     "include": []

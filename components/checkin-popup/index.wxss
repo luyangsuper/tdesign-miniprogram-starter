@@ -172,16 +172,6 @@
   line-height: 1.2;
   color: var(--td-text-color-primary);
 }
-.ckp__dot {
-  width: 8rpx;
-  height: 8rpx;
-  margin-top: 4rpx;
-  border-radius: 50%;
-  background: #10b981;
-}
-.ckp__dot.is-makeup {
-  background: #f59e0b;
-}
 .ckp__stats {
   display: flex;
   flex-wrap: wrap;

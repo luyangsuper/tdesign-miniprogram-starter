@@ -1,8 +1,7 @@
 <!-- 底栏始终实心；有节日底图时铺在实心底上，透明区露出栏体色而非页面内容 -->
 <view
   wx:if="{{!hidden}}"
-  class="page custom-tab-bar {{festivalId ? 'custom-tab-bar--fest custom-tab-bar--' + festivalId : ''}}"
-  style="{{themeStyle}}"
+  class="page custom-tab-bar custom-tab-bar--{{value || 'home'}} {{festivalId ? 'custom-tab-bar--fest custom-tab-bar--' + festivalId : ''}}"
 >
   <view
     wx:if="{{bankSrc}}"
@@ -21,8 +20,24 @@
       safe-area-inset-bottom="{{true}}"
       bindchange="onChange"
     >
-      <t-tab-bar-item t-class="tab-bar-item" value="home" icon="home">首页</t-tab-bar-item>
-      <t-tab-bar-item t-class="tab-bar-item" value="my" icon="user">我的</t-tab-bar-item>
+      <t-tab-bar-item t-class="tab-bar-item" value="home">
+        <image
+          slot="icon"
+          class="custom-tab-bar__icon"
+          src="{{value === 'home' ? '/static/tab/home-active.png' : '/static/tab/home.png'}}"
+          mode="aspectFit"
+        />
+        首页
+      </t-tab-bar-item>
+      <t-tab-bar-item t-class="tab-bar-item" value="my">
+        <image
+          slot="icon"
+          class="custom-tab-bar__icon"
+          src="{{value === 'my' ? '/static/tab/my-active.png' : '/static/tab/my.png'}}"
+          mode="aspectFit"
+        />
+        我的
+      </t-tab-bar-item>
     </t-tab-bar>
   </view>
 </view>

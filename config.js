@@ -11,6 +11,8 @@
  * - adminOpenids：管理员 openid 列表（真正鉴权在云函数；客户端可用「我的→预览普通用户」）
  * - 默认头像：Pixabots（https://pixabots.com/browse），按 openid 固定分配
  *   需在小程序后台将 pixabots.com 加入 downloadFile 合法域名
+ * - UI 图标：Kubai 远程 SVG（https://icons.kubai.design/docs/static/）
+ *   需在小程序后台将 icons.kubai.design 加入 downloadFile 合法域名
  */
 export default {
   /** 关于页展示；与 package.json version 对齐即可 */

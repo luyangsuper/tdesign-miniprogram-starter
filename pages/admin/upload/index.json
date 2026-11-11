@@ -9,7 +9,6 @@
     "t-button": "tdesign-miniprogram/button/button",
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
-    "t-icon": "tdesign-miniprogram/icon/icon",
     "t-image": "tdesign-miniprogram/image/image",
     "t-image-viewer": "tdesign-miniprogram/image-viewer/image-viewer",
     "t-switch": "tdesign-miniprogram/switch/switch",

@@ -7,7 +7,8 @@
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
-const icons = require('@icon-park/svg');
+const { fetchKubaiSvg } = require('./lib/kubai');
+const { writeKubaiPng } = require('./lib/write-kubai-png');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -26,25 +27,17 @@ const XMAS_BULBS = [
   { x: 710, color: '#fbbf24' },
 ];
 
-function iconSvg(name, fills, size = 128) {
-  const fn = icons[name];
-  if (typeof fn !== 'function') throw new Error(`IconPark 无图标: ${name}`);
-  return fn({
-    theme: 'two-tone',
-    size,
-    fill: fills,
-    strokeWidth: 3,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-  });
-}
-
-async function writePng(filePath, svg, w, h) {
+async function writePng(filePath, svgBuf, w, h) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  await sharp(Buffer.from(svg))
-    .resize(w, h, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png({ compressionLevel: 9 })
-    .toFile(filePath);
+  // 粒子为正方形；非正方形仍走 contain
+  if (w === h) {
+    await writeKubaiPng(filePath, svgBuf, w);
+  } else {
+    await sharp(svgBuf)
+      .resize(w, h, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png({ compressionLevel: 9 })
+      .toFile(filePath);
+  }
   console.log('OK', path.relative(ROOT, filePath));
 }
 
@@ -297,55 +290,51 @@ function cnyBannerSvg() {
 </svg>`;
 }
 
-/** 飘落粒子：IconPark → 小 PNG（比 emoji/文字自然很多） */
+/** 飘落粒子：Kubai → 小 PNG */
 const PARTICLE_SIZE = 72;
 const PARTICLES = [
-  { file: 'snowflake.png', icon: 'Snowflake', fills: ['#e2e8f0', '#ffffff'] },
-  { file: 'tree.png', icon: 'ChristmasTree', fills: ['#166534', '#86efac'] },
-  { file: 'gift.png', icon: 'Gift', fills: ['#c41e3a', '#fbbf24'] },
-  { file: 'heart.png', icon: 'Heart', fills: ['#e11d48', '#fda4af'] },
-  { file: 'heart-soft.png', icon: 'OvalLove', fills: ['#be185d', '#f9a8d4'] },
-  { file: 'flower.png', icon: 'GeometricFlowers', fills: ['#db2777', '#fbcfe8'] },
-  { file: 'cherry.png', icon: 'Cherry', fills: ['#e11d48', '#fecdd3'] },
-  { file: 'lantern.png', icon: 'Fireworks', fills: ['#f59e0b', '#fde68a'] },
-  { file: 'red-packet.png', icon: 'RedEnvelope', fills: ['#dc2626', '#fde68a'] },
-  { file: 'gift-box.png', icon: 'GiftBox', fills: ['#e34d59', '#fbbf24'] },
-  { file: 'leaf.png', icon: 'Leaf', fills: ['#16a34a', '#86efac'] },
-  { file: 'bowl.png', icon: 'Bowl', fills: ['#15803d', '#bbf7d0'] },
-  { file: 'rice.png', icon: 'Rice', fills: ['#ca8a04', '#fef08a'] },
-  { file: 'boat.png', icon: 'Sailboat', fills: ['#0f766e', '#99f6e4'] },
-  { file: 'moon.png', icon: 'Moon', fills: ['#d97706', '#fde68a'] },
-  { file: 'cake.png', icon: 'CakeOne', fills: ['#b45309', '#fde68a'] },
-  { file: 'rabbit.png', icon: 'Rabbit', fills: ['#a8a29e', '#f5f5f4'] },
-  { file: 'book.png', icon: 'BookOpen', fills: ['#0d9488', '#99f6e4'] },
-  { file: 'ruler.png', icon: 'TriangleRuler', fills: ['#64748b', '#cbd5e1'] },
-  { file: 'pencil.png', icon: 'Pencil', fills: ['#334155', '#94a3b8'] },
-  { file: 'apple.png', icon: 'AppleOne', fills: ['#ef4444', '#fecaca'] },
-  { file: 'egg.png', icon: 'PaintedEggshell', fills: ['#a78bfa', '#ddd6fe'] },
-  { file: 'balloon.png', icon: 'PartyBalloon', fills: ['#3b82f6', '#bfdbfe'] },
-  { file: 'candy.png', icon: 'Candy', fills: ['#ec4899', '#fbcfe8'] },
-  { file: 'ghost.png', icon: 'Ghost', fills: ['#64748b', '#f1f5f9'] },
-  { file: 'pumpkin.png', icon: 'Pumpkin', fills: ['#ea580c', '#fdba74'] },
-  { file: 'bat.png', icon: 'Bat', fills: ['#5b21b6', '#c4b5fd'] },
-  { file: 'owl.png', icon: 'Owl', fills: ['#7c3aed', '#ddd6fe'] },
-  { file: 'turkey.png', icon: 'Turkey', fills: ['#b45309', '#fbbf24'] },
-  { file: 'flag.png', icon: 'Flag', fills: ['#dc2626', '#fecaca'] },
-  { file: 'star.png', icon: 'Star', fills: ['#fbbf24', '#fef08a'] },
-  { file: 'magic.png', icon: 'Magic', fills: ['#f59e0b', '#fde68a'] },
-  { file: 'bird.png', icon: 'Bird', fills: ['#1e293b', '#fbbf24'] },
-  { file: 'peach.png', icon: 'Peach', fills: ['#fb7185', '#fecdd3'] },
+  { file: 'snowflake.png', icon: 'snowflake', color: '94a3b8' },
+  { file: 'tree.png', icon: 'tree-pine', color: '166534' },
+  { file: 'gift.png', icon: 'gift', color: 'c41e3a' },
+  { file: 'heart.png', icon: 'heart', color: 'e11d48' },
+  { file: 'heart-soft.png', icon: 'heart', color: 'be185d' },
+  { file: 'flower.png', icon: 'flower', color: 'db2777' },
+  { file: 'cherry.png', icon: 'cherry', color: 'e11d48' },
+  { file: 'lantern.png', icon: 'party-popper', color: 'f59e0b' },
+  { file: 'red-packet.png', icon: 'gift-card', color: 'dc2626' },
+  { file: 'gift-box.png', icon: 'gift-bag', color: 'e34d59' },
+  { file: 'leaf.png', icon: 'leaf', color: '16a34a' },
+  { file: 'bowl.png', icon: 'rice-bowl', color: '15803d' },
+  { file: 'rice.png', icon: 'rice-bowl', color: 'ca8a04' },
+  { file: 'boat.png', icon: 'sailboat', color: '0f766e' },
+  { file: 'moon.png', icon: 'moon', color: 'd97706' },
+  { file: 'cake.png', icon: 'cake', color: 'b45309' },
+  { file: 'rabbit.png', icon: 'rabbit', color: 'a8a29e' },
+  { file: 'book.png', icon: 'book-open', color: '0d9488' },
+  { file: 'ruler.png', icon: 'ruler', color: '64748b' },
+  { file: 'pencil.png', icon: 'pencil', color: '334155' },
+  { file: 'apple.png', icon: 'apple', color: 'ef4444' },
+  { file: 'egg.png', icon: 'egg', color: 'a78bfa' },
+  { file: 'balloon.png', icon: 'balloon', color: '3b82f6' },
+  { file: 'candy.png', icon: 'candy', color: 'ec4899' },
+  { file: 'ghost.png', icon: 'ghost', color: '64748b' },
+  { file: 'pumpkin.png', icon: 'flame', color: 'ea580c' },
+  { file: 'bat.png', icon: 'bird', color: '5b21b6' },
+  { file: 'owl.png', icon: 'owl', color: '7c3aed' },
+  { file: 'turkey.png', icon: 'drumstick', color: 'b45309' },
+  { file: 'flag.png', icon: 'flag', color: 'dc2626' },
+  { file: 'star.png', icon: 'star', color: 'fbbf24' },
+  { file: 'magic.png', icon: 'wand', color: 'f59e0b' },
+  { file: 'bird.png', icon: 'bird', color: '1e293b' },
+  { file: 'peach.png', icon: 'apple', color: 'fb7185' },
 ];
 
 async function main() {
   const particlesDir = path.join(ROOT, 'static/festival/particles');
   fs.mkdirSync(particlesDir, { recursive: true });
   for (const p of PARTICLES) {
-    await writePng(
-      path.join(particlesDir, p.file),
-      iconSvg(p.icon, p.fills, PARTICLE_SIZE),
-      PARTICLE_SIZE,
-      PARTICLE_SIZE,
-    );
+    const svg = await fetchKubaiSvg(p.icon, { color: p.color, size: PARTICLE_SIZE });
+    await writePng(path.join(particlesDir, p.file), svg, PARTICLE_SIZE, PARTICLE_SIZE);
   }
 
   const xmas = path.join(ROOT, 'static/festival/christmas');
