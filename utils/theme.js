@@ -417,7 +417,7 @@ export function getThemeStyle() {
 }
 
 export function getThemeBrand() {
-  return syncGlobalTheme().theme.brand;
+  return syncGlobalTheme().theme.brand || '#07c160';
 }
 
 function hashToIndex(str, mod) {

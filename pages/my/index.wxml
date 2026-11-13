@@ -468,6 +468,23 @@
         t-class-left-icon="my-menu-cell__icon"
         t-class-center="my-menu-cell__center"
         t-class-title="my-menu-cell__title"
+        t-class-note="my-menu-cell__note"
+        title="AI 配置"
+        note="云开发体验 / 自备 Key"
+        arrow
+        hover
+        bind:click="goAiSettings"
+      >
+        <view slot="left-icon" class="my-menu-icon">
+          <kubai-icon name="sparkles" size="52rpx" color="#8B5CF6" />
+        </view>
+      </t-cell>
+      <t-cell
+        t-class="my-menu-cell"
+        t-class-left="my-menu-cell__left"
+        t-class-left-icon="my-menu-cell__icon"
+        t-class-center="my-menu-cell__center"
+        t-class-title="my-menu-cell__title"
         title="抽奖活动"
         note="创建 / 开奖管理"
         arrow

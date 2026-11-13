@@ -328,6 +328,10 @@ Page({
     return fileID;
   },
 
+  onGoAiSettings() {
+    wx.navigateTo({ url: '/pages/admin/ai/index' });
+  },
+
   async onPingAiProxy() {
     if (this.data.pingingProxy || this.data.generatingCopy) return;
     this.setData({ pingingProxy: true });
@@ -336,10 +340,12 @@ Page({
       const res = await callFunction('generatePackCopy', { action: 'ping' });
       const data = (res && res.data) || {};
       const ok = !!(data.apiOk || data.proxyOk);
-      const tip = data.tip || (ok ? 'DeepSeek 正常' : 'DeepSeek 异常');
+      const tip = data.tip || (ok ? 'AI 正常' : 'AI 异常');
       wx.showModal({
         title: ok ? 'AI 连通正常' : 'AI 未就绪',
-        content: `${tip}\n\nBASE: ${data.base || '-'}\nKeys: ${data.keyCount || 0}\n模型: ${(data.models || []).join(', ') || '-'}`,
+        content: `${tip}\n\n${data.name ? `${data.name}\n` : ''}${
+          data.base === 'cloudbase' ? '云开发体验' : `BASE: ${data.base || '-'}`
+        }\n模型: ${data.model || (data.models || []).join(', ') || '-'}\n（以已保存的「当前」配置为准，可在 AI 配置管理）`,
         showCancel: false,
       });
     } catch (e) {

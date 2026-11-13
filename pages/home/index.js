@@ -61,6 +61,7 @@ import {
 import {
   applyThemeToPage,
   applyThemeToTabBar,
+  getThemeBrand,
   getThemeStyle,
   resolveCategorySwatch,
 } from '~/utils/theme';
@@ -241,6 +242,7 @@ Page({
     fixedOffset: 48,
     subscribeGuideVisible: false,
     themeStyle: '',
+    themeBrand: '',
     festivalActive: true,
     festivalId: '',
     festivalClass: '',
@@ -609,7 +611,7 @@ Page({
     this._listCache = Object.create(null);
     this._listSeq = 0;
     this._catSeq = 0;
-    this.setData({ themeStyle: getThemeStyle() });
+    this.setData({ themeStyle: getThemeStyle(), themeBrand: getThemeBrand() });
     this._onThemeChange = () => {
       applyThemeToPage(this);
       this.refreshFilterStyles();
@@ -1061,20 +1063,31 @@ Page({
       loadingMore = false,
       appendItems,
     } = payload;
+    // 避免 coverFileID / coverUrl 为 null 触发组件属性类型警告
+    const normalizePack = (item) => {
+      if (!item || typeof item !== 'object') return item;
+      return {
+        ...item,
+        coverFileID: item.coverFileID || '',
+        coverUrl: item.coverUrl || '',
+      };
+    };
+    const safeList = (list || []).map(normalizePack);
+    const safeAppend = (appendItems || []).map(normalizePack);
     const columns =
-      appendItems && appendItems.length
-        ? appendColumns(this.data.columns, appendItems, this.data.columnCount)
-        : buildColumns(list, this.data.columnCount);
+      safeAppend.length
+        ? appendColumns(this.data.columns, safeAppend, this.data.columnCount)
+        : buildColumns(safeList, this.data.columnCount);
     const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
     const feedBlocks = buildFeedBlocks(
-      list,
+      safeList,
       this.data.columnCount,
       resolveHomeFeedAdEvery(this.data.columnCount),
       showAds,
     );
     // 不在每次列表更新里写 enable，避免误触 refresher-triggered 抖动
     const patch = {
-      list,
+      list: safeList,
       columns,
       feedBlocks,
       showFeedAds: shouldShowHomeFeedAds(),
@@ -2512,7 +2525,10 @@ Page({
         total = 0,
       } = res.data || {};
       const withStableCover = (list || []).map((item) => {
-        if (!item || !item._id || !item.coverUrl) return item;
+        if (!item || !item._id) return item;
+        if (!item.coverUrl) {
+          return { ...item, coverFileID: item.coverFileID || '', coverUrl: '' };
+        }
         // 强制换签时不要复用客户端旧链（可能 CDN 已拒但 TTL 未到）
         const coverUrl = forceRefresh
           ? rememberTempUrl(packCoverCacheKey(item._id), item.coverUrl)

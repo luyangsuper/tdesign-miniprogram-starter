@@ -17,9 +17,9 @@ Component({
     packId: String,
     title: String,
     coverUrl: String,
-    /** 云存储 fileID，裂图时供首页单独换签 */
+    /** 云存储 fileID，裂图时供首页单独换签。允许短暂 null，内部当空串 */
     coverFileID: {
-      type: String,
+      type: null,
       value: '',
     },
     contentType: {
@@ -263,7 +263,8 @@ Component({
 
     /** 临时链失效时丢掉本地缓存，让列表静默换签 */
     onCoverError() {
-      const { packId, coverUrl, coverFileID } = this.data;
+      const { packId, coverUrl } = this.data;
+      const coverFileID = String(this.data.coverFileID || '');
       if (packId) forgetTempUrl(packCoverCacheKey(packId));
       if (coverFileID) forgetTempUrl(coverFileID);
       // 清掉当前坏链，避免同 URL 回写时 observer 不触发
@@ -272,7 +273,7 @@ Component({
       this.triggerEvent('covererror', {
         packId,
         coverUrl,
-        coverFileID: coverFileID || '',
+        coverFileID,
       });
     },
 

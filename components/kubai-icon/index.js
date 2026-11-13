@@ -23,9 +23,9 @@ Component({
       type: String,
       value: '48rpx',
     },
-    /** 六位 hex，可带 #；rgba/CSS var 会归一化 */
+    /** 六位 hex，可带 #；rgba/CSS var 会归一化。type 不限，避免父级短暂传 null 刷屏 */
     color: {
-      type: String,
+      type: null,
       value: '#07c160',
     },
     /** 点击播放轻动效（官网 hover 在小程序不可用，改为 tap） */
@@ -51,12 +51,14 @@ Component({
     'name, color, size': function sync(name, color, size) {
       const { n, unit } = parseSize(size || '48rpx');
       const boxStyle = `width:${n}${unit};height:${n}${unit};`;
+      const safeColor =
+        color == null || color === '' ? '#07c160' : String(color);
       if (!name) {
         this.setData({ src: '', boxStyle });
         return;
       }
       this.setData({
-        src: resolveKubaiIconSrc(name, color),
+        src: resolveKubaiIconSrc(name, safeColor),
         boxStyle,
       });
     },

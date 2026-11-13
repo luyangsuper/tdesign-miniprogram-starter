@@ -166,6 +166,16 @@
       content="检测 AI 连通性"
       bind:tap="onPingAiProxy"
     />
+    <t-button
+      t-class="upload-page__ai-btn"
+      theme="default"
+      variant="text"
+      size="small"
+      block
+      disabled="{{generatingCopy}}"
+      content="去 AI 配置"
+      bind:tap="onGoAiSettings"
+    />
   </view>
 
   <view class="block block--file">

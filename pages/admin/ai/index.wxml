@@ -1,0 +1,197 @@
+<page-meta page-style="{{themeStyle}}" />
+<view class="admin-ai" style="{{themeStyle}}">
+  <view class="admin-ai__tip">
+    成长计划体验免 Key；封面识图请选带「识图」的模型。改完必须点「保存配置」，上传页才会用最新「当前」套。
+  </view>
+
+  <view wx:if="{{loading}}" class="admin-ai__loading">
+    <t-loading theme="circular" size="40rpx" text="加载配置" />
+  </view>
+
+  <block wx:else>
+    <view class="admin-ai__section">
+      <text>配置列表</text>
+      <text class="admin-ai__section-extra">{{providers.length}} 套</text>
+    </view>
+
+    <view wx:if="{{!providers.length}}" class="admin-ai__empty">
+      <t-empty description="还没有配置" />
+    </view>
+
+    <view
+      wx:for="{{providers}}"
+      wx:key="id"
+      class="admin-ai__card {{activeProviderId === item.id ? 'admin-ai__card--on' : ''}}"
+    >
+      <view class="admin-ai__head" data-id="{{item.id}}" bind:tap="onSetActive">
+        <view class="admin-ai__mark">
+          <kubai-icon
+            wx:if="{{activeProviderId === item.id}}"
+            name="check"
+            size="56rpx"
+            color="{{themeBrand}}"
+          />
+          <kubai-icon wx:else name="circle" size="56rpx" color="#C5C5C5" />
+        </view>
+        <view class="admin-ai__head-meta">
+          <view class="admin-ai__title-row">
+            <text class="admin-ai__title">{{item.name || '未命名'}}</text>
+            <text wx:if="{{activeProviderId === item.id}}" class="admin-ai__current">当前</text>
+          </view>
+          <text class="admin-ai__sub">{{item.typeLabel}}{{item.model ? ' · ' + item.model : ''}}</text>
+        </view>
+      </view>
+
+      <view class="admin-ai__fields">
+        <block wx:if="{{item.type === 'cloudbase'}}">
+          <view class="admin-ai__hint">
+            无需 baseURL / Key。点「刷新模型」同步成长计划列表；识图请选带「识图」标签的模型。
+          </view>
+        </block>
+        <block wx:else>
+          <view class="admin-ai__field">
+            <view class="admin-ai__label">名称</view>
+            <t-input
+              class="admin-ai__control"
+              borderless
+              placeholder="如 DeepSeek 主账号"
+              value="{{item.name}}"
+              maxlength="40"
+              data-id="{{item.id}}"
+              data-field="name"
+              bind:change="onFieldChange"
+            />
+          </view>
+          <view class="admin-ai__field">
+            <view class="admin-ai__label">baseURL</view>
+            <t-input
+              class="admin-ai__control"
+              borderless
+              placeholder="https://api.deepseek.com"
+              value="{{item.baseURL}}"
+              data-id="{{item.id}}"
+              data-field="baseURL"
+              bind:change="onFieldChange"
+            />
+            <view class="admin-ai__hint">需要 /v1 时一并写上，不要末尾斜杠</view>
+          </view>
+          <view class="admin-ai__field">
+            <view class="admin-ai__label">API Key</view>
+            <t-input
+              class="admin-ai__control"
+              borderless
+              type="password"
+              placeholder="{{item.apiKeySet ? '已保存，留空表示不改' : 'sk-…'}}"
+              value="{{item.apiKey}}"
+              data-id="{{item.id}}"
+              data-field="apiKey"
+              bind:change="onFieldChange"
+            />
+          </view>
+        </block>
+
+        <view class="admin-ai__field">
+          <view class="admin-ai__label">模型</view>
+          <view class="admin-ai__models" wx:if="{{item.modelOptions.length}}">
+            <t-check-tag
+              wx:for="{{item.modelOptions}}"
+              wx:for-item="opt"
+              wx:key="id"
+              size="medium"
+              variant="dark"
+              checked="{{item.model === opt.id}}"
+              content="{{opt.label}}"
+              data-id="{{item.id}}"
+              data-model="{{opt.id}}"
+              bind:change="onModelPick"
+            />
+          </view>
+          <view class="admin-ai__hint" wx:else>点下方「刷新模型」获取列表</view>
+          <t-input
+            wx:if="{{item.type !== 'cloudbase'}}"
+            class="admin-ai__control"
+            borderless
+            placeholder="或手动填写模型名"
+            value="{{item.model}}"
+            data-id="{{item.id}}"
+            data-field="model"
+            bind:change="onFieldChange"
+          />
+        </view>
+      </view>
+
+      <view class="admin-ai__actions">
+        <t-button
+          t-class="admin-ai__action-btn"
+          size="small"
+          theme="primary"
+          variant="outline"
+          block
+          loading="{{busyId === item.id && busyAction === 'ping'}}"
+          disabled="{{!!busyId || saving}}"
+          content="测试联通"
+          data-id="{{item.id}}"
+          bind:tap="onPing"
+        />
+        <t-button
+          t-class="admin-ai__action-btn"
+          size="small"
+          theme="default"
+          variant="outline"
+          block
+          loading="{{busyId === item.id && busyAction === 'models'}}"
+          disabled="{{!!busyId || saving}}"
+          content="刷新模型"
+          data-id="{{item.id}}"
+          bind:tap="onLoadModels"
+        />
+        <t-button
+          t-class="admin-ai__action-btn"
+          size="small"
+          theme="danger"
+          variant="outline"
+          block
+          disabled="{{!!busyId || saving || providers.length <= 1}}"
+          content="删除"
+          data-id="{{item.id}}"
+          bind:tap="onDelete"
+        />
+      </view>
+    </view>
+
+    <view class="admin-ai__add">
+      <t-button
+        theme="primary"
+        variant="outline"
+        size="medium"
+        block
+        disabled="{{!!busyId || saving || hasCloudbase}}"
+        content="{{hasCloudbase ? '已添加云开发体验' : '添加云开发体验'}}"
+        bind:tap="onAddCloudbase"
+      />
+      <t-button
+        theme="default"
+        variant="outline"
+        size="medium"
+        block
+        disabled="{{!!busyId || saving}}"
+        content="添加自备 Key"
+        bind:tap="onAdd"
+      />
+    </view>
+  </block>
+
+  <view class="admin-ai__foot" wx:if="{{!loading}}">
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      loading="{{saving}}"
+      disabled="{{!!busyId || saving || !providers.length}}"
+      content="保存配置"
+      bind:tap="onSave"
+    />
+  </view>
+
+  <lottery-host />
+</view>

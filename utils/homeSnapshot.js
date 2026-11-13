@@ -16,6 +16,7 @@ function stabilizeCover(item) {
   const coverUrl = peekTempUrl(packCoverCacheKey(item._id)) || '';
   return {
     ...item,
+    coverFileID: item.coverFileID || '',
     coverUrl,
     slides: coverUrl ? [coverUrl] : [],
   };
@@ -43,6 +44,7 @@ export function writeHomeSnapshot(payload = {}) {
       _id: item._id,
       title: item.title,
       description: item.description || '',
+      coverFileID: item.coverFileID || '',
       coverUrl: item.coverUrl || '',
       coverRatio: item.coverRatio || 0,
       previewCount: item.previewCount || 0,

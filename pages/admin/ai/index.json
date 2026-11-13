@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "AI 配置",
+  "navigationStyle": "default",
+  "usingComponents": {
+    "t-input": "tdesign-miniprogram/input/input",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
+    "t-empty": "tdesign-miniprogram/empty/empty",
+    "lottery-host": "/components/lottery-host/index"
+  }
+}
+

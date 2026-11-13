@@ -111,6 +111,7 @@
 | `userLottery` | 用户参与、详情、名单、邀请/结果 ack；含懒开奖 |
 | `lotteryDraw` | 定时扫到期活动并开奖（奖池随机拆分） |
 | `adminManagePoints` | 见面礼 / 签到规则 / 活动发积分 |
+| `generatePackCopy` | 合集 AI 文案；管理端可配多套 baseURL/Key、加载模型、测试联通（`app_config/ai`） |
 | `adminAlignSchema` | 对齐云库结构：按 `schemaAlign.js` 登记的规则，把线上缺字段/非法值拉齐到当前代码 schema（管理端「积分与活动」） |
 | `userCheckin` | 每日签到 / 补签 |
 

@@ -14,6 +14,7 @@
         "users/index",
         "points/index",
         "pricing/index",
+        "ai/index",
         "lottery/index",
         "dashboard/index"
       ]

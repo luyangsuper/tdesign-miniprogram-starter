@@ -8,7 +8,6 @@
       aria-label="趣图铺子"
     />
     <view class="about__name">{{appName}}</view>
-    <view class="about__ver">版本 {{appVersion}}</view>
     <view class="about__intro">{{intro}}</view>
   </view>
 

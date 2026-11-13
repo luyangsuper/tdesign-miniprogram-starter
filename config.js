@@ -15,8 +15,6 @@
  *   需在小程序后台将 icons.kubai.design 加入 downloadFile 合法域名
  */
 export default {
-  /** 关于页展示；与 package.json version 对齐即可 */
-  appVersion: '3.2.3',
   cloudEnv: 'cloud1-d4g0731mc55f853ef',
   /** 约 30s，全站激励广告 */
   rewardedAdUnitId: 'adunit-b77d32dfa7a29761',

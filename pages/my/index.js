@@ -2299,6 +2299,11 @@ Page({
     wx.navigateTo({ url: '/pages/admin/pricing/index' });
   },
 
+  goAiSettings() {
+    if (!resolveIsAdmin()) return;
+    wx.navigateTo({ url: '/pages/admin/ai/index' });
+  },
+
   goAdminLottery() {
     if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/lottery/index' });

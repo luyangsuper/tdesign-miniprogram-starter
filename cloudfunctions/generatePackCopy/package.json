@@ -1,9 +1,9 @@
 {
   "name": "generatePackCopy",
   "version": "1.1.0",
-  "description": "根据封面图用 DeepSeek 识图生成合集标题与公众号文案",
+  "description": "OpenAI 兼容识图生成合集文案；管理端可配置多套 baseURL/Key/模型",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.6.3"
+    "wx-server-sdk": "3.0.5-beta.1"
   }
 }
