@@ -3,7 +3,7 @@ const DEFAULTS = {
   checkinPoints: 1,
   oaBonusPoints: 1,
   /** 主动看广告（约 30s）奖励；0 关闭 */
-  adRewardPoints: 2,
+  adRewardPoints: 1,
   /** 主动看广告每日上限；0 关闭 */
   adRewardDailyMax: 5,
   /** 救急短广告（约 15s）奖励；0 关闭 */

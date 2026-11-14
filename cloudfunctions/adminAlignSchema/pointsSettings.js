@@ -4,7 +4,7 @@ const DEFAULTS = {
   welcomeGiftPoints: 18,
   checkinPoints: 1,
   oaBonusPoints: 1,
-  adRewardPoints: 2,
+  adRewardPoints: 1,
   adRewardDailyMax: 5,
   saveAdRewardPoints: 1,
   saveAdRewardDailyMax: 8,

@@ -42,10 +42,10 @@ export default {
   homeFeedAdEvery: 6,
   /**
    * 看广告领积分默认值（云库 app_config/points 可改；广告均为约 30s）
-   * - 「我的」主动领取：+2
+   * - 「我的」主动领取：+1
    * - 签到后再领 / 保存不够：+1（额度仍可分开配）
    */
-  adRewardPoints: 2,
+  adRewardPoints: 1,
   adRewardDailyMax: 5,
   saveAdRewardPoints: 1,
   saveAdRewardDailyMax: 8,

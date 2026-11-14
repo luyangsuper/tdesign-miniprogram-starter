@@ -9,7 +9,7 @@ import { isRewardedAdReady, showRewardedAd } from '~/utils/ad';
 import { showPointsReward } from '~/utils/pointsReward';
 
 export function defaultAdRewardPoints() {
-  return Math.max(0, Number(config.adRewardPoints) || 2);
+  return Math.max(0, Number(config.adRewardPoints) || 1);
 }
 
 export function defaultAdRewardDailyMax() {

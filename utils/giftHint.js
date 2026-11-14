@@ -24,7 +24,7 @@ export function defaultOaBonusPoints() {
 }
 
 export function defaultAdRewardPoints() {
-  return Math.max(0, Number(config.adRewardPoints) || 2);
+  return Math.max(0, Number(config.adRewardPoints) || 1);
 }
 
 export function defaultAdRewardDailyMax() {

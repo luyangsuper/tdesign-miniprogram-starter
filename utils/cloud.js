@@ -26,6 +26,16 @@ function friendlyCloudError(err, name) {
     e.code = 'FUNCTIONS_TIME_LIMIT_EXCEEDED';
     return e;
   }
+  if (
+    code === -504002 ||
+    /FUNCTIONS_EXECUTE_FAIL|SyntaxError|Unexpected token/i.test(msg)
+  ) {
+    const e = new Error(
+      `云函数「${name}」代码异常（常为部署了损坏文件）。请在开发者工具对该云函数重新「上传并部署：云端安装依赖」`,
+    );
+    e.code = 'FUNCTIONS_EXECUTE_FAIL';
+    return e;
+  }
   const e = new Error((err && err.message) || msg || '请求失败');
   e.code = code;
   return e;
