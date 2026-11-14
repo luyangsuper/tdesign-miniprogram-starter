@@ -2393,12 +2393,13 @@ Page({
   },
 
   /**
-   * 封面临时链失效：优先按 coverFileID 客户端换新签；失败再整表强制刷新。
-   * 防抖避免瀑布流连环 error 打爆云函数。
+   * 封面临时链失效：按 coverFileID 换新签即可。
+   * 切勿整表 loadList(true)：翻页后瀑布流连环 cover error 会把列表打回第一页。
    */
   async onCoverError(e) {
     const detail = (e && e.detail) || {};
     const packId = String(detail.packId || '').trim();
+    if (!packId) return;
     const item =
       (this.data.list || []).find((row) => row && row._id === packId) || null;
     const coverFileID = String(
@@ -2407,41 +2408,23 @@ Page({
 
     if (packId) forgetTempUrl(packCoverCacheKey(packId));
     if (coverFileID) forgetTempUrl(coverFileID);
+    if (!coverFileID) return;
 
-    if (coverFileID && packId && !this._coverResignInflight) {
-      this._coverResignInflight = true;
-      try {
-        const urls = await getTempFileURLs([coverFileID]);
-        const next = String((urls && urls[0]) || '').trim();
-        if (next && next !== (item && item.coverUrl)) {
-          rememberTempUrl(packCoverCacheKey(packId), next);
-          this.patchPackCover(packId, next, coverFileID);
-          return;
-        }
-      } catch (err) {
-        /* fall through */
-      } finally {
-        this._coverResignInflight = false;
+    if (!this._coverResignIds) this._coverResignIds = new Set();
+    if (this._coverResignIds.has(packId)) return;
+    this._coverResignIds.add(packId);
+    try {
+      const urls = await getTempFileURLs([coverFileID]);
+      const next = String((urls && urls[0]) || '').trim();
+      if (next && next !== (item && item.coverUrl)) {
+        rememberTempUrl(packCoverCacheKey(packId), next);
+        this.patchPackCover(packId, next, coverFileID);
       }
+    } catch (err) {
+      /* 单张失败保留占位，等用户下拉刷新再整表换签 */
+    } finally {
+      this._coverResignIds.delete(packId);
     }
-
-    if (this._coverErrorRefreshing) return;
-    this._coverErrorRefreshing = true;
-    const cacheKey = listCacheKey(
-      this.data.categoryId,
-      this.data.keyword,
-      this.data.contentType,
-    );
-    if (this._listCache && this._listCache[cacheKey]) {
-      this._listCache[cacheKey].at = 0;
-    }
-    Promise.resolve(this.loadList(true, { force: true, forceRefresh: true })).finally(
-      () => {
-        setTimeout(() => {
-          this._coverErrorRefreshing = false;
-        }, 2500);
-      },
-    );
   },
 
   async loadList(reset = false, options = {}) {
