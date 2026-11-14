@@ -6,7 +6,7 @@ const db = cloud.database();
 const _ = db.command;
 const MAX = 100;
 
-const FALLBACK_ADMINS = [];
+const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
 
 function getAdminList() {
   const fromEnv = process.env.ADMIN_OPENIDS || '';
@@ -18,7 +18,7 @@ function getAdminList() {
 
 function assertAdmin(openid) {
   const admins = getAdminList();
-  if (!admins.length) return true;
+  if (!admins.length) return false;
   return admins.includes(openid);
 }
 

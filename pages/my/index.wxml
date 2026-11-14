@@ -8,12 +8,13 @@
   nav-height="{{navHeight}}"
 />
 <t-navbar
-  title="我的"
   fixed="{{true}}"
   placeholder="{{true}}"
   z-index="{{500}}"
   custom-style="{{navBarStyle}}"
-/>
+>
+  <view slot="title" class="my__nav-title" bindtap="onMyTitleTap">我的</view>
+</t-navbar>
 <view class="my">
   <view class="my__profile">
     <view class="my__avatar-wrap">
@@ -460,23 +461,6 @@
       >
         <view slot="left-icon" class="my-menu-icon">
           <kubai-icon name="badge-percent" size="52rpx" color="#ed7b2f" />
-        </view>
-      </t-cell>
-      <t-cell
-        t-class="my-menu-cell"
-        t-class-left="my-menu-cell__left"
-        t-class-left-icon="my-menu-cell__icon"
-        t-class-center="my-menu-cell__center"
-        t-class-title="my-menu-cell__title"
-        t-class-note="my-menu-cell__note"
-        title="AI 配置"
-        note="云开发体验 / 自备 Key"
-        arrow
-        hover
-        bind:click="goAiSettings"
-      >
-        <view slot="left-icon" class="my-menu-icon">
-          <kubai-icon name="sparkles" size="52rpx" color="#8B5CF6" />
         </view>
       </t-cell>
       <t-cell

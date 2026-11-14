@@ -33,7 +33,8 @@ export function isAdmin(adminOpenids = []) {
 export function canBeAdmin() {
   const app = getApp();
   if (app && app.globalData && app.globalData.isAdmin) return true;
-  if (!config.adminOpenids.length) return true; // 未配置名单：调试期默认可管
+  // 名单为空时绝不能默认「全员可管」，否则审核员/普通用户会看到管理台
+  if (!config.adminOpenids.length) return false;
   return isAdmin(config.adminOpenids);
 }
 

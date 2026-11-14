@@ -2299,8 +2299,18 @@ Page({
     wx.navigateTo({ url: '/pages/admin/pricing/index' });
   },
 
-  goAiSettings() {
+  /** 管理员 2 秒内连点顶栏「我的」3 次进入 AI 配置（菜单不展示入口） */
+  onMyTitleTap() {
     if (!resolveIsAdmin()) return;
+    const now = Date.now();
+    const windowMs = 2000;
+    if (!this._aiEntryTaps || now - this._aiEntryLastTap > windowMs) {
+      this._aiEntryTaps = 0;
+    }
+    this._aiEntryLastTap = now;
+    this._aiEntryTaps += 1;
+    if (this._aiEntryTaps < 3) return;
+    this._aiEntryTaps = 0;
     wx.navigateTo({ url: '/pages/admin/ai/index' });
   },
 

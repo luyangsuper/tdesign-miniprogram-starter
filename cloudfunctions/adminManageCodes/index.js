@@ -17,7 +17,7 @@ function getAdminList() {
 
 function assertAdmin(openid) {
   const admins = getAdminList();
-  if (!admins.length) return true;
+  if (!admins.length) return false;
   return admins.includes(openid);
 }
 

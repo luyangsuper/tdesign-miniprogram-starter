@@ -15,7 +15,9 @@ const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
 function getAdminList() {
   const fromEnv = process.env.ADMIN_OPENIDS || '';
   if (fromEnv.trim()) {
-    return fromEnv.split(',').map((s) => s.trim()).filter(Boolean);
+    const list = fromEnv.split(',').map((s) => s.trim()).filter(Boolean);
+    // 环境变量写了但解析为空（如只有逗号）时回退名单，避免误判
+    if (list.length) return list;
   }
   return FALLBACK_ADMINS;
 }
@@ -145,7 +147,8 @@ exports.main = async (event = {}) => {
   }
 
   const admins = getAdminList();
-  const isAdmin = admins.length ? admins.includes(OPENID) : true;
+  // 名单为空 → 无人是管理员（勿默认 true，否则全员看到管理台）
+  const isAdmin = !!OPENID && admins.includes(OPENID);
 
   // 更新昵称 / 头像（微信不允许静默拉取，须用户点选后写入）
   if (event.action === 'updateProfile') {

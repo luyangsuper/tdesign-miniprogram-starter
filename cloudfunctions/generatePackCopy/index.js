@@ -647,7 +647,7 @@ async function callWithFailover(
   const cloudbase = isCloudbaseProvider(active);
   if (!active || (!cloudbase && !active.apiKey)) {
     const err = new Error(
-      '未配置可用 AI：请到「我的 → AI 配置」添加「云开发体验模型」或自备 baseURL / API Key，保存后再用',
+      '未配置可用 AI：请管理员在「我的」顶栏连点「我的」3 次进入 AI 配置，添加「云开发体验模型」或自备 Key 后再用',
     );
     err.code = 'NO_KEY';
     throw err;
