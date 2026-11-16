@@ -567,6 +567,67 @@
     animation: home-fade-in 0.22s ease both;
   }
 
+  &__whats-new {
+    width: 640rpx;
+    max-width: calc(100vw - 40rpx);
+    margin: 0 20rpx;
+    padding: 28rpx;
+    border-radius: 28rpx;
+    background: var(--td-bg-color-container);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20rpx;
+    text-align: left;
+  }
+
+  &__whats-new-title {
+    .ui-title();
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8rpx;
+    width: 100%;
+    line-height: 1.3;
+  }
+
+  &__whats-new-ver {
+    margin-top: -12rpx;
+    text-align: center;
+    .ui-caption();
+    color: var(--td-text-color-placeholder);
+  }
+
+  &__whats-new-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12rpx;
+  }
+
+  &__whats-new-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6rpx;
+  }
+
+  &__whats-new-num {
+    flex-shrink: 0;
+    width: 1.5em;
+    .ui-body();
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+    color: var(--td-text-color-secondary);
+  }
+
+  &__whats-new-text {
+    flex: 1;
+    .ui-body();
+    line-height: 1.5;
+    color: var(--td-text-color-primary);
+  }
+
   &__gift {
     width: 560rpx;
     margin: 0 40rpx;

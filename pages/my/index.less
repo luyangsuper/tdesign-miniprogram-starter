@@ -2352,10 +2352,18 @@
 .my__guide-tip {
   .ui-caption();
   color: var(--td-text-color-secondary);
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
   padding: 16rpx;
   border-radius: 12rpx;
   background: var(--td-bg-color-secondarycontainer);
+}
+
+.my__guide-section-label {
+  .ui-caption();
+  font-weight: 700;
+  color: var(--td-text-color-placeholder);
+  letter-spacing: 1rpx;
+  margin: 8rpx 0 4rpx;
 }
 
 .my__guide-step {
@@ -2391,11 +2399,78 @@
   .ui-caption();
   margin-top: 8rpx;
   color: var(--td-text-color-secondary);
+  line-height: 1.55;
+}
+
+.my__guide-way {
+  margin: 12rpx 0 16rpx;
+  padding: 18rpx 16rpx;
+  border-radius: 16rpx;
+  background: var(--td-bg-color-secondarycontainer);
+  box-sizing: border-box;
+}
+
+.my__guide-way-head {
+  display: flex;
+  gap: 16rpx;
+  align-items: flex-start;
+}
+
+.my__guide-way-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.my__guide-way-badge {
+  flex-shrink: 0;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  .ui-caption();
+  font-weight: 700;
+  color: var(--td-brand-color, #0052d9);
+  background: rgba(0, 82, 217, 0.1);
+}
+
+.my__guide-way-hint {
+  margin-top: 4rpx;
+  .ui-caption();
+  color: var(--td-text-color-placeholder);
+}
+
+.my__guide-way-steps {
+  margin: 14rpx 0 0 72rpx;
+  padding: 12rpx 0 0;
+  border-top: 1rpx solid var(--td-component-stroke);
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.my__guide-way-step {
+  display: flex;
+  gap: 10rpx;
+  align-items: flex-start;
+}
+
+.my__guide-way-num {
+  flex-shrink: 0;
+  width: 36rpx;
+  height: 36rpx;
+  margin-top: 2rpx;
+  border-radius: 50%;
+  .ui-caption();
+  font-weight: 700;
+  line-height: 36rpx;
+  text-align: center;
+  color: var(--td-text-color-secondary);
+  background: var(--td-bg-color-container);
 }
 
 .my__guide-foot {
   .ui-caption();
-  margin-top: 20rpx;
+  margin-top: 8rpx;
   padding-bottom: 8rpx;
   color: var(--td-text-color-secondary);
   line-height: 1.55;

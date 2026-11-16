@@ -45,6 +45,10 @@ import {
   summarizePendingPointGifts,
 } from '~/utils/giftHint';
 import {
+  getPendingWhatsNew,
+  markWhatsNewSeen,
+} from '~/utils/whatsNew';
+import {
   applyPendingLotteryInvites,
   applyPendingLotteryResults,
 } from '~/utils/lotteryHint';
@@ -271,6 +275,10 @@ Page({
     giftVisible: false,
     giftPoints: 0,
     giftAffordLine: '',
+    whatsNewVisible: false,
+    whatsNewTitle: '更新说明',
+    whatsNewVersion: '',
+    whatsNewItems: [],
     activityGiftVisible: false,
     activityGiftTitle: '',
     activityGiftPoints: 0,
@@ -360,6 +368,7 @@ Page({
     });
     this.refreshAdmin();
     this.maybeShowWelcomeGift();
+    this.maybeShowWhatsNew();
     this.maybeShowActivityGift();
     this.pullPendingActivityGifts();
     this.startActivityGiftPoll();
@@ -493,7 +502,13 @@ Page({
       const gift = app.globalData && app.globalData.pendingWelcomeGift;
       const points = gift && Number(gift.points);
       if (!points || points <= 0) return;
-      if (this.data.giftVisible || this.data.subscribeGuideVisible) return;
+      if (
+        this.data.giftVisible ||
+        this.data.whatsNewVisible ||
+        this.data.subscribeGuideVisible
+      ) {
+        return;
+      }
       app.globalData.pendingWelcomeGift = null;
       this.setData({
         giftVisible: true,
@@ -515,7 +530,50 @@ Page({
       }
     }
     this.setData({ giftVisible: false });
+    this.maybeShowWhatsNew();
     this.maybeShowActivityGift();
+  },
+
+  maybeShowWhatsNew() {
+    try {
+      if (
+        this.data.giftVisible ||
+        this.data.whatsNewVisible ||
+        this.data.activityGiftVisible ||
+        this.data.subscribeGuideVisible
+      ) {
+        return;
+      }
+      const app = getApp();
+      if (app.globalData && app.globalData.pendingWelcomeGift) return;
+      const release = getPendingWhatsNew();
+      if (!release) return;
+      this.setData({
+        whatsNewVisible: true,
+        whatsNewTitle: release.title,
+        whatsNewVersion: release.version,
+        whatsNewItems: release.items,
+      });
+    } catch (e) {
+      /* ignore */
+    }
+  },
+
+  closeWhatsNew() {
+    if (this._closingWhatsNew) return;
+    this._closingWhatsNew = true;
+    markWhatsNewSeen(this.data.whatsNewVersion);
+    this.setData({ whatsNewVisible: false });
+    this._closingWhatsNew = false;
+    this.maybeShowWelcomeGift();
+    this.maybeShowActivityGift();
+    this.maybeShowSubscribeGuide();
+  },
+
+  onWhatsNewVisibleChange(e) {
+    if (!(e.detail && e.detail.visible)) {
+      this.closeWhatsNew();
+    }
   },
 
   onGiftVisibleChange(e) {
@@ -539,6 +597,7 @@ Page({
     try {
       if (
         this.data.giftVisible ||
+        this.data.whatsNewVisible ||
         this.data.activityGiftVisible ||
         this.data.subscribeGuideVisible
       ) {
@@ -716,13 +775,14 @@ Page({
       if (
         this.data.subscribeGuideVisible ||
         this.data.giftVisible ||
+        this.data.whatsNewVisible ||
         this.data.activityGiftVisible
       ) {
         return;
       }
       setTimeout(() => {
         if (this._subscribeGuideDismissedSession || this.data.giftVisible) return;
-        if (this.data.activityGiftVisible) return;
+        if (this.data.whatsNewVisible || this.data.activityGiftVisible) return;
         try {
           const app = getApp();
           if (app.globalData && app.globalData.pendingWelcomeGift) return;

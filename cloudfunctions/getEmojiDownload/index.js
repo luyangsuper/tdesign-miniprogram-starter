@@ -15,6 +15,7 @@ const {
   resolveCostKey,
   costKindLabel,
 } = require('./contentType');
+const { ensureStaticEmojiGifUrl } = require('./ensureGifDownload');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -25,6 +26,7 @@ const _ = db.command;
  * 下发一张/一段原文件临时链接。
  * 鉴权：本月包月额度 → 购买积分（广告通道关闭）。
  * 先确认原文件可下发，再扣费；相册保存失败可 action=refund 原路退回。
+ * 静态表情 PNG：下载前按需转高质量透明 GIF（微信表情包导入），结果缓存到云存储。
  * 不增加 packs.downloadCount（相册保存成功后由 reportDownload 负责）。
  */
 
@@ -163,10 +165,24 @@ exports.main = async (event) => {
       fileID = animId;
     }
 
+    // 先确认原图可下发；静态表情 PNG 再按需转 GIF（微信表情包导入需 GIF）
     const urlMap = await resolveTempUrls(cloud, [fileID]);
-    const tempUrl = urlMap[fileID] || '';
+    let tempUrl = urlMap[fileID] || '';
     if (!tempUrl) {
       return { ok: false, code: 'URL_FAIL', message: '获取下载链接失败' };
+    }
+
+    let convertedToGif = false;
+    if (emojiOnly && variant === 'static') {
+      try {
+        const gifRes = await ensureStaticEmojiGifUrl(cloud, db, fileID, tempUrl);
+        if (gifRes && gifRes.url) {
+          tempUrl = gifRes.url;
+          convertedToGif = !!gifRes.converted;
+        }
+      } catch (gifErr) {
+        console.warn('[getEmojiDownload] png→gif', gifErr.message || gifErr);
+      }
     }
 
     const freshSnap = await ref.get();
@@ -207,6 +223,7 @@ exports.main = async (event) => {
           costKey,
           fromVip,
           fromPoints,
+          convertedToGif,
         },
       });
     }
@@ -221,6 +238,7 @@ exports.main = async (event) => {
         variant: logVariant,
         contentType,
         mediaKind: contentType === 'video' ? 'video' : 'image',
+        convertedToGif,
         cost: auth.cost,
         fromVip: auth.fromVip || 0,
         fromPoints: auth.fromPoints || 0,

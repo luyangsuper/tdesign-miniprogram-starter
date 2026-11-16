@@ -642,11 +642,12 @@
         </view>
       </view>
       <view class="my__guide-tip">
-        趣图铺子负责把原图保存到相册；导入微信需在微信里完成下面几步（不同系统文案可能略有差异）。
+        先在趣图铺子保存到相册，再到微信里任选一种方式导入（不同系统文案可能略有差异）。
       </view>
+      <view class="my__guide-section-label">准备</view>
       <view
         class="my__guide-step"
-        wx:for="{{guideSteps}}"
+        wx:for="{{guidePrepSteps}}"
         wx:key="title"
       >
         <view class="my__guide-index" style="background: {{item.iconBg}};">
@@ -657,8 +658,44 @@
           <view class="my__guide-step-desc">{{item.desc}}</view>
         </view>
       </view>
+      <view class="my__guide-section-label">导入微信（二选一）</view>
+      <view
+        class="my__guide-way"
+        wx:for="{{guideImportWays}}"
+        wx:for-item="way"
+        wx:key="label"
+      >
+        <view class="my__guide-way-head">
+          <view class="my__guide-index" style="background: {{way.iconBg}};">
+            <kubai-icon name="{{way.icon}}" size="36rpx" color="{{way.iconColor}}" />
+          </view>
+          <view class="my__guide-body">
+            <view class="my__guide-way-title-row">
+              <text class="my__guide-way-badge">{{way.label}}</text>
+              <text class="my__guide-step-title">{{way.title}}</text>
+            </view>
+            <view wx:if="{{way.hint}}" class="my__guide-way-hint">{{way.hint}}</view>
+            <view wx:if="{{way.desc}}" class="my__guide-step-desc">{{way.desc}}</view>
+          </view>
+        </view>
+        <view wx:if="{{way.steps.length}}" class="my__guide-way-steps">
+          <view
+            class="my__guide-way-step"
+            wx:for="{{way.steps}}"
+            wx:for-item="sub"
+            wx:for-index="subIdx"
+            wx:key="title"
+          >
+            <text class="my__guide-way-num">{{subIdx + 1}}</text>
+            <view class="my__guide-body">
+              <view class="my__guide-step-title">{{sub.title}}</view>
+              <view class="my__guide-step-desc">{{sub.desc}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
       <view class="my__guide-foot">
-        提示：动态原图请选 GIF；壁纸类合集一般保存到相册后，在系统「设置壁纸」里使用即可。
+        提示：静态表情保存时会自动转为 GIF，更易导入；动态原图请选 GIF。壁纸 / 头像保存到相册后，在系统设置里使用即可。
       </view>
     </scroll-view>
   </view>

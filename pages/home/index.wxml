@@ -383,6 +383,38 @@
   </view>
 </t-dialog>
 
+<!-- 版本更新说明（每个版本仅首次） -->
+<t-popup
+  visible="{{whatsNewVisible}}"
+  placement="center"
+  bind:visible-change="onWhatsNewVisibleChange"
+>
+  <view class="home__whats-new">
+    <view class="home__whats-new-title">
+      <kubai-icon name="sparkles" size="40rpx" color="#f59e0b" />
+      <text>{{whatsNewTitle}}</text>
+    </view>
+    <view wx:if="{{whatsNewVersion}}" class="home__whats-new-ver">v{{whatsNewVersion}}</view>
+    <view class="home__whats-new-list">
+      <view
+        wx:for="{{whatsNewItems}}"
+        wx:key="index"
+        class="home__whats-new-item"
+      >
+        <text class="home__whats-new-num">{{index + 1}}.</text>
+        <text class="home__whats-new-text">{{item}}</text>
+      </view>
+    </view>
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      content="知道了"
+      bind:tap="closeWhatsNew"
+    />
+  </view>
+</t-popup>
+
 <!-- 新用户见面礼 -->
 <t-popup
   visible="{{giftVisible}}"
