@@ -59,6 +59,14 @@ export function normalizeContentType(value) {
   return CONTENT_TYPES.includes(t) ? t : 'emoji';
 }
 
+/** 首页/偏好可见类型：暂时下线视频，旧值回退到全部 */
+export function coerceBrowseContentType(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === CONTENT_TYPE_ALL) return CONTENT_TYPE_ALL;
+  if (raw === 'video') return CONTENT_TYPE_ALL;
+  return normalizeContentType(raw) === 'video' ? CONTENT_TYPE_ALL : normalizeContentType(raw);
+}
+
 export function contentTypeLabel(value) {
   return LABELS[normalizeContentType(value)] || LABELS.emoji;
 }
@@ -122,9 +130,14 @@ export function contentTypeOptions() {
   return CONTENT_TYPES.map((id) => decorateTypeOption(id));
 }
 
-/** 首页类型下拉：不限 + 四类 */
+/** 上传合集可选类型（暂时屏蔽视频） */
+export function uploadContentTypeOptions() {
+  return contentTypeOptions().filter((o) => o.id !== 'video');
+}
+
+/** 首页类型下拉：不限 + 表情/壁纸/头像（暂时不含视频） */
 export function contentTypeFilterOptions() {
-  return [decorateTypeOption('all'), ...contentTypeOptions()];
+  return [decorateTypeOption('all'), ...uploadContentTypeOptions()];
 }
 
 /**

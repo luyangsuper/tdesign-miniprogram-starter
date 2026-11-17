@@ -10,18 +10,22 @@ const COUNT_TTL_MS = 2 * 60 * 1000;
 
 function cacheDocId(contentTypeKey) {
   const key = String(contentTypeKey || 'all').trim() || 'all';
-  return key === 'all' ? 'category_counts' : `category_counts_${key}`;
+  // novideo：全部统计已排除视频，换 key 使旧缓存失效
+  return key === 'all' ? 'category_counts_novideo' : `category_counts_${key}`;
 }
 
-/** all | emoji|wallpaper|avatar|video */
+/** all | emoji|wallpaper|avatar（video 暂时并入 all） */
 function resolveTypeKey(raw) {
   const t = String(raw || 'all').trim() || 'all';
-  if (t === 'all') return 'all';
+  if (t === 'all' || t === 'video') return 'all';
   return CONTENT_TYPES.includes(t) ? t : 'all';
 }
 
 function buildTypeCond(typeKey) {
-  if (!typeKey || typeKey === 'all') return null;
+  // 暂时下线视频：全部统计也不含视频合集
+  if (!typeKey || typeKey === 'all') {
+    return { contentType: _.neq('video') };
+  }
   if (typeKey === 'emoji') {
     return _.or([
       { contentType: 'emoji' },

@@ -641,13 +641,11 @@ Page({
       });
     };
     pushImage(pack.coverUrl);
-    pushVideo(pack.previewVideoUrl);
+    // 暂时屏蔽预览视频展示
     (pack.previewUrls || []).forEach(pushImage);
-    if (!pack.previewVideoUrl) {
-      (pack.slots || []).forEach((s) => pushImage(s && s.previewUrl));
-    }
-    // 视频合集无独立预览视频时，用已换签的原视频作顶栏可播（与图片槽位展示原图一致）
-    if (contentType === 'video' && !pack.previewVideoUrl) {
+    (pack.slots || []).forEach((s) => pushImage(s && s.previewUrl));
+    // 视频合集：用已换签的原视频作顶栏可播（与图片槽位展示原图一致）
+    if (contentType === 'video') {
       (slots || []).forEach((s) => {
         if (s && s.staticUrl) pushVideo(s.staticUrl);
       });

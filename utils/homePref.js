@@ -6,7 +6,7 @@ import {
   CONTENT_TYPE_ALL,
   contentTypeFilterLabel,
   contentTypeLabel,
-  normalizeContentType,
+  coerceBrowseContentType,
 } from '~/utils/contentType';
 import { CATEGORY_FILTER_ALL } from '~/utils/categories';
 
@@ -24,9 +24,7 @@ function emitHomePrefChange(pref) {
 }
 
 function normalizeContentTypePref(raw) {
-  const contentTypeRaw = String(raw || CONTENT_TYPE_ALL).trim();
-  if (!contentTypeRaw || contentTypeRaw === CONTENT_TYPE_ALL) return CONTENT_TYPE_ALL;
-  return normalizeContentType(contentTypeRaw);
+  return coerceBrowseContentType(raw);
 }
 
 /**

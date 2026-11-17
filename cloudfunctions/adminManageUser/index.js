@@ -51,10 +51,52 @@ async function resolveAvatarMap(fileIDs = []) {
 
 const { defaultAvatarUrl } = require('./avatar');
 
-function formatPaidText(fen) {
+function formatYuanText(fen) {
   const n = Math.max(0, Number(fen) || 0);
   const yuan = (n / 100).toFixed(2).replace(/\.00$/, '');
-  return `消费 ¥${yuan}`;
+  return `¥${yuan}`;
+}
+
+function formatPaidText(fen) {
+  return `消费 ${formatYuanText(fen)}`;
+}
+
+const ORDER_STATUS_TEXT = {
+  delivered: '已到账',
+  paid: '已支付待发货',
+  pending: '待支付',
+  refunded: '已退款',
+};
+
+function formatOrderRow(row = {}) {
+  const priceFen = Math.max(0, Number(row.priceFen) || 0);
+  const grantType =
+    row.grantType || (row.grant && row.grant.grantType) || '';
+  const grantValueRaw =
+    row.grantValue != null && row.grantValue !== ''
+      ? row.grantValue
+      : row.grant && (row.grant.days != null ? row.grant.days : row.grant.add);
+  const grantValue = Number(grantValueRaw) || 0;
+  let grantText = '';
+  if (grantType === 'vip_days') {
+    grantText = grantValue ? `包月 ${grantValue} 天` : '包月';
+  } else if (grantType === 'points') {
+    grantText = grantValue ? `积分 +${grantValue}` : '积分';
+  }
+  const status = String(row.status || '').trim();
+  const timeMs = toMs(row.deliveredAt) || toMs(row.createdAt);
+  return {
+    id: row._id || '',
+    title: String(row.title || row.productId || '订单').trim() || '订单',
+    priceFen,
+    priceText: formatYuanText(priceFen),
+    status,
+    statusText: ORDER_STATUS_TEXT[status] || status || '未知',
+    grantText,
+    createdText: timeMs ? formatDate(timeMs) : '',
+    tone:
+      status === 'delivered' ? 'plus' : status === 'refunded' ? 'minus' : 'mute',
+  };
 }
 
 async function resolvePaidFenMap(openids = []) {
@@ -129,11 +171,99 @@ function formatUser(doc, avatarMap = {}, paidFenMap = {}) {
     createdAt: toMs(data.createdAt) || null,
     shortId: openid ? `${openid.slice(0, 6)}…${openid.slice(-4)}` : '',
     statusText: entitlement.isVip
-      ? `包月 · 本月 ${entitlement.vipMonthQuota}`
-      : entitlement.points > 0
-        ? `积分 ${entitlement.points}`
-        : '普通用户',
+      ? `包月中 · 本月额度 ${entitlement.vipMonthQuota}`
+      : `余额 ${entitlement.points}`,
   };
+}
+
+/** 已交付订单的去重 openid（付费用户） */
+async function listDeliveredPaidOpenids() {
+  const seen = new Set();
+  const openids = [];
+  const pageSize = 1000;
+  let skip = 0;
+  for (let round = 0; round < 20; round += 1) {
+    let rows = [];
+    try {
+      // skip 需配合 orderBy，否则分页结果不稳定
+      // eslint-disable-next-line no-await-in-loop
+      const res = await db
+        .collection('orders')
+        .where({ status: 'delivered' })
+        .orderBy('createdAt', 'asc')
+        .field({ openid: true })
+        .skip(skip)
+        .limit(pageSize)
+        .get();
+      rows = res.data || [];
+    } catch (e) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await db
+          .collection('orders')
+          .where({ status: 'delivered' })
+          .orderBy('createdAt', 'asc')
+          .skip(skip)
+          .limit(pageSize)
+          .get();
+        rows = res.data || [];
+      } catch (err) {
+        // 无索引时退化为单次拉取（付费订单量通常远小于上限）
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const res = await db
+            .collection('orders')
+            .where({ status: 'delivered' })
+            .limit(pageSize)
+            .get();
+          rows = res.data || [];
+          rows.forEach((o) => {
+            const id = String((o && o.openid) || '').trim();
+            if (!id || seen.has(id)) return;
+            seen.add(id);
+            openids.push(id);
+          });
+        } catch (err2) {
+          /* ignore */
+        }
+        break;
+      }
+    }
+    rows.forEach((o) => {
+      const id = String((o && o.openid) || '').trim();
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      openids.push(id);
+    });
+    if (rows.length < pageSize) break;
+    skip += pageSize;
+  }
+  return openids;
+}
+
+async function fetchUsersByOpenids(openids = []) {
+  const ids = Array.from(
+    new Set((openids || []).map((s) => String(s || '').trim()).filter(Boolean)),
+  );
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 20) {
+    const chunk = ids.slice(i, i + 20);
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await db.collection('users').where({ _id: _.in(chunk) }).get();
+      (res.data || []).forEach((u) => {
+        rows.push({ _id: u._id, ...u });
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-restricted-syntax
+      for (const id of chunk) {
+        // eslint-disable-next-line no-await-in-loop
+        const user = await getUserByOpenid(id);
+        if (user) rows.push(user);
+      }
+    }
+  }
+  return rows;
 }
 
 async function formatUserAsync(doc) {
@@ -341,42 +471,77 @@ exports.main = async (event = {}) => {
       const page = Math.max(1, Number(event.page) || 1);
       const pageSize = Math.min(50, Math.max(1, Number(event.pageSize) || 20));
       const skip = (page - 1) * pageSize;
-      const filter = String(event.filter || 'all').trim(); // all | vip | points
+      // all | vip | vip_expired | paid
+      const filter = String(event.filter || 'all').trim();
       const keyword = String(event.keyword || '')
         .trim()
         .toLowerCase()
         .slice(0, 40);
 
-      let where = {};
-      if (filter === 'vip') {
-        where = { vipExpireAt: _.gt(new Date()) };
-      } else if (filter === 'points') {
-        where = { points: _.gt(0) };
-      }
+      const matchKeyword = (u) => {
+        if (!keyword) return true;
+        const id = String(u._id || u.openid || '').toLowerCase();
+        const name = String(u.nickName || '').toLowerCase();
+        return id.includes(keyword) || name.includes(keyword);
+      };
 
-      const col = Object.keys(where).length
-        ? db.collection('users').where(where)
-        : db.collection('users');
+      let rows = [];
+      let total = 0;
+      let hasMore = false;
 
-      const countRes = await col.count();
-      let listRes;
-      try {
-        listRes = await col.orderBy('lastLoginAt', 'desc').skip(skip).limit(pageSize).get();
-      } catch (e) {
-        try {
-          listRes = await col.orderBy('createdAt', 'desc').skip(skip).limit(pageSize).get();
-        } catch (err) {
-          listRes = await col.skip(skip).limit(pageSize).get();
+      if (filter === 'paid') {
+        const paidOpenids = await listDeliveredPaidOpenids();
+        let paidUsers = await fetchUsersByOpenids(paidOpenids);
+        paidUsers = paidUsers.filter(matchKeyword);
+        paidUsers.sort(
+          (a, b) => (toMs(b.lastLoginAt) || 0) - (toMs(a.lastLoginAt) || 0),
+        );
+        total = paidUsers.length;
+        rows = paidUsers.slice(skip, skip + pageSize);
+        hasMore = skip + rows.length < total;
+      } else {
+        let where = {};
+        if (filter === 'vip') {
+          where = { vipExpireAt: _.gt(new Date()) };
+        } else if (filter === 'vip_expired') {
+          // 排除 null / 未开通过：新用户 login 会写 vipExpireAt:null，
+          // 云库 _.lte(now) 会把 null 也匹配进来。
+          where = {
+            vipExpireAt: _.and(_.gt(new Date(0)), _.lte(new Date())),
+          };
         }
-      }
 
-      let rows = (listRes.data || []).map((u) => ({ _id: u._id, ...u }));
-      if (keyword) {
-        rows = rows.filter((u) => {
-          const id = String(u._id || u.openid || '').toLowerCase();
-          const name = String(u.nickName || '').toLowerCase();
-          return id.includes(keyword) || name.includes(keyword);
-        });
+        const col = Object.keys(where).length
+          ? db.collection('users').where(where)
+          : db.collection('users');
+
+        const countRes = await col.count();
+        total = countRes.total || 0;
+
+        let listRes;
+        try {
+          listRes = await col
+            .orderBy('lastLoginAt', 'desc')
+            .skip(skip)
+            .limit(pageSize)
+            .get();
+        } catch (e) {
+          try {
+            listRes = await col
+              .orderBy('createdAt', 'desc')
+              .skip(skip)
+              .limit(pageSize)
+              .get();
+          } catch (err) {
+            listRes = await col.skip(skip).limit(pageSize).get();
+          }
+        }
+
+        rows = (listRes.data || []).map((u) => ({ _id: u._id, ...u }));
+        if (keyword) {
+          rows = rows.filter(matchKeyword);
+        }
+        hasMore = skip + (listRes.data || []).length < total;
       }
 
       const avatarMap = await resolveAvatarMap(rows.map((u) => u.avatarFileID));
@@ -391,8 +556,8 @@ exports.main = async (event = {}) => {
           list,
           page,
           pageSize,
-          total: countRes.total || 0,
-          hasMore: skip + (listRes.data || []).length < (countRes.total || 0),
+          total,
+          hasMore,
         },
       };
     }
@@ -580,6 +745,58 @@ exports.main = async (event = {}) => {
           list,
           totalLogs: logs.length,
           skippedDeleted,
+        },
+      };
+    }
+
+    if (action === 'listOrders') {
+      if (!targetOpenid || targetOpenid.length < 4) {
+        return { ok: false, code: 'BAD_PARAM', message: '缺少 openid' };
+      }
+      const page = Math.max(1, Number(event.page) || 1);
+      const pageSize = Math.min(50, Math.max(1, Number(event.pageSize) || 20));
+      const skip = (page - 1) * pageSize;
+      // 消费记录不含待支付：只看已支付 / 已到账 / 已退款
+      const where = {
+        openid: targetOpenid,
+        status: _.in(['delivered', 'paid', 'refunded']),
+      };
+      const col = db.collection('orders').where(where);
+      let total = 0;
+      try {
+        const countRes = await col.count();
+        total = countRes.total || 0;
+      } catch (e) {
+        total = 0;
+      }
+      let rows = [];
+      try {
+        const listRes = await col
+          .orderBy('createdAt', 'desc')
+          .skip(skip)
+          .limit(pageSize)
+          .get();
+        rows = listRes.data || [];
+      } catch (e) {
+        try {
+          const listRes = await col.skip(skip).limit(pageSize).get();
+          rows = listRes.data || [];
+          rows.sort(
+            (a, b) => (toMs(b.createdAt) || 0) - (toMs(a.createdAt) || 0),
+          );
+        } catch (err) {
+          rows = [];
+        }
+      }
+      const list = rows.map((r) => formatOrderRow({ _id: r._id, ...r }));
+      return {
+        ok: true,
+        data: {
+          list,
+          page,
+          pageSize,
+          total,
+          hasMore: skip + rows.length < total,
         },
       };
     }

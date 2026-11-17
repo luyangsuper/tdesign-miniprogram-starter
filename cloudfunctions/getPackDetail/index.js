@@ -47,18 +47,18 @@ async function getDetail(packId, OPENID) {
   const contentType = normalizeContentType(pack.contentType);
   const emojiFileIDs = pack.emojiFileIDs || [];
   const emojiCount = emojiFileIDs.length;
-  const { previewFileIDs, previewVideoFileID } = splitPreviewFileIDs(pack);
+  // 暂时屏蔽预览视频展示：只保留预览图
+  const { previewFileIDs } = splitPreviewFileIDs(pack);
   const emojiAnimFileIDs = isEmojiType(contentType) ? pack.emojiAnimFileIDs || [] : [];
   const pairKeys = Array.isArray(pack.pairKeys) ? pack.pairKeys : [];
 
   const urlMap = await resolveTempUrls(cloud, [
     pack.coverFileID,
-    previewVideoFileID,
     ...previewFileIDs,
   ]);
 
   const previewUrls = previewFileIDs.map((id) => urlMap[id] || '');
-  const previewVideoUrl = (previewVideoFileID && urlMap[previewVideoFileID]) || '';
+  const previewVideoUrl = '';
   const hasAnimAny =
     isEmojiType(contentType) && emojiAnimFileIDs.some((id) => String(id || '').trim());
   const defaultLabel =

@@ -16,6 +16,7 @@ import {
 } from '~/utils/categories';
 import {
   CONTENT_TYPE_ALL,
+  coerceBrowseContentType,
   contentTypeChipStyle,
   contentTypeColorStyle,
   contentTypeFilterLabel,
@@ -1204,10 +1205,7 @@ Page({
       });
       return;
     }
-    const contentType =
-      pref.contentType === CONTENT_TYPE_ALL
-        ? CONTENT_TYPE_ALL
-        : normalizeContentType(pref.contentType);
+    const contentType = coerceBrowseContentType(pref.contentType);
     const categoryId = resolveHomePrefCategoryId(pref);
     this._preferredCategoryIds = Array.isArray(pref.categoryIds)
       ? pref.categoryIds.slice()
@@ -1243,20 +1241,25 @@ Page({
     if (!snap) return;
     const keyword = String(snap.keyword || '').trim();
     if (keyword) return;
+    // 旧「视频」筛选快照作废，避免把视频列表误铺成「全部」
+    if (String(snap.contentType || '').trim() === 'video') {
+      clearHomeSnapshot();
+      return;
+    }
     const list = snap.list || [];
     if (!list.length) return;
 
     const pref = getHomePref();
     let categoryId = snap.categoryId || 'all';
-    let contentType = snap.contentType || CONTENT_TYPE_ALL;
+    let contentType = coerceBrowseContentType(snap.contentType);
 
     if (pref.saved) {
       // 有偏好时只接受与偏好一致的壳，避免闪出未偏好筛选
       categoryId = this.data.categoryId || categoryId;
-      contentType = this.data.contentType || contentType;
+      contentType = coerceBrowseContentType(this.data.contentType || contentType);
       if (
         (snap.categoryId || 'all') !== categoryId ||
-        (snap.contentType || CONTENT_TYPE_ALL) !== contentType
+        coerceBrowseContentType(snap.contentType) !== contentType
       ) {
         return;
       }
@@ -1447,8 +1450,8 @@ Page({
 
   applyContentType(id) {
     if (id === undefined || id === null || id === '') return;
-    const next =
-      id === CONTENT_TYPE_ALL ? CONTENT_TYPE_ALL : normalizeContentType(id);
+    const next = coerceBrowseContentType(id);
+    if (id === 'video') return;
     if (next === this.data.contentType) return;
     this.clearPackSelection();
     // 作废进行中的旧分类请求，避免切类型后旧 filters/count 写回

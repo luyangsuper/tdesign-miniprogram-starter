@@ -1,6 +1,6 @@
 <page-meta page-style="{{themeStyle}}" />
 <view class="users-page" style="{{themeStyle}}">
-  <view class="users-page__tip">点选用户管理包月 / 积分，查看流水与下载合集。共 <text class="users-page__tip-count">{{total}}</text> 人。</view>
+  <view class="users-page__tip">点选用户管理包月 / 积分，查看流水、消费与下载合集。共 <text class="users-page__tip-count">{{total}}</text> 人。</view>
 
   <view class="users-page__search-wrap">
     <t-search
@@ -27,16 +27,24 @@
       size="medium"
       variant="dark"
       checked="{{filter === 'vip'}}"
-      content="包月"
+      content="包月中"
       data-filter="vip"
       bind:change="onFilterChange"
     />
     <t-check-tag
       size="medium"
       variant="dark"
-      checked="{{filter === 'points'}}"
-      content="有积分"
-      data-filter="points"
+      checked="{{filter === 'vip_expired'}}"
+      content="包月过期"
+      data-filter="vip_expired"
+      bind:change="onFilterChange"
+    />
+    <t-check-tag
+      size="medium"
+      variant="dark"
+      checked="{{filter === 'paid'}}"
+      content="有消费"
+      data-filter="paid"
       bind:change="onFilterChange"
     />
   </view>
@@ -47,7 +55,7 @@
 
   <block wx:elif="{{list.length}}">
     <view
-      class="users-page__item"
+      class="users-page__item {{item.paidFen > 0 ? 'users-page__item--paid' : ''}}"
       wx:for="{{list}}"
       wx:key="openid"
       data-index="{{index}}"
@@ -67,9 +75,13 @@
           <text class="users-page__name">{{item.nickName || '未设置昵称'}}</text>
           <t-tag wx:if="{{item.isAdmin}}" size="small" theme="danger" variant="light">管理员</t-tag>
           <t-tag wx:if="{{item.entitlement.isVip}}" size="small" theme="warning" variant="light">包月</t-tag>
+          <t-tag wx:if="{{item.paidFen > 0}}" size="small" theme="primary" variant="light">付费</t-tag>
         </view>
-        <view class="users-page__sub">{{item.statusText}} · 积分 {{item.entitlement.points}} 分{{item.entitlement.isVip ? ' · 本月额度 ' + item.entitlement.vipMonthQuota + ' 分' : ''}} · <text class="users-page__paid {{item.paidFen > 0 ? 'users-page__paid--on' : ''}}">{{item.paidText}}</text></view>
+        <view class="users-page__sub">{{item.statusText}} · <text class="users-page__paid {{item.paidFen > 0 ? 'users-page__paid--on' : ''}}">{{item.paidText}}</text></view>
         <view class="users-page__sub">{{item.shortId}}{{item.lastLoginText ? ' · ' + item.lastLoginText : ''}}</view>
+      </view>
+      <view wx:if="{{item.paidFen > 0}}" class="users-page__paid-icon">
+        <kubai-icon name="ticket" size="40rpx" color="#07c160" />
       </view>
       <kubai-icon name="chevron-right" size="44rpx" color="#999999" />
     </view>
@@ -117,6 +129,7 @@
             <view class="users-page__tags">
               <t-tag wx:if="{{user.entitlement.isVip}}" theme="warning" variant="light" size="small">包月中</t-tag>
               <t-tag wx:if="{{user.isAdmin}}" theme="danger" variant="light" size="small">管理员</t-tag>
+              <t-tag wx:if="{{user.paidFen > 0}}" theme="primary" variant="light" size="small">付费</t-tag>
               <t-tag theme="primary" variant="light" size="small">积分 {{user.entitlement.points}} 分</t-tag>
               <t-tag wx:if="{{user.entitlement.isVip}}" theme="success" variant="light" size="small">本月额度 {{user.entitlement.vipMonthQuota}} 分</t-tag>
               <t-tag theme="{{user.paidFen > 0 ? 'primary' : 'default'}}" variant="light" size="small">{{user.paidText}}</t-tag>
@@ -203,6 +216,62 @@
             <t-button t-class="users-page__adj-btn" size="small" variant="outline" content="+2 分" data-delta="2" bind:tap="onAdjustPoints" />
             <t-button t-class="users-page__adj-btn" size="small" variant="outline" theme="danger" content="清零" bind:tap="onClearPoints" />
           </view>
+        </view>
+
+        <view class="users-panel__block users-panel__block--logs">
+          <t-collapse
+            t-class="users-page__log-collapse"
+            value="{{ordersValue}}"
+            expand-icon
+            bind:change="onOrdersCollapse"
+          >
+            <t-collapse-panel
+              t-class="users-page__log-panel"
+              t-class-header="users-page__log-header"
+              t-class-content="users-page__log-body"
+              value="orders"
+              header-right-content="{{ordersLoading && !orders.length ? '加载中' : (ordersTotal ? ordersTotal + ' 笔' : '')}}"
+            >
+              <view slot="header" class="users-panel__label">消费记录</view>
+              <view class="users-panel__hint users-panel__hint--block">虚拟支付订单：包月 / 积分包（已支付、已到账、已退款）</view>
+              <view class="users-page__dl-state" wx:if="{{ordersLoading && !orders.length}}">
+                <t-loading theme="circular" size="40rpx" />
+              </view>
+              <fun-empty wx:elif="{{!orders.length}}" size="small" description="暂无消费记录" />
+              <block wx:else>
+                <t-cell-group t-class="users-page__log-group" bordered="{{false}}">
+                  <t-cell
+                    wx:for="{{orders}}"
+                    wx:key="id"
+                    t-class="users-page__log-cell"
+                    t-class-center="users-page__log-center"
+                    t-class-title="users-page__log-title"
+                    t-class-description="users-page__log-desc"
+                    t-class-note="users-page__log-note"
+                    hover="{{false}}"
+                    bordered="{{false}}"
+                  >
+                    <view slot="title" class="users-page__log-title">{{item.title}}</view>
+                    <view slot="description" class="users-page__log-desc">{{item.statusText}}{{item.grantText ? ' · ' + item.grantText : ''}}{{item.createdText ? ' · ' + item.createdText : ''}}</view>
+                    <view slot="note" class="users-page__log-right">
+                      <text class="users-page__log-delta users-page__log-delta--{{item.tone}}">{{item.priceText}}</text>
+                    </view>
+                  </t-cell>
+                </t-cell-group>
+                <t-button
+                  wx:if="{{ordersHasMore}}"
+                  class="users-page__log-more"
+                  theme="default"
+                  variant="outline"
+                  size="small"
+                  block
+                  loading="{{ordersLoading}}"
+                  content="加载更多"
+                  bind:tap="onLoadMoreOrders"
+                />
+              </block>
+            </t-collapse-panel>
+          </t-collapse>
         </view>
 
         <view class="users-panel__block users-panel__block--logs">

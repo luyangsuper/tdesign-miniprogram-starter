@@ -20,6 +20,12 @@ Page({
     pointsDelta: '',
     downloadPacks: [],
     downloadsLoading: false,
+    orders: [],
+    ordersLoading: false,
+    ordersHasMore: true,
+    ordersPage: 1,
+    ordersTotal: 0,
+    ordersValue: [],
     pointsLogs: [],
     pointsLogsLoading: false,
     pointsLogsHasMore: true,
@@ -75,6 +81,7 @@ Page({
 
   openUserPanel(user) {
     if (!user) return;
+    const hasPaid = Number(user.paidFen) > 0;
     this.setData({
       user,
       panelVisible: true,
@@ -83,6 +90,12 @@ Page({
       pointsDelta: '',
       downloadPacks: [],
       downloadsLoading: true,
+      orders: [],
+      ordersLoading: true,
+      ordersHasMore: true,
+      ordersPage: 1,
+      ordersTotal: 0,
+      ordersValue: hasPaid ? ['orders'] : [],
       pointsLogs: [],
       pointsLogsLoading: true,
       pointsLogsHasMore: true,
@@ -91,6 +104,7 @@ Page({
       pointsLogsValue: [],
     });
     this.loadUserDownloads(user.openid);
+    this.loadUserOrders(user.openid, true);
     this.loadUserPointsLogs(user.openid, true);
   },
 
@@ -116,6 +130,62 @@ Page({
       if (!this.data.user || this.data.user.openid !== openid) return;
       this.setData({ downloadPacks: [], downloadsLoading: false });
     }
+  },
+
+  async loadUserOrders(openid, reset = false) {
+    if (!openid) {
+      this.setData({
+        orders: [],
+        ordersLoading: false,
+        ordersHasMore: false,
+        ordersTotal: 0,
+      });
+      return;
+    }
+    if (this.data.ordersLoading && !reset) return;
+    if (!reset && !this.data.ordersHasMore) return;
+
+    const page = reset ? 1 : this.data.ordersPage;
+    this._ordersSeq = (this._ordersSeq || 0) + 1;
+    const seq = this._ordersSeq;
+    this.setData({ ordersLoading: true });
+    try {
+      const res = await callFunction('adminManageUser', {
+        action: 'listOrders',
+        openid,
+        page,
+        pageSize: 20,
+      });
+      if (seq !== this._ordersSeq) return;
+      const data = (res && res.data) || {};
+      if (!this.data.user || this.data.user.openid !== openid) return;
+      const list = data.list || [];
+      this.setData({
+        orders: reset ? list : this.data.orders.concat(list),
+        ordersPage: page + 1,
+        ordersHasMore: !!data.hasMore,
+        ordersTotal: data.total || 0,
+        ordersLoading: false,
+      });
+    } catch (e) {
+      if (seq !== this._ordersSeq) return;
+      if (!this.data.user || this.data.user.openid !== openid) return;
+      this.setData({
+        ordersLoading: false,
+        ordersHasMore: false,
+      });
+    }
+  },
+
+  onLoadMoreOrders() {
+    const user = this.data.user;
+    if (!user || !user.openid) return;
+    this.loadUserOrders(user.openid, false);
+  },
+
+  onOrdersCollapse(e) {
+    const value = (e.detail && e.detail.value) || e.detail || [];
+    this.setData({ ordersValue: Array.isArray(value) ? value : [] });
   },
 
   async loadUserPointsLogs(openid, reset = false) {
@@ -268,6 +338,12 @@ Page({
     return {
       downloadPacks: [],
       downloadsLoading: false,
+      orders: [],
+      ordersLoading: false,
+      ordersHasMore: true,
+      ordersPage: 1,
+      ordersTotal: 0,
+      ordersValue: [],
       pointsLogs: [],
       pointsLogsLoading: false,
       pointsLogsHasMore: true,

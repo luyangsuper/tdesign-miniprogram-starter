@@ -48,7 +48,8 @@ exports.main = async (event) => {
   const title = (event.title || '').trim();
   const coverFileID = event.coverFileID;
   const previewFileIDs = Array.isArray(event.previewFileIDs) ? event.previewFileIDs.filter(Boolean) : [];
-  const previewVideoFileID = String(event.previewVideoFileID || '').trim();
+  // 暂时屏蔽预览视频 / 视频合集上传
+  const previewVideoFileID = '';
   const emojiFileIDs = Array.isArray(event.emojiFileIDs) ? event.emojiFileIDs.filter(Boolean) : [];
   const rawAnim = Array.isArray(event.emojiAnimFileIDs) ? event.emojiAnimFileIDs : [];
   const emojiAnimFileIDs = isEmojiType(contentType)
@@ -60,11 +61,13 @@ exports.main = async (event) => {
   const status = event.status === 'draft' ? 'draft' : 'published';
   const categoryId = String(event.categoryId || '').trim();
 
+  if (contentType === 'video') {
+    return { ok: false, code: 'BAD_PARAM', message: '暂不支持上传视频合集' };
+  }
   if (!title) {
     return { ok: false, code: 'BAD_PARAM', message: '请填写标题' };
   }
-  // 视频封面可选（客户端可用预览图 / 视频缩略图顶上）
-  if (!coverFileID && contentType !== 'video') {
+  if (!coverFileID) {
     return { ok: false, code: 'BAD_PARAM', message: '请上传封面' };
   }
   if (!emojiFileIDs.length) {

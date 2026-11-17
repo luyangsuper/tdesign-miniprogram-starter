@@ -2,7 +2,7 @@
 <view class="upload-page" style="{{themeStyle}}">
   <view class="block">
     <view class="block__label">合集类型</view>
-    <view class="block__tip">表情保留静态/动态；壁纸、头像、视频只上传可保存的原文件</view>
+    <view class="block__tip">表情保留静态/动态；壁纸、头像只上传可保存的原文件（视频合集暂不可上传）</view>
     <view class="upload-page__cats">
       <view
         wx:for="{{contentTypeOptions}}"
@@ -181,16 +181,16 @@
   <view class="block block--file">
     <view class="block__head">
       <view class="block__label block__label--inline">预览</view>
-      <t-tag size="small" variant="light" theme="primary">可选 · 图或视频</t-tag>
+      <t-tag size="small" variant="light" theme="primary">可选 · 仅图片</t-tag>
     </view>
-    <view class="block__tip">可不传。可多选预览图，或只传 1 段预览视频；点预览，长按拖排序。预览图有则与静态同序号占位。</view>
+    <view class="block__tip">可不传。可多选预览图；点预览，长按拖排序。预览图有则与静态同序号占位。暂不支持预览视频。</view>
     <t-button
       t-class="pick-btn"
       theme="primary"
       variant="outline"
       size="medium"
       block
-      content="选择预览图或视频"
+      content="选择预览图"
       bind:tap="pickPreviewFromAlbum"
     />
     <view class="file-grid js-grid-previewFiles" wx:if="{{previewFiles.length}}">
@@ -247,7 +247,7 @@
     </view>
     <view class="file-grid__empty" wx:else bindtap="pickPreviewFromAlbum">
       <image class="file-grid__empty-art" src="/static/emoji/eyes.png" mode="aspectFit" />
-      <text class="file-grid__empty-text">可不传，点上方选择预览图或视频</text>
+      <text class="file-grid__empty-text">可不传，点上方选择预览图</text>
     </view>
   </view>
 

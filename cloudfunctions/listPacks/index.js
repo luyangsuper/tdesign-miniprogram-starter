@@ -23,8 +23,11 @@ const RANDOM_POOL_SIZE = 24;
 
 function buildContentTypeCond(contentType) {
   const raw = String(contentType || 'all').trim() || 'all';
-  if (!raw || raw === 'all') return null;
-  if (!CONTENT_TYPES.includes(raw)) return null;
+  // 暂时下线视频：全部 / 误传 video 都不返回视频合集
+  if (!raw || raw === 'all' || raw === 'video') {
+    return { contentType: _.neq('video') };
+  }
+  if (!CONTENT_TYPES.includes(raw)) return { contentType: _.neq('video') };
   if (raw === 'emoji') {
     return _.or([
       { contentType: 'emoji' },

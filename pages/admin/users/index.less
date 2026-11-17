@@ -40,6 +40,17 @@
     padding: 20rpx 24rpx;
     background: var(--td-bg-color-container);
     border-radius: 16rpx;
+    border: 2rpx solid transparent;
+    box-sizing: border-box;
+
+    &--paid {
+      background: var(--td-brand-color-light);
+      border-color: var(--td-brand-color-disabled);
+    }
+  }
+
+  &__paid-icon {
+    flex-shrink: 0;
   }
 
   &__avatar {
@@ -367,6 +378,10 @@
 
     &--minus {
       color: var(--td-error-color);
+    }
+
+    &--mute {
+      color: var(--td-text-color-secondary);
     }
   }
 

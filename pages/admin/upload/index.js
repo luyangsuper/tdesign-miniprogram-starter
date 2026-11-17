@@ -3,7 +3,7 @@ import { guardAdminPage } from '~/utils/auth';
 import { getSubscribeMpState } from '~/utils/subscribe';
 import { invalidatePackTempUrls } from '~/utils/tempUrlCache';
 import {
-  contentTypeOptions,
+  uploadContentTypeOptions,
   contentTypeLabel,
   isCategoryOptional,
   isEmojiType,
@@ -66,7 +66,7 @@ Page({
     description: '',
     staticDriveUrl: '',
     animDriveUrl: '',
-    contentTypeOptions: contentTypeOptions(),
+    contentTypeOptions: uploadContentTypeOptions(),
     ...typeUi('emoji'),
     coverFiles: [],
     coverWidth: 0,
@@ -162,6 +162,19 @@ Page({
         return Number.isFinite(ms) ? ms : 0;
       })();
       const contentType = normalizeContentType(pack.contentType);
+      if (contentType === 'video') {
+        this.setData({ loadingPack: false });
+        wx.hideLoading();
+        wx.showModal({
+          title: '暂不支持编辑',
+          content: '视频合集已暂时下线，无法继续编辑或保存。',
+          showCancel: false,
+          success: () => {
+            wx.navigateBack({ fail: () => {} });
+          },
+        });
+        return;
+      }
       this.setData({
         title: pack.title || '',
         description: pack.description || '',
@@ -172,8 +185,15 @@ Page({
         coverFiles: pack.coverFiles || [],
         coverWidth: pack.coverWidth || 0,
         coverHeight: pack.coverHeight || 0,
-        previewFiles: this.withAutoSeq(this.markPreviewMedia(pack.previewFiles || [])),
-        emojiFiles: this.withAutoSeq(pack.emojiFiles || []),
+        // 暂时屏蔽预览视频：编辑时也不带回展示
+        previewFiles: this.withAutoSeq(
+          this.markPreviewMedia(
+            (pack.previewFiles || []).filter((f) => f && !isVideoFile(f)),
+          ),
+        ),
+        emojiFiles: this.withAutoSeq(
+          (pack.emojiFiles || []).filter((f) => f && !isVideoFile(f)),
+        ),
         emojiAnimFiles: isEmojiType(contentType)
           ? this.withPreservedSeq(pack.emojiAnimFiles || [])
           : [],
@@ -237,14 +257,19 @@ Page({
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
       (e.target && e.target.dataset && e.target.dataset.id);
     if (!id || id === this.data.contentType) return;
+    // 暂时屏蔽视频合集上传
+    if (id === 'video') {
+      wx.showToast({ title: '暂不支持上传视频', icon: 'none' });
+      return;
+    }
     const next = typeUi(id);
     const patch = { ...next };
     if (!isEmojiType(next.contentType)) {
       patch.emojiAnimFiles = [];
       patch.animDriveUrl = '';
     }
-    // 视频与图片原文件不互通
-    if ((this.data.contentType === 'video') !== (next.contentType === 'video')) {
+    // 从旧视频合集切走时清空原文件（视频与图片不互通）
+    if (this.data.contentType === 'video') {
       patch.emojiFiles = [];
     }
     // 切到可不选分类的类型时，不自动填分类
@@ -578,70 +603,17 @@ Page({
   },
 
   pickOriginalsFromAlbum() {
-    const isVideo = this.data.contentType === 'video';
-    this.pickFilesByAlbum(60, 'emojiFiles', isVideo ? ['video'] : ['image']);
+    // 暂时屏蔽视频原文件上传
+    if (this.data.contentType === 'video') {
+      wx.showToast({ title: '暂不支持上传视频', icon: 'none' });
+      return;
+    }
+    this.pickFilesByAlbum(60, 'emojiFiles', ['image']);
   },
 
   pickPreviewFromAlbum() {
-    const maxCount = 30;
-    const remain = Math.max(0, maxCount - (this.data.previewFiles || []).length);
-    if (!remain) {
-      wx.showToast({ title: '已达数量上限', icon: 'none' });
-      return;
-    }
-    wx.chooseMedia({
-      count: Math.min(remain, 20),
-      mediaType: ['image', 'video'],
-      sourceType: ['album'],
-      sizeType: ['original'],
-      maxDuration: 60,
-      success: (res) => {
-        const picked = (res.tempFiles || []).map((f) => {
-          const path = f.tempFilePath || f.path;
-          const video = f.fileType === 'video' || isVideoFile({ path, type: f.fileType });
-          return {
-            url: path,
-            path,
-            name: '',
-            type: video ? 'video' : 'image',
-            isVideo: video,
-            thumb: f.thumbTempFilePath || '',
-            size: f.size,
-            duration: f.duration || 0,
-            byAlbum: true,
-          };
-        });
-        const existingHasVideo = (this.data.previewFiles || []).some(isVideoFile);
-        const images = [];
-        const videos = [];
-        picked.forEach((f) => {
-          if (isVideoFile(f)) videos.push(f);
-          else images.push(f);
-        });
-        let extraVideoDropped = false;
-        let next = images;
-        if (videos.length) {
-          if (existingHasVideo) {
-            extraVideoDropped = true;
-          } else {
-            next = [...images, videos[0]];
-            extraVideoDropped = videos.length > 1;
-          }
-        }
-        if (!next.length) {
-          wx.showToast({
-            title: extraVideoDropped ? '预览视频仅限 1 个' : '请选择文件',
-            icon: 'none',
-          });
-          return;
-        }
-        this.appendPickedFiles('previewFiles', maxCount, next);
-      },
-      fail: (err) => {
-        if (err && /cancel/i.test(err.errMsg || '')) return;
-        wx.showToast({ title: '选择失败', icon: 'none' });
-      },
-    });
+    // 暂时仅支持预览图
+    this.pickFilesByAlbum(30, 'previewFiles', ['image']);
   },
 
   pickEmojiFromAlbum() {
@@ -860,6 +832,10 @@ Page({
     const type = normalizeContentType(contentType);
     const emojiOnly = isEmojiType(type);
 
+    if (type === 'video') {
+      wx.showToast({ title: '暂不支持上传视频合集', icon: 'none' });
+      return;
+    }
     if (!title.trim()) {
       wx.showToast({ title: '请填写标题', icon: 'none' });
       return;
@@ -868,8 +844,7 @@ Page({
       wx.showToast({ title: '请选择分类', icon: 'none' });
       return;
     }
-    // 视频封面可选：提交时若无封面会用预览图 / 视频缩略图顶上
-    if (!coverFiles.length && type !== 'video') {
+    if (!coverFiles.length) {
       wx.showToast({ title: '请上传封面', icon: 'none' });
       return;
     }
@@ -878,7 +853,7 @@ Page({
       return;
     }
 
-    const { images: previewImages, videos: previewVideos } = splitPreviewMedia(previewFiles);
+    const { images: previewImages } = splitPreviewMedia(previewFiles);
     const animForPair = emojiOnly ? emojiAnimFiles : [];
     const paired = pairByIndex(previewImages, emojiFiles, animForPair);
     if (!paired.pairs.length) {
@@ -889,7 +864,7 @@ Page({
     const submitPayload = {
       ...paired,
       previewImages,
-      previewVideo: previewVideos[0] || null,
+      previewVideo: null,
     };
 
     if (
@@ -1029,21 +1004,21 @@ Page({
 
     try {
       const animFilesToUpload = (paired.orderedAnims || []).filter(Boolean);
-      const [coverIds, previewFileIDs, emojiFileIDs, animUploadedIds, previewVideoIds] =
+      const [coverIds, previewFileIDs, emojiFileIDs, animUploadedIds] =
         await Promise.all([
           this.resolveFileIds(coverFiles, 'cover'),
           this.resolveFileIds(previewImages.filter(Boolean), 'preview'),
           this.resolveFileIds(paired.orderedStatics, 'emoji'),
           this.resolveFileIds(animFilesToUpload, 'emoji-anim'),
-          this.resolveFileIds(previewVideo ? [previewVideo] : [], 'preview-video'),
         ]);
-      const previewVideoFileID = previewVideoIds[0] || '';
+      // 暂时屏蔽预览视频：保存时清空，顺带去掉历史预览视频
+      const previewVideoFileID = '';
       let coverFileID = coverIds[0] || '';
       // 视频无封面且有预览图：复用首张预览，避免同图传两遍
       if (!coverFileID && coverPlan.reusePreviewCover) {
         coverFileID = previewFileIDs.find(Boolean) || '';
       }
-      if (!coverFileID && type !== 'video') {
+      if (!coverFileID) {
         throw new Error('请上传封面');
       }
 

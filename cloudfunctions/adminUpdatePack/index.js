@@ -43,7 +43,8 @@ exports.main = async (event) => {
   const categoryId = String(event.categoryId || '').trim();
   const coverFileID = event.coverFileID;
   const previewFileIDs = Array.isArray(event.previewFileIDs) ? event.previewFileIDs.filter(Boolean) : [];
-  const previewVideoFileID = String(event.previewVideoFileID || '').trim();
+  // 暂时屏蔽预览视频：保存时清空（含历史预览视频）
+  const previewVideoFileID = '';
   const emojiFileIDs = Array.isArray(event.emojiFileIDs) ? event.emojiFileIDs.filter(Boolean) : [];
   const rawAnim = Array.isArray(event.emojiAnimFileIDs) ? event.emojiAnimFileIDs : [];
   const emojiAnimFileIDs = isEmojiType(contentType)
@@ -54,12 +55,14 @@ exports.main = async (event) => {
     : emojiFileIDs.map(() => '');
 
   if (!packId) return { ok: false, code: 'BAD_PARAM', message: '缺少 packId' };
+  if (contentType === 'video') {
+    return { ok: false, code: 'BAD_PARAM', message: '暂不支持保存视频合集' };
+  }
   if (!title) return { ok: false, code: 'BAD_PARAM', message: '请填写标题' };
   if (!isCategoryOptional(contentType) && !categoryId) {
     return { ok: false, code: 'BAD_PARAM', message: '请选择分类' };
   }
-  // 视频封面可选（客户端可用预览图 / 视频缩略图顶上）
-  if (!coverFileID && contentType !== 'video') {
+  if (!coverFileID) {
     return { ok: false, code: 'BAD_PARAM', message: '请上传封面' };
   }
   if (!emojiFileIDs.length) {

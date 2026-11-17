@@ -126,10 +126,8 @@ exports.main = async (event) => {
         coverFiles: pack.coverFileID
           ? mapFiles([pack.coverFileID])
           : [],
-        previewFiles: [
-          ...mapFiles(pack.previewFileIDs),
-          ...mapFiles(pack.previewVideoFileID ? [pack.previewVideoFileID] : [], 'video'),
-        ],
+        // 暂时屏蔽预览视频：编辑页不回填
+        previewFiles: mapFiles(pack.previewFileIDs).filter((f) => f && !f.isVideo),
         emojiFiles,
         emojiAnimFiles: contentType === 'emoji' ? emojiAnimFiles : [],
         notifiedAt: toMs(pack.notifiedAt),
