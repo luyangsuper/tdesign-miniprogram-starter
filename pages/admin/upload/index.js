@@ -118,18 +118,24 @@ Page({
       wx.setNavigationBarTitle({ title: '编辑合集' });
       this.loadPack(packId);
     }
-    this.loadCategories();
   },
 
   onShow() {
     if (!guardAdminPage()) return;
     applyThemeToPage(this);
+    // 含从「管理分类」返回：每次显示都重拉，避免旧列表
+    this.loadCategories();
   },
 
   async loadCategories() {
-    this.setData({ loadingCats: true });
+    const seq = (this._catSeq = (this._catSeq || 0) + 1);
+    const hadCats = (this.data.categories || []).length > 0;
+    // 选图等也会触发 onShow：已有列表时静默刷新，避免闪加载态
+    if (!hadCats) this.setData({ loadingCats: true });
     try {
-      const res = await callFunction('listCategories');
+      // 上传页只要完整分类名录，走管理接口，不吃首页计数短缓存
+      const res = await callFunction('adminManageCategory', { action: 'list' });
+      if (seq !== this._catSeq) return;
       const categories = (res.data && res.data.categories) || [];
       const patch = { categories, loadingCats: false };
       // 仅表情默认选中第一个主题；壁纸/头像/视频可不选
@@ -143,8 +149,11 @@ Page({
       }
       this.setData(patch);
     } catch (e) {
+      if (seq !== this._catSeq) return;
       this.setData({ loadingCats: false });
-      wx.showToast({ title: e.message || '分类加载失败', icon: 'none' });
+      if (!hadCats) {
+        wx.showToast({ title: e.message || '分类加载失败', icon: 'none' });
+      }
     }
   },
 

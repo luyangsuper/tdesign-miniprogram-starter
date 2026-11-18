@@ -24,6 +24,8 @@ async function invalidateListCaches(db) {
   // 分类计数按 contentType 分文档缓存（all + 四类）
   await invalidateAppConfigDocs(db, [
     'category_counts',
+    // listCategories「全部」实际写的是 novideo（排除视频），必须一并清
+    'category_counts_novideo',
     'category_counts_emoji',
     'category_counts_wallpaper',
     'category_counts_avatar',

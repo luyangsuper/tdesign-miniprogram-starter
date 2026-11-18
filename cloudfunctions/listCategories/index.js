@@ -149,15 +149,28 @@ exports.main = async (event = {}) => {
     if (!force) {
       const cached = await readCountCache(typeKey);
       if (cached && Array.isArray(cached.filters)) {
-        return {
-          ok: true,
-          data: {
-            categories: cached.categories || [],
-            filters: cached.filters,
-            contentType: typeKey,
-            cached: true,
-          },
-        };
+        // 增删分类后若未清到对应 cache doc，旧 payload 会缺新分类；集合不一致则重建
+        const freshIds = categories
+          .map((c) => c.id)
+          .slice()
+          .sort()
+          .join(',');
+        const cachedIds = (cached.categories || [])
+          .map((c) => c.id)
+          .slice()
+          .sort()
+          .join(',');
+        if (freshIds === cachedIds) {
+          return {
+            ok: true,
+            data: {
+              categories: cached.categories || [],
+              filters: cached.filters,
+              contentType: typeKey,
+              cached: true,
+            },
+          };
+        }
       }
     }
 
