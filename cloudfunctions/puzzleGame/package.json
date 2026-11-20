@@ -1,0 +1,10 @@
+{
+  "name": "puzzleGame",
+  "version": "1.0.0",
+  "description": "趣味拼图闯关：抽图与通关发积分",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

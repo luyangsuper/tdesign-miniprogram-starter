@@ -252,6 +252,175 @@
       </view>
     </view>
 
+    <view class="admin-points__section">趣味拼图</view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">开放拼图</view>
+          <view class="admin-points__hint">关闭后「我的」不展示入口</view>
+        </view>
+        <t-switch value="{{puzzleEnabled}}" bind:change="onPuzzleEnabledChange" />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">每日计奖次数</view>
+          <view class="admin-points__hint">只限通关积分；满后仍可玩和冲榜</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="次"
+          value="{{puzzleDailyMax}}"
+          bind:change="onPuzzleDailyMaxChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">全通额外奖励</view>
+          <view class="admin-points__hint">当日计奖次数用满时再加</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{puzzleDailyBonus}}"
+          bind:change="onPuzzleDailyBonusChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">日榜前三发奖</view>
+          <view class="admin-points__hint">计时/挑战各算一份；次日 0 点后自动到账</view>
+        </view>
+        <t-switch value="{{puzzleRankRewardOn}}" bind:change="onPuzzleRankRewardOnChange" />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">日榜第 1 名</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{puzzleRankFirst}}"
+          bind:change="onPuzzleRankFirstChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">日榜第 2 名</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{puzzleRankSecond}}"
+          bind:change="onPuzzleRankSecondChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">日榜第 3 名</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{puzzleRankThird}}"
+          bind:change="onPuzzleRankThirdChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">连冠奖励</view>
+          <view class="admin-points__hint">同难度×同玩法连续第一；达标后每日结算额外发</view>
+        </view>
+        <t-switch value="{{puzzleStreakRewardOn}}" bind:change="onPuzzleStreakRewardOnChange" />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">连冠起算天数</view>
+          <view class="admin-points__hint">满几天开始显示标识并发奖，最少 2</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="天"
+          value="{{puzzleStreakMinDays}}"
+          bind:change="onPuzzleStreakMinDaysChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">连冠额外积分</view>
+          <view class="admin-points__hint">达标后每个结算日额外发放（与前三叠加）</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{puzzleStreakReward}}"
+          bind:change="onPuzzleStreakRewardChange"
+        />
+      </view>
+    </view>
+    <view
+      class="admin-points__card"
+      wx:for="{{puzzleDifficulties}}"
+      wx:key="grid"
+    >
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">
+            <kubai-icon name="{{item.icon}}" size="32rpx" color="{{item.color}}" />
+            {{item.label}} {{item.grid}}×{{item.grid}}
+          </view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{item.reward}}"
+          data-index="{{index}}"
+          bind:change="onPuzzleRewardChange"
+        />
+      </view>
+    </view>
+
     <view class="admin-points__actions">
       <t-button
         theme="primary"

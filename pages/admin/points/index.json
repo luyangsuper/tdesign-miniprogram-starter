@@ -5,6 +5,7 @@
     "t-input": "tdesign-miniprogram/input/input",
     "t-button": "tdesign-miniprogram/button/button",
     "t-loading": "tdesign-miniprogram/loading/loading",
+    "t-switch": "tdesign-miniprogram/switch/switch",
     "lottery-host": "/components/lottery-host/index"
   }
 }

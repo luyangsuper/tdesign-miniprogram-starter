@@ -58,6 +58,8 @@ const ALIAS = {
   'calendar-check': 'calendar-check',
   settings: 'settings',
   play: 'play',
+  timer: 'timer',
+  clock: 'clock',
 };
 
 const FALLBACK_HEX = '07c160';

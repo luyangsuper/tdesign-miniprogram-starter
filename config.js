@@ -16,8 +16,12 @@
  */
 export default {
   cloudEnv: 'cloud1-d4g0731mc55f853ef',
-  /** 约 30s，全站激励广告 */
+  /** 约 30s，全站激励广告（拼图「强提示」也用此位） */
   rewardedAdUnitId: 'adunit-b77d32dfa7a29761',
+  /** 拼图轻提示专用激励广告（提示信息更少） */
+  puzzleHintLightAdUnitId: 'adunit-1ffd3470cfd53f60',
+  /** 拼图开局 / 换图插屏广告（普通用户；VIP/管理员不展示） */
+  puzzleInterstitialAdUnitId: 'adunit-ce9822f2baf31049',
   /** @deprecated 原 15s 短广告，已不再使用 */
   saveRewardedAdUnitId: '',
   /**
@@ -34,6 +38,8 @@ export default {
   nativeMyPageAdUnitId: 'adunit-95a12cc17e9ca0d1',
   /** 收藏列表原生广告 */
   nativeFavoritesAdUnitId: 'adunit-494a61cf3ce09618',
+  /** 趣味拼图 · 难度下方（未开局；VIP/管理员不展示） */
+  nativePuzzleAdUnitId: 'adunit-95a12cc17e9ca0d1',
   /**
    * 首页每多少个合集插入一条原生广告（离线默认）
    * 线上以云库 app_config/points.homeFeedAdEvery 为准；0=关闭信息流广告；建议 6～8。

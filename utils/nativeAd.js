@@ -94,6 +94,14 @@ export function getNativeFavoritesAdUnitId() {
   );
 }
 
+/** 拼图页难度下方；未单独配置时回退「我的」坑位 */
+export function getNativePuzzleAdUnitId() {
+  return (
+    String(config.nativePuzzleAdUnitId || '').trim() ||
+    getNativeMyPageAdUnitId()
+  );
+}
+
 /**
  * 被动原生广告展示门控：
  * - VIP 应用内免广告（原生信息流/详情/我的等；不含启动封面广告）

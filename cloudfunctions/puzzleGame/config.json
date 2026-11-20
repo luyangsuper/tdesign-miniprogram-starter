@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "openapi": []
+  },
+  "triggers": [
+    {
+      "name": "puzzleRankSettle",
+      "type": "timer",
+      "config": "5 0 * * * * *"
+    }
+  ]
+}

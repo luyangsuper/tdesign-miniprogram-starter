@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "趣味拼图",
+  "navigationStyle": "default",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "t-popup": "tdesign-miniprogram/popup/popup",
+    "t-switch": "tdesign-miniprogram/switch/switch",
+    "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
+    "fun-empty": "/components/fun-empty/index",
+    "points-reward": "/components/points-reward/index"
+  }
+}

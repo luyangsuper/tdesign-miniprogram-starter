@@ -30,6 +30,11 @@
       "pages": ["index/index", "detail/index"]
     },
     {
+      "root": "pages/puzzle",
+      "name": "puzzle",
+      "pages": ["index/index"]
+    },
+    {
       "root": "pages/history",
       "name": "history",
       "pages": ["points-log/index", "favorites/index"]

@@ -284,6 +284,7 @@ Page({
     feedbackSubmitting: false,
     lotteryOpenCount: 0,
     gridLotteryOn: false,
+    puzzleOn: true,
     checkinVisible: false,
     checkinCheckedToday: false,
     checkinEntryText: '签到领积分',
@@ -2337,14 +2338,18 @@ Page({
 
   async refreshLotteryHint() {
     try {
-      const [gridRes, listRes] = await Promise.all([
+      const [gridRes, listRes, puzzleRes] = await Promise.all([
         callFunction('gridLottery', { action: 'get' }).catch(() => null),
         callFunction('userLottery', { action: 'list' }).catch(() => null),
+        callFunction('puzzleGame', { action: 'status' }).catch(() => null),
       ]);
       const gridLotteryOn = !!(gridRes && gridRes.data && gridRes.data.enabled !== false);
       const list = (listRes && listRes.data && listRes.data.list) || [];
       const lotteryOpenCount = list.filter((item) => item && item.status === 'open').length;
-      this.setData({ gridLotteryOn, lotteryOpenCount });
+      // 仅在云端明确关闭时隐藏；未部署/失败时仍展示入口
+      const puzzleOn =
+        !(puzzleRes && puzzleRes.data) || puzzleRes.data.enabled !== false;
+      this.setData({ gridLotteryOn, lotteryOpenCount, puzzleOn });
     } catch (e) {
       /* ignore */
     }
@@ -2352,6 +2357,10 @@ Page({
 
   goLottery() {
     wx.navigateTo({ url: '/pages/lottery/index/index' });
+  },
+
+  goPuzzle() {
+    wx.navigateTo({ url: '/pages/puzzle/index/index' });
   },
 
   openGuide() {

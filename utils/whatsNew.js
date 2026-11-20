@@ -9,7 +9,7 @@ const STORAGE_KEY = 'whats_new_seen_version';
  * 与 package.json version 对齐；发版必改。
  * 未在 RELEASES 里登记的版本不会弹窗。
  */
-export const APP_VERSION = '3.3.0';
+export const APP_VERSION = '3.4.0';
 
 /**
  * @typedef {{ version: string, title?: string, items: string[] }} WhatsNewRelease
@@ -17,11 +17,12 @@ export const APP_VERSION = '3.3.0';
  */
 export const RELEASES = [
   {
-    version: '3.3.0',
+    version: '3.4.0',
     title: '更新说明',
     items: [
-      '静态表情保存时会自动转为透明 GIF，导入微信表情包更清晰、更稳',
-      '新增导入方式：保存到相册后，在聊天里发送该图，长按即可「添加为表情」',
+      '新增「趣味拼图」：用合集图玩滑动拼图，通关就能领积分',
+      '支持计时冲榜与限时挑战，日榜靠前还有额外积分奖励',
+      '轻松上手又好玩，每天都能来几局攒积分',
     ],
   },
 ];

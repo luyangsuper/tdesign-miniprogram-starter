@@ -1,11 +1,15 @@
 import config from '~/config';
 
 /**
- * @param {'reward'|'save'|'checkin'} [slot]
- * 所有激励位统一走约 30s 广告单元；slot 仅区分云端领取额度/日限。
+ * @param {'reward'|'save'|'checkin'|'puzzleHintLight'|'puzzleHintStrong'} [slot]
+ * - reward/save/checkin/puzzleHintStrong → 全站 30s 激励位
+ * - puzzleHintLight → 拼图轻提示专用位
  */
 export function getRewardedAdUnitId(slot = 'reward') {
-  void slot;
+  const key = String(slot || 'reward').trim();
+  if (key === 'puzzleHintLight') {
+    return String(config.puzzleHintLightAdUnitId || '').trim() || '';
+  }
   return String(config.rewardedAdUnitId || '').trim() || '';
 }
 
@@ -34,13 +38,22 @@ function getPageAd(page, unitId) {
 
 /**
  * 播放激励视频广告。
- * @param {{ page?: any, slot?: 'reward'|'save'|'checkin', unitId?: string }} [opts]
+ * @param {{ page?: any, slot?: 'reward'|'save'|'checkin'|'puzzleHintLight'|'puzzleHintStrong', unitId?: string }} [opts]
  * @returns {Promise<boolean>} 是否完整观看
  */
 export function showRewardedAd(opts = {}) {
   const raw = String(opts.slot || '').trim();
-  const slot = raw === 'save' || raw === 'checkin' ? raw : 'reward';
-  const unitId = String(opts.unitId || getRewardedAdUnitId(slot)).trim();
+  const slot =
+    raw === 'save' ||
+    raw === 'checkin' ||
+    raw === 'puzzleHintLight' ||
+    raw === 'puzzleHintStrong'
+      ? raw
+      : 'reward';
+  const unitId = String(
+    opts.unitId ||
+      getRewardedAdUnitId(slot === 'puzzleHintStrong' ? 'reward' : slot),
+  ).trim();
   if (!unitId) {
     wx.showToast({ title: '暂未配置广告，请先兑换', icon: 'none' });
     return Promise.resolve(false);
@@ -97,4 +110,88 @@ export function showRewardedAd(opts = {}) {
 /** @deprecated 使用 isRewardedAdReady */
 export function isDownloadReady() {
   return isRewardedAdReady('save');
+}
+
+/** 插屏广告位 */
+export function getInterstitialAdUnitId(slot = 'puzzleStart') {
+  const key = String(slot || 'puzzleStart').trim();
+  if (key === 'puzzleStart') {
+    return String(config.puzzleInterstitialAdUnitId || '').trim() || '';
+  }
+  return String(config.puzzleInterstitialAdUnitId || '').trim() || '';
+}
+
+export function isInterstitialAdReady(slot = 'puzzleStart') {
+  return !!getInterstitialAdUnitId(slot);
+}
+
+/** 页面级插屏实例缓存 */
+const pageInterstitialMap = new WeakMap();
+
+function getPageInterstitialAd(page, unitId) {
+  if (!page || !unitId || !wx.createInterstitialAd) return null;
+  let byUnit = pageInterstitialMap.get(page);
+  if (!byUnit) {
+    byUnit = new Map();
+    pageInterstitialMap.set(page, byUnit);
+  }
+  if (byUnit.has(unitId)) return byUnit.get(unitId);
+  const ad = wx.createInterstitialAd({ adUnitId: unitId });
+  byUnit.set(unitId, ad);
+  return ad;
+}
+
+/**
+ * 展示插屏广告。失败/关闭都不阻断业务（resolve 恒为是否成功弹出）。
+ * @param {{ page?: any, slot?: 'puzzleStart', unitId?: string }} [opts]
+ * @returns {Promise<boolean>}
+ */
+export function showInterstitialAd(opts = {}) {
+  const slot = String(opts.slot || 'puzzleStart').trim() || 'puzzleStart';
+  const unitId = String(opts.unitId || getInterstitialAdUnitId(slot)).trim();
+  if (!unitId || !wx.createInterstitialAd) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      resolve(!!ok);
+    };
+
+    const page =
+      opts.page ||
+      (typeof getCurrentPages === 'function'
+        ? getCurrentPages().slice(-1)[0]
+        : null);
+    const ad =
+      getPageInterstitialAd(page, unitId) ||
+      wx.createInterstitialAd({ adUnitId: unitId });
+
+    const onClose = () => {
+      ad.offClose(onClose);
+      ad.offError(onError);
+      finish(true);
+    };
+    const onError = (err) => {
+      console.warn('[interstitial]', slot, err);
+      ad.offClose(onClose);
+      ad.offError(onError);
+      finish(false);
+    };
+
+    ad.onClose(onClose);
+    ad.onError(onError);
+
+    ad
+      .show()
+      .catch(() =>
+        ad
+          .load()
+          .then(() => ad.show())
+          .catch(onError),
+      );
+  });
 }

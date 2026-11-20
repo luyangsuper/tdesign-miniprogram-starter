@@ -13,6 +13,34 @@ import {
 } from '~/utils/giftHint';
 import { setHomeFeedAdEvery } from '~/utils/nativeAd';
 import { applyDownloadCostsFromSettings, downloadCost } from '~/utils/pricing';
+import {
+  DAILY_CLEAR_BONUS,
+  DAILY_MAX_CLEARS,
+  DIFFICULTIES,
+  decorateDifficulty,
+  mergeDifficulties,
+} from './puzzleDefaults';
+
+function defaultPuzzleRows() {
+  return DIFFICULTIES.map((d) => ({
+    grid: d.grid,
+    label: d.label,
+    reward: String(d.reward),
+    icon: d.icon,
+    color: d.color,
+  }));
+}
+
+function mapPuzzleRows(list) {
+  return mergeDifficulties(list).map((d) => ({
+    grid: d.grid,
+    label: d.label,
+    reward: String(d.reward),
+    icon: d.icon,
+    color: d.color,
+  }));
+}
+
 Page({
   data: {
     themeStyle: '',
@@ -35,6 +63,17 @@ Page({
     costWallpaper: String(downloadCost('wallpaper')),
     costAvatar: String(downloadCost('avatar')),
     costVideo: String(downloadCost('video')),
+    puzzleEnabled: true,
+    puzzleDailyMax: String(DAILY_MAX_CLEARS),
+    puzzleDailyBonus: String(DAILY_CLEAR_BONUS),
+    puzzleRankRewardOn: true,
+    puzzleRankFirst: '2',
+    puzzleRankSecond: '1',
+    puzzleRankThird: '1',
+    puzzleStreakRewardOn: true,
+    puzzleStreakMinDays: '2',
+    puzzleStreakReward: '1',
+    puzzleDifficulties: defaultPuzzleRows(),
     userCount: 0,
     campaignTitle: '',
     campaignPoints: '10',
@@ -55,8 +94,12 @@ Page({
   async loadSettings() {
     this.setData({ loading: true });
     try {
-      const res = await callFunction('adminManagePoints', { action: 'get' });
+      const [res, puzzleRes] = await Promise.all([
+        callFunction('adminManagePoints', { action: 'get' }),
+        callFunction('puzzleGame', { action: 'adminGet' }).catch(() => null),
+      ]);
       const data = (res && res.data) || {};
+      const puzzle = (puzzleRes && puzzleRes.data) || {};
       this.setData({
         welcomeGiftPoints: String(
           data.welcomeGiftPoints != null
@@ -109,6 +152,31 @@ Page({
         costVideo: String(
           data.costVideo != null ? data.costVideo : downloadCost('video'),
         ),
+        puzzleEnabled: puzzle.enabled !== false,
+        puzzleDailyMax: String(
+          puzzle.dailyMaxClears != null ? puzzle.dailyMaxClears : DAILY_MAX_CLEARS,
+        ),
+        puzzleDailyBonus: String(
+          puzzle.dailyClearBonus != null ? puzzle.dailyClearBonus : DAILY_CLEAR_BONUS,
+        ),
+        puzzleRankRewardOn: puzzle.rankRewardEnabled !== false,
+        puzzleRankFirst: String(
+          puzzle.rankRewardFirst != null ? puzzle.rankRewardFirst : 2,
+        ),
+        puzzleRankSecond: String(
+          puzzle.rankRewardSecond != null ? puzzle.rankRewardSecond : 1,
+        ),
+        puzzleRankThird: String(
+          puzzle.rankRewardThird != null ? puzzle.rankRewardThird : 1,
+        ),
+        puzzleStreakRewardOn: puzzle.streakRewardEnabled !== false,
+        puzzleStreakMinDays: String(
+          puzzle.streakMinDays != null ? puzzle.streakMinDays : 2,
+        ),
+        puzzleStreakReward: String(
+          puzzle.streakRewardPoints != null ? puzzle.streakRewardPoints : 1,
+        ),
+        puzzleDifficulties: mapPuzzleRows(puzzle.difficulties),
         userCount: Number(data.userCount) || 0,
         campaigns: Array.isArray(data.campaigns) ? data.campaigns : [],
       });
@@ -118,6 +186,57 @@ Page({
     } finally {
       this.setData({ loading: false });
     }
+  },
+
+  onPuzzleEnabledChange(e) {
+    this.setData({ puzzleEnabled: !!(e && e.detail && e.detail.value) });
+  },
+
+  onPuzzleDailyMaxChange(e) {
+    this.setData({ puzzleDailyMax: String((e.detail && e.detail.value) || '') });
+  },
+
+  onPuzzleDailyBonusChange(e) {
+    this.setData({ puzzleDailyBonus: String((e.detail && e.detail.value) || '') });
+  },
+
+  onPuzzleRankRewardOnChange(e) {
+    this.setData({ puzzleRankRewardOn: !!(e && e.detail && e.detail.value) });
+  },
+
+  onPuzzleRankFirstChange(e) {
+    this.setData({ puzzleRankFirst: String((e.detail && e.detail.value) || '') });
+  },
+
+  onPuzzleRankSecondChange(e) {
+    this.setData({ puzzleRankSecond: String((e.detail && e.detail.value) || '') });
+  },
+
+  onPuzzleRankThirdChange(e) {
+    this.setData({ puzzleRankThird: String((e.detail && e.detail.value) || '') });
+  },
+
+  onPuzzleStreakRewardOnChange(e) {
+    this.setData({ puzzleStreakRewardOn: !!(e && e.detail && e.detail.value) });
+  },
+
+  onPuzzleStreakMinDaysChange(e) {
+    this.setData({ puzzleStreakMinDays: String((e.detail && e.detail.value) || '') });
+  },
+
+  onPuzzleStreakRewardChange(e) {
+    this.setData({ puzzleStreakReward: String((e.detail && e.detail.value) || '') });
+  },
+
+  onPuzzleRewardChange(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (!Number.isFinite(index)) return;
+    const list = (this.data.puzzleDifficulties || []).map((row, i) =>
+      i === index
+        ? { ...row, reward: String((e.detail && e.detail.value) || '') }
+        : row,
+    );
+    this.setData({ puzzleDifficulties: list });
   },
 
   onWelcomeChange(e) {
@@ -350,6 +469,16 @@ Page({
     const costWallpaper = Number(this.data.costWallpaper);
     const costAvatar = Number(this.data.costAvatar);
     const costVideo = Number(this.data.costVideo);
+    const puzzleDailyMax = Number(this.data.puzzleDailyMax);
+    const puzzleDailyBonus = Number(this.data.puzzleDailyBonus);
+    const puzzleRankFirst = Number(this.data.puzzleRankFirst);
+    const puzzleRankSecond = Number(this.data.puzzleRankSecond);
+    const puzzleRankThird = Number(this.data.puzzleRankThird);
+    const puzzleStreakMinDays = Number(this.data.puzzleStreakMinDays);
+    const puzzleStreakReward = Number(this.data.puzzleStreakReward);
+    const puzzleDifficulties = (this.data.puzzleDifficulties || []).map((row) =>
+      decorateDifficulty(row),
+    );
     const costOk = (n) => !Number.isNaN(n) && n >= 1 && n <= 999;
     if (
       Number.isNaN(welcomeGiftPoints) ||
@@ -373,33 +502,74 @@ Page({
       !costOk(costAnim) ||
       !costOk(costWallpaper) ||
       !costOk(costAvatar) ||
-      !costOk(costVideo)
+      !costOk(costVideo) ||
+      Number.isNaN(puzzleDailyMax) ||
+      puzzleDailyMax < 1 ||
+      puzzleDailyMax > 30 ||
+      Number.isNaN(puzzleDailyBonus) ||
+      puzzleDailyBonus < 0 ||
+      puzzleDailyBonus > 99 ||
+      Number.isNaN(puzzleRankFirst) ||
+      puzzleRankFirst < 0 ||
+      puzzleRankFirst > 99 ||
+      Number.isNaN(puzzleRankSecond) ||
+      puzzleRankSecond < 0 ||
+      puzzleRankSecond > 99 ||
+      Number.isNaN(puzzleRankThird) ||
+      puzzleRankThird < 0 ||
+      puzzleRankThird > 99 ||
+      Number.isNaN(puzzleStreakMinDays) ||
+      puzzleStreakMinDays < 2 ||
+      puzzleStreakMinDays > 30 ||
+      Number.isNaN(puzzleStreakReward) ||
+      puzzleStreakReward < 0 ||
+      puzzleStreakReward > 99 ||
+      puzzleDifficulties.some((d) => Number.isNaN(d.reward) || d.reward < 0 || d.reward > 99)
     ) {
       wx.showToast({
-        title: '请填写有效数字（单价 1～999，信息流间隔 0～20）',
+        title: '请填写有效数字（单价 1～999，拼图次数 1～30）',
         icon: 'none',
       });
       return;
     }
     this.setData({ saving: true });
     try {
-      const res = await callFunction('adminManagePoints', {
-        action: 'set',
-        welcomeGiftPoints,
-        checkinPoints,
-        oaBonusPoints,
-        adRewardPoints,
-        adRewardDailyMax,
-        saveAdRewardPoints,
-        saveAdRewardDailyMax,
-        homeFeedAdEvery,
-        costStatic,
-        costAnim,
-        costWallpaper,
-        costAvatar,
-        costVideo,
-      });
+      const [res, puzzleRes] = await Promise.all([
+        callFunction('adminManagePoints', {
+          action: 'set',
+          welcomeGiftPoints,
+          checkinPoints,
+          oaBonusPoints,
+          adRewardPoints,
+          adRewardDailyMax,
+          saveAdRewardPoints,
+          saveAdRewardDailyMax,
+          homeFeedAdEvery,
+          costStatic,
+          costAnim,
+          costWallpaper,
+          costAvatar,
+          costVideo,
+        }),
+        callFunction('puzzleGame', {
+          action: 'adminSave',
+          config: {
+            enabled: this.data.puzzleEnabled !== false,
+            dailyMaxClears: puzzleDailyMax,
+            dailyClearBonus: puzzleDailyBonus,
+            rankRewardEnabled: this.data.puzzleRankRewardOn !== false,
+            rankRewardFirst: puzzleRankFirst,
+            rankRewardSecond: puzzleRankSecond,
+            rankRewardThird: puzzleRankThird,
+            streakRewardEnabled: this.data.puzzleStreakRewardOn !== false,
+            streakMinDays: puzzleStreakMinDays,
+            streakRewardPoints: puzzleStreakReward,
+            difficulties: puzzleDifficulties,
+          },
+        }),
+      ]);
       const data = (res && res.data) || {};
+      const puzzle = (puzzleRes && puzzleRes.data) || {};
       const nextEvery = data.homeFeedAdEvery ?? homeFeedAdEvery;
       setHomeFeedAdEvery(nextEvery);
       applyDownloadCostsFromSettings(data);
@@ -421,6 +591,33 @@ Page({
         costWallpaper: String(data.costWallpaper ?? costWallpaper),
         costAvatar: String(data.costAvatar ?? costAvatar),
         costVideo: String(data.costVideo ?? costVideo),
+        puzzleEnabled: puzzle.enabled !== false,
+        puzzleDailyMax: String(
+          puzzle.dailyMaxClears != null ? puzzle.dailyMaxClears : puzzleDailyMax,
+        ),
+        puzzleDailyBonus: String(
+          puzzle.dailyClearBonus != null ? puzzle.dailyClearBonus : puzzleDailyBonus,
+        ),
+        puzzleRankRewardOn: puzzle.rankRewardEnabled !== false,
+        puzzleRankFirst: String(
+          puzzle.rankRewardFirst != null ? puzzle.rankRewardFirst : puzzleRankFirst,
+        ),
+        puzzleRankSecond: String(
+          puzzle.rankRewardSecond != null ? puzzle.rankRewardSecond : puzzleRankSecond,
+        ),
+        puzzleRankThird: String(
+          puzzle.rankRewardThird != null ? puzzle.rankRewardThird : puzzleRankThird,
+        ),
+        puzzleStreakRewardOn: puzzle.streakRewardEnabled !== false,
+        puzzleStreakMinDays: String(
+          puzzle.streakMinDays != null ? puzzle.streakMinDays : puzzleStreakMinDays,
+        ),
+        puzzleStreakReward: String(
+          puzzle.streakRewardPoints != null
+            ? puzzle.streakRewardPoints
+            : puzzleStreakReward,
+        ),
+        puzzleDifficulties: mapPuzzleRows(puzzle.difficulties || puzzleDifficulties),
       });
       wx.showToast({ title: res.message || '已保存', icon: 'success' });
     } catch (e) {

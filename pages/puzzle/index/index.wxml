@@ -1,0 +1,514 @@
+<page-meta page-style="{{themeStyle}}" />
+<view class="puzzle" style="{{themeStyle}}">
+  <view class="puzzle__top">
+    <view class="puzzle__top-left">
+      <text class="puzzle__title">趣味拼图</text>
+      <text class="puzzle__progress">计奖 {{clearCount}}/{{dailyMax}}{{rewardQuotaFull ? ' · 已满仍可玩' : ''}} · 已领 {{claimedPoints}} 分</text>
+    </view>
+    <view class="puzzle__top-right">
+      <view class="puzzle__stat">
+        <text class="puzzle__stat-val">{{moves}}</text>
+        <text class="puzzle__stat-lbl">步数</text>
+      </view>
+      <view class="puzzle__stat {{timeUrgent ? 'is-urgent' : ''}}">
+        <text class="puzzle__stat-val">{{timeText}}</text>
+        <text class="puzzle__stat-lbl">{{isChallenge ? '剩余' : '时间'}}</text>
+      </view>
+      <view class="puzzle__stat">
+        <text class="puzzle__stat-val">{{tilesLeft}}</text>
+        <text class="puzzle__stat-lbl">剩余</text>
+      </view>
+      <view class="puzzle__mute" bindtap="onToggleMute">
+        <kubai-icon name="{{soundMuted ? 'sound-mute' : 'sound'}}" size="40rpx" color="#666" />
+      </view>
+    </view>
+  </view>
+
+  <view class="puzzle__howto" bindtap="onOpenHowto">
+    <view class="puzzle__howto-icon">
+      <kubai-icon name="help-circle" size="52rpx" color="#07c160" />
+    </view>
+    <view class="puzzle__howto-text">
+      <text class="puzzle__howto-title">玩法提示与奖励</text>
+      <text class="puzzle__howto-desc">怎么玩、通关积分、日榜奖励，点这里看清</text>
+    </view>
+    <kubai-icon name="chevron-right" size="36rpx" color="#999" />
+  </view>
+
+  <view class="puzzle__setup">
+    <view
+      class="puzzle__seg-btn {{playMode === 'timer' ? 'is-on' : ''}}"
+      data-mode="timer"
+      bindtap="onSelectPlayMode"
+    >
+      <view class="puzzle__seg-ico">
+        <kubai-icon name="play" size="28rpx" color="{{playMode === 'timer' ? '#07c160' : '#666666'}}" />
+      </view>
+      <text>计时测速</text>
+    </view>
+    <view
+      class="puzzle__seg-btn {{playMode === 'challenge' ? 'is-on' : ''}}"
+      data-mode="challenge"
+      bindtap="onSelectPlayMode"
+    >
+      <view class="puzzle__seg-ico">
+        <kubai-icon name="trophy" size="28rpx" color="#E37318" />
+      </view>
+      <text>挑战限时</text>
+    </view>
+    <view class="puzzle__setup-line" />
+    <view
+      class="puzzle__seg-btn {{playScope === 'practice' ? 'is-on' : ''}}"
+      data-scope="practice"
+      bindtap="onSelectPlayScope"
+    >
+      <view class="puzzle__seg-ico">
+        <kubai-icon name="smile" size="28rpx" color="#07c160" />
+      </view>
+      <text>练习随机</text>
+    </view>
+    <view
+      class="puzzle__seg-btn {{playScope === 'daily' ? 'is-on' : ''}}"
+      data-scope="daily"
+      bindtap="onSelectPlayScope"
+    >
+      <view class="puzzle__seg-ico">
+        <kubai-icon name="crown" size="28rpx" color="#0052D9" />
+      </view>
+      <text>每日冲榜</text>
+    </view>
+  </view>
+
+  <view class="puzzle__diffs">
+    <view
+      wx:for="{{difficulties}}"
+      wx:key="grid"
+      class="puzzle__diff {{selectedGrid === item.grid ? 'is-on' : ''}}"
+      style="{{selectedGrid === item.grid ? ('--diff-accent:' + item.color + ';--diff-shadow:' + item.shadow) : ''}}"
+      data-grid="{{item.grid}}"
+      bindtap="onSelectDifficulty"
+    >
+      <view class="puzzle__diff-ico">
+        <kubai-icon name="{{item.icon}}" size="44rpx" color="{{item.color}}" />
+      </view>
+      <text class="puzzle__diff-grid">{{item.grid}}×{{item.grid}}</text>
+      <text class="puzzle__diff-label">{{item.label}}</text>
+      <text class="puzzle__diff-reward">+{{item.reward}}</text>
+    </view>
+  </view>
+
+  <!-- 难度下方原生广告：选关与开局后都展示（VIP/管理员免） -->
+  <view
+    wx:if="{{showNativeAd && nativeAdUnitId}}"
+    class="puzzle__native-ad"
+  >
+    <ad-custom
+      unit-id="{{nativeAdUnitId}}"
+      binderror="onNativeAdError"
+    />
+  </view>
+
+  <view wx:if="{{!started && !loading}}" class="puzzle__idle">
+    <view class="puzzle__idle-card">
+      <text class="puzzle__idle-title">选好难度，再开始</text>
+      <text class="puzzle__idle-desc">{{isChallenge ? '挑战限时' : '计时测速'}} · {{isDaily ? '每日同题冲榜' : '练习随机'}}</text>
+      <text class="puzzle__idle-desc">{{selectedLabel}} {{selectedGrid}}×{{selectedGrid}} · {{isChallenge ? ('限时 ' + selectedTimeLimit + ' 秒') : '正计时'}} · {{rewardQuotaFull ? '本局无通关积分' : ('通关 +' + selectedReward + ' 分')}}</text>
+      <text class="puzzle__idle-fair">{{isDaily ? '今日全员同题冲榜，不可用提示，保证公平' : '练习局图随机，可用提示，成绩不进排行榜'}}</text>
+      <text wx:if="{{rewardQuotaFull}}" class="puzzle__idle-fair">今日计奖已满，仍可继续玩{{isDaily ? '和冲榜' : ''}}，只是不再发通关积分</text>
+      <t-button
+        theme="primary"
+        size="large"
+        block
+        content="{{isDaily ? '开始今日挑战' : '开始练习'}}"
+        bind:tap="onStartRound"
+      />
+      <t-button
+        wx:if="{{isDaily}}"
+        theme="light"
+        variant="outline"
+        size="medium"
+        block
+        content="查看今日排行"
+        bind:tap="onOpenRank"
+      />
+    </view>
+    <view wx:if="{{loadError}}" class="puzzle__error puzzle__error--idle">
+      <text class="puzzle__error-text">{{loadError}}</text>
+    </view>
+  </view>
+
+  <view wx:elif="{{loading && !displaySrc}}" class="puzzle__loading">
+    <t-loading theme="circular" size="48rpx" text="正在抽图…" />
+  </view>
+
+  <block wx:else>
+    <view class="puzzle__stage {{reloading ? 'is-reloading' : ''}}">
+      <view class="puzzle__ref">
+        <view class="puzzle__ref-head" bindtap="onToggleRef">
+          <view class="puzzle__ref-head-left">
+            <text class="puzzle__ref-title">原图</text>
+            <text class="puzzle__ref-toggle">{{refExpanded ? '收起' : '展开'}}</text>
+          </view>
+          <text
+            class="puzzle__ref-pack"
+            wx:if="{{packTitle}}"
+            data-id="{{packId}}"
+            catchtap="goPack"
+          >{{packTitle}}</text>
+        </view>
+        <view class="puzzle__ref-body {{refExpanded ? 'is-expanded' : 'is-collapsed'}}">
+          <image
+            class="puzzle__ref-img {{refExpanded ? 'is-expanded' : 'is-collapsed'}}"
+            src="{{displaySrc}}"
+            mode="{{refExpanded ? 'widthFix' : 'aspectFit'}}"
+            show-menu-by-longpress
+            bindtap="onToggleRef"
+          />
+        </view>
+      </view>
+
+      <view class="puzzle__opt">
+        <view class="puzzle__opt-text">
+          <text class="puzzle__opt-label">归位高亮</text>
+          <text class="puzzle__opt-hint">已拼对的块用内阴影标出</text>
+        </view>
+        <t-switch
+          value="{{showPlacedHint}}"
+          disabled="{{reloading || loading}}"
+          bind:change="onPlacedHintChange"
+        />
+      </view>
+
+      <view class="puzzle__board-wrap">
+        <view
+          class="puzzle__board {{showPlacedHint ? 'puzzle__board--hint' : ''}}"
+          style="width:{{boardPx}}px;height:{{boardPx}}px;"
+          catchtouchmove="onBoardTouchMove"
+        >
+          <view
+            wx:for="{{cells}}"
+            wx:key="id"
+            class="puzzle__tile {{item.empty ? 'is-empty' : ''}} {{item.dragging ? 'is-dragging' : ''}} {{item.animating ? 'is-animating' : ''}} {{item.active ? 'is-active' : ''}} {{item.placed ? 'is-placed' : ''}} {{item.hinted ? 'is-hint' : ''}} {{item.hintPrimary ? 'is-hint-primary' : ''}} {{item.hintTarget ? 'is-hint-target' : ''}}"
+            style="{{item.style}}"
+            data-id="{{item.id}}"
+            data-r="{{item.r}}"
+            data-c="{{item.c}}"
+            bindtouchstart="onTileTouchStart"
+            bindtouchmove="onTileTouchMove"
+            bindtouchend="onTileTouchEnd"
+            bindtouchcancel="onTileTouchEnd"
+          >
+            <view wx:if="{{item.hintStepNo}}" class="puzzle__hint-badge">{{item.hintStepNo}}</view>
+            <view wx:if="{{item.hintPrimary && item.hintArrow}}" class="puzzle__hint-arrow" style="{{item.hintArrow}}">
+              <kubai-icon name="chevron-right" size="36rpx" color="#ffffff" />
+            </view>
+          </view>
+        </view>
+        <view wx:if="{{reloading}}" class="puzzle__board-mask">
+          <t-loading theme="circular" size="40rpx" text="换图中…" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 常驻节点做显隐过渡；不盖住滑块 -->
+    <view class="puzzle__hint-bar {{hintBarShow ? 'is-show' : ''}}">
+      <view class="puzzle__tip-ico">
+        <kubai-icon name="sparkles" size="36rpx" color="#E37318" />
+      </view>
+      <text class="puzzle__hint-bar-txt">{{hintTip}}</text>
+    </view>
+
+    <view class="puzzle__tools">
+      <!-- 每日冲榜：同题公平，只提供重新开始；练习才有换图/重排/提示 -->
+      <t-button
+        wx:if="{{isDaily}}"
+        t-class="puzzle__tool-btn"
+        theme="primary"
+        variant="outline"
+        size="medium"
+        block
+        icon="{{reloading || loading ? '' : 'refresh'}}"
+        content="重新开始"
+        loading="{{reloading || loading}}"
+        disabled="{{reloading || loading || hintBusy}}"
+        bind:tap="onRestartSame"
+      />
+      <block wx:else>
+        <t-button
+          t-class="puzzle__tool-btn"
+          theme="primary"
+          variant="outline"
+          size="medium"
+          block
+          icon="{{reloading || loading ? '' : 'refresh'}}"
+          content="换一张"
+          loading="{{reloading || loading}}"
+          disabled="{{reloading || loading || hintBusy}}"
+          bind:tap="reloadRound"
+        />
+        <t-button
+          t-class="puzzle__tool-btn"
+          theme="primary"
+          variant="outline"
+          size="medium"
+          block
+          icon="rollback"
+          content="重排"
+          disabled="{{reloading || loading || hintBusy}}"
+          bind:tap="onReshuffle"
+        />
+        <t-button
+          wx:if="{{hintLightReady}}"
+          t-class="puzzle__tool-btn"
+          theme="warning"
+          variant="outline"
+          size="medium"
+          block
+          icon="{{hintBusy ? '' : 'tips'}}"
+          content="轻提示"
+          loading="{{hintBusy}}"
+          disabled="{{reloading || loading || hintBusy || winVisible || failVisible}}"
+          bind:tap="onHintLightTap"
+        />
+        <t-button
+          wx:if="{{hintStrongReady}}"
+          t-class="puzzle__tool-btn"
+          theme="danger"
+          variant="outline"
+          size="medium"
+          block
+          icon="{{hintBusy ? '' : 'lightbulb'}}"
+          content="强提示"
+          loading="{{hintBusy}}"
+          disabled="{{reloading || loading || hintBusy || winVisible || failVisible}}"
+          bind:tap="onHintStrongTap"
+        />
+      </block>
+    </view>
+    <view class="puzzle__end-row">
+      <t-button
+        t-class="puzzle__end-btn"
+        t-class-icon="puzzle__end-btn-icon"
+        theme="default"
+        variant="outline"
+        size="medium"
+        block
+        icon="close"
+        content="结束本局"
+        disabled="{{reloading || loading || hintBusy}}"
+        bind:tap="onEndRound"
+      />
+    </view>
+  </block>
+
+  <t-popup visible="{{howtoVisible}}" placement="center" bind:visible-change="onHowtoVisibleChange">
+    <view class="puzzle__howto-pop">
+      <view class="puzzle__howto-pop-hero">
+        <view class="puzzle__howto-pop-badge">
+          <kubai-icon name="help-circle" size="64rpx" color="#07c160" />
+        </view>
+        <view class="puzzle__howto-pop-title">怎么玩 · 怎么拿分</view>
+      </view>
+
+      <!-- 真机上 view overflow 常滚不动，改用 scroll-view -->
+      <scroll-view
+        scroll-y
+        class="puzzle__howto-pop-scroll"
+        enhanced
+        show-scrollbar="{{false}}"
+      >
+        <view class="puzzle__howto-pop-list">
+          <view class="puzzle__howto-pop-item" wx:for="{{howtoRules}}" wx:key="text">
+            <view class="puzzle__howto-pop-ico" style="background: {{item.color}}22;">
+              <kubai-icon name="{{item.icon}}" size="52rpx" color="{{item.color}}" />
+            </view>
+            <text class="puzzle__howto-pop-txt">{{item.text}}</text>
+          </view>
+        </view>
+
+        <view class="puzzle__howto-pop-sec">
+          <view class="puzzle__howto-pop-sec-head">
+            <kubai-icon name="gift" size="36rpx" color="#E37318" />
+            <text>通关奖励</text>
+          </view>
+          <view class="puzzle__howto-pop-rewards">
+            <view class="puzzle__howto-pop-reward" wx:for="{{howtoRewards}}" wx:key="grid">
+              <kubai-icon name="{{item.icon}}" size="36rpx" color="{{item.color}}" />
+              <text class="puzzle__howto-pop-reward-name">{{item.label}} {{item.grid}}×{{item.grid}}</text>
+              <text class="puzzle__howto-pop-reward-pts">+{{item.reward}} 分</text>
+            </view>
+          </view>
+          <view class="puzzle__howto-pop-bonus">
+            <view class="puzzle__tip-ico">
+              <kubai-icon name="trophy" size="36rpx" color="#F2C94C" />
+            </view>
+            <text>每天前 {{dailyMax}} 次通关计奖，满额再送 +{{dailyBonus}} 分；之后还能继续玩和冲榜，只是不再发通关分</text>
+          </view>
+        </view>
+
+        <view class="puzzle__howto-pop-sec">
+          <view class="puzzle__howto-pop-sec-head">
+            <kubai-icon name="crown" size="36rpx" color="#E37318" />
+            <text>日榜奖励</text>
+          </view>
+          <view class="puzzle__howto-pop-bonus puzzle__howto-pop-bonus--plain">
+            <view class="puzzle__tip-ico">
+              <kubai-icon name="sparkles" size="36rpx" color="#0052D9" />
+            </view>
+            <text>只有「每日冲榜」才上榜；练习局再快也不进榜</text>
+          </view>
+          <view wx:if="{{rankRewardOn}}" class="puzzle__howto-pop-rewards">
+            <view class="puzzle__howto-pop-reward">
+              <kubai-icon name="crown" size="36rpx" color="#E37318" />
+              <text class="puzzle__howto-pop-reward-name">第 1 名</text>
+              <text class="puzzle__howto-pop-reward-pts">+{{rankRewardFirst}} 分</text>
+            </view>
+            <view class="puzzle__howto-pop-reward">
+              <kubai-icon name="trophy" size="36rpx" color="#F2C94C" />
+              <text class="puzzle__howto-pop-reward-name">第 2 名</text>
+              <text class="puzzle__howto-pop-reward-pts">+{{rankRewardSecond}} 分</text>
+            </view>
+            <view class="puzzle__howto-pop-reward">
+              <kubai-icon name="star" size="36rpx" color="#0052D9" />
+              <text class="puzzle__howto-pop-reward-name">第 3 名</text>
+              <text class="puzzle__howto-pop-reward-pts">+{{rankRewardThird}} 分</text>
+            </view>
+          </view>
+          <view class="puzzle__howto-pop-bonus">
+            <view class="puzzle__tip-ico">
+              <kubai-icon name="clock" size="36rpx" color="#E37318" />
+            </view>
+            <text>计时榜、挑战榜分开算；每个难度各发一份。名次按「步数少优先，同步数用时短优先」，次日结算发分</text>
+          </view>
+          <view wx:if="{{streakRewardOn && streakRewardPoints > 0}}" class="puzzle__howto-pop-bonus">
+            <view class="puzzle__tip-ico">
+              <kubai-icon name="crown" size="36rpx" color="#E37318" />
+            </view>
+            <text>同一难度、同一玩法连续霸榜满 {{streakMinDays}} 天，再额外 +{{streakRewardPoints}} 分</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <t-button theme="primary" size="large" block content="知道了" bind:tap="onCloseHowto" />
+    </view>
+  </t-popup>
+
+  <t-popup visible="{{winVisible}}" placement="center" bind:visible-change="onWinVisibleChange">
+    <view class="puzzle__win">
+      <view class="puzzle__win-badge puzzle__win-badge--ok">
+        <kubai-icon name="trophy" size="72rpx" color="#E37318" />
+      </view>
+      <view class="puzzle__win-title">拼好了！</view>
+      <view class="puzzle__win-sub">{{selectedGrid}}×{{selectedGrid}} · {{moves}} 步 · {{winTimeText || timeText}}</view>
+      <view class="puzzle__win-reward" wx:if="{{rewardTip}}">
+        <view class="puzzle__tip-ico">
+          <kubai-icon name="gift" size="40rpx" color="#2ba471" />
+        </view>
+        <text class="puzzle__win-reward-txt">{{rewardTip}}</text>
+      </view>
+      <view class="puzzle__win-actions">
+        <t-button
+          theme="primary"
+          size="large"
+          block
+          icon="refresh"
+          content="{{isDaily ? '重新开始' : '再来一局'}}"
+          bind:tap="onPlayAgain"
+        />
+        <t-button
+          wx:if="{{isDaily}}"
+          theme="light"
+          variant="outline"
+          size="large"
+          block
+          icon="chart-bar"
+          content="查看排行"
+          bind:tap="onOpenRank"
+        />
+        <t-button theme="light" variant="outline" size="large" block icon="view-module" content="换难度继续" bind:tap="onWinClose" />
+      </view>
+    </view>
+  </t-popup>
+
+  <t-popup visible="{{failVisible}}" placement="center" bind:visible-change="onFailVisibleChange">
+    <view class="puzzle__win">
+      <view class="puzzle__win-badge puzzle__win-badge--fail">
+        <kubai-icon name="timer" size="72rpx" color="#D54941" />
+      </view>
+      <view class="puzzle__win-title puzzle__win-title--fail">时间到</view>
+      <view class="puzzle__win-sub">挑战失败 · {{moves}} 步 · 还可再试</view>
+      <view class="puzzle__win-actions">
+        <t-button
+          theme="primary"
+          size="large"
+          block
+          icon="refresh"
+          content="{{isDaily ? '重新开始' : '再试一次'}}"
+          bind:tap="onPlayAgain"
+        />
+        <t-button theme="light" variant="outline" size="large" block icon="rollback" content="回选难度" bind:tap="onFailClose" />
+      </view>
+    </view>
+  </t-popup>
+
+  <t-popup visible="{{rankVisible}}" placement="center" bind:visible-change="onRankVisibleChange">
+    <view class="puzzle__rank">
+      <view class="puzzle__rank-head">
+        <view class="puzzle__rank-head-left">
+          <view class="puzzle__rank-head-ico">
+            <kubai-icon name="crown" size="36rpx" color="#E37318" />
+          </view>
+          <text class="puzzle__rank-title">{{rankTitle}}</text>
+        </view>
+        <text class="puzzle__rank-close" bindtap="onCloseRank">关闭</text>
+      </view>
+      <view class="puzzle__rank-modes">
+        <t-check-tag
+          size="medium"
+          variant="dark"
+          checked="{{rankViewMode === 'timer'}}"
+          content="计时榜"
+          data-mode="timer"
+          bind:change="onRankModeTap"
+        />
+        <t-check-tag
+          size="medium"
+          variant="dark"
+          checked="{{rankViewMode === 'challenge'}}"
+          content="挑战榜"
+          data-mode="challenge"
+          bind:change="onRankModeTap"
+        />
+      </view>
+      <text class="puzzle__rank-tip">步数少优先，同步数用时短优先；完全同分并列同名次并跳号。计时/挑战分榜。{{rankTip}}</text>
+      <view wx:if="{{rankLoading}}" class="puzzle__rank-loading">
+        <t-loading theme="circular" size="40rpx" text="加载中" />
+      </view>
+      <view wx:elif="{{rankEmpty}}" class="puzzle__rank-empty">
+        <fun-empty size="small" description="今日暂无成绩，去做第一名吧" />
+      </view>
+      <scroll-view wx:else class="puzzle__rank-list" scroll-y>
+        <view class="puzzle__rank-row {{item.streakBadge ? 'is-streak' : ''}}" wx:for="{{rankList}}" wx:key="openid">
+          <text class="puzzle__rank-no">{{item.rank}}</text>
+          <view class="puzzle__rank-main">
+            <view class="puzzle__rank-name-row">
+              <text class="puzzle__rank-name">{{item.nickName}}</text>
+              <view wx:if="{{item.streakBadge}}" class="puzzle__rank-streak">
+                <kubai-icon name="crown" size="28rpx" color="#E37318" />
+                <text>连冠×{{item.streak}}</text>
+              </view>
+            </view>
+            <view class="puzzle__rank-meta">
+              <text wx:if="{{item.rewardPoints > 0}}" class="puzzle__rank-prize">+{{item.rewardPoints}}</text>
+              <text wx:if="{{item.streakRewardPoints > 0}}" class="puzzle__rank-prize puzzle__rank-prize--streak">连冠+{{item.streakRewardPoints}}</text>
+              <text class="puzzle__rank-score">{{item.moves}} 步 · {{item.seconds}}s</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+      <t-button theme="primary" size="large" block content="知道了" bind:tap="onCloseRank" />
+    </view>
+  </t-popup>
+
+  <points-reward id="pointsReward" />
+</view>
