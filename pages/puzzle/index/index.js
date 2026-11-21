@@ -110,6 +110,8 @@ Page({
     dailyBonus: DAILY_CLEAR_BONUS,
     claimedPoints: 0,
     soundMuted: false,
+    /** 拖块时才拦截触摸，避免棋盘挡住整页滚动 */
+    boardLockScroll: false,
     loading: false,
     reloading: false,
     loadError: '',
@@ -1329,6 +1331,7 @@ Page({
     }
     this._lock = false;
     this._drag = null;
+    if (this.data.boardLockScroll) this.setData({ boardLockScroll: false });
   },
 
   onBoardTouchMove() {},
@@ -1377,8 +1380,9 @@ Page({
       ty: 0,
       moved: false,
     };
-    // 按下即高亮当前块
+    // 按下即高亮当前块；同时锁滚动，松手后恢复页面可滚
     this.setData({
+      boardLockScroll: true,
       cells: this.buildCells(null, null, null, {
         dragId: id,
         activeId: id,
@@ -1421,6 +1425,7 @@ Page({
   },
 
   onTileTouchEnd() {
+    if (this.data.boardLockScroll) this.setData({ boardLockScroll: false });
     const drag = this._drag;
     if (!drag) return;
     // 动画锁期间的 touchend 直接丢掉，等下次 touchstart 会 flush

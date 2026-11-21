@@ -1,5 +1,6 @@
 {
   "navigationStyle": "custom",
+  "disableSwipeBack": true,
   "styleIsolation": "shared",
   "usingComponents": {
     "t-navbar": "tdesign-miniprogram/navbar/navbar",

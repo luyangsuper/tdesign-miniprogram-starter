@@ -44,17 +44,23 @@
       </view>
 
       <view class="bead__card">
-        <view class="bead__preview {{hasGrid ? 'bead__preview--zoom' : ''}}">
+        <view class="bead__preview {{hasGrid ? 'bead__preview--zoom' : ''}} {{!hasGrid && !imagePath ? 'bead__preview--empty' : ''}}">
           <block wx:if="{{hasGrid}}">
             <view id="beadLiveWrap" class="bead__live-wrap" style="{{liveCanvasStyle}}">
               <canvas
                 type="2d"
                 id="beadLive"
                 class="bead__live"
-                catchtouchstart="onLiveTouchStart"
-                catchtouchmove="onLiveTouchMove"
-                catchtouchend="onLiveTouchEnd"
-                catchtouchcancel="onLiveTouchEnd"
+                bindtouchstart="onLiveTouchStart"
+                catchtouchmove="{{liveCanPan ? 'onLiveTouchMove' : ''}}"
+                bindtouchend="onLiveTouchEnd"
+                bindtouchcancel="onLiveTouchEnd"
+              />
+              <!-- 仅盖在画布左缘，不挡下方缩放按钮 -->
+              <view
+                class="bead__edge-guard"
+                catchtouchstart="onEdgeGuardTouch"
+                catchtouchmove="onEdgeGuardTouch"
               />
             </view>
 
@@ -65,6 +71,14 @@
                   <text class="bead__zoom-pct">{{zoomLabel}}</text>
                 </view>
                 <view class="bead__zoom-row">
+                  <view
+                    class="bead__zoom-btn"
+                    hover-class="bead__zoom-btn--hover"
+                    catchtap="onZoomStep"
+                    data-delta="-25"
+                  >
+                    <text class="bead__zoom-btn-t">−</text>
+                  </view>
                   <view class="bead__zoom-slider">
                     <t-slider
                       value="{{zoomSlider}}"
@@ -78,7 +92,19 @@
                       bind:dragend="onZoomSlider"
                     />
                   </view>
-                  <view class="bead__zoom-btn bead__zoom-btn--wide" catchtap="resetPreviewZoom">
+                  <view
+                    class="bead__zoom-btn"
+                    hover-class="bead__zoom-btn--hover"
+                    catchtap="onZoomStep"
+                    data-delta="25"
+                  >
+                    <text class="bead__zoom-btn-t">+</text>
+                  </view>
+                  <view
+                    class="bead__zoom-btn bead__zoom-btn--wide"
+                    hover-class="bead__zoom-btn--hover"
+                    catchtap="resetPreviewZoom"
+                  >
                     <view class="bead__zoom-ico">
                       <kubai-icon name="refresh" size="26rpx" color="{{themeBrand}}" />
                     </view>

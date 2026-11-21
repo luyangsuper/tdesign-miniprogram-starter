@@ -216,6 +216,8 @@ Page({
     zoomSliderMin: ZOOM_SLIDER_MIN,
     zoomSliderMax: ZOOM_SLIDER_MAX,
     zoomLabel: '100%',
+    /** 放大后可平移时才 catch 触摸，否则放行页面滚动 */
+    liveCanPan: false,
     exportScale: 2,
     scaleOptions: SCALE_OPTIONS,
     statsText: '',
@@ -255,6 +257,7 @@ Page({
   _liveCtx: null,
   _liveColorCanvas: null,
   _zoomInteracting: false,
+  _zoomDragging: false,
   _pendingDraft: false,
   _redrawRaf: null,
   _hqTimer: null,
@@ -419,6 +422,7 @@ Page({
             this.setData({
               imagePath: path,
               hasGrid: false,
+              liveCanPan: false,
               paramsDirty: false,
               exportUnlocked: false,
               advancedUnlocked: false,
@@ -441,6 +445,7 @@ Page({
             this.setData({
               imagePath: path,
               hasGrid: false,
+              liveCanPan: false,
               paramsDirty: false,
               exportUnlocked: false,
               advancedUnlocked: false,
@@ -578,6 +583,19 @@ Page({
     });
   },
 
+  syncLiveCanPan() {
+    const live = this._live;
+    let canPan = false;
+    if (live && this.data.hasGrid && this._W && this._H && live.cssW && live.cssH) {
+      const cell = LIVE_BASE_CELL * live.zoom;
+      canPan =
+        this._W * cell > live.cssW + 1.5 || this._H * cell > live.cssH + 1.5;
+    }
+    if (canPan !== this.data.liveCanPan) {
+      this.setData({ liveCanPan: canPan });
+    }
+  },
+
   setLiveZoom(nextZoom, anchorX, anchorY) {
     const live = this._live;
     if (!live || !live.cssW) return;
@@ -591,6 +609,7 @@ Page({
     live.tx = cx - (cx - live.tx) * k;
     live.ty = cy - (cy - live.ty) * k;
     this.clampLive();
+    this.syncLiveCanPan();
   },
 
   clampLive() {
@@ -700,6 +719,7 @@ Page({
       };
       this.clampLive();
       this.syncZoomSliderUi(fitZoom);
+      this.syncLiveCanPan();
       this.drawLive(false);
     } catch (e) {
       /* ignore */
@@ -751,6 +771,7 @@ Page({
 
   finishLiveInteraction() {
     this._zoomInteracting = false;
+    this._zoomDragging = false;
     this._gest = null;
     this._pendingDraft = false;
     if (this._hqTimer) {
@@ -807,6 +828,8 @@ Page({
   },
 
   onZoomSliderStart() {
+    // 仅拖动手柄会触发；点按轨道只有 change，没有 dragstart/dragend
+    this._zoomDragging = true;
     this._zoomInteracting = true;
   },
 
@@ -816,14 +839,20 @@ Page({
       ZOOM_SLIDER_MIN,
       Math.min(ZOOM_SLIDER_MAX, this.parseSliderValue(e, this.data.zoomSlider)),
     );
-    this._zoomInteracting = true;
     this.setLiveZoom(this.minLiveZoom() * (pct / 100));
     // 受控滑条必须同步 value，否则会弹回 100%
     this.setData({
       zoomSlider: pct,
       zoomLabel: `${Math.round(pct)}%`,
     });
-    this.scheduleLiveRedraw(true);
+    if (this._zoomDragging) {
+      // 拖动中：草稿预览（无色号），松手再画高清
+      this._zoomInteracting = true;
+      this.scheduleLiveRedraw(true);
+      return;
+    }
+    // 点按轨道：只有 change，直接高清重绘，避免一直停在草稿态看不到色号
+    this.finishLiveInteraction();
   },
 
   onZoomSlider(e) {
@@ -831,6 +860,25 @@ Page({
     const pct = Math.max(
       ZOOM_SLIDER_MIN,
       Math.min(ZOOM_SLIDER_MAX, this.parseSliderValue(e, this.data.zoomSlider)),
+    );
+    this._zoomDragging = false;
+    this.setLiveZoom(this.minLiveZoom() * (pct / 100));
+    this.syncZoomSliderUi(this._live.zoom);
+    this.finishLiveInteraction();
+  },
+
+  /** 画布左缘护栏：仅吞画布区域侧滑，不挡缩放按钮 */
+  onEdgeGuardTouch() {},
+
+  onZoomStep(e) {
+    if (!this.data.hasGrid || this.data.busy || !this._live) return;
+    const delta = Number(
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.delta) || 0,
+    );
+    if (!delta) return;
+    const pct = Math.max(
+      ZOOM_SLIDER_MIN,
+      Math.min(ZOOM_SLIDER_MAX, (Number(this.data.zoomSlider) || ZOOM_SLIDER_MIN) + delta),
     );
     this.setLiveZoom(this.minLiveZoom() * (pct / 100));
     this.syncZoomSliderUi(this._live.zoom);

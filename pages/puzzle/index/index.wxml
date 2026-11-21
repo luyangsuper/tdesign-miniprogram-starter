@@ -183,7 +183,7 @@
         <view
           class="puzzle__board {{showPlacedHint ? 'puzzle__board--hint' : ''}}"
           style="width:{{boardPx}}px;height:{{boardPx}}px;"
-          catchtouchmove="onBoardTouchMove"
+          catchtouchmove="{{boardLockScroll ? 'onBoardTouchMove' : ''}}"
         >
           <view
             wx:for="{{cells}}"

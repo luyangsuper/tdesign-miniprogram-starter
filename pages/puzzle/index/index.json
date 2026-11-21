@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "趣味拼图",
   "navigationStyle": "default",
+  "disableSwipeBack": true,
   "usingComponents": {
     "t-button": "tdesign-miniprogram/button/button",
     "t-loading": "tdesign-miniprogram/loading/loading",
