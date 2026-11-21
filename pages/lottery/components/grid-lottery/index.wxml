@@ -1,7 +1,7 @@
 <view class="grid-lot {{boardShake ? 'is-shake' : ''}}" wx:if="{{ready && enabled}}">
   <view class="grid-lot__head">
     <view class="grid-lot__brand">
-      <image class="grid-lot__brand-art" src="/static/lottery/go.png" mode="aspectFit" />
+      <image class="grid-lot__brand-art" src="/pages/lottery/static/go.png" mode="aspectFit" />
       <view class="grid-lot__brand-copy">
         <view class="grid-lot__title-row">
           <text class="grid-lot__title">每日九宫格</text>
@@ -66,17 +66,17 @@
 
   <view class="grid-lot__stats">
     <view class="grid-lot__stat">
-      <image class="grid-lot__stat-art" src="/static/lottery/pts18.png" mode="aspectFit" />
+      <image class="grid-lot__stat-art" src="/pages/lottery/static/pts18.png" mode="aspectFit" />
       <text class="grid-lot__stat-cap">我的积分</text>
       <text class="grid-lot__stat-num">{{wallet}}</text>
     </view>
     <view class="grid-lot__stat">
-      <image class="grid-lot__stat-art" src="/static/lottery/pts1.png" mode="aspectFit" />
+      <image class="grid-lot__stat-art" src="/pages/lottery/static/pts1.png" mode="aspectFit" />
       <text class="grid-lot__stat-cap">今日剩余</text>
       <text class="grid-lot__stat-num">{{remainCount}}</text>
     </view>
     <view class="grid-lot__stat">
-      <image class="grid-lot__stat-art" src="/static/lottery/pts2.png" mode="aspectFit" />
+      <image class="grid-lot__stat-art" src="/pages/lottery/static/pts2.png" mode="aspectFit" />
       <text class="grid-lot__stat-cap">每次消耗</text>
       <text class="grid-lot__stat-num">{{costPoints}}</text>
     </view>

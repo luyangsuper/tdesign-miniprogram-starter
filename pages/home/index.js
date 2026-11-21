@@ -58,6 +58,7 @@ import {
   downloadCost,
   downloadCostForPack,
 } from '~/utils/pricing';
+import { applyBeadCostsFromSettings } from '~/utils/beadCosts';
 import { getCustomNavMetrics, getWindowInfoSafe } from '~/utils/systemInfo';
 import {
   requestNewPackSubscribe,
@@ -459,6 +460,7 @@ Page({
         applyHomeFeedAdEveryFromSettings(res);
       }
       applyDownloadCostsFromSettings(res || {});
+      applyBeadCostsFromSettings(res || {});
       // 权益（VIP）或间隔变化后重建分段，避免留下空广告位/段界空白
       this.refreshFeedAdGate();
       applyPendingPointGifts(res && res.pendingPointGifts);

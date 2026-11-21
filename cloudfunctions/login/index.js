@@ -194,6 +194,8 @@ exports.main = async (event = {}) => {
       /* ignore */
     }
     let downloadCosts = null;
+    let costBeadExport = null;
+    let costBeadAdvanced = null;
     try {
       const settings = await getPointsSettings(db);
       downloadCosts = {
@@ -203,6 +205,8 @@ exports.main = async (event = {}) => {
         avatar: settings.costAvatar,
         video: settings.costVideo,
       };
+      costBeadExport = settings.costBeadExport;
+      costBeadAdvanced = settings.costBeadAdvanced;
     } catch (e) {
       /* ignore */
     }
@@ -216,6 +220,8 @@ exports.main = async (event = {}) => {
       entitlement: buildEntitlement(user),
       pricingProducts,
       downloadCosts,
+      costBeadExport,
+      costBeadAdvanced,
     };
   }
 
@@ -262,6 +268,8 @@ exports.main = async (event = {}) => {
     /* ignore */
   }
   let downloadCosts = null;
+  let costBeadExport = null;
+  let costBeadAdvanced = null;
   try {
     const settings = await getPointsSettings(db);
     downloadCosts = {
@@ -271,6 +279,8 @@ exports.main = async (event = {}) => {
       avatar: settings.costAvatar,
       video: settings.costVideo,
     };
+    costBeadExport = settings.costBeadExport;
+    costBeadAdvanced = settings.costBeadAdvanced;
   } catch (e) {
     /* ignore */
   }
@@ -287,6 +297,8 @@ exports.main = async (event = {}) => {
     pendingLotteryInvites,
     pricingProducts,
     downloadCosts,
+    costBeadExport,
+    costBeadAdvanced,
     // 开奖结果不在此返回：只走 userLottery.pending（校验已参与）
   };
 };

@@ -11,6 +11,7 @@ import { getWindowInfoSafe } from '~/utils/systemInfo';
 function routeToValue(route) {
   if (!route) return '';
   if (route.indexOf('pages/home/') === 0) return 'home';
+  if (route.indexOf('pages/workshop/') === 0) return 'workshop';
   if (route.indexOf('pages/my/') === 0) return 'my';
   return '';
 }
@@ -156,6 +157,11 @@ Component({
       if (value === 'home') {
         this.setData({ value });
         wx.switchTab({ url: '/pages/home/index' });
+        return;
+      }
+      if (value === 'workshop') {
+        this.setData({ value });
+        wx.switchTab({ url: '/pages/workshop/index' });
         return;
       }
       if (value === 'my') {

@@ -46,6 +46,7 @@ const PALETTE = {
   cny: 'e34d59',
   tabIdle: 'c8c3bd',
   tabHome: '07c160',
+  tabWorkshop: '8b5cf6',
   tabMy: 'fa9d3b',
 };
 
@@ -77,14 +78,14 @@ const ASSETS = [
   { dir: 'static/emoji', file: 'type-avatar.png', icon: 'user-round', palette: 'quarter', note: '类型·头像' },
   { dir: 'static/emoji', file: 'type-video.png', icon: 'video', palette: 'anim', note: '类型·视频' },
   { dir: 'static/emoji', file: 'type-caret.png', icon: 'chevron-down', palette: 'soft', note: '类型下拉箭头' },
-  { dir: 'static/lottery', file: 'miss.png', icon: 'meh', palette: 'soft', note: '谢谢参与' },
-  { dir: 'static/lottery', file: 'pts1.png', icon: 'ticket', palette: 'points', note: '1积分' },
-  { dir: 'static/lottery', file: 'pts2.png', icon: 'gift', palette: 'points2', note: '2积分' },
-  { dir: 'static/lottery', file: 'pts4.png', icon: 'gift-bag', palette: 'month', note: '4积分' },
-  { dir: 'static/lottery', file: 'pts8.png', icon: 'trophy', palette: 'points3', note: '8积分' },
-  { dir: 'static/lottery', file: 'pts12.png', icon: 'gem', palette: 'quarter', note: '12积分' },
-  { dir: 'static/lottery', file: 'pts18.png', icon: 'crown', palette: 'year', note: '18积分大奖' },
-  { dir: 'static/lottery', file: 'go.png', icon: 'sparkles', palette: 'brand', note: '中间抽奖钮' },
+  { dir: 'pages/lottery/static', file: 'miss.png', icon: 'meh', palette: 'soft', note: '谢谢参与' },
+  { dir: 'pages/lottery/static', file: 'pts1.png', icon: 'ticket', palette: 'points', note: '1积分' },
+  { dir: 'pages/lottery/static', file: 'pts2.png', icon: 'gift', palette: 'points2', note: '2积分' },
+  { dir: 'pages/lottery/static', file: 'pts4.png', icon: 'gift-bag', palette: 'month', note: '4积分' },
+  { dir: 'pages/lottery/static', file: 'pts8.png', icon: 'trophy', palette: 'points3', note: '8积分' },
+  { dir: 'pages/lottery/static', file: 'pts12.png', icon: 'gem', palette: 'quarter', note: '12积分' },
+  { dir: 'pages/lottery/static', file: 'pts18.png', icon: 'crown', palette: 'year', note: '18积分大奖' },
+  { dir: 'pages/lottery/static', file: 'go.png', icon: 'sparkles', palette: 'brand', note: '中间抽奖钮' },
   { dir: 'static/pricing', file: 'month.png', icon: 'badge-percent', palette: 'month', note: '包月' },
   { dir: 'static/pricing', file: 'quarter.png', icon: 'user-star', palette: 'quarter', note: '季卡' },
   { dir: 'static/pricing', file: 'year.png', icon: 'crown', palette: 'year', note: '年卡' },
@@ -104,6 +105,8 @@ const ASSETS = [
 const TAB_ASSETS = [
   { file: 'home.png', icon: 'home', color: PALETTE.tabIdle, note: '首页·未选中' },
   { file: 'home-active.png', icon: 'home', color: PALETTE.tabHome, note: '首页·选中' },
+  { file: 'workshop.png', icon: 'sparkles', color: PALETTE.tabIdle, note: '趣味工坊·未选中' },
+  { file: 'workshop-active.png', icon: 'sparkles', color: PALETTE.tabWorkshop, note: '趣味工坊·选中' },
   { file: 'my.png', icon: 'user', color: PALETTE.tabIdle, note: '我的·未选中' },
   { file: 'my-active.png', icon: 'user', color: PALETTE.tabMy, note: '我的·选中' },
 ];
@@ -225,6 +228,18 @@ async function main() {
       rows.push({ item, line: `| ${item.file} | ${item.icon} | ${item.note} |` });
     });
 
+    // 管理端抽奖页在独立分包，不能引用 lottery 分包资源，同步一份图
+    const adminLotteryDir = path.join(ROOT, 'pages/admin/static/lottery');
+    fs.mkdirSync(adminLotteryDir, { recursive: true });
+    for (const item of ASSETS) {
+      if (!item.dir.includes('lottery')) continue;
+      const src = path.join(ROOT, item.dir, item.file);
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, path.join(adminLotteryDir, item.file));
+      }
+    }
+    console.log('Synced lottery arts →', path.relative(ROOT, adminLotteryDir));
+
     console.log('Generating tab icons…');
     for (const item of TAB_ASSETS) {
       const svg = await fetchKubaiSvg(item.icon, { color: item.color, size: TAB_SIZE });
@@ -276,7 +291,7 @@ async function main() {
       'utf8',
     );
     fs.writeFileSync(
-      path.join(ROOT, 'static/lottery/README.md'),
+      path.join(ROOT, 'pages/lottery/static/README.md'),
       `${header('九宫格奖池插图')}\n| File | Kubai | Use |\n|------|-------|-----|\n${lotteryLines.join('\n')}\n`,
       'utf8',
     );

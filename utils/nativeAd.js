@@ -102,6 +102,15 @@ export function getNativePuzzleAdUnitId() {
   );
 }
 
+/** 趣味工坊 / 拼豆工具常显；未单独配置时回退合集详情横版位 */
+export function getNativeWorkshopAdUnitId() {
+  return (
+    String(config.nativeWorkshopAdUnitId || '').trim() ||
+    getNativePackDetailAdUnitId() ||
+    getNativeMyPageAdUnitId()
+  );
+}
+
 /**
  * 被动原生广告展示门控：
  * - VIP 应用内免广告（原生信息流/详情/我的等；不含启动封面广告）

@@ -1,19 +1,19 @@
 import { callFunction } from '~/utils/cloud';
 import { canBeAdmin } from '~/utils/auth';
 import { getFestivalConfettiColors } from '~/utils/festival';
-import { getLotteryAudio } from '~/utils/lotteryAudio';
+import { getLotteryAudio } from '../../utils/lotteryAudio';
 import { promptSaveAdForPoints } from '~/utils/adReward';
 import { spendablePoints, getCachedEntitlement } from '~/utils/entitlement';
 import { getThemeBrand } from '~/utils/theme';
 
 const ART = {
-  miss: '/static/lottery/miss.png',
-  1: '/static/lottery/pts1.png',
-  2: '/static/lottery/pts2.png',
-  4: '/static/lottery/pts4.png',
-  8: '/static/lottery/pts8.png',
-  12: '/static/lottery/pts12.png',
-  18: '/static/lottery/pts18.png',
+  miss: '/pages/lottery/static/miss.png',
+  1: '/pages/lottery/static/pts1.png',
+  2: '/pages/lottery/static/pts2.png',
+  4: '/pages/lottery/static/pts4.png',
+  8: '/pages/lottery/static/pts8.png',
+  12: '/pages/lottery/static/pts12.png',
+  18: '/pages/lottery/static/pts18.png',
 };
 
 function artFor(pts) {
@@ -86,8 +86,8 @@ Component({
     fxWin: false,
     fxTitle: '',
     fxSub: '',
-    fxArt: '/static/lottery/pts18.png',
-    goLiveArt: '/static/lottery/go.png',
+    fxArt: '/pages/lottery/static/pts18.png',
+    goLiveArt: '/pages/lottery/static/go.png',
     goArtPulse: '',
     soundMuted: false,
     themeBrand: '#07c160',
@@ -161,7 +161,7 @@ Component({
           vipMonthQuota: Number(d.vipMonthQuota) || 0,
           wallet: Number(d.wallet) || Number(d.points) || 0,
           prizes,
-          goLiveArt: '/static/lottery/go.png',
+          goLiveArt: '/pages/lottery/static/go.png',
           goArtPulse: '',
           cells: withFlags(prizes, -1, this.data.winIndex, this.data.missIndex, ''),
         });
@@ -236,7 +236,7 @@ Component({
           spinning: false,
           goPhase: 'idle',
           activeIndex: -1,
-          goLiveArt: '/static/lottery/go.png',
+          goLiveArt: '/pages/lottery/static/go.png',
           goArtPulse: '',
         });
         this._paint(-1, -1, -1);
@@ -327,7 +327,7 @@ Component({
           fxShow: false,
           boardShake: false,
           goPhase: 'idle',
-          goLiveArt: '/static/lottery/go.png',
+          goLiveArt: '/pages/lottery/static/go.png',
           goArtPulse: '',
         });
         this._paint(-1, -1, -1);

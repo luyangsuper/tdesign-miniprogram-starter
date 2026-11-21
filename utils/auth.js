@@ -1,6 +1,7 @@
 import config from '~/config';
 import { setCachedEntitlement } from '~/utils/entitlement';
 import { applyDownloadCostsFromSettings } from '~/utils/pricing';
+import { applyBeadCostsFromSettings } from '~/utils/beadCosts';
 
 const OPENID_KEY = 'openid';
 const USER_KEY = 'user_profile';
@@ -113,5 +114,6 @@ export function applyLoginResult(res = {}) {
     setCachedEntitlement(res.entitlement);
   }
   applyDownloadCostsFromSettings(res || {});
+  applyBeadCostsFromSettings(res || {});
   return profile;
 }

@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/home/index",
+    "pages/workshop/index",
     "pages/my/index"
   ],
   "subpackages": [
@@ -35,6 +36,11 @@
       "pages": ["index/index"]
     },
     {
+      "root": "pages/tools",
+      "name": "tools",
+      "pages": ["bead/index"]
+    },
+    {
       "root": "pages/history",
       "name": "history",
       "pages": ["points-log/index", "favorites/index"]
@@ -61,6 +67,10 @@
       {
         "pagePath": "pages/home/index",
         "text": "首页"
+      },
+      {
+        "pagePath": "pages/workshop/index",
+        "text": "趣味工坊"
       },
       {
         "pagePath": "pages/my/index",

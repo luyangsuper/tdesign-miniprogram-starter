@@ -14,6 +14,13 @@ import {
 import { setHomeFeedAdEvery } from '~/utils/nativeAd';
 import { applyDownloadCostsFromSettings, downloadCost } from '~/utils/pricing';
 import {
+  applyBeadCostsFromSettings,
+  BEAD_ADVANCED_COST,
+  BEAD_EXPORT_COST,
+  getBeadAdvancedCost,
+  getBeadExportCost,
+} from '~/utils/beadCosts';
+import {
   DAILY_CLEAR_BONUS,
   DAILY_MAX_CLEARS,
   DIFFICULTIES,
@@ -63,6 +70,8 @@ Page({
     costWallpaper: String(downloadCost('wallpaper')),
     costAvatar: String(downloadCost('avatar')),
     costVideo: String(downloadCost('video')),
+    costBeadExport: String(getBeadExportCost()),
+    costBeadAdvanced: String(getBeadAdvancedCost()),
     puzzleEnabled: true,
     puzzleDailyMax: String(DAILY_MAX_CLEARS),
     puzzleDailyBonus: String(DAILY_CLEAR_BONUS),
@@ -152,6 +161,14 @@ Page({
         costVideo: String(
           data.costVideo != null ? data.costVideo : downloadCost('video'),
         ),
+        costBeadExport: String(
+          data.costBeadExport != null ? data.costBeadExport : BEAD_EXPORT_COST,
+        ),
+        costBeadAdvanced: String(
+          data.costBeadAdvanced != null
+            ? data.costBeadAdvanced
+            : BEAD_ADVANCED_COST,
+        ),
         puzzleEnabled: puzzle.enabled !== false,
         puzzleDailyMax: String(
           puzzle.dailyMaxClears != null ? puzzle.dailyMaxClears : DAILY_MAX_CLEARS,
@@ -181,6 +198,7 @@ Page({
         campaigns: Array.isArray(data.campaigns) ? data.campaigns : [],
       });
       applyDownloadCostsFromSettings(data);
+      applyBeadCostsFromSettings(data);
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' });
     } finally {
@@ -289,6 +307,14 @@ Page({
 
   onCostVideoChange(e) {
     this.setData({ costVideo: (e.detail && e.detail.value) || '' });
+  },
+
+  onCostBeadExportChange(e) {
+    this.setData({ costBeadExport: (e.detail && e.detail.value) || '' });
+  },
+
+  onCostBeadAdvancedChange(e) {
+    this.setData({ costBeadAdvanced: (e.detail && e.detail.value) || '' });
   },
 
   onCampaignTitleChange(e) {
@@ -469,6 +495,8 @@ Page({
     const costWallpaper = Number(this.data.costWallpaper);
     const costAvatar = Number(this.data.costAvatar);
     const costVideo = Number(this.data.costVideo);
+    const costBeadExport = Number(this.data.costBeadExport);
+    const costBeadAdvanced = Number(this.data.costBeadAdvanced);
     const puzzleDailyMax = Number(this.data.puzzleDailyMax);
     const puzzleDailyBonus = Number(this.data.puzzleDailyBonus);
     const puzzleRankFirst = Number(this.data.puzzleRankFirst);
@@ -503,6 +531,8 @@ Page({
       !costOk(costWallpaper) ||
       !costOk(costAvatar) ||
       !costOk(costVideo) ||
+      !costOk(costBeadExport) ||
+      !costOk(costBeadAdvanced) ||
       Number.isNaN(puzzleDailyMax) ||
       puzzleDailyMax < 1 ||
       puzzleDailyMax > 30 ||
@@ -550,6 +580,8 @@ Page({
           costWallpaper,
           costAvatar,
           costVideo,
+          costBeadExport,
+          costBeadAdvanced,
         }),
         callFunction('puzzleGame', {
           action: 'adminSave',
@@ -573,6 +605,7 @@ Page({
       const nextEvery = data.homeFeedAdEvery ?? homeFeedAdEvery;
       setHomeFeedAdEvery(nextEvery);
       applyDownloadCostsFromSettings(data);
+      applyBeadCostsFromSettings(data);
       this.setData({
         welcomeGiftPoints: String(data.welcomeGiftPoints ?? welcomeGiftPoints),
         checkinPoints: String(data.checkinPoints ?? checkinPoints),
@@ -591,6 +624,8 @@ Page({
         costWallpaper: String(data.costWallpaper ?? costWallpaper),
         costAvatar: String(data.costAvatar ?? costAvatar),
         costVideo: String(data.costVideo ?? costVideo),
+        costBeadExport: String(data.costBeadExport ?? costBeadExport),
+        costBeadAdvanced: String(data.costBeadAdvanced ?? costBeadAdvanced),
         puzzleEnabled: puzzle.enabled !== false,
         puzzleDailyMax: String(
           puzzle.dailyMaxClears != null ? puzzle.dailyMaxClears : puzzleDailyMax,

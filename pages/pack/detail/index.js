@@ -26,6 +26,7 @@ import {
   downloadCost,
   resolveDownloadCostKey,
 } from '~/utils/pricing';
+import { applyBeadCostsFromSettings } from '~/utils/beadCosts';
 import {
   formatItemCount,
   isEmojiType,
@@ -608,6 +609,7 @@ Page({
     try {
       const res = await callFunction('userEntitlement', { action: 'get' });
       applyDownloadCostsFromSettings(res || {});
+      applyBeadCostsFromSettings(res || {});
       if (res.entitlement) {
         setCachedEntitlement(res.entitlement);
       }

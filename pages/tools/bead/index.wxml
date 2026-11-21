@@ -1,0 +1,486 @@
+<view class="bead-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
+  <festival-decor
+    id="festivalDecor"
+    mode="my"
+    active="{{festivalActive}}"
+    header-height="{{festHeaderPx}}"
+    nav-height="{{navHeight}}"
+  />
+  <!-- placeholder 占位；可视顶栏用 cover-view，才能盖住 type=2d canvas 原生层 -->
+  <t-navbar
+    fixed="{{true}}"
+    placeholder="{{true}}"
+    z-index="{{1}}"
+    left-arrow="{{false}}"
+    title=""
+    custom-style="{{navBarStyle}};opacity:0;pointer-events:none;"
+  />
+  <cover-view class="bead__nav-cover" style="height: {{navHeight}}px; background-color: #ffffff;">
+    <cover-view
+      class="bead__nav-cover-bar"
+      style="margin-top: {{statusBarHeight}}px; height: {{navBarHeight}}px;"
+    >
+      <cover-view
+        class="bead__nav-back"
+        style="height: {{navBarHeight}}px; line-height: {{navBarHeight}}px;"
+        bindtap="onBack"
+      >‹</cover-view>
+      <cover-view
+        class="bead__nav-cover-title"
+        style="height: {{navBarHeight}}px; line-height: {{navBarHeight}}px;"
+      >拼豆图纸</cover-view>
+    </cover-view>
+  </cover-view>
+
+  <!-- 不用 scroll-view：type=2d 的 canvas 在 scroll-view 里会原生层悬浮、不随滚动 -->
+  <view class="bead">
+      <view class="bead__hero">
+        <view class="bead__hero-row">
+          <text class="bead__kicker">趣味工坊</text>
+          <t-tag size="small" variant="light" theme="success">MARD 221</t-tag>
+        </view>
+        <text class="bead__hero-title">图片转拼豆图纸</text>
+        <text class="bead__hero-desc">选一张图，生成色号图纸和像素图，照着拼就行</text>
+      </view>
+
+      <view class="bead__card">
+        <view class="bead__preview {{hasGrid ? 'bead__preview--zoom' : ''}}">
+          <block wx:if="{{hasGrid}}">
+            <view id="beadLiveWrap" class="bead__live-wrap" style="{{liveCanvasStyle}}">
+              <canvas
+                type="2d"
+                id="beadLive"
+                class="bead__live"
+                catchtouchstart="onLiveTouchStart"
+                catchtouchmove="onLiveTouchMove"
+                catchtouchend="onLiveTouchEnd"
+                catchtouchcancel="onLiveTouchEnd"
+              />
+            </view>
+
+            <view class="bead__preview-foot">
+              <view class="bead__zoom-bar">
+                <view class="bead__zoom-head">
+                  <text class="bead__zoom-tip">缩放 · 放大后色号更清晰</text>
+                  <text class="bead__zoom-pct">{{zoomLabel}}</text>
+                </view>
+                <view class="bead__zoom-row">
+                  <view class="bead__zoom-slider">
+                    <t-slider
+                      value="{{zoomSlider}}"
+                      min="{{zoomSliderMin}}"
+                      max="{{zoomSliderMax}}"
+                      step="{{1}}"
+                      label="{{false}}"
+                      disabled="{{busy}}"
+                      bind:dragstart="onZoomSliderStart"
+                      bind:change="onZoomSliderDrag"
+                      bind:dragend="onZoomSlider"
+                    />
+                  </view>
+                  <view class="bead__zoom-btn bead__zoom-btn--wide" catchtap="resetPreviewZoom">
+                    <view class="bead__zoom-ico">
+                      <kubai-icon name="refresh" size="26rpx" color="{{themeBrand}}" />
+                    </view>
+                    <text class="bead__zoom-btn-t">复位</text>
+                  </view>
+                </view>
+              </view>
+
+              <view class="bead__preview-tabs">
+                <view
+                  class="bead__preview-tab {{previewKind === 'chart' ? 'is-on' : ''}}"
+                  data-kind="chart"
+                  bindtap="onPreviewKind"
+                >
+                  <text class="bead__tab-txt">色号图</text>
+                </view>
+                <view
+                  class="bead__preview-tab {{previewKind === 'pixel' ? 'is-on' : ''}}"
+                  data-kind="pixel"
+                  bindtap="onPreviewKind"
+                >
+                  <text class="bead__tab-txt">像素图</text>
+                </view>
+              </view>
+            </view>
+          </block>
+          <block wx:elif="{{imagePath}}">
+            <image class="bead__preview-img" src="{{imagePath}}" mode="widthFix" />
+          </block>
+          <view wx:else class="bead__preview-empty" bindtap="pickImage">
+            <kubai-icon name="image" size="56rpx" color="{{themeBrand}}" />
+            <text>点这里选图</text>
+            <text class="bead__preview-hint">卡通、Logo、色块分明的图效果最好</text>
+          </view>
+          <view wx:if="{{busy}}" class="bead__busy">
+            <t-loading theme="circular" size="40rpx" text="生成中…" />
+          </view>
+        </view>
+
+        <canvas type="2d" id="beadOff" class="bead__canvas-hid" />
+        <canvas type="2d" id="beadOut" class="bead__canvas-hid" />
+        <canvas type="2d" id="beadPixel" class="bead__canvas-hid" />
+        <canvas type="2d" id="beadLiveCache" class="bead__canvas-hid" />
+      </view>
+
+      <!-- 未出图时可紧挨水平格数上方；出图后 type=2d canvas 与 ad-custom 不能相邻，否则预览会被原生层盖白 -->
+      <view
+        wx:if="{{showNativeAd && nativeAdUnitId && !hasGrid}}"
+        class="bead__native-ad"
+      >
+        <ad-custom
+          unit-id="{{nativeAdUnitId}}"
+          binderror="onNativeAdError"
+        />
+      </view>
+
+      <view class="bead__card bead__params">
+        <view wx:if="{{paramsDirty}}" class="bead__dirty-tip" bindtap="onGenerate">
+          <text class="bead__dirty-tip-t">{{advancedApplied ? '参数已改：重新生成会丢掉合并/去杂，高级功能也需再解锁' : '参数已改，点这里重新生成图纸'}}</text>
+          <text class="bead__dirty-tip-go">去生成</text>
+        </view>
+
+        <view class="bead__param">
+          <view class="bead__param-head">
+            <text class="bead__param-label">水平格数</text>
+            <text class="bead__param-val">{{gridSize}} 格</text>
+          </view>
+          <text class="bead__param-hint">格数越少颗粒越大；越多越细，用豆也越多。改完需重新生成</text>
+          <view class="bead__grid-opts">
+            <view
+              wx:for="{{gridPresets}}"
+              wx:key="value"
+              class="bead__grid-opt bead__grid-opt--{{item.tone}} {{gridSize === item.value ? 'is-on' : ''}}"
+              data-v="{{item.value}}"
+              bindtap="onGridPreset"
+            >
+              <view class="bead__grid-opt-canvas" style="{{item.densStyle}}">
+                <view
+                  wx:for="{{item.cells}}"
+                  wx:for-item="cell"
+                  wx:key="id"
+                  class="bead__grid-opt-cell {{cell.alt ? 'is-alt' : ''}}"
+                />
+              </view>
+              <text class="bead__grid-opt-n">{{item.value}}</text>
+              <text class="bead__grid-opt-hint">{{item.hint}}</text>
+            </view>
+          </view>
+          <t-slider
+            value="{{gridSize}}"
+            min="{{16}}"
+            max="{{96}}"
+            step="{{2}}"
+            label
+            bind:change="onGridSlider"
+          />
+        </view>
+
+        <view class="bead__param">
+          <text class="bead__param-label">取色方式</text>
+          <text class="bead__param-sub bead__param-sub--block">改完后需重新生成才会更新图纸</text>
+          <view class="bead__chips">
+            <view
+              wx:for="{{modes}}"
+              wx:key="id"
+              class="bead__chip {{mode === item.id ? 'is-on' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="onMode"
+            >{{item.name}}</view>
+          </view>
+        </view>
+
+        <view class="bead__param">
+          <view class="bead__param-head">
+            <text class="bead__param-label">色差算法</text>
+            <text class="bead__param-val">{{algo === 'ciede' ? '感知准' : (algo === 'lab' ? '较快' : '最快')}}</text>
+          </view>
+          <text class="bead__param-sub bead__param-sub--block">影响下次生成取色；合并杂色会立刻用当前算法</text>
+          <view class="bead__chips">
+            <view
+              wx:for="{{algos}}"
+              wx:key="id"
+              class="bead__chip {{algo === item.id ? 'is-on' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="onAlgo"
+            >{{item.name}}</view>
+          </view>
+        </view>
+
+        <view class="bead__param bead__param--row">
+          <view class="bead__param-meta">
+            <text class="bead__param-label">智能去背景</text>
+            <text class="bead__param-sub">去掉纯色底，改完需重新生成</text>
+          </view>
+          <t-switch value="{{removeBg}}" bind:change="onRemoveBg" />
+        </view>
+      </view>
+
+      <view class="bead__actions">
+        <t-button
+          theme="default"
+          variant="outline"
+          size="large"
+          shape="round"
+          block
+          icon="image"
+          content="{{imagePath ? '换一张' : '选择图片'}}"
+          bind:tap="pickImage"
+          disabled="{{busy || gating}}"
+        />
+        <t-button
+          theme="primary"
+          size="large"
+          shape="round"
+          block
+          content="{{paramsDirty ? '重新生成图纸' : '生成图纸'}}"
+          bind:tap="onGenerate"
+          loading="{{busy && exporting === ''}}"
+          disabled="{{!imagePath || busy || gating}}"
+        />
+      </view>
+
+      <!-- 出图后广告放参数区下方，与预览 canvas 隔开 -->
+      <view
+        wx:if="{{showNativeAd && nativeAdUnitId && hasGrid}}"
+        class="bead__native-ad bead__native-ad--after"
+      >
+        <ad-custom
+          unit-id="{{nativeAdUnitId}}"
+          binderror="onNativeAdError"
+        />
+      </view>
+
+      <view wx:if="{{hasGrid}}" class="bead__card bead__export">
+        <view class="bead__export-head">
+          <text class="bead__param-label">导出 PNG</text>
+          <text class="bead__param-sub">{{exportUnlocked ? '本版图纸已解锁导出' : ('连看 ' + beadExportAdCount + ' 条广告或 ' + beadExportCost + ' 积分解锁本版全部导出')}}</text>
+        </view>
+        <text class="bead__param-sub bead__param-sub--block" wx:if="{{statsText}}">{{statsText}}</text>
+
+        <view class="bead__param">
+          <view class="bead__param-head">
+            <text class="bead__param-label bead__param-label--sm">导出清晰度</text>
+          </view>
+          <text class="bead__param-sub bead__param-sub--block">只影响下方三张 PNG：色号图、像素图、色号清单</text>
+          <view class="bead__scale-opts">
+            <view
+              wx:for="{{scaleOptions}}"
+              wx:key="id"
+              class="bead__scale-opt {{exportScale === item.id ? 'is-on' : ''}} {{item.vipOnly && !isVip ? 'is-lock' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="onExportScale"
+            >
+              <text class="bead__scale-opt-t">{{item.name}}</text>
+              <text class="bead__scale-opt-d">{{item.vipOnly && !isVip ? '会员专属' : item.desc}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="bead__export-btns">
+          <t-button
+            theme="primary"
+            size="large"
+            shape="round"
+            block
+            content="保存色号图 PNG"
+            bind:tap="onSaveChart"
+            disabled="{{busy || gating}}"
+            loading="{{exporting === 'chart'}}"
+          />
+          <t-button
+            theme="primary"
+            variant="outline"
+            size="large"
+            shape="round"
+            block
+            content="保存像素图 PNG"
+            bind:tap="onSavePixel"
+            disabled="{{busy || gating}}"
+            loading="{{exporting === 'pixel'}}"
+          />
+          <t-button
+            theme="default"
+            variant="outline"
+            size="large"
+            shape="round"
+            block
+            content="保存色号清单 PNG"
+            bind:tap="onSaveColorList"
+            disabled="{{busy || gating}}"
+            loading="{{exporting === 'list'}}"
+          />
+        </view>
+        <text class="bead__export-note">PNG 保存到手机相册，清晰度越高文件越大</text>
+      </view>
+
+      <view wx:if="{{hasGrid}}" class="bead__card bead__export bead__export--other">
+        <view class="bead__export-head">
+          <text class="bead__param-label">导出 SVG</text>
+          <text class="bead__param-sub">{{exportUnlocked ? '本版已解锁 · 矢量可无限放大' : ('与 PNG 共用解锁 · 连看 ' + beadExportAdCount + ' 条广告或 ' + beadExportCost + ' 积分')}}</text>
+        </view>
+        <view class="bead__export-btns">
+          <t-button
+            theme="default"
+            variant="outline"
+            size="large"
+            shape="round"
+            block
+            content="导出色号图 SVG"
+            bind:tap="onSaveSvg"
+            disabled="{{busy || gating}}"
+            loading="{{exporting === 'svg'}}"
+          />
+        </view>
+        <text class="bead__export-note">SVG 不受上方 PNG 清晰度影响</text>
+      </view>
+
+      <view wx:if="{{hasGrid}}" class="bead__card bead__list-entry" bindtap="openMergePanel">
+        <view class="bead__list-entry-meta">
+          <text class="bead__colors-title">高级 · 色号合并</text>
+          <text class="bead__colors-count">{{advancedUnlocked ? (advancedApplied ? '已解锁 · 已使用（重生需重做）' : '已解锁 · 可合并 / 去杂') : ('看广告或 ' + beadAdvancedCost + ' 积分解锁')}}</text>
+        </view>
+        <view class="bead__list-entry-right">
+          <text class="bead__list-entry-link">打开</text>
+          <kubai-icon name="chevron-right" size="32rpx" color="#94a3b8" />
+        </view>
+      </view>
+
+      <view wx:if="{{hasGrid}}" class="bead__card bead__list-entry" bindtap="openColorList">
+        <view class="bead__list-entry-meta">
+          <text class="bead__colors-title">色号清单</text>
+          <text class="bead__colors-count">共 {{colorRows.length}} 色 · {{beadTotal}} 颗</text>
+        </view>
+        <view class="bead__list-entry-right">
+          <text class="bead__list-entry-link">查看全部</text>
+          <kubai-icon name="chevron-right" size="32rpx" color="#94a3b8" />
+        </view>
+      </view>
+
+    <view class="bead__foot">
+      <text>色号图对照拼豆 · 像素图看效果 · 清单/SVG 便于备豆与打印</text>
+    </view>
+  </view>
+
+  <t-popup
+    visible="{{mergeVisible}}"
+    placement="bottom"
+    bind:visible-change="onMergeVisibleChange"
+  >
+    <view class="bead__popup bead__popup--merge">
+      <view class="bead__popup-head">
+        <view class="bead__colors-titles">
+          <text class="bead__colors-title">色号合并</text>
+          <text class="bead__colors-count">{{advancedUnlocked ? '本版已解锁' : ('看广告或 ' + beadAdvancedCost + ' 积分 · 高级')}}</text>
+        </view>
+        <view class="bead__popup-export" catchtap="closeMergePanel">关闭</view>
+      </view>
+
+      <view class="bead__popup-body">
+        <text class="bead__param-sub bead__param-sub--block">应用合并 / 去除杂色会立刻改当前图纸；重新生成后效果会丢，需再解锁使用。</text>
+        <view class="bead__param">
+          <text class="bead__param-label bead__param-label--sm">合并策略</text>
+          <view class="bead__chips">
+            <view
+              wx:for="{{mergeModes}}"
+              wx:key="id"
+              class="bead__chip {{mergeMode === item.id ? 'is-on' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="onMergeMode"
+            >{{item.name}}</view>
+          </view>
+        </view>
+
+        <view wx:if="{{mergeMode === 'similarity'}}" class="bead__param">
+          <view class="bead__param-head">
+            <text class="bead__param-label bead__param-label--sm">最少用量</text>
+            <text class="bead__param-val">{{mergeMinCount}} 颗</text>
+          </view>
+          <text class="bead__param-sub bead__param-sub--block">低于此用量的色号并入最近常用色</text>
+          <t-slider
+            id="mergeMinSlider"
+            value="{{mergeMinCount}}"
+            min="{{1}}"
+            max="{{16}}"
+            step="{{1}}"
+            label
+            bind:change="onMergeMinCount"
+          />
+        </view>
+
+        <view wx:if="{{mergeMode === 'kmeans'}}" class="bead__param">
+          <view class="bead__param-head">
+            <text class="bead__param-label bead__param-label--sm">保留色号数</text>
+            <text class="bead__param-val">{{mergeK}} 色</text>
+          </view>
+          <text class="bead__param-sub bead__param-sub--block">聚类压到指定种数，再映回色板</text>
+          <t-slider
+            id="mergeKSlider"
+            value="{{mergeK}}"
+            min="{{4}}"
+            max="{{64}}"
+            step="{{1}}"
+            label
+            bind:change="onMergeK"
+          />
+        </view>
+
+        <view class="bead__actions-row">
+          <view class="bead__actions-col">
+            <t-button
+              theme="primary"
+              size="large"
+              shape="round"
+              block
+              content="应用合并"
+              bind:tap="onMerge"
+              loading="{{exporting === 'merge'}}"
+              disabled="{{busy || gating}}"
+            />
+          </view>
+          <view class="bead__actions-col">
+            <t-button
+              theme="default"
+              variant="outline"
+              size="large"
+              shape="round"
+              block
+              content="去除杂色"
+              bind:tap="onRemoveStray"
+              loading="{{exporting === 'stray'}}"
+              disabled="{{busy || gating}}"
+            />
+          </view>
+        </view>
+        <text class="bead__param-sub bead__param-sub--foot">去除杂色会立刻改当前图纸；策略只影响「应用合并」</text>
+      </view>
+    </view>
+  </t-popup>
+
+  <t-popup
+    visible="{{colorListVisible}}"
+    placement="bottom"
+    bind:visible-change="onColorListVisibleChange"
+  >
+    <view class="bead__popup">
+      <view class="bead__popup-head">
+        <view class="bead__colors-titles">
+          <text class="bead__colors-title">色号清单</text>
+          <text class="bead__colors-count">共 {{colorRows.length}} 色 · {{beadTotal}} 颗</text>
+        </view>
+        <view
+          class="bead__popup-export {{busy ? 'is-disabled' : ''}}"
+          catchtap="onSaveColorList"
+        >{{exporting === 'list' ? '导出中…' : '导出图片'}}</view>
+      </view>
+      <scroll-view scroll-y class="bead__popup-scroll" enhanced show-scrollbar="{{false}}">
+        <view class="bead__color" wx:for="{{colorRows}}" wx:key="code">
+          <view class="bead__swatch" style="background: {{item.hex}};" />
+          <text class="bead__color-code">{{item.code}}</text>
+          <text class="bead__color-n">×{{item.count}}</text>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+</view>

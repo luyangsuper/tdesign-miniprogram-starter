@@ -56,10 +56,6 @@
       },
       {
         "type": "folder",
-        "value": "miniprogram_npm/tdesign-miniprogram/slider"
-      },
-      {
-        "type": "folder",
         "value": "miniprogram_npm/tdesign-miniprogram/action-sheet"
       },
       {
@@ -201,6 +197,26 @@
       {
         "type": "folder",
         "value": "pages/release"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/marked"
+      },
+      {
+        "type": "folder",
+        "value": "miniprogram_npm/tdesign-miniprogram/miniprogram_npm/marked"
+      },
+      {
+        "type": "file",
+        "value": "static/tab/publish.png"
+      },
+      {
+        "type": "file",
+        "value": "static/tab/publish-active.png"
+      },
+      {
+        "type": "glob",
+        "value": "pages/lottery/static/**/*.md"
       }
     ],
     "include": []

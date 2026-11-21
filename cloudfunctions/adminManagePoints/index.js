@@ -195,6 +195,8 @@ exports.main = async (event = {}) => {
           costWallpaper: event.costWallpaper,
           costAvatar: event.costAvatar,
           costVideo: event.costVideo,
+          costBeadExport: event.costBeadExport,
+          costBeadAdvanced: event.costBeadAdvanced,
         },
         { openid: OPENID },
       );

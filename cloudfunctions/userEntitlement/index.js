@@ -2,7 +2,7 @@ const cloud = require('wx-server-sdk');
 const { dayjs, TZ, toMs } = require('./time');
 const { MONTHLY_QUOTA, buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { getPointsSettings } = require('./pointsSettings');
-const { applyUserPoints } = require('./pointsLog');
+const { applyUserPoints, recordPointsLog } = require('./pointsLog');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -29,6 +29,8 @@ const _ = db.command;
  * claimAdReward: { slot?: 'reward'|'save'|'checkin' } 看完激励视频后领取（客户端信任 + 日上限）
  * adRewardStatus: { slot?: 'reward'|'save'|'checkin' } 不传 slot 时返回 { reward, save, checkin }
  * resetAdRewardDay: 管理员清空自己今日激励计数（方便自测）
+ * spendFeature: { feature: 'beadExport'|'beadAdvanced', cost?: number }
+ *   趣味工坊拼豆：先扣本月额度再扣购买积分
  */
 
 const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
@@ -221,6 +223,8 @@ exports.main = async (event = {}) => {
         costWallpaper: settings.costWallpaper,
         costAvatar: settings.costAvatar,
         costVideo: settings.costVideo,
+        costBeadExport: settings.costBeadExport,
+        costBeadAdvanced: settings.costBeadAdvanced,
         // 开奖结果只走 userLottery.pending（校验已参与）
       };
     }
@@ -549,6 +553,88 @@ exports.main = async (event = {}) => {
         entitlement: buildEntitlement(synced),
         pendingPointGifts,
         message: `已到账 ${points} 积分`,
+      };
+    }
+
+    if (action === 'spendFeature') {
+      const feature = String(event.feature || '').trim();
+      const settings = await getPointsSettings(db);
+      const FEATURES = {
+        beadExport: {
+          cost: settings.costBeadExport,
+          reason: 'bead_export',
+          title: '拼豆图纸导出解锁',
+        },
+        beadAdvanced: {
+          cost: settings.costBeadAdvanced,
+          reason: 'bead_advanced',
+          title: '拼豆高级功能解锁',
+        },
+      };
+      const conf = FEATURES[feature];
+      if (!conf) {
+        return { ok: false, code: 'BAD_PARAM', message: '未知功能' };
+      }
+      // 价格以云端积分配置为准，忽略客户端传入的 cost
+      const cost = conf.cost;
+
+      const { ref, data: user } = await ensureUser(OPENID);
+      let userData = user;
+      try {
+        const snap = await ref.get();
+        userData = { ...(snap.data || {}), _id: OPENID, openid: OPENID };
+      } catch (e) {
+        return { ok: false, code: 'NO_USER', message: '请先登录' };
+      }
+
+      const synced = await syncVipMonthQuota(ref, userData, db.serverDate(), db);
+      let vipMonthQuota = Math.max(0, Number(synced.vipMonthQuota) || 0);
+      let points = Math.max(0, Number(synced.points) || 0);
+      if (vipMonthQuota + points < cost) {
+        return {
+          ok: false,
+          code: 'NO_GRANT',
+          message: `积分不足：需要 ${cost}，本月额度 ${vipMonthQuota}、积分 ${points}`,
+          entitlement: buildEntitlement(synced),
+        };
+      }
+
+      let fromVip = 0;
+      let fromPoints = 0;
+      if (vipMonthQuota >= cost) {
+        fromVip = cost;
+      } else {
+        fromVip = vipMonthQuota;
+        fromPoints = cost - vipMonthQuota;
+      }
+
+      const patch = { updatedAt: db.serverDate() };
+      if (fromVip) patch.vipMonthQuota = _.inc(-fromVip);
+      if (fromPoints) patch.points = _.inc(-fromPoints);
+      await ref.update({ data: patch });
+
+      const nextUser = {
+        ...synced,
+        vipMonthQuota: vipMonthQuota - fromVip,
+        points: points - fromPoints,
+      };
+      await recordPointsLog(db, {
+        openid: OPENID,
+        delta: -cost,
+        balance:
+          Math.max(0, Number(nextUser.points) || 0) +
+          Math.max(0, Number(nextUser.vipMonthQuota) || 0),
+        reason: conf.reason,
+        title: conf.title,
+        meta: { feature, cost, fromVip, fromPoints },
+      });
+
+      return {
+        ok: true,
+        cost,
+        fromVip,
+        fromPoints,
+        entitlement: buildEntitlement(nextUser),
       };
     }
 

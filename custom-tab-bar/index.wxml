@@ -29,6 +29,15 @@
         />
         首页
       </t-tab-bar-item>
+      <t-tab-bar-item t-class="tab-bar-item" value="workshop">
+        <image
+          slot="icon"
+          class="custom-tab-bar__icon"
+          src="{{value === 'workshop' ? '/static/tab/workshop-active.png' : '/static/tab/workshop.png'}}"
+          mode="aspectFit"
+        />
+        趣味工坊
+      </t-tab-bar-item>
       <t-tab-bar-item t-class="tab-bar-item" value="my">
         <image
           slot="icon"

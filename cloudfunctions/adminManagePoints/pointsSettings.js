@@ -6,9 +6,9 @@ const DEFAULTS = {
   adRewardPoints: 1,
   /** 主动看广告每日上限；0 关闭 */
   adRewardDailyMax: 5,
-  /** 救急短广告（约 15s）奖励；0 关闭 */
+  /** 救急/签到再领奖励（广告约 30s，与主动领同单元）；0 关闭 */
   saveAdRewardPoints: 1,
-  /** 救急短广告每日上限；0 关闭 */
+  /** 救急广告每日上限；0 关闭（签到再领另计每天 1 次） */
   saveAdRewardDailyMax: 8,
   /** 首页信息流每隔多少个合集插一条原生广告；0=关闭；建议 6～8 */
   homeFeedAdEvery: 6,
@@ -18,6 +18,9 @@ const DEFAULTS = {
   costWallpaper: 4,
   costAvatar: 4,
   costVideo: 8,
+  /** 趣味工坊 · 拼豆：导出解锁 / 高级功能积分消耗 */
+  costBeadExport: 4,
+  costBeadAdvanced: 1,
 };
 
 function clampPoints(n, fallback) {
@@ -72,6 +75,14 @@ function normalizeSettings(raw = {}) {
     costWallpaper: clampDownloadCost(raw.costWallpaper, DEFAULTS.costWallpaper),
     costAvatar: clampDownloadCost(raw.costAvatar, DEFAULTS.costAvatar),
     costVideo: clampDownloadCost(raw.costVideo, DEFAULTS.costVideo),
+    costBeadExport: clampDownloadCost(
+      raw.costBeadExport,
+      DEFAULTS.costBeadExport,
+    ),
+    costBeadAdvanced: clampDownloadCost(
+      raw.costBeadAdvanced,
+      DEFAULTS.costBeadAdvanced,
+    ),
   };
 }
 
@@ -159,6 +170,14 @@ async function savePointsSettings(db, patch, meta = {}) {
       patch.costVideo !== undefined && patch.costVideo !== null
         ? patch.costVideo
         : prev.costVideo,
+    costBeadExport:
+      patch.costBeadExport !== undefined && patch.costBeadExport !== null
+        ? patch.costBeadExport
+        : prev.costBeadExport,
+    costBeadAdvanced:
+      patch.costBeadAdvanced !== undefined && patch.costBeadAdvanced !== null
+        ? patch.costBeadAdvanced
+        : prev.costBeadAdvanced,
   });
   await ensureAppConfigCollection(db);
   try {

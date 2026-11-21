@@ -1,0 +1,10 @@
+{
+  "navigationStyle": "custom",
+  "styleIsolation": "shared",
+  "usingComponents": {
+    "t-navbar": "tdesign-miniprogram/navbar/navbar",
+    "t-tag": "tdesign-miniprogram/tag/tag",
+    "festival-decor": "/components/festival-decor/index"
+  }
+}
+

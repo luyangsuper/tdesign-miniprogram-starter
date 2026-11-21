@@ -1,0 +1,110 @@
+<view class="workshop-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
+  <festival-decor
+    id="festivalDecor"
+    mode="my"
+    active="{{festivalActive}}"
+    header-height="{{festHeaderPx}}"
+    nav-height="{{navHeight}}"
+  />
+  <t-navbar
+    fixed="{{true}}"
+    placeholder="{{true}}"
+    z-index="{{500}}"
+    custom-style="{{navBarStyle}}"
+  >
+    <view slot="title" class="workshop__nav-title">趣味工坊</view>
+  </t-navbar>
+
+  <scroll-view scroll-y class="workshop-scroll" enhanced show-scrollbar="{{false}}">
+    <view class="workshop">
+      <view class="workshop__banner" bindtap="goBead">
+        <view class="workshop__banner-copy">
+          <view class="workshop__banner-row">
+            <text class="workshop__banner-kicker">趣味工具</text>
+            <t-tag size="small" variant="light" theme="success">NEW</t-tag>
+          </view>
+          <text class="workshop__banner-title">图片转拼豆图纸</text>
+          <text class="workshop__banner-desc">MARD 221 色 · 色号图 / 像素图 · 高清可导出</text>
+          <view class="workshop__banner-cta">
+            <view class="workshop__banner-cta-icon">
+              <kubai-icon name="sparkles" size="34rpx" color="#FFFFFF" />
+            </view>
+            <text>开始制作</text>
+          </view>
+        </view>
+        <view class="workshop__banner-visual">
+          <view class="workshop__pixel">
+            <view class="workshop__px" style="background:#FD543D;" />
+            <view class="workshop__px" style="background:#FEAC4C;" />
+            <view class="workshop__px" style="background:#FBED56;" />
+            <view class="workshop__px" style="background:#63F347;" />
+            <view class="workshop__px" style="background:#41CCFF;" />
+            <view class="workshop__px" style="background:#858EDD;" />
+            <view class="workshop__px" style="background:#F551A2;" />
+            <view class="workshop__px" style="background:#2F2B2F;" />
+            <view class="workshop__px" style="background:#FFFFFF;border:1rpx solid #e5e7eb;" />
+          </view>
+        </view>
+      </view>
+
+      <view
+        wx:if="{{showNativeAd && nativeAdUnitId}}"
+        class="workshop__native-ad"
+      >
+        <ad-custom
+          unit-id="{{nativeAdUnitId}}"
+          binderror="onNativeAdError"
+        />
+      </view>
+
+      <view class="workshop__section">
+        <view class="workshop__section-head">
+          <text class="workshop__section-title">全部工具</text>
+        </view>
+        <view class="workshop__tools">
+          <view
+            wx:for="{{tools}}"
+            wx:key="id"
+            class="workshop__tool"
+            data-url="{{item.url}}"
+            bindtap="goTool"
+          >
+            <view class="workshop__tool-icon" style="background: {{item.bg}};">
+              <kubai-icon name="{{item.icon}}" size="48rpx" color="{{item.color}}" />
+            </view>
+            <view class="workshop__tool-meta">
+              <view class="workshop__tool-row">
+                <text class="workshop__tool-title">{{item.title}}</text>
+                <t-tag wx:if="{{item.tag}}" size="small" variant="light" theme="success">{{item.tag}}</t-tag>
+              </view>
+              <text class="workshop__tool-desc">{{item.desc}}</text>
+            </view>
+            <kubai-icon name="chevron-right" size="32rpx" color="#94a3b8" />
+          </view>
+        </view>
+      </view>
+
+      <view class="workshop__features">
+        <view class="workshop__feature" wx:for="{{features}}" wx:key="title">
+          <view class="workshop__feature-icon" style="background: {{item.bg}};">
+            <kubai-icon name="{{item.icon}}" size="44rpx" color="{{item.color}}" />
+          </view>
+          <view class="workshop__feature-meta">
+            <text class="workshop__feature-title">{{item.title}}</text>
+            <text class="workshop__feature-desc">{{item.desc}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="workshop__howto">
+        <text class="workshop__howto-title">三步出图</text>
+        <view class="workshop__howto-list">
+          <view class="workshop__howto-card" wx:for="{{steps}}" wx:key="n">
+            <text class="workshop__howto-n">{{item.n}}</text>
+            <text class="workshop__howto-t">{{item.title}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

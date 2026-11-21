@@ -38,6 +38,8 @@ const REASON_TITLE = {
   admin_repair: '权益补发',
   vip_month: '包月本月额度',
   vip_expire: '包月到期清零',
+  bead_export: '拼豆图纸导出',
+  bead_advanced: '拼豆高级功能',
 };
 
 /** 可用总额：购买积分 + 本月包月额度（调用方宜先 sync） */

@@ -20,6 +20,7 @@ import {
   loadPricingPlans,
   pricingFromLoginPayload,
 } from '~/utils/pricing';
+import { applyBeadCostsFromSettings } from '~/utils/beadCosts';
 import { buyPlan, recoverMyPendingOrders } from '~/utils/virtualPay';
 import {
   createAndCopyCode,
@@ -1833,6 +1834,7 @@ Page({
         applyHomeFeedAdEveryFromSettings(res);
       }
       applyDownloadCostsFromSettings(res || {});
+      applyBeadCostsFromSettings(res || {});
       if (res.entitlement) {
         setCachedEntitlement(res.entitlement);
         this.refreshIdentity();

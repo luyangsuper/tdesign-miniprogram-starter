@@ -18,13 +18,14 @@ const GRID_SLOT_LABEL = ['左上', '上', '右上', '右', '右下', '下', '左
 
 function gridArt(pts) {
   const n = Math.max(0, Number(pts) || 0);
-  if (n >= 18) return '/static/lottery/pts18.png';
-  if (n >= 12) return '/static/lottery/pts12.png';
-  if (n >= 8) return '/static/lottery/pts8.png';
-  if (n >= 4) return '/static/lottery/pts4.png';
-  if (n >= 2) return '/static/lottery/pts2.png';
-  if (n >= 1) return '/static/lottery/pts1.png';
-  return '/static/lottery/miss.png';
+  const base = '/pages/admin/static/lottery';
+  if (n >= 18) return `${base}/pts18.png`;
+  if (n >= 12) return `${base}/pts12.png`;
+  if (n >= 8) return `${base}/pts8.png`;
+  if (n >= 4) return `${base}/pts4.png`;
+  if (n >= 2) return `${base}/pts2.png`;
+  if (n >= 1) return `${base}/pts1.png`;
+  return `${base}/miss.png`;
 }
 
 function defaultGridPrizes() {
@@ -91,7 +92,7 @@ function gridBoard(prizes) {
       cells.push({
         id: (p && p.id) || `c${x}${y}`,
         go: false,
-        art: (p && p.art) || '/static/lottery/miss.png',
+        art: (p && p.art) || '/pages/admin/static/lottery/miss.png',
         label: (p && p.name) || '',
       });
     }

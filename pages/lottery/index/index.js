@@ -13,7 +13,7 @@ import {
 } from '~/utils/subscribe';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
-import { destroyLotteryAudio } from '~/utils/lotteryAudio';
+import { destroyLotteryAudio } from '../utils/lotteryAudio';
 
 function statusMeta(item) {
   const status = item.status || 'open';

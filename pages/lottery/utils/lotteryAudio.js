@@ -1,10 +1,10 @@
 const MUTE_KEY = 'lotterySoundMuted';
 
 const SRC = {
-  tick: '/static/lottery/sfx/tick.mp3',
-  start: '/static/lottery/sfx/start.mp3',
-  win: '/static/lottery/sfx/win.mp3',
-  miss: '/static/lottery/sfx/miss.mp3',
+  tick: '/pages/lottery/static/sfx/tick.mp3',
+  start: '/pages/lottery/static/sfx/start.mp3',
+  win: '/pages/lottery/static/sfx/win.mp3',
+  miss: '/pages/lottery/static/sfx/miss.mp3',
 };
 
 function readMuted() {

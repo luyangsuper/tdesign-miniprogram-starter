@@ -18,6 +18,9 @@ const DEFAULTS = {
   costWallpaper: 4,
   costAvatar: 4,
   costVideo: 8,
+  /** 趣味工坊 · 拼豆：导出解锁 / 高级功能积分消耗 */
+  costBeadExport: 4,
+  costBeadAdvanced: 1,
 };
 
 function clampPoints(n, fallback) {
@@ -72,6 +75,14 @@ function normalizeSettings(raw = {}) {
     costWallpaper: clampDownloadCost(raw.costWallpaper, DEFAULTS.costWallpaper),
     costAvatar: clampDownloadCost(raw.costAvatar, DEFAULTS.costAvatar),
     costVideo: clampDownloadCost(raw.costVideo, DEFAULTS.costVideo),
+    costBeadExport: clampDownloadCost(
+      raw.costBeadExport,
+      DEFAULTS.costBeadExport,
+    ),
+    costBeadAdvanced: clampDownloadCost(
+      raw.costBeadAdvanced,
+      DEFAULTS.costBeadAdvanced,
+    ),
   };
 }
 
@@ -159,6 +170,14 @@ async function savePointsSettings(db, patch, meta = {}) {
       patch.costVideo !== undefined && patch.costVideo !== null
         ? patch.costVideo
         : prev.costVideo,
+    costBeadExport:
+      patch.costBeadExport !== undefined && patch.costBeadExport !== null
+        ? patch.costBeadExport
+        : prev.costBeadExport,
+    costBeadAdvanced:
+      patch.costBeadAdvanced !== undefined && patch.costBeadAdvanced !== null
+        ? patch.costBeadAdvanced
+        : prev.costBeadAdvanced,
   });
   await ensureAppConfigCollection(db);
   try {

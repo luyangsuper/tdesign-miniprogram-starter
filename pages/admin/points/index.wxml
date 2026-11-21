@@ -252,6 +252,45 @@
       </view>
     </view>
 
+    <view class="admin-points__section">趣味工坊 · 拼豆</view>
+    <view class="admin-points__tip admin-points__tip--inline">
+      解锁当前这版图纸的积分消耗；也可看广告解锁。改完立即对云端扣费生效。
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">导出解锁</view>
+          <view class="admin-points__hint">PNG / SVG 共用 · 默认 4</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costBeadExport}}"
+          bind:change="onCostBeadExportChange"
+        />
+      </view>
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">高级功能解锁</view>
+          <view class="admin-points__hint">色号合并 / 去杂色 · 默认 1</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costBeadAdvanced}}"
+          bind:change="onCostBeadAdvancedChange"
+        />
+      </view>
+    </view>
+
     <view class="admin-points__section">趣味拼图</view>
     <view class="admin-points__card">
       <view class="admin-points__row">

@@ -40,6 +40,8 @@ export default {
   nativeFavoritesAdUnitId: 'adunit-494a61cf3ce09618',
   /** 趣味拼图 · 难度下方（未开局；VIP/管理员不展示） */
   nativePuzzleAdUnitId: 'adunit-95a12cc17e9ca0d1',
+  /** 趣味工坊 / 拼豆工具 · 常显原生广告（VIP/管理员不展示）；空则回退合集详情横版位 */
+  nativeWorkshopAdUnitId: 'adunit-955ce8dea99a2a65',
   /**
    * 首页每多少个合集插入一条原生广告（离线默认）
    * 线上以云库 app_config/points.homeFeedAdEvery 为准；0=关闭信息流广告；建议 6～8。

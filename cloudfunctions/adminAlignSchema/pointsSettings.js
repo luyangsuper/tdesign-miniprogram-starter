@@ -14,6 +14,8 @@ const DEFAULTS = {
   costWallpaper: 4,
   costAvatar: 4,
   costVideo: 8,
+  costBeadExport: 4,
+  costBeadAdvanced: 1,
 };
 
 const POINT_KEYS = Object.keys(DEFAULTS);
@@ -60,6 +62,11 @@ function normalizeSettings(raw = {}) {
     costWallpaper: clampDownloadCost(raw.costWallpaper, DEFAULTS.costWallpaper),
     costAvatar: clampDownloadCost(raw.costAvatar, DEFAULTS.costAvatar),
     costVideo: clampDownloadCost(raw.costVideo, DEFAULTS.costVideo),
+    costBeadExport: clampDownloadCost(raw.costBeadExport, DEFAULTS.costBeadExport),
+    costBeadAdvanced: clampDownloadCost(
+      raw.costBeadAdvanced,
+      DEFAULTS.costBeadAdvanced,
+    ),
   };
 }
 

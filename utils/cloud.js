@@ -20,7 +20,7 @@ function friendlyCloudError(err, name) {
   ) {
     const e = new Error(
       name === 'generatePackCopy'
-        ? 'AI 生成超时：请把云函数 generatePackCopy 超时改为 60 秒后重试'
+        ? '文案生成超时：请把云函数 generatePackCopy 超时改为 60 秒后重试'
         : `云函数「${name}」执行超时，请在云开发控制台调高超时时间`,
     );
     e.code = 'FUNCTIONS_TIME_LIMIT_EXCEEDED';
