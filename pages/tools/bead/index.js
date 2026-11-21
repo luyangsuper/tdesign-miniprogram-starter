@@ -1,3 +1,4 @@
+import { callFunction, uploadFile } from '~/utils/cloud';
 import { getCustomNavMetrics } from '~/utils/systemInfo';
 import {
   applyThemeToPage,
@@ -196,6 +197,8 @@ Page({
     festivalStyle: '',
     festHeaderPx: 88,
     imagePath: '',
+    imageChecking: false,
+    imageCheckText: '安全检测中…',
     busy: false,
     exporting: '',
     gridSize: 48,
@@ -404,63 +407,138 @@ Page({
     if (decor && typeof decor.refresh === 'function') decor.refresh();
   },
 
+  applyPickedImage(path) {
+    wx.getImageInfo({
+      src: path,
+      success: (info) => {
+        this._natW = info.width;
+        this._natH = info.height;
+        this._grid = null;
+        this.setData({
+          imagePath: path,
+          hasGrid: false,
+          liveCanPan: false,
+          paramsDirty: false,
+          exportUnlocked: false,
+          advancedUnlocked: false,
+          advancedApplied: false,
+          mergeVisible: false,
+          colorListVisible: false,
+          liveCanvasStyle: '',
+          zoomSlider: ZOOM_SLIDER_MIN,
+          zoomLabel: '100%',
+          statsText: '',
+          colorRows: [],
+          beadTotal: 0,
+          previewKind: 'chart',
+        });
+      },
+      fail: () => {
+        this._natW = 0;
+        this._natH = 0;
+        this._grid = null;
+        this.setData({
+          imagePath: path,
+          hasGrid: false,
+          liveCanPan: false,
+          paramsDirty: false,
+          exportUnlocked: false,
+          advancedUnlocked: false,
+          advancedApplied: false,
+          mergeVisible: false,
+          colorListVisible: false,
+          liveCanvasStyle: '',
+          zoomSlider: ZOOM_SLIDER_MIN,
+          zoomLabel: '100%',
+          statsText: '',
+          colorRows: [],
+          beadTotal: 0,
+        });
+      },
+    });
+  },
+
+  /** 上传并调用 mediaCheckAsync；通过后才进入本地制图 */
+  async securityCheckImage(localPath) {
+    const extMatch = /\.(\w+)(\?|$)/.exec(localPath || '');
+    const ext = (extMatch && extMatch[1] ? extMatch[1] : 'jpg').toLowerCase();
+    // 微信异步检测官方支持 jpg/jpeg/png/bmp/gif
+    if (ext && !['jpg', 'jpeg', 'png', 'bmp', 'gif', 'webp', 'heic', 'heif'].includes(ext)) {
+      const err = new Error('暂不支持该图片格式，请换一张');
+      err.code = 'BAD_FORMAT';
+      throw err;
+    }
+    const safeExt =
+      ext === 'jpeg' || ext === 'jpg' || !ext
+        ? 'jpg'
+        : ['png', 'bmp', 'gif'].includes(ext)
+          ? ext
+          : 'jpg';
+    const cloudPath = `bead-check/${Date.now()}-${Math.floor(Math.random() * 1e6)}.${safeExt}`;
+    let fileID = '';
+    try {
+      this.setData({ imageCheckText: '上传图片中…' });
+      fileID = await uploadFile(cloudPath, localPath);
+      this.setData({ imageCheckText: '安全检测中…' });
+      return await callFunction(
+        'mediaCheck',
+        {
+          action: 'checkBeadImage',
+          fileID,
+          scene: 1,
+        },
+        { timeout: 20000 },
+      );
+    } catch (e) {
+      // 云函数未跑到清理时，客户端兜底删临时文件
+      if (fileID) {
+        try {
+          await wx.cloud.deleteFile({ fileList: [fileID] });
+        } catch (e2) {
+          /* ignore */
+        }
+      }
+      throw e;
+    }
+  },
+
   pickImage() {
+    if (this._pickingImage || this.data.imageChecking || this.data.busy || this.data.gating) {
+      return;
+    }
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
-      success: (res) => {
+      sizeType: ['compressed'],
+      success: async (res) => {
         const f = res.tempFiles && res.tempFiles[0];
         const path = f && f.tempFilePath;
         if (!path) return;
-        wx.getImageInfo({
-          src: path,
-          success: (info) => {
-            this._natW = info.width;
-            this._natH = info.height;
-            this._grid = null;
-            this.setData({
-              imagePath: path,
-              hasGrid: false,
-              liveCanPan: false,
-              paramsDirty: false,
-              exportUnlocked: false,
-              advancedUnlocked: false,
-              advancedApplied: false,
-              mergeVisible: false,
-              colorListVisible: false,
-              liveCanvasStyle: '',
-              zoomSlider: ZOOM_SLIDER_MIN,
-              zoomLabel: '100%',
-              statsText: '',
-              colorRows: [],
-              beadTotal: 0,
-              previewKind: 'chart',
-            });
-          },
-          fail: () => {
-            this._natW = 0;
-            this._natH = 0;
-            this._grid = null;
-            this.setData({
-              imagePath: path,
-              hasGrid: false,
-              liveCanPan: false,
-              paramsDirty: false,
-              exportUnlocked: false,
-              advancedUnlocked: false,
-              advancedApplied: false,
-              mergeVisible: false,
-              colorListVisible: false,
-              liveCanvasStyle: '',
-              zoomSlider: ZOOM_SLIDER_MIN,
-              zoomLabel: '100%',
-              statsText: '',
-              colorRows: [],
-              beadTotal: 0,
-            });
-          },
-        });
+        const size = Number(f.size) || 0;
+        // 官方限制单文件不超过 10M
+        if (size > 10 * 1024 * 1024) {
+          wx.showToast({ title: '图片过大，请选小于10MB的图', icon: 'none' });
+          return;
+        }
+        this._pickingImage = true;
+        this.setData({ imageChecking: true, imageCheckText: '安全检测中…' });
+        try {
+          await this.securityCheckImage(path);
+          this.applyPickedImage(path);
+        } catch (e) {
+          let msg =
+            (e && e.message) ||
+            (e && e.errMsg) ||
+            '图片未通过安全检测，请更换后重试';
+          if (/document\.(set|update)|-5020\d|database collection/i.test(String(msg))) {
+            msg = '图片检测服务未就绪，请稍后重试';
+          }
+          wx.showToast({ title: String(msg).slice(0, 40), icon: 'none', duration: 2600 });
+        } finally {
+          this._pickingImage = false;
+          this.setData({ imageChecking: false, imageCheckText: '安全检测中…' });
+        }
       },
     });
   },

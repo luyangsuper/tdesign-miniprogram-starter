@@ -41,10 +41,17 @@ function friendlyCloudError(err, name) {
   return e;
 }
 
-/** 调用云函数，统一解包 result */
-export function callFunction(name, data = {}) {
+/** 调用云函数，统一解包 result；opts 可传 timeout（毫秒）等 */
+export function callFunction(name, data = {}, opts = {}) {
+  const payload = { name, data };
+  const timeout = Number(opts && opts.timeout);
+  if (timeout > 0) {
+    payload.config = { ...(opts.config || {}), timeout };
+  } else if (opts && opts.config) {
+    payload.config = opts.config;
+  }
   return wx.cloud
-    .callFunction({ name, data })
+    .callFunction(payload)
     .then((res) => {
       const result = res.result || {};
       if (result.ok === false) {

@@ -1,0 +1,9 @@
+{
+  "name": "mediaCheck",
+  "version": "1.0.0",
+  "description": "拼豆等用户图片：security.mediaCheckAsync 异步检测",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

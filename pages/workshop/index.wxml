@@ -103,16 +103,6 @@
           binderror="onNativeAdError"
         />
       </view>
-
-      <view class="workshop__guide">
-        <text class="workshop__guide-label">怎么玩</text>
-        <view class="workshop__guide-steps">
-          <view class="workshop__guide-step" wx:for="{{tips}}" wx:key="n">
-            <text class="workshop__guide-n">{{item.n}}</text>
-            <text class="workshop__guide-text">{{item.title}}</text>
-          </view>
-        </view>
-      </view>
     </view>
   </scroll-view>
 </view>

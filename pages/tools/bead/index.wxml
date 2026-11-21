@@ -134,12 +134,24 @@
           <block wx:elif="{{imagePath}}">
             <image class="bead__preview-img" src="{{imagePath}}" mode="widthFix" />
           </block>
-          <view wx:else class="bead__preview-empty" bindtap="pickImage">
-            <kubai-icon name="image" size="56rpx" color="{{themeBrand}}" />
-            <text>点这里选图</text>
-            <text class="bead__preview-hint">卡通、Logo、色块分明的图效果最好</text>
+          <view
+            wx:else
+            class="bead__preview-empty {{imageChecking ? 'is-checking' : ''}}"
+            bindtap="pickImage"
+          >
+            <block wx:if="{{imageChecking}}">
+              <t-loading theme="circular" size="48rpx" text="{{imageCheckText}}" />
+            </block>
+            <block wx:else>
+              <kubai-icon name="image" size="56rpx" color="{{themeBrand}}" />
+              <text>点这里选图</text>
+              <text class="bead__preview-hint">卡通、Logo、色块分明的图效果最好</text>
+            </block>
           </view>
-          <view wx:if="{{busy}}" class="bead__busy">
+          <view wx:if="{{imageChecking && imagePath}}" class="bead__busy">
+            <t-loading theme="circular" size="48rpx" text="{{imageCheckText}}" />
+          </view>
+          <view wx:elif="{{busy}}" class="bead__busy">
             <t-loading theme="circular" size="40rpx" text="生成中…" />
           </view>
         </view>
@@ -253,7 +265,8 @@
           icon="image"
           content="{{imagePath ? '换一张' : '选择图片'}}"
           bind:tap="pickImage"
-          disabled="{{busy || gating}}"
+          loading="{{imageChecking}}"
+          disabled="{{busy || gating || imageChecking}}"
         />
         <t-button
           theme="primary"
@@ -263,7 +276,7 @@
           content="{{paramsDirty ? '重新生成图纸' : '生成图纸'}}"
           bind:tap="onGenerate"
           loading="{{busy && exporting === ''}}"
-          disabled="{{!imagePath || busy || gating}}"
+          disabled="{{!imagePath || busy || gating || imageChecking}}"
         />
       </view>
 

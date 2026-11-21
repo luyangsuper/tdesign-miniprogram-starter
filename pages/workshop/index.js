@@ -64,12 +64,6 @@ const PUZZLE_CELLS = [
   '#b6c9d6', '#a5b8c8', 'rgba(148,163,184,0.22)',
 ];
 
-const TIPS = [
-  { n: '01', title: '选一个工具' },
-  { n: '02', title: '跟着页面操作' },
-  { n: '03', title: '带走你的结果' },
-];
-
 Page({
   data: {
     themeStyle: '',
@@ -82,7 +76,6 @@ Page({
     festivalStyle: '',
     festHeaderPx: 88,
     tools: BASE_TOOLS,
-    tips: TIPS,
     beadCells: BEAD_CELLS,
     puzzleCells: PUZZLE_CELLS,
     nativeAdUnitId: '',
