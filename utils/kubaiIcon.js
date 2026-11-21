@@ -1,7 +1,8 @@
 /**
- * Kubai UI 图标：逻辑名 → 远程 SVG（不占主包）
- * API：https://icons.kubai.design/docs/static/
- * 后台需将 icons.kubai.design 加入 downloadFile 合法域名
+ * Kubai UI 图标
+ * - 接口返回 SVG；小程序 <image> 不支持网络 SVG，需 downloadFile 落到本地后再显示
+ * - 后台把 icons.kubai.design 加入 downloadFile 合法域名（开发期可勾选不校验）
+ * @see https://icons.kubai.design/docs/static/
  */
 
 const KUBAI_ICON_API = 'https://icons.kubai.design/api/icon';
@@ -56,7 +57,6 @@ const ALIAS = {
   'shield-check': 'shield-check',
   paintbrush: 'paintbrush',
   smile: 'smile',
-  sparkles: 'sparkles',
   map: 'map',
   crown: 'crown',
   trophy: 'trophy',
@@ -73,7 +73,7 @@ const ALIAS = {
 
 const FALLBACK_HEX = '07c160';
 
-/** 过浅色 → 深色，避免白勾/浅勾看不清 */
+/** 过浅色 → 深色，避免白勾/浅勾看不清（不含有意的白/浅灰） */
 const LIGHT_ACCENT_TO_ICON = {
   d0a6ff: '7a3db8',
   f9a8d4: 'c9347a',
@@ -94,6 +94,18 @@ const LIGHT_ACCENT_TO_ICON = {
   fde047: 'ca8a04',
 };
 
+/** 有意保留的浅色（按钮上的白图标等），不再被亮度规则改成品牌绿 */
+const KEEP_LIGHT_HEX = {
+  ffffff: 'f8fafc',
+  f8fafc: 'f8fafc',
+  f1f5f9: 'f1f5f9',
+  e5e7eb: 'e5e7eb',
+  e2e8f0: 'e2e8f0',
+};
+
+const memCache = Object.create(null);
+const inflight = Object.create(null);
+
 export function kubaiName(name) {
   const key = String(name || '').trim();
   return ALIAS[key] || key;
@@ -110,7 +122,7 @@ export function normalizeKubaiHex(color) {
   if (!raw) return FALLBACK_HEX;
   if (raw.startsWith('var(')) return FALLBACK_HEX;
   if (raw.startsWith('rgba') || raw.startsWith('rgb')) {
-    if (/255\s*,\s*255\s*,\s*255/.test(raw)) return 'e5e7eb';
+    if (/255\s*,\s*255\s*,\s*255/.test(raw)) return KEEP_LIGHT_HEX.ffffff;
     return 'e5e7eb';
   }
   let hex = raw.replace(/^#/, '').toLowerCase();
@@ -120,23 +132,101 @@ export function normalizeKubaiHex(color) {
       .map((c) => c + c)
       .join('');
   }
-  if (hex === 'ffffff') return 'f8fafc';
+  if (!/^[0-9a-f]{6}$/.test(hex)) return FALLBACK_HEX;
+  if (KEEP_LIGHT_HEX[hex]) return KEEP_LIGHT_HEX[hex];
   if (LIGHT_ACCENT_TO_ICON[hex]) return LIGHT_ACCENT_TO_ICON[hex];
-  if (/^[0-9a-f]{6}$/.test(hex) && relativeLuminance(hex) > 0.72) return FALLBACK_HEX;
+  if (relativeLuminance(hex) > 0.72) return FALLBACK_HEX;
   return hex;
 }
 
-/**
- * 同步返回远程 SVG URL（按色即时着色，无需预生成 PNG）
- * @see https://icons.kubai.design/docs/static/
- */
-export function resolveKubaiIconSrc(name, color) {
+export function buildKubaiIconUrl(name, color) {
   const icon = kubaiName(name);
   const hex = normalizeKubaiHex(color);
   return `${KUBAI_ICON_API}/${encodeURIComponent(icon)}.svg?color=${hex}&variant=color&size=${KUBAI_ICON_SIZE}`;
 }
 
-/** @deprecated 同 resolveKubaiIconSrc */
+/** @deprecated 请用 loadKubaiIconLocal；同步 URL 在真机 <image> 上往往空白 */
+export function resolveKubaiIconSrc(name, color) {
+  return buildKubaiIconUrl(name, color);
+}
+
+/** @deprecated */
 export function resolveKubaiIconPngSrc(name, color) {
-  return resolveKubaiIconSrc(name, color);
+  return buildKubaiIconUrl(name, color);
+}
+
+function cacheKey(name, color) {
+  return `${kubaiName(name)}_${normalizeKubaiHex(color)}`;
+}
+
+function ensureIconDir(fs) {
+  const dir = `${wx.env.USER_DATA_PATH}/kubai-icons`;
+  try {
+    fs.accessSync(dir);
+  } catch (e) {
+    try {
+      fs.mkdirSync(dir, true);
+    } catch (err) {
+      /* ignore */
+    }
+  }
+  return dir;
+}
+
+/**
+ * 下载 SVG 到本地再给 <image> 用（小程序不支持网络 SVG）。
+ * @returns {Promise<string>} 本地路径；失败时仍返回远程 URL 兜底
+ */
+export function loadKubaiIconLocal(name, color) {
+  const key = cacheKey(name, color);
+  if (memCache[key]) return Promise.resolve(memCache[key]);
+  if (inflight[key]) return inflight[key];
+
+  const url = buildKubaiIconUrl(name, color);
+  const fs = wx.getFileSystemManager();
+  const dir = ensureIconDir(fs);
+  const filePath = `${dir}/${key}.svg`;
+
+  try {
+    fs.accessSync(filePath);
+    memCache[key] = filePath;
+    return Promise.resolve(filePath);
+  } catch (e) {
+    /* need download */
+  }
+
+  inflight[key] = new Promise((resolve) => {
+    wx.downloadFile({
+      url,
+      filePath,
+      success: (res) => {
+        if (res && (res.statusCode === 200 || res.statusCode === 304)) {
+          memCache[key] = filePath;
+          resolve(filePath);
+          return;
+        }
+        // 部分基础库只给 tempFilePath
+        const temp = res && res.tempFilePath;
+        if (temp) {
+          try {
+            fs.saveFileSync(temp, filePath);
+            memCache[key] = filePath;
+            resolve(filePath);
+            return;
+          } catch (err) {
+            memCache[key] = temp;
+            resolve(temp);
+            return;
+          }
+        }
+        resolve(url);
+      },
+      fail: () => resolve(url),
+      complete: () => {
+        delete inflight[key];
+      },
+    });
+  });
+
+  return inflight[key];
 }

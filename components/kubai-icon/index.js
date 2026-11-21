@@ -1,4 +1,4 @@
-import { resolveKubaiIconSrc } from '~/utils/kubaiIcon';
+import { loadKubaiIconLocal } from '~/utils/kubaiIcon';
 
 function parseSize(size) {
   const raw = String(size || '48rpx').trim();
@@ -45,6 +45,7 @@ Component({
         clearTimeout(this._playTimer);
         this._playTimer = null;
       }
+      this._loadSeq = (this._loadSeq || 0) + 1;
     },
   },
   observers: {
@@ -57,9 +58,12 @@ Component({
         this.setData({ src: '', boxStyle });
         return;
       }
-      this.setData({
-        src: resolveKubaiIconSrc(name, safeColor),
-        boxStyle,
+      // 先更新尺寸，图标异步落本地后再填 src（网络 SVG 在 <image> 里不显示）
+      this.setData({ boxStyle });
+      const seq = (this._loadSeq = (this._loadSeq || 0) + 1);
+      loadKubaiIconLocal(name, safeColor).then((src) => {
+        if (seq !== this._loadSeq) return;
+        this.setData({ src: src || '' });
       });
     },
   },

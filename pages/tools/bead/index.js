@@ -28,7 +28,7 @@ import {
 import {
   unlockBeadAccess,
   BEAD_EXPORT_AD_COUNT,
-} from '~/utils/beadGate';
+} from './beadGate';
 import {
   BEAD_EXPORT_COST,
   BEAD_ADVANCED_COST,

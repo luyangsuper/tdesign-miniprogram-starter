@@ -5,9 +5,9 @@
   aria-hidden="true"
 >
   <image
+    wx:if="{{src}}"
     class="kubai-icon"
     src="{{src}}"
     mode="aspectFit"
-    lazy-load
   />
 </view>

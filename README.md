@@ -203,8 +203,12 @@
 ### 7. 默认头像（Pixabots）
 
 未选微信头像时，用 [Pixabots](https://pixabots.com/browse) 按 openid 固定分配一只像素角色，并用色相拉开颜色差异。  
-小程序后台 → 开发管理 → 服务器域名 → **downloadFile 合法域名** 增加：`https://pixabots.com`（开发期可勾选不校验合法域名）。  
-否则头像会裂成「X」。
+小程序后台 → 开发管理 → 服务器域名 → **downloadFile 合法域名** 增加：
+
+- `https://pixabots.com`（默认头像；否则会裂成「X」）
+- `https://icons.kubai.design`（`kubai-icon` 彩色图标；小程序不支持网络 SVG，需下载到本地再显示）
+
+开发期可勾选不校验合法域名。
 
 ## 管理入口（「我的」管理员可见）
 

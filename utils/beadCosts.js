@@ -1,6 +1,6 @@
 /**
  * 拼豆工具积分单价（管理端「积分与活动」可改）。
- * 单独文件，避免主包页面为读单价而打进整份 beadGate / 激励广告逻辑。
+ * 单价缓存放主包（登录/管理端要写）；门禁逻辑在 pages/tools/bead/beadGate.js。
  */
 
 export const BEAD_EXPORT_COST = 4;
