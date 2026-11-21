@@ -1,3 +1,4 @@
+import { callFunction } from '~/utils/cloud';
 import { getCustomNavMetrics } from '~/utils/systemInfo';
 import {
   applyThemeToPage,
@@ -14,47 +15,59 @@ import {
   shouldShowNativeAds,
 } from '~/utils/nativeAd';
 
-const TOOLS = [
+const BASE_TOOLS = [
   {
     id: 'bead',
     title: '拼豆图纸',
-    desc: '图片转色号图纸与像素图，MARD 221 色，支持高清导出',
-    tag: 'NEW',
+    desc: '图片转色号图纸，照着拼',
+    tag: '热门',
+    tagTheme: 'success',
     icon: 'paintbrush',
     color: '#07c160',
     bg: 'rgba(7,193,96,0.12)',
     url: '/pages/tools/bead/index',
   },
-];
-
-const FEATURES = [
   {
-    title: '智能取色',
-    desc: '按感知色差匹配拼豆色号，可去背景、合并杂色',
-    icon: 'palette',
-    color: '#059669',
-    bg: 'rgba(16,185,129,0.14)',
+    id: 'puzzle',
+    title: '趣味拼图',
+    desc: '拼图闯关，好玩又能赚积分',
+    tag: 'NEW',
+    tagTheme: 'primary',
+    icon: 'sparkles',
+    color: '#3b6d9a',
+    bg: 'rgba(59,109,154,0.12)',
+    url: '/pages/puzzle/index/index',
   },
   {
-    title: '色号 + 像素双图',
-    desc: '色号图方便对照拼豆，像素图用来预览成品效果',
-    icon: 'image',
-    color: '#2563EB',
-    bg: 'rgba(59,130,246,0.14)',
-  },
-  {
-    title: '高清多格式导出',
-    desc: '支持 2 倍 / 4 倍清晰度，PNG 进相册，也可导出 SVG',
-    icon: 'download',
-    color: '#D97706',
-    bg: 'rgba(245,158,11,0.14)',
+    id: 'answerbook',
+    title: '答案之书',
+    desc: '默念问题，翻开书页看看',
+    tag: '',
+    tagTheme: 'success',
+    icon: 'bookmark',
+    color: '#8a7355',
+    bg: 'rgba(138,115,85,0.12)',
+    url: '/pages/tools/answerbook/index',
   },
 ];
 
-const STEPS = [
-  { n: '1', title: '选一张图' },
-  { n: '2', title: '调格数生成' },
-  { n: '3', title: '导出图纸' },
+/** 统一低饱和预览色，避免花哨 */
+const BEAD_CELLS = [
+  '#d7ebe0', '#c5dfd2', '#b7d6c8', '#a8cbbd', '#9bc0b2', '#8eb5a7',
+  '#e4efe8', '#d0e4da', '#bdd8cb', '#abcbbd', '#9ac0b1', '#89b4a5',
+  '#eff5f1', '#ddece4', '#cbe2d7', '#bad8cb', '#a9cdb0', '#98c2b4',
+];
+
+const PUZZLE_CELLS = [
+  '#9bb6cc', '#8aa7c0', '#7a99b4',
+  '#a8bfcf', '#97b0c3', '#879faf',
+  '#b6c9d6', '#a5b8c8', 'rgba(148,163,184,0.22)',
+];
+
+const TIPS = [
+  { n: '01', title: '选一个工具' },
+  { n: '02', title: '跟着页面操作' },
+  { n: '03', title: '带走你的结果' },
 ];
 
 Page({
@@ -68,9 +81,10 @@ Page({
     festivalClass: '',
     festivalStyle: '',
     festHeaderPx: 88,
-    tools: TOOLS,
-    features: FEATURES,
-    steps: STEPS,
+    tools: BASE_TOOLS,
+    tips: TIPS,
+    beadCells: BEAD_CELLS,
+    puzzleCells: PUZZLE_CELLS,
     nativeAdUnitId: '',
     showNativeAd: false,
   },
@@ -87,10 +101,27 @@ Page({
     this.setData({ showNativeAd: false });
   },
 
+  async refreshTools() {
+    let puzzleOn = true;
+    try {
+      const puzzleRes = await callFunction('puzzleGame', { action: 'status' }).catch(
+        () => null,
+      );
+      // 仅在云端明确关闭时隐藏；未部署/失败时仍展示入口
+      puzzleOn =
+        !(puzzleRes && puzzleRes.data) || puzzleRes.data.enabled !== false;
+    } catch (e) {
+      puzzleOn = true;
+    }
+    const tools = BASE_TOOLS.filter((item) => item.id !== 'puzzle' || puzzleOn);
+    this.setData({ tools });
+  },
+
   onLoad() {
     this.updateNavHeight();
     this.syncThemeUi();
     this.refreshNativeAd();
+    this.refreshTools();
     this._onFestivalChange = () => this.updateNavHeight();
     this._onThemeChange = () => this.syncThemeUi();
     this._onEntitlementChange = () => this.refreshNativeAd();
@@ -123,6 +154,7 @@ Page({
 
   onShow() {
     this.refreshNativeAd();
+    this.refreshTools();
     if (!this.data.festivalActive) {
       this.setData({ festivalActive: true });
     }
@@ -207,11 +239,8 @@ Page({
   goTool(e) {
     const url =
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) ||
-      '/pages/tools/bead/index';
+      '';
+    if (!url) return;
     wx.navigateTo({ url });
-  },
-
-  goBead() {
-    wx.navigateTo({ url: '/pages/tools/bead/index' });
   },
 });

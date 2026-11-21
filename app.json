@@ -38,7 +38,7 @@
     {
       "root": "pages/tools",
       "name": "tools",
-      "pages": ["bead/index"]
+      "pages": ["bead/index", "answerbook/index"]
     },
     {
       "root": "pages/history",

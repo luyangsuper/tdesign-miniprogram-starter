@@ -1,0 +1,12 @@
+Book SFX (CC0 / free for commercial use):
+
+Kenney RPG Audio (CC0, www.kenney.nl) via receptron/mulmocast-media:
+- close.mp3   bookClose.ogg
+- flip.mp3    bookFlip2.ogg
+- flip-a.mp3  bookFlip1.ogg
+- flip-b.mp3  bookFlip3.ogg
+- reveal.mp3  bookPlace1.ogg
+- riffle.mp3  concatenated bookFlip1/2/3
+
+open.mp3 — page-turn sample (CC0) from receptron/jinglescript samples/sfx
+(originally stable-audio-3 / mulmocast-media pack)

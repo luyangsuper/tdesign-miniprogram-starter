@@ -1,0 +1,125 @@
+<view class="ab-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
+  <festival-decor
+    id="festivalDecor"
+    mode="my"
+    active="{{festivalActive}}"
+    header-height="{{festHeaderPx}}"
+    nav-height="{{navHeight}}"
+  />
+  <t-navbar
+    fixed="{{true}}"
+    placeholder="{{true}}"
+    z-index="{{500}}"
+    left-arrow
+    custom-style="{{navBarStyle}}"
+    bind:go-back="onBack"
+  >
+    <view slot="title" class="ab__nav-title">答案之书</view>
+    <view slot="right" class="ab__nav-sound" bindtap="onToggleSound" hover-class="ab__nav-sound--hover">
+      <kubai-icon
+        name="{{soundMuted ? 'sound-mute' : 'sound'}}"
+        size="40rpx"
+        color="#694325"
+      />
+    </view>
+  </t-navbar>
+
+  <view class="ab">
+    <view class="ab__masthead">
+      <text class="ab__eyebrow">给自己的一分钟</text>
+      <text class="ab__title">答案之书</text>
+      <text class="ab__intro">默念问题，翻开书页看看</text>
+    </view>
+
+    <view class="ab__stage">
+      <view
+        class="scene {{phaseClass}}"
+        style="--turn-ms: {{turnMs}}ms; --cover-ms: {{coverMs}}ms;"
+        bindtap="onBookTap"
+      >
+        <view class="scene__glow" />
+
+        <view class="book">
+          <view class="book__spine" />
+
+          <view class="page page--left">
+            <view class="page__frame" />
+          </view>
+
+          <view class="page page--right">
+            <view class="page__frame" />
+            <!-- 答案写在右页，不被翻开的封面挡住；合上后清除 -->
+            <view class="page__answer {{hasAnswer ? 'is-show' : ''}}">
+              <text class="page__caption">此刻，给你的答案</text>
+              <view class="page__quote page__quote--{{answerSize}}">
+                <text
+                  wx:for="{{answerChars}}"
+                  wx:key="key"
+                  class="page__char"
+                  style="animation-delay: {{item.delay}};"
+                >{{item.ch}}</text>
+              </view>
+              <text class="page__hint">轻触书本可合上</text>
+            </view>
+          </view>
+
+          <view class="leaf leaf--a">
+            <view class="leaf__face leaf__face--front"><view class="page__frame" /></view>
+            <view class="leaf__face leaf__face--back"><view class="page__frame" /></view>
+          </view>
+          <view class="leaf leaf--b">
+            <view class="leaf__face leaf__face--front"><view class="page__frame" /></view>
+            <view class="leaf__face leaf__face--back"><view class="page__frame" /></view>
+          </view>
+          <view class="leaf leaf--c">
+            <view class="leaf__face leaf__face--front"><view class="page__frame" /></view>
+            <view class="leaf__face leaf__face--back"><view class="page__frame" /></view>
+          </view>
+
+          <view class="cover">
+            <view class="cover__front">
+              <text class="cover__edition">ONLINE EDITION</text>
+              <view class="cover__emblem">
+                <text class="cover__star">✦</text>
+              </view>
+              <text class="cover__name">答案之书</text>
+              <view class="cover__line" />
+              <text class="cover__kicker">来自宇宙的一点灵感</text>
+            </view>
+            <view class="cover__inside">
+              <view class="cover__inside-frame" />
+              <text class="cover__inside-star">✦</text>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{statusText}}" class="scene__status">{{statusText}}</view>
+      </view>
+    </view>
+
+    <view
+      wx:if="{{showNativeAd && nativeAdUnitId}}"
+      class="ab__ad"
+    >
+      <ad-custom
+        unit-id="{{nativeAdUnitId}}"
+        binderror="onNativeAdError"
+      />
+    </view>
+
+    <view class="ab__bar">
+      <text class="ab__status">{{hintText}}</text>
+      <view class="ab__actions">
+        <view
+          class="ab-btn ab-btn--ghost {{busy ? 'ab-btn--disabled' : ''}}"
+          bindtap="onSecondary"
+        >{{secondaryText}}</view>
+        <view
+          class="ab-btn ab-btn--solid {{busy ? 'ab-btn--disabled' : ''}}"
+          bindtap="onPrimary"
+        >{{primaryText}}</view>
+      </view>
+      <text class="ab__tip">轻触书本开合 · 翻页结束后阅读答案 · 仅供娱乐</text>
+    </view>
+  </view>
+</view>
