@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "合集草稿",
+  "navigationStyle": "default",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-tag": "tdesign-miniprogram/tag/tag",
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "fun-empty": "/components/fun-empty/index",
+    "lottery-host": "/components/lottery-host/index",
+    "kubai-icon": "/components/kubai-icon/index"
+  }
+}

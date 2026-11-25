@@ -131,6 +131,9 @@ exports.main = async (event) => {
         emojiFiles,
         emojiAnimFiles: contentType === 'emoji' ? emojiAnimFiles : [],
         notifiedAt: toMs(pack.notifiedAt),
+        publishAt: toMs(pack.publishAt),
+        notifyOnPublish: !!pack.notifyOnPublish,
+        scheduleError: pack.scheduleError || '',
       },
     };
   } catch (e) {

@@ -13,6 +13,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 
 const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
+const DRAFT_TITLE_FALLBACK = '未命名草稿';
 
 function getAdminList() {
   const fromEnv = process.env.ADMIN_OPENIDS || '';
@@ -45,8 +46,10 @@ exports.main = async (event) => {
   }
 
   const contentType = normalizeContentType(event.contentType);
-  const title = (event.title || '').trim();
-  const coverFileID = event.coverFileID;
+  const isDraft = event.status === 'draft';
+  const status = isDraft ? 'draft' : 'published';
+  let title = (event.title || '').trim();
+  const coverFileID = event.coverFileID ? String(event.coverFileID) : '';
   const previewFileIDs = Array.isArray(event.previewFileIDs) ? event.previewFileIDs.filter(Boolean) : [];
   // 暂时屏蔽预览视频 / 视频合集上传
   const previewVideoFileID = '';
@@ -58,23 +61,35 @@ exports.main = async (event) => {
         return id ? String(id) : '';
       })
     : emojiFileIDs.map(() => '');
-  const status = event.status === 'draft' ? 'draft' : 'published';
   const categoryId = String(event.categoryId || '').trim();
+  const rawPublishAt = Math.floor(Number(event.publishAt) || 0);
+  const publishAt = isDraft && rawPublishAt > 0 ? rawPublishAt : 0;
+  const notifyOnPublish = publishAt > 0;
+  const needReady = !isDraft || publishAt > 0;
 
   if (contentType === 'video') {
     return { ok: false, code: 'BAD_PARAM', message: '暂不支持上传视频合集' };
   }
   if (!title) {
-    return { ok: false, code: 'BAD_PARAM', message: '请填写标题' };
+    if (isDraft && !publishAt) {
+      title = DRAFT_TITLE_FALLBACK;
+    } else {
+      return { ok: false, code: 'BAD_PARAM', message: '请填写标题' };
+    }
   }
-  if (!coverFileID) {
-    return { ok: false, code: 'BAD_PARAM', message: '请上传封面' };
+  if (publishAt > 0 && publishAt < Date.now() + 60 * 1000) {
+    return { ok: false, code: 'BAD_PARAM', message: '定时时间需晚于现在至少 1 分钟' };
   }
-  if (!emojiFileIDs.length) {
-    return { ok: false, code: 'BAD_PARAM', message: originalsRequiredMessage(contentType) };
-  }
-  if (!isCategoryOptional(contentType) && !categoryId) {
-    return { ok: false, code: 'BAD_PARAM', message: '请选择分类' };
+  if (needReady) {
+    if (!coverFileID) {
+      return { ok: false, code: 'BAD_PARAM', message: '请上传封面' };
+    }
+    if (!emojiFileIDs.length) {
+      return { ok: false, code: 'BAD_PARAM', message: originalsRequiredMessage(contentType) };
+    }
+    if (!isCategoryOptional(contentType) && !categoryId) {
+      return { ok: false, code: 'BAD_PARAM', message: '请选择分类' };
+    }
   }
 
   try {
@@ -114,6 +129,9 @@ exports.main = async (event) => {
         categoryId: cat ? cat.id : '',
         categoryName: cat ? cat.name : '',
         status,
+        publishAt,
+        notifyOnPublish,
+        scheduleError: '',
         createdBy: OPENID,
         createdAt: db.serverDate(),
         updatedAt: db.serverDate(),
@@ -126,6 +144,9 @@ exports.main = async (event) => {
       data: {
         _id: addRes._id,
         title,
+        status,
+        publishAt,
+        notifyOnPublish,
         contentType,
         contentTypeName: contentTypeLabel(contentType),
         categoryName: cat ? cat.name : '',

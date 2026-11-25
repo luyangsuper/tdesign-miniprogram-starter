@@ -1,0 +1,9 @@
+{
+  "name": "adminListPacks",
+  "version": "1.0.0",
+  "description": "管理员合集列表（草稿/已发布）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

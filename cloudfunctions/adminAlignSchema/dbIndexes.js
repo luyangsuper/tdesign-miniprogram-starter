@@ -53,6 +53,15 @@ const PACK_INDEXES = [
       { name: 'createdAt', direction: '-1' },
     ],
   },
+  // 定时上架：扫 draft + publishAt <= now
+  {
+    name: 'status_publishAt',
+    unique: false,
+    keys: [
+      { name: 'status', direction: '1' },
+      { name: 'publishAt', direction: '1' },
+    ],
+  },
   {
     name: 'status_categoryId_createdAt',
     unique: false,

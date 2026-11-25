@@ -22,6 +22,65 @@ import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 const gridConfig = { column: 4, width: 160, height: 160 };
 const coverPickConfig = { count: 1, sizeType: ['original'], sourceType: ['album'] };
 
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function formatLocalDateTime(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+function defaultPublishAtLocal() {
+  return formatLocalDateTime(new Date(Date.now() + 60 * 60 * 1000));
+}
+
+function publishAtPickerRange() {
+  const start = new Date(Date.now() + 60 * 1000);
+  const end = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+  return {
+    publishAtStart: formatLocalDateTime(start),
+    publishAtEnd: formatLocalDateTime(end),
+  };
+}
+
+function parseLocalDateTime(s) {
+  if (typeof s === 'number' && Number.isFinite(s) && s > 0) {
+    return Math.floor(s);
+  }
+  const raw = String(s || '').trim();
+  if (!raw) return 0;
+  // 纯时间戳
+  if (/^\d{13}$/.test(raw)) {
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (/^\d{10}$/.test(raw)) {
+    const n = Number(raw) * 1000;
+    return Number.isFinite(n) ? n : 0;
+  }
+  // ISO 带 Z / 偏移：按绝对时刻解析，勿拆成「本地时分」
+  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) || /T\d{2}:\d{2}/.test(raw)) {
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t : 0;
+  }
+  // YYYY-MM-DD HH:mm[:ss]：按设备本地时区（上海）理解
+  const m = raw.match(
+    /^(\d{4})[-/](\d{2})[-/](\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/,
+  );
+  if (!m) return 0;
+  const d = new Date(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    Number(m[4]),
+    Number(m[5]),
+    Number(m[6] || 0),
+    0,
+  );
+  const t = d.getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
 function typeUi(contentType) {
   const type = normalizeContentType(contentType);
   const coverOptional = type === 'video';
@@ -99,6 +158,20 @@ Page({
     notifySubscribers: false,
     packNotifiedAt: 0,
     notifyHint: '排好序、内容定稿后再开；关闭则只上架不推送',
+    /** '' | draft | published；新建为空 */
+    packStatus: '',
+    /** 新建或编辑草稿时可存草稿 */
+    canSaveDraft: true,
+    primaryBtnText: '发布合集',
+    /** 定时发布（仅草稿） */
+    scheduleEnabled: false,
+    publishAtText: '',
+    /** 加载时的定时时间，用于判断是否「沿用原定时」 */
+    loadedPublishAt: 0,
+    publishAtPickerVisible: false,
+    publishAtStart: '',
+    publishAtEnd: '',
+    scheduleError: '',
     generatingCopy: false,
     pingingProxy: false,
     /** 默认关：不生成公众号长文，省 token */
@@ -112,9 +185,14 @@ Page({
   onLoad(options) {
     if (!guardAdminPage()) return;
     const packId = options.id || '';
-    this.setData({ themeStyle: getThemeStyle() });
+    this.setData({
+      themeStyle: getThemeStyle(),
+      canSaveDraft: true,
+      publishAtText: defaultPublishAtLocal(),
+      primaryBtnText: this.buildPrimaryBtnText(false, '', false, false),
+    });
     if (packId) {
-      this.setData({ packId, isEdit: true });
+      this.setData({ packId, isEdit: true, canSaveDraft: false });
       wx.setNavigationBarTitle({ title: '编辑合集' });
       this.loadPack(packId);
     }
@@ -184,6 +262,19 @@ Page({
         });
         return;
       }
+      const packStatus = pack.status === 'draft' ? 'draft' : 'published';
+      const canSaveDraft = packStatus === 'draft';
+      const publishAtMs = (() => {
+        const raw = pack.publishAt;
+        if (!raw) return 0;
+        if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+        const ms = new Date(raw).getTime();
+        return Number.isFinite(ms) ? ms : 0;
+      })();
+      const scheduleEnabled = canSaveDraft && publishAtMs > 0;
+      wx.setNavigationBarTitle({
+        title: packStatus === 'draft' ? '编辑草稿' : '编辑合集',
+      });
       this.setData({
         title: pack.title || '',
         description: pack.description || '',
@@ -209,6 +300,20 @@ Page({
         notifySubscribers: false,
         packNotifiedAt,
         notifyHint: this.buildNotifyHint(packNotifiedAt),
+        packStatus,
+        canSaveDraft,
+        scheduleEnabled,
+        publishAtText: scheduleEnabled
+          ? formatLocalDateTime(new Date(publishAtMs))
+          : defaultPublishAtLocal(),
+        loadedPublishAt: scheduleEnabled ? publishAtMs : 0,
+        scheduleError: pack.scheduleError || '',
+        primaryBtnText: this.buildPrimaryBtnText(
+          true,
+          packStatus,
+          false,
+          scheduleEnabled,
+        ),
         loadingPack: false,
       });
       wx.hideLoading();
@@ -228,7 +333,76 @@ Page({
 
   onNotifyChange(e) {
     const on = !!(e.detail && e.detail.value);
-    this.setData({ notifySubscribers: on });
+    this.setData({
+      notifySubscribers: on,
+      primaryBtnText: this.buildPrimaryBtnText(
+        this.data.isEdit,
+        this.data.packStatus,
+        on,
+        this.data.scheduleEnabled,
+      ),
+    });
+  },
+
+  onScheduleChange(e) {
+    if (!this.data.canSaveDraft) return;
+    const on = !!(e.detail && e.detail.value);
+    const patch = {
+      scheduleEnabled: on,
+      scheduleError: '',
+      primaryBtnText: this.buildPrimaryBtnText(
+        this.data.isEdit,
+        this.data.packStatus,
+        this.data.notifySubscribers,
+        on,
+      ),
+    };
+    if (on && !this.data.publishAtText) {
+      patch.publishAtText = defaultPublishAtLocal();
+    }
+    // 开定时后到点必推；关定时恢复手动通知开关
+    if (on) {
+      patch.notifySubscribers = true;
+    }
+    this.setData(patch);
+  },
+
+  onOpenPublishAtPicker() {
+    if (!this.data.canSaveDraft || !this.data.scheduleEnabled) return;
+    const range = publishAtPickerRange();
+    let publishAtText = this.data.publishAtText || defaultPublishAtLocal();
+    const current = parseLocalDateTime(publishAtText);
+    const minAt = parseLocalDateTime(range.publishAtStart);
+    if (!current || current < minAt) {
+      publishAtText = defaultPublishAtLocal();
+    }
+    this.setData({
+      ...range,
+      publishAtText,
+      publishAtPickerVisible: true,
+    });
+  },
+
+  onClosePublishAtPicker() {
+    this.setData({ publishAtPickerVisible: false });
+  },
+
+  onPublishAtConfirm(e) {
+    const value = (e.detail && e.detail.value) || '';
+    this.setData({
+      publishAtText: value || this.data.publishAtText,
+      publishAtPickerVisible: false,
+      scheduleError: '',
+    });
+  },
+
+  buildPrimaryBtnText(isEdit, packStatus, notifyOn, scheduleOn) {
+    const published = isEdit && packStatus === 'published';
+    if (published) {
+      return notifyOn ? '保存并通知' : '保存修改';
+    }
+    if (scheduleOn) return '定时发布';
+    return notifyOn ? '发布并通知' : '发布合集';
   },
 
   onAiIncludeArticleChange(e) {
@@ -825,7 +999,14 @@ Page({
     return ids;
   },
 
-  async onSubmit() {
+  onSaveDraft() {
+    this.onSubmit({ currentTarget: { dataset: { mode: 'draft' } } });
+  },
+
+  async onSubmit(e) {
+    let mode =
+      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.mode) ||
+      'publish';
     const {
       title,
       coverFiles,
@@ -836,8 +1017,24 @@ Page({
       categoryId,
       contentType,
       originalsLabel: originalsName,
+      canSaveDraft,
+      scheduleEnabled,
+      publishAtText,
     } = this.data;
     if (submitting) return;
+
+    // 开了定时且点主按钮 → 定时发布（仍存草稿，到点上架）
+    if (mode === 'publish' && canSaveDraft && scheduleEnabled) {
+      mode = 'schedule';
+    }
+
+    const isDraft = mode === 'draft' || mode === 'schedule';
+    const needReady = mode === 'publish' || mode === 'schedule';
+
+    if (isDraft && !canSaveDraft) {
+      wx.showToast({ title: '已发布合集请直接保存修改', icon: 'none' });
+      return;
+    }
     const type = normalizeContentType(contentType);
     const emojiOnly = isEmojiType(type);
 
@@ -845,27 +1042,50 @@ Page({
       wx.showToast({ title: '暂不支持上传视频合集', icon: 'none' });
       return;
     }
-    if (!title.trim()) {
-      wx.showToast({ title: '请填写标题', icon: 'none' });
-      return;
+
+    let publishAt = 0;
+    if (mode === 'schedule' || (mode === 'draft' && scheduleEnabled)) {
+      publishAt = parseLocalDateTime(publishAtText);
+      if (!publishAt) {
+        wx.showToast({ title: '请选择发布时间', icon: 'none' });
+        return;
+      }
+      const loadedAt = Number(this.data.loadedPublishAt) || 0;
+      const sameAsLoaded = loadedAt > 0 && publishAt === loadedAt;
+      // 新设定时 / 改时间：必须晚于现在；沿用原定时（含即将到点）允许存草稿
+      if (!sameAsLoaded && publishAt < Date.now() + 60 * 1000) {
+        wx.showToast({ title: '定时需晚于现在至少 1 分钟', icon: 'none' });
+        return;
+      }
+      if (mode === 'schedule' && sameAsLoaded && publishAt < Date.now() + 60 * 1000) {
+        wx.showToast({ title: '请选择更晚的时间，或关闭定时后立即发布', icon: 'none' });
+        return;
+      }
     }
-    if (!isCategoryOptional(type) && !categoryId) {
-      wx.showToast({ title: '请选择分类', icon: 'none' });
-      return;
-    }
-    if (!coverFiles.length) {
-      wx.showToast({ title: '请上传封面', icon: 'none' });
-      return;
-    }
-    if (!emojiFiles.length) {
-      wx.showToast({ title: `请上传${originalsName || '原图'}`, icon: 'none' });
-      return;
+
+    if (needReady) {
+      if (!title.trim()) {
+        wx.showToast({ title: '请填写标题', icon: 'none' });
+        return;
+      }
+      if (!isCategoryOptional(type) && !categoryId) {
+        wx.showToast({ title: '请选择分类', icon: 'none' });
+        return;
+      }
+      if (!coverFiles.length) {
+        wx.showToast({ title: '请上传封面', icon: 'none' });
+        return;
+      }
+      if (!emojiFiles.length) {
+        wx.showToast({ title: `请上传${originalsName || '原图'}`, icon: 'none' });
+        return;
+      }
     }
 
     const { images: previewImages } = splitPreviewMedia(previewFiles);
     const animForPair = emojiOnly ? emojiAnimFiles : [];
     const paired = pairByIndex(previewImages, emojiFiles, animForPair);
-    if (!paired.pairs.length) {
+    if (needReady && !paired.pairs.length) {
       wx.showToast({ title: `请上传${originalsName || '原图'}`, icon: 'none' });
       return;
     }
@@ -874,9 +1094,12 @@ Page({
       ...paired,
       previewImages,
       previewVideo: null,
+      mode,
+      publishAt,
     };
 
     if (
+      needReady &&
       emojiOnly &&
       emojiAnimFiles.length &&
       emojiAnimFiles.length !== emojiFiles.length
@@ -966,6 +1189,10 @@ Page({
   async doSubmit(paired) {
     const previewImages = paired.previewImages || paired.orderedPreviews || [];
     const previewVideo = paired.previewVideo || null;
+    const mode = paired.mode || 'publish';
+    const isSchedule = mode === 'schedule';
+    const isDraft = mode === 'draft' || isSchedule;
+    const publishAt = Number(paired.publishAt) || 0;
     const {
       packId,
       isEdit,
@@ -981,9 +1208,12 @@ Page({
       coverHeight,
       notifySubscribers,
       packNotifiedAt,
+      packStatus,
+      scheduleEnabled,
     } = this.data;
     const wasEdit = isEdit;
-    const shouldNotify = !!notifySubscribers;
+    // 定时到点由云函数推送；立即发布才在这里推
+    const shouldNotify = !isDraft && !!notifySubscribers;
     const type = normalizeContentType(contentType);
     const emojiOnly = isEmojiType(type);
     const coverPlan = this.resolveCoverPlanForSubmit(
@@ -1009,7 +1239,14 @@ Page({
     }
 
     this.setData({ submitting: true });
-    wx.showLoading({ title: isEdit ? '保存中...' : '上传中...', mask: true });
+    const loadingTitle = isSchedule
+      ? '设定定时中...'
+      : isDraft
+        ? '存草稿中...'
+        : isEdit
+          ? '保存中...'
+          : '上传中...';
+    wx.showLoading({ title: loadingTitle, mask: true });
 
     try {
       const animFilesToUpload = (paired.orderedAnims || []).filter(Boolean);
@@ -1017,7 +1254,7 @@ Page({
         await Promise.all([
           this.resolveFileIds(coverFiles, 'cover'),
           this.resolveFileIds(previewImages.filter(Boolean), 'preview'),
-          this.resolveFileIds(paired.orderedStatics, 'emoji'),
+          this.resolveFileIds(paired.orderedStatics || [], 'emoji'),
           this.resolveFileIds(animFilesToUpload, 'emoji-anim'),
         ]);
       // 暂时屏蔽预览视频：保存时清空，顺带去掉历史预览视频
@@ -1027,7 +1264,7 @@ Page({
       if (!coverFileID && coverPlan.reusePreviewCover) {
         coverFileID = previewFileIDs.find(Boolean) || '';
       }
-      if (!coverFileID) {
+      if (!coverFileID && !isDraft) {
         throw new Error('请上传封面');
       }
 
@@ -1070,8 +1307,11 @@ Page({
         h = 0;
       }
 
+      const nextStatus = isDraft ? 'draft' : 'published';
+      const nextPublishAt =
+        isDraft && (isSchedule || scheduleEnabled) && publishAt > 0 ? publishAt : 0;
       const payload = {
-        title: title.trim(),
+        title: (title || '').trim(),
         description: (description || '').replace(/\r\n/g, '\n').trim(),
         contentType: type,
         staticDriveUrl: (staticDriveUrl || '').trim(),
@@ -1084,25 +1324,76 @@ Page({
         previewVideoFileID,
         emojiFileIDs,
         emojiAnimFileIDs: emojiOnly ? emojiAnimFileIDs : emojiFileIDs.map(() => ''),
-        pairKeys: paired.pairKeys,
-        status: 'published',
+        pairKeys: paired.pairKeys || [],
+        status: nextStatus,
+        publishAt: nextPublishAt,
+        notifyOnPublish: nextPublishAt > 0,
+        clearSchedule: nextPublishAt <= 0,
       };
 
       let savedPackId = packId;
+      let savedTitle = payload.title;
+      let savedPublishAt = nextPublishAt;
       if (wasEdit) {
-        await callFunction('adminUpdatePack', { ...payload, packId });
+        const updated = await callFunction('adminUpdatePack', { ...payload, packId });
+        if (updated && updated.data && Object.prototype.hasOwnProperty.call(updated.data, 'publishAt')) {
+          savedPublishAt = Math.floor(Number(updated.data.publishAt) || 0);
+        } else if (isSchedule || nextPublishAt > 0) {
+          throw new Error('定时字段未生效，请重新上传部署 adminUpdatePack');
+        }
       } else {
         const created = await callFunction('adminCreatePack', payload);
         const newId = created && created.data && created.data._id;
+        if (created && created.data && created.data.title) {
+          savedTitle = created.data.title;
+        }
+        if (created && created.data && Object.prototype.hasOwnProperty.call(created.data, 'publishAt')) {
+          savedPublishAt = Math.floor(Number(created.data.publishAt) || 0);
+        } else if (isSchedule || nextPublishAt > 0) {
+          throw new Error('定时字段未生效，请重新上传部署 adminCreatePack');
+        }
         if (newId) {
           savedPackId = newId;
-          this.setData({ packId: newId, isEdit: true });
-          wx.setClipboardData({ data: newId });
+          if (!isDraft) {
+            wx.setClipboardData({ data: newId });
+          }
         }
       }
 
+      const nextPackStatus = nextStatus;
+      const nextScheduleOn = nextPackStatus === 'draft' && savedPublishAt > 0;
+      const patch = {
+        packId: savedPackId || packId,
+        isEdit: true,
+        packStatus: nextPackStatus,
+        canSaveDraft: nextPackStatus === 'draft',
+        scheduleEnabled: nextScheduleOn,
+        scheduleError: '',
+        primaryBtnText: this.buildPrimaryBtnText(
+          true,
+          nextPackStatus,
+          false,
+          nextScheduleOn,
+        ),
+        notifySubscribers: isDraft ? this.data.notifySubscribers : false,
+      };
+      if (nextScheduleOn) {
+        patch.publishAtText = formatLocalDateTime(new Date(savedPublishAt));
+        patch.loadedPublishAt = savedPublishAt;
+        patch.notifySubscribers = true;
+      } else {
+        patch.loadedPublishAt = 0;
+      }
+      if (isDraft && !payload.title && savedTitle) {
+        patch.title = savedTitle;
+      }
+      this.setData(patch);
+      wx.setNavigationBarTitle({
+        title: nextPackStatus === 'draft' ? '编辑草稿' : '编辑合集',
+      });
+
       // 发布后立刻写入本地比例，首页 force 刷新时可先于图片 load 用上
-      if (savedPackId && w > 0 && h > 0) {
+      if (!isDraft && savedPackId && w > 0 && h > 0) {
         try {
           wx.setStorageSync(`coverRatio_${savedPackId}`, h / w);
         } catch (err) {
@@ -1141,14 +1432,55 @@ Page({
 
       try {
         if (savedPackId) invalidatePackTempUrls(savedPackId);
-        getApp().globalData.homeNeedRefresh = true;
-      } catch (e) {
+        if (!isDraft) getApp().globalData.homeNeedRefresh = true;
+      } catch (err) {
         /* ignore */
       }
 
       wx.hideLoading();
+      if (isSchedule) {
+        if (!savedPublishAt) {
+          wx.showToast({
+            title: '定时未写入，请检查云函数是否已部署',
+            icon: 'none',
+            duration: 2500,
+          });
+          return;
+        }
+        wx.showToast({
+          title: `已设定 ${formatLocalDateTime(new Date(savedPublishAt))} 上架并通知`,
+          icon: 'success',
+          duration: 2200,
+        });
+        setTimeout(() => {
+          wx.navigateBack({
+            fail: () =>
+              wx.navigateTo({
+                url: '/pages/admin/drafts/index',
+                fail: () => wx.switchTab({ url: '/pages/my/index' }),
+              }),
+          });
+        }, 900);
+        return;
+      }
+      if (isDraft) {
+        wx.showToast({
+          title: wasEdit || packStatus === 'draft' ? '草稿已保存' : '已存为草稿',
+          icon: 'success',
+          duration: 1800,
+        });
+        return;
+      }
+
+      const publishedFromDraft = packStatus === 'draft';
       wx.showToast({
-        title: `${wasEdit ? '已保存' : '已发布，作品 ID 已复制'}${notifyTip}`,
+        title: `${
+          wasEdit && !publishedFromDraft
+            ? '已保存'
+            : wasEdit
+              ? '已发布'
+              : '已发布，作品 ID 已复制'
+        }${notifyTip}`,
         icon: 'success',
         duration: 2200,
       });
@@ -1157,9 +1489,9 @@ Page({
           fail: () => wx.switchTab({ url: '/pages/home/index' }),
         });
       }, 900);
-    } catch (e) {
+    } catch (err) {
       wx.hideLoading();
-      wx.showToast({ title: e.message || '操作失败', icon: 'none' });
+      wx.showToast({ title: err.message || '操作失败', icon: 'none' });
     } finally {
       this.setData({ submitting: false });
     }

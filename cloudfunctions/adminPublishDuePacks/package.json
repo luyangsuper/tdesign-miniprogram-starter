@@ -1,0 +1,10 @@
+{
+  "name": "adminPublishDuePacks",
+  "version": "1.0.0",
+  "description": "定时上架到期草稿并推送订阅通知",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -10,6 +10,7 @@
       "name": "admin",
       "pages": [
         "upload/index",
+        "drafts/index",
         "categories/index",
         "codes/index",
         "users/index",

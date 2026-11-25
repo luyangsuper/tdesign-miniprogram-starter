@@ -377,6 +377,18 @@ async function fetchRecommendPacks({
  * mode=newest：纯最新
  * mode=recommend：详情页推荐（同角色优先随机）
  */
+/** 首页拉列表前冲刷到期定时合集（定时器漏跑时也能上架） */
+async function flushDuePacksQuiet() {
+  try {
+    await cloud.callFunction({
+      name: 'adminPublishDuePacks',
+      data: { action: 'flush' },
+    });
+  } catch (e) {
+    console.warn('[listPacks] flushDuePacks', e.message || e);
+  }
+}
+
 exports.main = async (event = {}) => {
   const page = Math.max(1, Number(event.page) || 1);
   const pageSize = Math.min(20, Math.max(1, Number(event.pageSize) || 10));
@@ -402,6 +414,10 @@ exports.main = async (event = {}) => {
         : 'mixed';
 
   try {
+    // 仅首页首屏混排时冲刷，避免每次翻页都打一次
+    if (page === 1 && mode === 'mixed' && !keyword) {
+      await flushDuePacksQuiet();
+    }
     if (mode === 'recommend') {
       const packs = await fetchRecommendPacks({
         excludePackId,

@@ -119,6 +119,9 @@
     &__copy {
       flex-shrink: 0;
       margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12rpx;
     }
 
     &__label {
@@ -239,6 +242,37 @@
 
   &__actions {
     margin-top: 32rpx;
+    display: flex;
+    flex-direction: column;
+    gap: 20rpx;
+  }
+
+  &__schedule {
+    margin-top: 20rpx;
+  }
+
+  &__schedule-pick {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16rpx;
+    min-height: 72rpx;
+    padding: 0 20rpx;
+    border-radius: 12rpx;
+    background: var(--td-bg-color-secondarycontainer);
+    box-sizing: border-box;
+  }
+
+  &__schedule-text {
+    .ui-body();
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__schedule-err {
+    .ui-caption();
+    margin-top: 12rpx;
+    color: var(--td-error-color);
   }
 
   .block--warn .file-grid__item.is-dragging .file-grid__thumb,

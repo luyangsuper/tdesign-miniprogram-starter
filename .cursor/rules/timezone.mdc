@@ -1,0 +1,53 @@
+---
+description: 时间一律按中国（Asia/Shanghai）理解与展示；云函数禁止用本地 getHours 直接格式化
+alwaysApply: true
+---
+
+# 时间与时区（强制）
+
+本项目面向中国用户。云函数运行环境默认 **UTC**，手机端是 **本地时区（上海 UTC+8）**。混用会把 `09:20` 显示成 `01:20`，定时任务也会对不齐。
+
+## 原则
+
+1. **存库**：优先存 **毫秒时间戳**（`Number` / `Date.now()`），表示绝对时刻，不要存「无时区的日期字符串」当唯一真相。
+2. **展示给用户**：必须按 **Asia/Shanghai**（或客户端本地时区）格式化成 `YYYY-MM-DD HH:mm`。
+3. **比较是否到期**：用绝对毫秒互比（`publishAt <= Date.now()`），不要比格式化后的字符串。
+4. **用户输入**（`t-date-time-picker` 的 `YYYY-MM-DD HH:mm`）：按 **设备本地时区** 解析成毫秒；带 `Z` / 偏移的 ISO 用 `new Date(iso)` 按绝对时刻解析，禁止拆数字再当本地时分。
+
+## 云函数里禁止
+
+```js
+// ❌ 云函数 UTC 下 getHours() → 北京 09:20 变成 01:20
+const d = new Date(ms);
+return `${d.getFullYear()}-… ${d.getHours()}:${d.getMinutes()}`;
+```
+
+```js
+// ✅ 明确上海时区
+new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+}).formatToParts(new Date(ms));
+// 或项目里已有 dayjs + timezone（Asia/Shanghai），如 notifyNewPack/time.js
+```
+
+## 小程序端
+
+- 列表若拿到云函数返回的时间文案，**优先用 `publishAt` / `updatedAt` 毫秒在本地再格式化**，不要盲信云端拼好的字符串。
+- 复用上传页 / 草稿页已有的 `formatLocalDateTime` / `parseLocalDateTime` 思路，不要再写一套 UTC 假设。
+
+## 定时任务
+
+- 云定时器不可靠时，必须有 **懒触发**（打开草稿箱 / 首页 listPacks 冲刷到期任务），参考抽奖懒开奖。
+- 上架扫描逻辑不要依赖可能缺失的复合索引；草稿量小可直接 `status=draft` 再内存过滤 `publishAt`。
+- 定时云函数入口尽量少依赖（如 dayjs）；核心路径缺依赖也不能导致整函数无法启动。
+
+## 自检
+
+改定时发布、开奖时间、订阅消息 `time*` 字段、任何「到点执行」前问自己：
+
+- 写入的是绝对毫秒吗？
+- 展示是否强制上海时区？
+- 云函数里有没有裸用 `getHours()` / `toLocaleString()` 却没传 `timeZone`？
+- 到点后若不靠定时器，懒触发会不会补上？

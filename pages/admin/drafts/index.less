@@ -1,0 +1,146 @@
+@import '/variable.less';
+
+.drafts-page {
+  min-height: 100vh;
+  background: var(--td-bg-color-page);
+  padding: 16rpx 24rpx 180rpx;
+  color: var(--td-text-color-primary);
+  box-sizing: border-box;
+
+  &__tip {
+    .ui-caption();
+    margin-bottom: 20rpx;
+    line-height: 1.5;
+  }
+
+  &__tip-count {
+    color: var(--td-brand-color);
+    font-weight: 600;
+  }
+
+  &__state {
+    width: 100%;
+    min-height: 52vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__card {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    padding: 20rpx;
+    margin-bottom: 16rpx;
+    border-radius: 20rpx;
+    background: var(--td-bg-color-container);
+    box-sizing: border-box;
+
+    &--press {
+      opacity: 0.88;
+    }
+  }
+
+  &__cover {
+    width: 128rpx;
+    height: 128rpx;
+    border-radius: 16rpx;
+    flex-shrink: 0;
+    background: var(--td-bg-color-secondarycontainer);
+
+    &--empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  &__meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8rpx;
+  }
+
+  &__title {
+    .ui-strong();
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__meta-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10rpx;
+    min-width: 0;
+  }
+
+  /* 与首页 pack-card 类型胶囊同款思路 */
+  &__type {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 4rpx;
+    height: 36rpx;
+    box-sizing: border-box;
+    padding: 0 10rpx 0 6rpx;
+    border-radius: 999rpx;
+    background: rgba(7, 193, 96, 0.12);
+    flex-shrink: 0;
+  }
+
+  &__type-icon {
+    width: 22rpx;
+    height: 22rpx;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  &__type-text {
+    display: block;
+    height: 22rpx;
+    font-size: 20rpx;
+    line-height: 22rpx;
+    font-weight: 500;
+    color: inherit;
+  }
+
+  &__count {
+    .ui-caption();
+    flex-shrink: 0;
+  }
+
+  &__time {
+    .ui-caption();
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__time--err {
+    color: var(--td-error-color);
+    white-space: normal;
+  }
+
+  &__side {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12rpx;
+  }
+
+  &__fab {
+    position: fixed;
+    left: 24rpx;
+    right: 24rpx;
+    bottom: 48rpx;
+  }
+}

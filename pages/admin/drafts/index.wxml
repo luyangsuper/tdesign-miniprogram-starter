@@ -1,0 +1,85 @@
+<page-meta page-style="{{themeStyle}}" />
+<view class="drafts-page" style="{{themeStyle}}">
+  <view class="drafts-page__tip">
+    未上架的合集都在这里。可继续改后发布，或设定时到点自动上架并通知。共
+    <text class="drafts-page__tip-count">{{total}}</text>
+    条草稿。
+  </view>
+
+  <view class="drafts-page__state" wx:if="{{loading}}">
+    <t-loading theme="circular" size="48rpx" text="加载中" />
+  </view>
+
+  <block wx:elif="{{list.length}}">
+    <view
+      class="drafts-page__card"
+      wx:for="{{list}}"
+      wx:key="_id"
+      data-id="{{item._id}}"
+      bind:tap="onOpen"
+      hover-class="drafts-page__card--press"
+    >
+      <image
+        wx:if="{{item.coverUrl}}"
+        class="drafts-page__cover"
+        src="{{item.coverUrl}}"
+        mode="aspectFill"
+      />
+      <view wx:else class="drafts-page__cover drafts-page__cover--empty">
+        <kubai-icon name="image" size="48rpx" color="#999999" />
+      </view>
+
+      <view class="drafts-page__meta">
+        <text class="drafts-page__title">{{item.title}}</text>
+        <view class="drafts-page__meta-row">
+          <view class="drafts-page__type" style="{{item.typeStyle}}">
+            <image
+              class="drafts-page__type-icon"
+              src="{{item.typeIconSrc}}"
+              mode="aspectFit"
+            />
+            <text class="drafts-page__type-text">{{item.contentTypeName}}</text>
+          </view>
+          <t-tag
+            wx:if="{{item.categoryName}}"
+            size="small"
+            variant="light"
+            theme="default"
+            custom-style="{{item.categoryStyle}}"
+          >{{item.categoryName}}</t-tag>
+          <text class="drafts-page__count">{{item.countText}}</text>
+        </view>
+        <text class="drafts-page__time" wx:if="{{item.hasSchedule}}">定时 {{item.publishAtText}} 上架并通知</text>
+        <text class="drafts-page__time drafts-page__time--err" wx:elif="{{item.scheduleError}}">{{item.scheduleError}}</text>
+        <text class="drafts-page__time" wx:elif="{{item.updatedText}}">更新于 {{item.updatedText}}</text>
+      </view>
+
+      <view class="drafts-page__side" catch:tap="noop">
+        <t-button
+          size="extra-small"
+          variant="outline"
+          theme="danger"
+          content="删除"
+          data-id="{{item._id}}"
+          data-title="{{item.title}}"
+          loading="{{deletingId === item._id}}"
+          disabled="{{!!deletingId}}"
+          catch:tap="onDelete"
+        />
+        <kubai-icon name="chevron-right" size="40rpx" color="#999999" />
+      </view>
+    </view>
+  </block>
+
+  <view class="drafts-page__state" wx:else>
+    <fun-empty description="暂无草稿" />
+  </view>
+
+  <view class="drafts-page__fab">
+    <t-button theme="primary" size="large" block icon="add" bind:tap="onCreate">
+      新建合集
+    </t-button>
+  </view>
+
+  <lottery-host />
+</view>

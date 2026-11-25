@@ -71,6 +71,12 @@
     <view class="block__head">
       <view class="block__label block__label--inline">作品 ID</view>
       <view class="block__copy">
+        <t-tag
+          wx:if="{{packStatus === 'draft'}}"
+          size="small"
+          variant="light"
+          theme="warning"
+        >草稿</t-tag>
         <t-button
           size="small"
           variant="outline"
@@ -385,29 +391,78 @@
     </view>
   </view>
 
+  <view class="block" wx:if="{{canSaveDraft}}">
+    <view class="block__label">定时发布</view>
+    <view class="block__tip block__tip--tight">到点自动上架，并推送给已订阅用户</view>
+    <view class="upload-page__notify-row">
+      <text class="upload-page__notify-label">开启定时发布</text>
+      <t-switch
+        value="{{scheduleEnabled}}"
+        disabled="{{submitting || loadingPack}}"
+        bind:change="onScheduleChange"
+      />
+    </view>
+    <view wx:if="{{scheduleEnabled}}" class="upload-page__schedule">
+      <view class="upload-page__schedule-pick" bind:tap="onOpenPublishAtPicker">
+        <text class="upload-page__schedule-text">{{publishAtText || '请选择发布时间'}}</text>
+        <kubai-icon name="chevron-right" size="40rpx" color="#999999" />
+      </view>
+      <view wx:if="{{scheduleError}}" class="upload-page__schedule-err">{{scheduleError}}</view>
+    </view>
+  </view>
+
   <view class="block">
     <view class="block__label">订阅通知</view>
-    <view class="block__tip block__tip--tight">{{notifyHint}}</view>
+    <view class="block__tip block__tip--tight">
+      {{scheduleEnabled ? '定时上架时会自动推送，无需再开' : (canSaveDraft ? '立即发布时才会推送；存草稿不会通知' : notifyHint)}}
+    </view>
     <view class="upload-page__notify-row">
-      <text class="upload-page__notify-label">保存后通知已订阅用户</text>
+      <text class="upload-page__notify-label">{{canSaveDraft ? (scheduleEnabled ? '到点自动通知已订阅用户' : '发布后通知已订阅用户') : '保存后通知已订阅用户'}}</text>
       <t-switch
         value="{{notifySubscribers}}"
-        disabled="{{submitting || loadingPack}}"
+        disabled="{{submitting || loadingPack || scheduleEnabled}}"
         bind:change="onNotifyChange"
       />
     </view>
   </view>
 
+  <t-date-time-picker
+    title="选择发布时间"
+    visible="{{publishAtPickerVisible}}"
+    mode="minute"
+    format="YYYY-MM-DD HH:mm"
+    value="{{publishAtText}}"
+    start="{{publishAtStart}}"
+    end="{{publishAtEnd}}"
+    auto-close
+    bind:change="onPublishAtConfirm"
+    bind:cancel="onClosePublishAtPicker"
+    bind:close="onClosePublishAtPicker"
+  />
+
   <view class="upload-page__actions">
     <t-button
-      theme="primary"
+      wx:if="{{canSaveDraft}}"
+      theme="default"
+      variant="outline"
       size="large"
       block
       loading="{{submitting}}"
       disabled="{{submitting || loadingPack}}"
+      bindtap="onSaveDraft"
+    >
+      存为草稿
+    </t-button>
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      data-mode="publish"
+      loading="{{submitting}}"
+      disabled="{{submitting || loadingPack}}"
       bindtap="onSubmit"
     >
-      {{isEdit ? (notifySubscribers ? '保存并通知' : '保存修改') : (notifySubscribers ? '发布并通知' : '发布合集')}}
+      {{primaryBtnText}}
     </t-button>
   </view>
 

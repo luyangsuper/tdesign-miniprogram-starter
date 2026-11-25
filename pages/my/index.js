@@ -2111,6 +2111,11 @@ Page({
     wx.navigateTo({ url: '/pages/admin/upload/index' });
   },
 
+  goDrafts() {
+    if (!resolveIsAdmin()) return;
+    wx.navigateTo({ url: '/pages/admin/drafts/index' });
+  },
+
   goCategories() {
     if (!resolveIsAdmin()) return;
     wx.navigateTo({ url: '/pages/admin/categories/index' });
