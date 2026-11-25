@@ -8,6 +8,9 @@ const DEFAULT_COSTS = {
   wallpaper: 4,
   avatar: 4,
   video: 8,
+  /** 素材库高质量：动图 / 静图（可被 lib_sources.costs 覆盖） */
+  libraryAnim: 4,
+  libraryStatic: 2,
 };
 
 const DOWNLOAD_COSTS_KEY = 'download_costs';
@@ -34,6 +37,14 @@ export function setDownloadCosts(costs = {}) {
     wallpaper: Math.max(1, Number(costs.wallpaper) || DEFAULT_COSTS.wallpaper),
     avatar: Math.max(1, Number(costs.avatar) || DEFAULT_COSTS.avatar),
     video: Math.max(1, Number(costs.video) || DEFAULT_COSTS.video),
+    libraryAnim: Math.max(
+      1,
+      Number(costs.libraryAnim) || DEFAULT_COSTS.libraryAnim,
+    ),
+    libraryStatic: Math.max(
+      1,
+      Number(costs.libraryStatic) || DEFAULT_COSTS.libraryStatic,
+    ),
   };
   try {
     wx.setStorageSync(DOWNLOAD_COSTS_KEY, next);
@@ -67,6 +78,8 @@ export function applyDownloadCostsFromSettings(settings = {}) {
       wallpaper: settings.costWallpaper,
       avatar: settings.costAvatar,
       video: settings.costVideo,
+      libraryAnim: settings.costLibraryAnim,
+      libraryStatic: settings.costLibraryStatic,
     });
   }
   return costTable();
@@ -74,13 +87,28 @@ export function applyDownloadCostsFromSettings(settings = {}) {
 
 /**
  * 积分单价。
- * @param {string} costKey static|anim|wallpaper|avatar|video
+ * @param {string} costKey static|anim|wallpaper|avatar|video|libraryAnim|libraryStatic
  */
 export function downloadCost(costKey) {
   const costs = costTable();
   const key = String(costKey || 'static');
+  // 旧 key 兼容
+  if (key === 'library') {
+    return Number(costs.libraryAnim) > 0
+      ? costs.libraryAnim
+      : DEFAULT_COSTS.libraryAnim;
+  }
   const n = Number(costs[key]);
   return n > 0 ? n : costs.static || 1;
+}
+
+/** 素材库格式 → 扣费 key（gif/lottie=动图） */
+export function resolveLibraryCostKey(format) {
+  const f = String(format || '')
+    .trim()
+    .toLowerCase();
+  if (f === 'gif' || f === 'lottie' || f === 'json') return 'libraryAnim';
+  return 'libraryStatic';
 }
 
 /**

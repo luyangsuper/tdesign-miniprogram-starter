@@ -204,6 +204,8 @@ exports.main = async (event = {}) => {
         wallpaper: settings.costWallpaper,
         avatar: settings.costAvatar,
         video: settings.costVideo,
+        libraryAnim: settings.costLibraryAnim || 4,
+        libraryStatic: settings.costLibraryStatic || 2,
       };
       costBeadExport = settings.costBeadExport;
       costBeadAdvanced = settings.costBeadAdvanced;
@@ -278,6 +280,8 @@ exports.main = async (event = {}) => {
       wallpaper: settings.costWallpaper,
       avatar: settings.costAvatar,
       video: settings.costVideo,
+      libraryAnim: settings.costLibraryAnim || 4,
+      libraryStatic: settings.costLibraryStatic || 2,
     };
     costBeadExport = settings.costBeadExport;
     costBeadAdvanced = settings.costBeadAdvanced;

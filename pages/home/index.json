@@ -10,6 +10,7 @@
     "t-dialog": "tdesign-miniprogram/dialog/dialog",
     "t-popup": "tdesign-miniprogram/popup/popup",
     "t-button": "tdesign-miniprogram/button/button",
+    "t-tag": "tdesign-miniprogram/tag/tag",
     "t-back-top": "tdesign-miniprogram/back-top/back-top",
     "pack-card": "/components/pack-card/index",
     "lottery-host": "/components/lottery-host/index",

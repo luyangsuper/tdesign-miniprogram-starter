@@ -596,6 +596,10 @@ Page({
     wx.switchTab({ url: '/pages/my/index' });
   },
 
+  goLibrary() {
+    wx.navigateTo({ url: '/pages/library/index' });
+  },
+
   maybeShowActivityGift() {
     try {
       if (

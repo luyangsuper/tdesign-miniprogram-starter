@@ -111,3 +111,6 @@ miniprogram_npm.bak_*
 .idea
 
 project.private.config.json
+
+# 素材库导入产物
+scripts/library-import/out/*.json

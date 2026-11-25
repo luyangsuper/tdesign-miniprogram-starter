@@ -1,0 +1,9 @@
+{
+  "name": "listLibrary",
+  "version": "1.0.0",
+  "description": "素材库：源 / 分组 / 条目列表",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -50,6 +50,11 @@
       "root": "pages/about",
       "name": "about",
       "pages": ["index"]
+    },
+    {
+      "root": "pages/library",
+      "name": "library",
+      "pages": ["index", "source/index"]
     }
   ],
   "darkmode": true,

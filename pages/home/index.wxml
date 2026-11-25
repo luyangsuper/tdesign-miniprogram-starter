@@ -211,6 +211,43 @@
               >松手刷新</view>
             </view>
             <view id="homeScrollerTop" class="home__scroller-anchor" />
+            <view
+              wx:if="{{!selectMode}}"
+              class="home__lib-banner"
+              catchtap="goLibrary"
+              hover-class="home__lib-banner--press"
+              hover-stay-time="80"
+            >
+              <view class="home__lib-banner-main">
+                <view class="home__lib-banner-head">
+                  <text class="home__lib-banner-title">发现更多有趣素材</text>
+                  <t-tag size="small" variant="light" content="NEW" />
+                </view>
+                <text class="home__lib-banner-desc">表情 · 梗图 · 动图 · 静图</text>
+                <view class="home__lib-banner-cta">
+                  <text>进入素材库</text>
+                  <text class="cta-arrow">→</text>
+                </view>
+              </view>
+              <view class="home__lib-banner-previews">
+                <view class="home__lib-banner-thumb home__lib-banner-thumb--a">
+                  <kubai-icon name="play" size="26rpx" color="{{themeBrand}}" motion="{{false}}" />
+                  <text class="home__lib-banner-label">动图</text>
+                </view>
+                <view class="home__lib-banner-thumb home__lib-banner-thumb--b">
+                  <kubai-icon name="image" size="26rpx" color="{{themeBrand}}" motion="{{false}}" />
+                  <text class="home__lib-banner-label">静图</text>
+                </view>
+                <view class="home__lib-banner-thumb home__lib-banner-thumb--c">
+                  <kubai-icon name="file" size="26rpx" color="#d97706" motion="{{false}}" />
+                  <text class="home__lib-banner-label home__lib-banner-label--warn">动画</text>
+                </view>
+                <view class="home__lib-banner-thumb home__lib-banner-thumb--d">
+                  <kubai-icon name="layout-dashboard" size="26rpx" color="{{themeBrand}}" motion="{{false}}" />
+                  <text class="home__lib-banner-label">更多</text>
+                </view>
+              </view>
+            </view>
             <block wx:if="{{!loading && list.length}}">
               <block wx:for="{{feedBlocks}}" wx:key="key">
                 <view

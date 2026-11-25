@@ -1,0 +1,10 @@
+{
+  "name": "getLibraryDownload",
+  "version": "1.0.0",
+  "description": "素材库：按格式鉴权下发临时链接",
+  "main": "index.js",
+  "dependencies": {
+    "dayjs": "1.11.13",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

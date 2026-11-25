@@ -1,0 +1,162 @@
+<page-meta page-style="{{themeStyle}}" />
+<view class="lib-src" style="{{themeStyle}};{{navBarStyle}}">
+  <t-navbar
+    fixed="{{true}}"
+    placeholder="{{true}}"
+    z-index="{{500}}"
+    left-arrow
+    bind:go-back="onBack"
+    custom-style="{{navBarStyle}}"
+  >
+    <view slot="title" class="lib-src__nav-title">{{sourceTitle}}</view>
+  </t-navbar>
+
+  <view class="lib-src__toolbar">
+    <t-search
+      value="{{keyword}}"
+      shape="round"
+      placeholder="搜索表情名称"
+      clearable
+      bind:change="onSearchChange"
+      bind:submit="onSearchSubmit"
+      bind:clear="onSearchClear"
+    />
+    <scroll-view
+      class="lib-src__cats"
+      scroll-x
+      enhanced
+      show-scrollbar="{{false}}"
+      enable-flex
+    >
+      <view class="lib-src__cats-inner">
+        <t-check-tag
+          size="medium"
+          shape="round"
+          variant="light"
+          content="{{allTagText}}"
+          checked="{{!groupKey}}"
+          data-key=""
+          bind:change="onGroupTap"
+        />
+        <t-check-tag
+          wx:for="{{groups}}"
+          wx:key="id"
+          size="medium"
+          shape="round"
+          variant="light"
+          content="{{item.tagText}}"
+          checked="{{groupKey === item.externalKey}}"
+          data-key="{{item.externalKey}}"
+          bind:change="onGroupTap"
+        />
+      </view>
+    </scroll-view>
+  </view>
+
+  <scroll-view
+    class="lib-src__scroll"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    lower-threshold="120"
+    bindscrolltolower="onReachBottom"
+  >
+    <view class="lib-src__body">
+      <view wx:if="{{loading && !list.length}}" class="lib-src__state">
+        <fun-loading />
+      </view>
+
+      <view wx:elif="{{!list.length}}" class="lib-src__state">
+        <fun-empty description="{{emptyTip}}" />
+      </view>
+
+      <view wx:else class="lib-src__grid">
+        <view
+          wx:for="{{list}}"
+          wx:key="_id"
+          class="lib-src__cell"
+          data-id="{{item._id}}"
+          bindtap="onOpenItem"
+          hover-class="lib-src__cell--press"
+        >
+          <view class="lib-src__thumb-wrap">
+            <image
+              wx:if="{{item.previewUrl}}"
+              class="lib-src__thumb"
+              src="{{item.previewUrl}}"
+              mode="aspectFit"
+              lazy-load
+            />
+            <view wx:else class="lib-src__thumb lib-src__thumb--ph">?</view>
+          </view>
+          <text class="lib-src__name">{{item.name}}</text>
+        </view>
+      </view>
+
+      <view class="lib-src__footer" wx:if="{{loadingMore}}">
+        <fun-loading size="small" variant="wave" funTips="{{false}}" text="加载更多" />
+      </view>
+      <view class="lib-src__footer" wx:elif="{{list.length && !hasMore}}">
+        共 {{total}} 个
+      </view>
+    </view>
+  </scroll-view>
+</view>
+
+<t-popup
+  visible="{{previewVisible}}"
+  placement="bottom"
+  bind:visible-change="onPreviewVisibleChange"
+>
+  <view class="lib-src__sheet" wx:if="{{activeItem}}">
+    <view class="lib-src__sheet-preview">
+      <image
+        wx:if="{{activeItem.previewUrl}}"
+        class="lib-src__sheet-img"
+        src="{{activeItem.previewUrl}}"
+        mode="aspectFit"
+      />
+    </view>
+    <view class="lib-src__sheet-title">{{activeItem.name}}</view>
+    <view class="lib-src__sheet-sub" wx:if="{{activeItem.externalKey}}">
+      {{activeItem.externalKey}}
+    </view>
+
+    <view class="lib-src__formats">
+      <t-check-tag
+        wx:for="{{formatOptions}}"
+        wx:key="value"
+        size="medium"
+        shape="round"
+        variant="light"
+        content="{{item.label}}"
+        checked="{{downloadFormat === item.value}}"
+        data-value="{{item.value}}"
+        bind:change="onFormatTap"
+      />
+    </view>
+
+    <view class="lib-src__sheet-tip">
+      {{formatTip}} · {{unitCost}} 积分
+    </view>
+
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      shape="round"
+      loading="{{saving}}"
+      disabled="{{saving || !downloadFormat}}"
+      content="{{saveBtnText}}"
+      bind:tap="onSave"
+    />
+    <t-button
+      theme="default"
+      variant="text"
+      size="medium"
+      block
+      content="关闭"
+      bind:tap="closePreview"
+    />
+  </view>
+</t-popup>

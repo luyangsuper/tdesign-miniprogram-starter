@@ -1,0 +1,15 @@
+{
+  "navigationStyle": "custom",
+  "styleIsolation": "shared",
+  "usingComponents": {
+    "t-navbar": "tdesign-miniprogram/navbar/navbar",
+    "t-search": "tdesign-miniprogram/search/search",
+    "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
+    "t-tag": "tdesign-miniprogram/tag/tag",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-popup": "tdesign-miniprogram/popup/popup",
+    "fun-loading": "/components/fun-loading/index",
+    "fun-empty": "/components/fun-empty/index",
+    "t-empty": "tdesign-miniprogram/empty/empty"
+  }
+}

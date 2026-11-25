@@ -68,6 +68,9 @@ export default {
     wallpaper: 4,
     avatar: 4,
     video: 8,
+    /** 素材库高质量默认；单源可在 lib_sources.costs 覆盖 */
+    libraryAnim: 4,
+    libraryStatic: 2,
   },
   /**
    * 包月每月额度（与云函数 membership.MONTHLY_QUOTA 保持一致）

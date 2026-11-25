@@ -712,6 +712,120 @@
     overflow: hidden;
   }
 
+  /* 素材库入口横条：对齐瀑布流 pack-card，用主题变量适配暗黑 */
+  &__lib-banner {
+    /* 设计稿约 6px → 12rpx（6rpx 真机大约只有 2~3px） */
+    margin: 0 0 12rpx;
+    padding: 14rpx 18rpx;
+    border-radius: 16rpx;
+    background: var(--td-bg-color-container);
+    box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.04);
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    box-sizing: border-box;
+  }
+
+  &__lib-banner--press {
+    opacity: 0.92;
+  }
+
+  &__lib-banner-main {
+    flex: 1;
+    min-width: 0;
+    /* 与右侧 2×2（52+8+52）同高 */
+    height: 112rpx;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+  }
+
+  &__lib-banner-head {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    flex-wrap: nowrap;
+    min-height: 0;
+  }
+
+  &__lib-banner-title {
+    font-size: 28rpx;
+    font-weight: 650;
+    line-height: 1.25;
+    color: var(--td-text-color-primary);
+  }
+
+  &__lib-banner-desc {
+    font-size: 20rpx;
+    line-height: 1.25;
+    color: var(--td-text-color-secondary);
+  }
+
+  &__lib-banner-cta {
+    display: inline-flex;
+    align-items: center;
+    font-size: 24rpx;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--td-brand-color);
+  }
+
+  &__lib-banner-previews {
+    width: 112rpx;
+    height: 112rpx;
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 52rpx 52rpx;
+    grid-template-rows: 52rpx 52rpx;
+    gap: 8rpx;
+    align-content: center;
+    justify-content: end;
+  }
+
+  &__lib-banner-thumb {
+    width: 52rpx;
+    height: 52rpx;
+    border-radius: 12rpx;
+    background: var(--td-bg-color-secondarycontainer);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rpx;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 4rpx 0;
+  }
+
+  &__lib-banner-label {
+    font-size: 14rpx;
+    font-weight: 650;
+    line-height: 1;
+    color: var(--td-brand-color);
+  }
+
+  &__lib-banner-label--warn {
+    color: var(--td-warning-color, #d97706);
+  }
+
+  /* 色块只用品牌/语义色 + 浅底 token，暗黑下跟随主题 */
+  &__lib-banner-thumb--a {
+    background: var(--td-brand-color-light);
+  }
+
+  &__lib-banner-thumb--b {
+    background: var(--td-bg-color-secondarycontainer);
+  }
+
+  &__lib-banner-thumb--c {
+    background: var(--td-warning-color-1);
+  }
+
+  &__lib-banner-thumb--d {
+    background: var(--td-bg-color-secondarycontainer);
+  }
+
   &__back-top {
     z-index: 350 !important;
     right: 32rpx !important;

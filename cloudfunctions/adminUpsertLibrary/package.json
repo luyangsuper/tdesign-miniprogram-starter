@@ -1,0 +1,9 @@
+{
+  "name": "adminUpsertLibrary",
+  "version": "1.0.0",
+  "description": "素材库：管理员批量写入源/分组/条目",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

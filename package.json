@@ -12,7 +12,8 @@
     "festival:gen": "node scripts/generate-festival-assets.js",
     "festival:fit": "node scripts/fit-festival-image.js",
     "festival:solar": "node scripts/gen-festival-solar-table.js",
-    "build:npm": "node scripts/build-miniprogram-npm.js"
+    "build:npm": "node scripts/build-miniprogram-npm.js",
+    "library:import": "node scripts/library-import/import.mjs"
   },
   "keywords": [
     "wechat",

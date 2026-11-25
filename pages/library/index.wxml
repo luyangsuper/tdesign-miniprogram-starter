@@ -1,0 +1,158 @@
+<page-meta page-style="{{themeStyle}}" />
+<view class="lib-hub" style="{{themeStyle}};{{navBarStyle}}">
+  <t-navbar
+    fixed="{{true}}"
+    placeholder="{{true}}"
+    z-index="{{500}}"
+    left-arrow
+    bind:go-back="onBack"
+    custom-style="{{navBarStyle}}"
+  >
+    <view slot="title" class="lib-hub__nav-title">素材库</view>
+  </t-navbar>
+
+  <scroll-view scroll-y class="lib-hub__scroll" enhanced show-scrollbar="{{false}}">
+    <view class="lib-hub__body">
+      <view class="lib-hub__intro">
+        <text class="lib-hub__kicker">LIBRARY</text>
+        <text class="lib-hub__title">发现更多有趣素材</text>
+        <text class="lib-hub__desc">按风格挑选，点开即可浏览下载</text>
+      </view>
+
+      <view wx:if="{{isAdmin}}" class="lib-hub__admin">
+        <t-button
+          theme="primary"
+          size="medium"
+          shape="round"
+          block
+          loading="{{startingGoogle || importingGoogle}}"
+          disabled="{{startingGoogle}}"
+          content="{{importingGoogle ? '经典导入中（再点看进度）' : '一键导入经典动态'}}"
+          bind:tap="onImportAnimate"
+        />
+        <t-button
+          theme="default"
+          variant="outline"
+          size="medium"
+          shape="round"
+          block
+          loading="{{startingOther || importingOther}}"
+          disabled="{{startingOther}}"
+          content="{{importingOther ? '立体/反应导入中（再点看进度）' : '一键导入立体 + 反应'}}"
+          bind:tap="onImportOther"
+        />
+
+        <view wx:if="{{jobCards.length}}" class="lib-hub__jobs">
+          <view
+            wx:for="{{jobCards}}"
+            wx:key="mode"
+            class="lib-hub__job {{item.running ? 'lib-hub__job--run' : ''}}"
+          >
+            <view class="lib-hub__job-head">
+              <text class="lib-hub__job-title">{{item.title}}</text>
+              <t-tag
+                size="small"
+                variant="light"
+                theme="{{item.running ? 'primary' : item.status === 'done' ? 'success' : 'default'}}"
+                content="{{item.statusText}}"
+              />
+            </view>
+            <view class="lib-hub__job-bar">
+              <view class="lib-hub__job-bar-fill" style="width: {{item.percent}}%;" />
+            </view>
+            <view class="lib-hub__job-meta">
+              <text>{{item.percent}}% · {{item.progressText}}</text>
+            </view>
+            <view class="lib-hub__job-stats">
+              <text>入库 {{item.imported}}</text>
+              <text>跳过 {{item.skipped}}</text>
+              <text wx:if="{{item.fail}}">失败 {{item.fail}}</text>
+            </view>
+            <text wx:if="{{item.detail}}" class="lib-hub__job-detail">{{item.detail}}</text>
+            <view
+              wx:if="{{item.running}}"
+              class="lib-hub__job-stop"
+              data-mode="{{item.mode}}"
+              catchtap="onCancelImport"
+            >
+              <text class="lib-hub__job-stop-text">停止</text>
+            </view>
+          </view>
+        </view>
+
+        <t-button
+          wx:if="{{jobCards.length || hasRunningJob}}"
+          theme="default"
+          variant="text"
+          size="small"
+          block
+          content="清除全部进度卡片"
+          bind:tap="onClearAllJobs"
+        />
+
+        <text class="lib-hub__admin-tip">点「停止」立刻结束该任务；假进度可点「清除全部进度卡片」。导入前请先部署 adminUpsertLibrary。经典 ≈720，立体+反应 ≈793。</text>
+      </view>
+
+      <view wx:if="{{loading}}" class="lib-hub__state">
+        <fun-loading />
+      </view>
+
+      <view wx:elif="{{!sources.length}}" class="lib-hub__state">
+        <fun-empty description="{{emptyTip}}" />
+      </view>
+
+      <view wx:else class="lib-hub__list">
+        <view
+          wx:for="{{sources}}"
+          wx:key="id"
+          class="lib-hub__card"
+          data-id="{{item.id}}"
+          catchtap="onOpenSource"
+          hover-class="lib-hub__card--press"
+          hover-stay-time="80"
+        >
+          <view class="lib-hub__card-main">
+            <view class="lib-hub__card-head">
+              <text class="lib-hub__card-title">{{item.title}}</text>
+              <t-tag wx:if="{{item.badge}}" size="small" variant="light" content="{{item.badge}}" />
+            </view>
+            <text class="lib-hub__card-desc">{{item.desc}}</text>
+            <view class="lib-hub__card-meta">
+              <text>{{item.countText}}</text>
+              <text class="lib-hub__card-dot">·</text>
+              <text>{{item.formatsText}}</text>
+            </view>
+            <view class="lib-hub__card-cta">
+              <text>进入浏览</text>
+              <text class="cta-arrow">→</text>
+            </view>
+          </view>
+          <view class="lib-hub__card-previews">
+            <block wx:if="{{item.previewUrls.length}}">
+              <image
+                wx:for="{{item.previewUrls}}"
+                wx:for-item="thumb"
+                wx:for-index="ti"
+                wx:key="ti"
+                class="lib-hub__thumb"
+                src="{{thumb}}"
+                mode="aspectFill"
+              />
+            </block>
+            <block wx:else>
+              <view
+                wx:for="{{item.thumbs}}"
+                wx:for-item="emo"
+                wx:for-index="ei"
+                wx:key="ei"
+                class="lib-hub__thumb lib-hub__thumb--emoji"
+              >
+                <text class="lib-hub__thumb-emoji">{{emo}}</text>
+              </view>
+            </block>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>
