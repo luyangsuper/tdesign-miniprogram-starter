@@ -165,7 +165,13 @@ Component({
       } catch (e) {
         /* ignore */
       }
-      this.refresh();
+      // 让页面先画顶栏/主体，再灌节日层，减轻二级页首开卡顿
+      const kick = () => this.refresh();
+      if (typeof wx !== 'undefined' && typeof wx.nextTick === 'function') {
+        wx.nextTick(() => setTimeout(kick, 16));
+      } else {
+        setTimeout(kick, 16);
+      }
     },
     detached() {
       try {
@@ -181,21 +187,46 @@ Component({
 
   pageLifetimes: {
     show() {
-      this.refresh();
+      // 切 Tab 回来：轻量恢复，不强制重建 flakes
+      if (this.data.paused) {
+        this.setData({ paused: false });
+      }
+    },
+    hide() {
+      if (!this.data.paused && this.data.visible) {
+        this.setData({ paused: true });
+      }
     },
   },
 
   methods: {
     /** token 保证只有最后一次 refresh 的结果落地；不再加「进行中」锁，否则换签未回来时关开关会被丢掉 */
     refresh() {
+      const now = Date.now();
+      // 合并 attached + observer(navHeight) 连击，避免二级页连建两套 flakes
+      if (this._lastRefreshAt && now - this._lastRefreshAt < 120) {
+        if (this._refreshTimer) return;
+        this._refreshTimer = setTimeout(() => {
+          this._refreshTimer = null;
+          this.refresh();
+        }, 120);
+        return;
+      }
+      this._lastRefreshAt = now;
       const token = (this._festRefreshToken || 0) + 1;
       this._festRefreshToken = token;
       const cfg = getFestivalConfig();
       const mode = this.properties.mode || 'home';
       const festivalId = cfg.id || '';
       const rawAssets = getFestivalAssets(festivalId) || {};
-      /* 首页 / 我的：顶栏皮肤、灯带、飘落一致 */
-      const showDecor = mode === 'home' || mode === 'my';
+      /* 首页 / 我的 / 工坊：顶栏皮肤、灯带、飘落一致 */
+      // navbar：工具二级页只要顶栏皮肤，不要飘落粒子（首开省大量 setData）
+      const showDecor =
+        mode === 'home' ||
+        mode === 'my' ||
+        mode === 'workshop' ||
+        mode === 'navbar';
+      const allowMotion = mode !== 'navbar';
       const navH = Number(this.properties.navHeight) || 88;
       /* headerHeight = 导航高；上传图 4:1，灯带贴导航底缘 */
       const headerH = Number(this.properties.headerHeight) || navH;
@@ -209,7 +240,8 @@ Component({
         const paused = !pageActive;
         const showSkin = showDecor && !!festivalId && !!assets.banner;
         const showChrome = showDecor && !!festivalId && !!cfg.lights;
-        const showMotion = showDecor && !!cfg.motion && !!festivalId;
+        const showMotion =
+          allowMotion && showDecor && !!cfg.motion && !!festivalId;
         const showAmbient = showMotion;
         const showLights = !!cfg.lights && showDecor;
         const visible =

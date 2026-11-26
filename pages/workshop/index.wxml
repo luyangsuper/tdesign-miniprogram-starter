@@ -1,7 +1,7 @@
 <view class="workshop-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
   <festival-decor
     id="festivalDecor"
-    mode="my"
+    mode="workshop"
     active="{{festivalActive}}"
     header-height="{{festHeaderPx}}"
     nav-height="{{navHeight}}"
@@ -89,7 +89,7 @@
               </view>
               <text class="workshop__meta-desc">{{item.desc}}</text>
             </view>
-            <kubai-icon name="chevron-right" size="32rpx" color="rgba(15,23,42,0.28)" />
+            <kubai-icon name="chevron-right" size="32rpx" color="{{themeChevron}}" />
           </view>
         </view>
       </view>

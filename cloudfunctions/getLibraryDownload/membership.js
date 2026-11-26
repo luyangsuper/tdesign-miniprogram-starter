@@ -20,7 +20,12 @@ function downloadCost(costKey, costMap) {
   const table = costMap && typeof costMap === 'object' ? costMap : COST;
   const key = String(costKey || 'static');
   const n = Number(table[key]);
-  return n > 0 ? n : Number(table.static) || COST.static;
+  // 允许 0（按源免费）；缺省 key 再回退 static
+  if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  const fallback = Number(table.static);
+  return Number.isFinite(fallback) && fallback >= 0
+    ? Math.floor(fallback)
+    : COST.static;
 }
 
 async function resolveDownloadCosts(db) {

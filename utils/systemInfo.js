@@ -18,11 +18,15 @@ export function getWindowInfoSafe() {
   return legacySystemInfo();
 }
 
+/** 胶囊几何会话内不变，缓存避免切页反复 getMenuButtonBoundingClientRect */
+let _navMetricsCache = null;
+
 /**
  * 自定义导航尺寸：完全以胶囊几何为准。
  * 不用裸 statusBarHeight 推算——它与胶囊错位时，t-navbar placeholder 会比 fixed 实色栏更高，顶下留灰缝。
  */
 export function getCustomNavMetrics() {
+  if (_navMetricsCache) return _navMetricsCache;
   const win = getWindowInfoSafe();
   const menu = wx.getMenuButtonBoundingClientRect();
   const menuTop = Number(menu.top) || 0;
@@ -42,7 +46,7 @@ export function getCustomNavMetrics() {
     `--td-navbar-height:${navBarHeight}px`,
   ].join(';');
 
-  return {
+  _navMetricsCache = {
     statusBarHeight,
     navBarHeight,
     navHeight,
@@ -53,6 +57,7 @@ export function getCustomNavMetrics() {
     navBarStyle,
     windowWidth: Number(win.windowWidth) || 375,
   };
+  return _navMetricsCache;
 }
 
 /** SDK 版本、语言、微信版本、主题等 */

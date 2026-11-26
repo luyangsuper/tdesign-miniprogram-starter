@@ -4,11 +4,11 @@ import {
   applyThemeToPage,
   getThemeBrand,
   getThemeStyle,
+  isDarkMode,
 } from '~/utils/theme';
 import {
   getActiveFestival,
   getFestivalAssets,
-  loadFestivalConfig,
 } from '~/utils/festival';
 import {
   getNativeWorkshopAdUnitId,
@@ -58,10 +58,22 @@ const BEAD_CELLS = [
   '#eff5f1', '#ddece4', '#cbe2d7', '#bad8cb', '#a9cdb0', '#98c2b4',
 ];
 
+const BEAD_CELLS_DARK = [
+  '#1f4a3a', '#245543', '#2a6150', '#326c59', '#3a7863', '#43846d',
+  '#1a3f32', '#204a3b', '#275544', '#2e604d', '#366c56', '#3e7860',
+  '#16362c', '#1c4035', '#234a3e', '#2a5547', '#326050', '#3a6c5a',
+];
+
 const PUZZLE_CELLS = [
   '#9bb6cc', '#8aa7c0', '#7a99b4',
   '#a8bfcf', '#97b0c3', '#879faf',
   '#b6c9d6', '#a5b8c8', 'rgba(148,163,184,0.22)',
+];
+
+const PUZZLE_CELLS_DARK = [
+  '#3a5670', '#334e66', '#2d465c',
+  '#425e76', '#3b5670', '#354e66',
+  '#4a687e', '#435f74', 'rgba(148,163,184,0.18)',
 ];
 
 Page({
@@ -78,15 +90,23 @@ Page({
     tools: BASE_TOOLS,
     beadCells: BEAD_CELLS,
     puzzleCells: PUZZLE_CELLS,
+    themeChevron: 'rgba(15,23,42,0.28)',
     nativeAdUnitId: '',
     showNativeAd: false,
   },
 
   refreshNativeAd() {
     const unitId = getNativeWorkshopAdUnitId();
+    const showNativeAd = !!unitId && shouldShowNativeAds();
+    if (
+      this.data.nativeAdUnitId === unitId &&
+      this.data.showNativeAd === showNativeAd
+    ) {
+      return;
+    }
     this.setData({
       nativeAdUnitId: unitId,
-      showNativeAd: !!unitId && shouldShowNativeAds(),
+      showNativeAd,
     });
   },
 
@@ -94,7 +114,16 @@ Page({
     this.setData({ showNativeAd: false });
   },
 
-  async refreshTools() {
+  async refreshTools({ force } = {}) {
+    const now = Date.now();
+    if (
+      !force &&
+      this._toolsAt &&
+      now - this._toolsAt < 5 * 60 * 1000 &&
+      (this.data.tools || []).length
+    ) {
+      return;
+    }
     let puzzleOn = true;
     try {
       const puzzleRes = await callFunction('puzzleGame', { action: 'status' }).catch(
@@ -107,6 +136,7 @@ Page({
       puzzleOn = true;
     }
     const tools = BASE_TOOLS.filter((item) => item.id !== 'puzzle' || puzzleOn);
+    this._toolsAt = now;
     this.setData({ tools });
   },
 
@@ -115,9 +145,13 @@ Page({
     this.syncThemeUi();
     this.refreshNativeAd();
     this.refreshTools();
-    this._onFestivalChange = () => this.updateNavHeight();
+    this._onFestivalChange = () => {
+      this.updateNavHeight();
+      this.refreshFestivalDecor();
+    };
     this._onThemeChange = () => this.syncThemeUi();
     this._onEntitlementChange = () => this.refreshNativeAd();
+    this.refreshFestivalDecor();
     try {
       const app = getApp();
       if (app && app.eventBus) {
@@ -146,36 +180,37 @@ Page({
   },
 
   onShow() {
-    this.refreshNativeAd();
-    this.refreshTools();
-    if (!this.data.festivalActive) {
-      this.setData({ festivalActive: true });
-    }
     this.refreshFestivalDecor();
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
       if (typeof bar.setSelected === 'function') bar.setSelected('workshop');
       else bar.setData({ value: 'workshop' });
-      if (typeof bar.syncFestival === 'function') bar.syncFestival();
     }
-    loadFestivalConfig({ silent: true }).then(() => {
-      this.refreshFestivalDecor();
-      if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-        const bar = this.getTabBar();
-        if (bar && typeof bar.syncFestival === 'function') bar.syncFestival();
-      }
-    });
+    if (this._workshopShowDeferTimer) clearTimeout(this._workshopShowDeferTimer);
+    this._workshopShowDeferTimer = setTimeout(() => {
+      this._workshopShowDeferTimer = null;
+      this.refreshNativeAd();
+      // 切 Tab 不强制打云；缓存过期才刷新入口
+      this.refreshTools();
+    }, 32);
   },
 
   onHide() {
-    this.setData({ festivalActive: false });
+    if (this._workshopShowDeferTimer) {
+      clearTimeout(this._workshopShowDeferTimer);
+      this._workshopShowDeferTimer = null;
+    }
   },
 
   syncThemeUi() {
     applyThemeToPage(this);
+    const dark = isDarkMode();
     this.setData({
       themeStyle: getThemeStyle(),
       themeBrand: getThemeBrand(),
+      themeChevron: dark ? 'rgba(255,255,255,0.36)' : 'rgba(15,23,42,0.28)',
+      beadCells: dark ? BEAD_CELLS_DARK : BEAD_CELLS,
+      puzzleCells: dark ? PUZZLE_CELLS_DARK : PUZZLE_CELLS,
     });
   },
 
@@ -206,6 +241,7 @@ Page({
     const assets = fest ? getFestivalAssets(fest.id) : {};
     const hasBanner = !!(assets && assets.banner);
     const festHeaderPx = Math.max(48, Math.round(nav));
+    const festivalId = fest ? fest.id : '';
     const festivalStyle = fest
       ? [
           `--fest-accent:${fest.accent || 'var(--td-brand-color)'}`,
@@ -219,14 +255,20 @@ Page({
           .filter(Boolean)
           .join(' ')
       : '';
+    if (
+      this.data.festivalId === festivalId &&
+      this.data.festivalClass === festivalClass &&
+      this.data.festivalStyle === festivalStyle &&
+      this.data.festHeaderPx === festHeaderPx
+    ) {
+      return;
+    }
     this.setData({
-      festivalId: fest ? fest.id : '',
+      festivalId,
       festivalClass,
       festivalStyle,
       festHeaderPx,
     });
-    const decor = this.selectComponent('#festivalDecor');
-    if (decor && typeof decor.refresh === 'function') decor.refresh();
   },
 
   goTool(e) {

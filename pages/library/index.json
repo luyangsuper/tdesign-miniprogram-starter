@@ -6,7 +6,6 @@
     "t-tag": "tdesign-miniprogram/tag/tag",
     "fun-loading": "/components/fun-loading/index",
     "fun-empty": "/components/fun-empty/index",
-    "t-empty": "tdesign-miniprogram/empty/empty",
-    "t-button": "tdesign-miniprogram/button/button"
+    "t-empty": "tdesign-miniprogram/empty/empty"
   }
 }

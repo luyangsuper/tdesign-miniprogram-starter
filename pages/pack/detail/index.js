@@ -386,9 +386,19 @@ Page({
     applyThemeToPage(this);
     this.applyAdminView();
     this.refreshEntitlementUi();
-    this.syncEntitlement();
-    this.refreshFavorite();
-    this.setData(calcRecommendLayout());
+    const layout = calcRecommendLayout();
+    const layoutSame =
+      this.data.recommendCardWidth === layout.recommendCardWidth &&
+      this.data.recommendAdWidth === layout.recommendAdWidth &&
+      this.data.recommendAdHeight === layout.recommendAdHeight;
+    if (!layoutSame) this.setData(layout);
+    // 云同步放到首帧后，避免从列表点进来先卡权益接口
+    if (this._detailShowDeferTimer) clearTimeout(this._detailShowDeferTimer);
+    this._detailShowDeferTimer = setTimeout(() => {
+      this._detailShowDeferTimer = null;
+      this.syncEntitlement();
+      this.refreshFavorite();
+    }, 32);
   },
 
   applyAdminView() {

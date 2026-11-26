@@ -4,11 +4,11 @@ import {
   applyThemeToPage,
   getThemeBrand,
   getThemeStyle,
+  isDarkMode,
 } from '~/utils/theme';
 import {
   getActiveFestival,
   getFestivalAssets,
-  loadFestivalConfig,
 } from '~/utils/festival';
 import {
   buildGrid,
@@ -187,6 +187,9 @@ Page({
   data: {
     themeStyle: '',
     themeBrand: '#07c160',
+    navCoverBg: '#ffffff',
+    navCoverColor: '#111827',
+    navCoverBorder: 'rgba(15, 23, 42, 0.08)',
     navHeight: 64,
     statusBarHeight: 20,
     navBarHeight: 44,
@@ -331,15 +334,15 @@ Page({
   },
 
   onShow() {
-    this.syncVipUi();
-    if (!this.data.festivalActive) this.setData({ festivalActive: true });
     this.refreshFestivalDecor();
-    loadFestivalConfig({ silent: true }).then(() => this.refreshFestivalDecor());
+    if (this._beadShowDeferTimer) clearTimeout(this._beadShowDeferTimer);
+    this._beadShowDeferTimer = setTimeout(() => {
+      this._beadShowDeferTimer = null;
+      this.syncVipUi();
+    }, 32);
   },
 
-  onHide() {
-    this.setData({ festivalActive: false });
-  },
+  onHide() {},
 
   onBack() {
     wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/workshop/index' }) });
@@ -347,9 +350,13 @@ Page({
 
   syncThemeUi() {
     applyThemeToPage(this);
+    const dark = isDarkMode();
     this.setData({
       themeStyle: getThemeStyle(),
       themeBrand: getThemeBrand(),
+      navCoverBg: dark ? '#1c1c1e' : '#ffffff',
+      navCoverColor: dark ? '#f5f5f7' : '#111827',
+      navCoverBorder: dark ? 'rgba(255,255,255,0.08)' : 'rgba(15, 23, 42, 0.08)',
     });
   },
 

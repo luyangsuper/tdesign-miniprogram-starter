@@ -199,9 +199,9 @@ const ANIMATE_SOURCE = {
   id: 'animatemojis',
   title: '经典动态表情',
   subtitle: '多格式',
-  desc: '圆润笑脸与日常表情，动作轻快好用',
+  desc: '圆润笑脸与日常表情，含平面动图与 3D 静态图',
   uiTemplate: 'animated_multiformat',
-  formatsDefault: ['gif', 'webp', 'lottie'],
+  formatsDefault: ['gif', 'webp', 'lottie', 'png'],
   sort: 10,
   enabled: true,
   status: 'published',
@@ -395,7 +395,76 @@ function sourceMetaForKind(kind) {
 const JOB_MODE = {
   other: 'import_other',
   google: 'import_google',
+  /** 官方 Noto CDN 补全（codepoint 去重，含 3D png） */
+  noto: 'import_noto',
 };
+
+let _notoOfficialCatalog = null;
+function getNotoOfficialCatalog() {
+  if (_notoOfficialCatalog) return _notoOfficialCatalog;
+  try {
+    // eslint-disable-next-line import/no-dynamic-require, global-require
+    _notoOfficialCatalog = require('./notoOfficialCatalog.json');
+  } catch (e) {
+    _notoOfficialCatalog = [];
+  }
+  return Array.isArray(_notoOfficialCatalog) ? _notoOfficialCatalog : [];
+}
+
+function notoCdnUrl(codepoint, file) {
+  const cp = String(codepoint || '')
+    .trim()
+    .toLowerCase();
+  return `https://fonts.gstatic.com/s/e/notoemoji/latest/${cp}/${file}`;
+}
+
+/**
+ * 真正的 Noto 3D 静态图在 GitHub 3D/png，不是 gstatic 的 128.png（那是 2D 栅格）。
+ * 用 jsDelivr 拉 raw，云函数更稳。
+ */
+function noto3dPngUrl(codepoint, size = 512) {
+  const cp = String(codepoint || '')
+    .trim()
+    .toLowerCase();
+  const sz = size === 128 ? 128 : 512;
+  return `https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@main/3D/png/${sz}/emoji_u${cp}.png`;
+}
+
+/** 已有经典源条目的 codepoint → docId，用于官方补全去重 */
+async function buildAnimatemojisCpIndex() {
+  if (global.__notoCpIndex && Date.now() - (global.__notoCpIndexAt || 0) < 10 * 60 * 1000) {
+    return global.__notoCpIndex;
+  }
+  const map = Object.create(null);
+  let skip = 0;
+  for (;;) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await db
+      .collection('lib_items')
+      .where({ sourceId: ANIMATE_SOURCE.id })
+      .skip(skip)
+      .limit(100)
+      .get();
+    const rows = r.data || [];
+    if (!rows.length) break;
+    rows.forEach((row) => {
+      const id = row._id;
+      const cp = String((row.meta && row.meta.codepoint) || '')
+        .trim()
+        .toLowerCase();
+      if (cp) map[cp] = id;
+      const ek = String(row.externalKey || '')
+        .trim()
+        .toLowerCase();
+      if (/^[0-9a-f]+(?:_[0-9a-f]+)*$/i.test(ek)) map[ek] = id;
+    });
+    skip += rows.length;
+    if (rows.length < 100 || skip > 8000) break;
+  }
+  global.__notoCpIndex = map;
+  global.__notoCpIndexAt = Date.now();
+  return map;
+}
 
 function jobIdForMode(mode) {
   const m = String(mode || '').trim();
@@ -468,6 +537,7 @@ function filesComplete(files, needFormats) {
 
 /** 排队下一拍：只等请求发出，不等整段跑完，避免父子互相拖死超时 */
 async function scheduleJobTick(mode, token) {
+  if (!mode || !token) return;
   const p = cloud.callFunction({
     name: 'adminUpsertLibrary',
     data: {
@@ -475,20 +545,40 @@ async function scheduleJobTick(mode, token) {
       mode,
       _chain: true,
       _token: token,
+      _force: true,
     },
   });
   await Promise.race([
     p.then(() => null).catch((e) => {
       console.warn('[importJob] chain', e.message || e);
     }),
-    new Promise((r) => setTimeout(r, 500)),
+    new Promise((r) => setTimeout(r, 400)),
   ]);
 }
 
+/** 同一表情多格式并行镜像 */
+async function mirrorSpecsParallel(specs) {
+  const out = {};
+  let fail = 0;
+  await Promise.all(
+    (specs || []).map(async (spec) => {
+      try {
+        const fileID = await mirrorUrlToCloud(spec.url, spec.cloudPath);
+        if (fileID) out[spec.fmt] = fileID;
+        else fail += 1;
+      } catch (e) {
+        fail += 1;
+        console.warn('[mirror]', spec.fmt, e.message || e);
+      }
+    }),
+  );
+  return { files: out, fail };
+}
+
 /**
- * 立体+反应：每拍少做一点，边做边写进度，避免 60s 超时后永远停在 0%。
- * - 先快扫跳过已入库（最多 50）
- * - 本拍最多新镜像 1 条（gif+webp）
+ * 立体+反应：云端自驱连环拍
+ * - 先快扫跳过已入库（最多 120）
+ * - 本拍最多新镜像 4 条；gif/webp 并行
  */
 async function runOtherJobTick(job) {
   const catalog = getOtherCatalog();
@@ -528,13 +618,19 @@ async function runOtherJobTick(job) {
   });
 
   const fluentZh = getFluentZhMap();
-  const deadline = Date.now() + 50000;
-  const maxSkipScan = 50;
+  const deadline = Date.now() + 70000;
+  const maxSkipScan = 120;
+  const maxMirror = 4;
   let scanned = 0;
   let mirrored = 0;
   let lastSlug = '';
 
-  while (offset < total && Date.now() < deadline && mirrored < 1 && scanned < maxSkipScan + 1) {
+  while (
+    offset < total &&
+    Date.now() < deadline &&
+    mirrored < maxMirror &&
+    scanned < maxSkipScan + maxMirror
+  ) {
     const row = catalog[offset];
     const sortIndex = offset + 1;
     offset += 1;
@@ -551,7 +647,11 @@ async function runOtherJobTick(job) {
 
     // eslint-disable-next-line no-await-in-loop
     const existing = await getExistingItemFiles(srcMeta.id, slug);
-    const need = ['gif', 'webp'].filter((fmt) => row[fmt]);
+    // 社区 hashed webp 常 404；有 gif 即可。Fluent 仍拉 gif+webp
+    const need =
+      kind === 'community'
+        ? ['gif'].filter((fmt) => row[fmt])
+        : ['gif', 'webp'].filter((fmt) => row[fmt]);
     if (filesComplete(existing, need)) {
       skipped += 1;
       continue;
@@ -560,25 +660,20 @@ async function runOtherJobTick(job) {
     const enName = String((row && row.n) || slug).trim();
     const zhName = (kind === 'fluent' && fluentZh[slug]) || enName;
     const groupKey = mapCategory(row.g);
-    const files = { ...existing };
     const cloudBase = `library/${srcMeta.id}/${slug}`;
     lastSlug = slug;
 
-    // eslint-disable-next-line no-restricted-syntax
-    for (const fmt of need) {
-      if (files[fmt]) continue;
-      const url = row[fmt];
-      if (!url) continue;
-      if (Date.now() >= deadline) break;
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const fileID = await mirrorUrlToCloud(url, `${cloudBase}/${slug}.${fmt}`);
-        if (fileID) files[fmt] = fileID;
-      } catch (e) {
-        mirrorFail += 1;
-        console.warn('[importOther] mirror', slug, fmt, e.message || e);
-      }
-    }
+    const specs = need
+      .filter((fmt) => !existing[fmt] && row[fmt])
+      .map((fmt) => ({
+        fmt,
+        url: row[fmt],
+        cloudPath: `${cloudBase}/${slug}.${fmt}`,
+      }));
+    // eslint-disable-next-line no-await-in-loop
+    const mirroredFiles = await mirrorSpecsParallel(specs);
+    mirrorFail += mirroredFiles.fail || 0;
+    const files = { ...existing, ...mirroredFiles.files };
 
     if (!Object.keys(files).length) {
       fail += 1;
@@ -791,6 +886,209 @@ async function runGoogleJobTick(job) {
   return publicJob(await writeImportJob(JOB_MODE.google, next));
 }
 
+/**
+ * 官方 Noto 补全进「经典动态」源：
+ * - 目录来自 noto-emoji-animation api（≈881）
+ * - 2D 动图：gstatic …/512.gif|webp + lottie.json
+ * - 3D 静态图：GitHub 3D/png/512（不要用 gstatic 128.png，那是 2D 平面栅格）
+ */
+async function runNotoOfficialTick(job) {
+  const catalog = getNotoOfficialCatalog();
+  const total = catalog.length;
+  let offset = Math.max(0, Math.floor(Number(job.offset) || 0));
+  let imported = Number(job.imported) || 0;
+  let skipped = Number(job.skipped) || 0;
+  let fail = Number(job.fail) || 0;
+  let mirrorFail = Number(job.mirrorFail) || 0;
+
+  if (!total) {
+    return publicJob(
+      await writeImportJob(JOB_MODE.noto, {
+        ...job,
+        status: 'error',
+        lockAt: 0,
+        message: '云端缺少 notoOfficialCatalog.json，请重新部署 adminUpsertLibrary',
+      }),
+    );
+  }
+
+  if (offset === 0) {
+    await upsertSource(ANIMATE_SOURCE);
+    await upsertGroups(ANIMATE_SOURCE.id, ANIMATE_GROUPS);
+  }
+
+  await writeImportJob(JOB_MODE.noto, {
+    ...job,
+    total,
+    offset,
+    status: 'running',
+    lockAt: Date.now(),
+    message: `官方 Noto 补全 ${offset}/${total}…`,
+  });
+
+  const cpIndex = await buildAnimatemojisCpIndex();
+  const zhMap = getZhNameMap();
+  const deadline = Date.now() + 70000;
+  const maxSkipScan = 100;
+  const maxMirror = 3;
+  let scanned = 0;
+  let mirrored = 0;
+  let lastCp = '';
+
+  const needFormats = [
+    { fmt: 'gif', kind: '2d', file: '512.gif' },
+    { fmt: 'webp', kind: '2d', file: '512.webp' },
+    { fmt: 'lottie', kind: '2d', file: 'lottie.json' },
+    { fmt: 'png', kind: '3d' },
+  ];
+
+  while (
+    offset < total &&
+    Date.now() < deadline &&
+    mirrored < maxMirror &&
+    scanned < maxSkipScan + maxMirror
+  ) {
+    const row = catalog[offset];
+    const sortIndex = offset + 1;
+    offset += 1;
+    scanned += 1;
+    const cp = String((row && row.c) || '')
+      .trim()
+      .toLowerCase();
+    if (!cp) {
+      skipped += 1;
+      continue;
+    }
+
+    const docId = cpIndex[cp] || `${ANIMATE_SOURCE.id}_${cp}`;
+    // eslint-disable-next-line no-await-in-loop
+    let existing = {};
+    let existingMeta = {};
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const snap = await db.collection('lib_items').doc(docId).get();
+      existing = (snap.data && snap.data.files) || {};
+      existingMeta = (snap.data && snap.data.meta) || {};
+    } catch (e) {
+      existing = {};
+      existingMeta = {};
+    }
+
+    // 旧版误把 gstatic 128.png 当 3D：没有 noto3d 标记的 png 要重拉
+    const missing = needFormats.filter((x) => {
+      if (x.kind === '3d') {
+        if (!String(existing.png || '').trim()) return true;
+        if (!existingMeta.noto3d) return true;
+        return false;
+      }
+      return !String(existing[x.fmt] || '').trim();
+    });
+    if (!missing.length) {
+      skipped += 1;
+      cpIndex[cp] = docId;
+      continue;
+    }
+
+    const enName = String((row && row.n) || cp).trim();
+    const zhName = zhMap[cp] || enName;
+    const groupKey = String((row && row.g) || 'smileys').trim() || 'smileys';
+    lastCp = cp;
+
+    const specs = missing.map((spec) => {
+      const fmt = spec.fmt;
+      const url =
+        spec.kind === '3d' ? noto3dPngUrl(cp, 512) : notoCdnUrl(cp, spec.file);
+      const cloudName =
+        fmt === 'lottie'
+          ? `${cp}.json`
+          : spec.kind === '3d'
+            ? `${cp}.3d.png`
+            : `${cp}.${fmt}`;
+      return {
+        fmt,
+        url,
+        cloudPath: `library/${ANIMATE_SOURCE.id}/${cp}/${cloudName}`,
+        threeD: spec.kind === '3d',
+      };
+    });
+    // eslint-disable-next-line no-await-in-loop
+    const mirroredFiles = await mirrorSpecsParallel(specs);
+    mirrorFail += mirroredFiles.fail || 0;
+    const files = { ...existing, ...mirroredFiles.files };
+    const gotOfficial3d =
+      !!existingMeta.noto3d ||
+      specs.some((s) => s.threeD && mirroredFiles.files[s.fmt]);
+
+    if (!Object.keys(files).length) {
+      fail += 1;
+      continue;
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    const data = await upsertItems(ANIMATE_SOURCE.id, [
+      {
+        _id: docId,
+        externalKey: cp,
+        name: zhName,
+        groupKey,
+        tags: Array.from(
+          new Set(
+            [zhName, enName, cp]
+              .map((t) => String(t || '').trim())
+              .filter(Boolean),
+          ),
+        ).slice(0, 12),
+        previewFileID: files.webp || files.gif || files.png || '',
+        previewUrl: '',
+        files,
+        meta: {
+          slug: enName,
+          zhName,
+          enName,
+          codepoint: cp,
+          kind: 'noto-official',
+          has3d: !!files.png,
+          noto3d: gotOfficial3d,
+          mirrored: true,
+        },
+        sort: sortIndex,
+      },
+    ]);
+    imported += data.ok || 0;
+    fail += data.fail || 0;
+    mirrored += 1;
+    cpIndex[cp] = docId;
+    global.__notoCpIndex = cpIndex;
+  }
+
+  const done = offset >= total;
+  const next = {
+    mode: 'noto',
+    status: done ? 'done' : 'running',
+    token: job.token,
+    offset,
+    total,
+    imported,
+    skipped,
+    fail,
+    mirrorFail,
+    startedBy: job.startedBy || '',
+    startedAt: job.startedAt || Date.now(),
+    lockAt: 0,
+    message: done
+      ? `官方 Noto 完成：入库 ${imported}，跳过 ${skipped}`
+      : lastCp
+        ? `已处理 ${offset}/${total}（刚写入 ${lastCp}）`
+        : `已扫描 ${offset}/${total}（本拍跳过 ${scanned}）`,
+  };
+
+  if (done) {
+    await refreshCounts(ANIMATE_SOURCE.id);
+  }
+
+  return publicJob(await writeImportJob(JOB_MODE.noto, next));
+}
+
 async function importJobTick(mode, event = {}) {
   const jobId = jobIdForMode(mode);
   if (!jobId) throw new Error('未知导入类型');
@@ -809,9 +1107,17 @@ async function importJobTick(mode, event = {}) {
   await writeImportJob(jobId, { ...job, lockAt: Date.now() });
 
   try {
-    if (mode === 'other') return await runOtherJobTick(job);
-    if (mode === 'google') return await runGoogleJobTick(job);
-    throw new Error('未知导入类型');
+    let result;
+    if (mode === 'other') result = await runOtherJobTick(job);
+    else if (mode === 'google') result = await runGoogleJobTick(job);
+    else if (mode === 'noto') result = await runNotoOfficialTick(job);
+    else throw new Error('未知导入类型');
+
+    // 云端自驱：跑完一拍立刻排下一拍，不再依赖小程序页面
+    if (result && result.status === 'running' && job.token) {
+      await scheduleJobTick(mode, job.token);
+    }
+    return result;
   } catch (e) {
     const failed = await writeImportJob(jobId, {
       ...job,
@@ -819,6 +1125,9 @@ async function importJobTick(mode, event = {}) {
       status: 'running',
       message: `本拍出错：${(e && e.message) || e}（将自动重试）`,
     });
+    if (job.token) {
+      await scheduleJobTick(mode, job.token);
+    }
     return publicJob(failed);
   }
 }
@@ -839,6 +1148,8 @@ async function importJobStart(mode, openid, opts = {}) {
   }
 
   const token = newJobToken();
+  const fresh =
+    restart || !existing || existing.status === 'done' || existing.status === 'cancelled';
   let seed;
   if (mode === 'other') {
     const total = getOtherCatalog().length;
@@ -851,40 +1162,63 @@ async function importJobStart(mode, openid, opts = {}) {
       mode: 'other',
       status: 'running',
       token,
-      offset: restart || !existing || existing.status === 'done' ? 0 : Number(existing.offset) || 0,
+      offset: fresh ? 0 : Number(existing.offset) || 0,
       total,
-      imported: restart || !existing || existing.status === 'done' ? 0 : Number(existing.imported) || 0,
-      skipped: restart || !existing || existing.status === 'done' ? 0 : Number(existing.skipped) || 0,
-      fail: restart || !existing || existing.status === 'done' ? 0 : Number(existing.fail) || 0,
-      mirrorFail:
-        restart || !existing || existing.status === 'done' ? 0 : Number(existing.mirrorFail) || 0,
+      imported: fresh ? 0 : Number(existing.imported) || 0,
+      skipped: fresh ? 0 : Number(existing.skipped) || 0,
+      fail: fresh ? 0 : Number(existing.fail) || 0,
+      mirrorFail: fresh ? 0 : Number(existing.mirrorFail) || 0,
       startedBy: openid,
       startedAt: Date.now(),
       message: `已启动，目录 ${total} 条，可离开页面`,
       lockAt: 0,
     };
-  } else {
+  } else if (mode === 'noto') {
+    const total = getNotoOfficialCatalog().length;
+    if (!total) {
+      throw new Error(
+        '云端缺少 notoOfficialCatalog.json。请对 adminUpsertLibrary 重新「上传并部署」',
+      );
+    }
+    seed = {
+      mode: 'noto',
+      status: 'running',
+      token,
+      offset: fresh ? 0 : Number(existing.offset) || 0,
+      total,
+      imported: fresh ? 0 : Number(existing.imported) || 0,
+      skipped: fresh ? 0 : Number(existing.skipped) || 0,
+      fail: fresh ? 0 : Number(existing.fail) || 0,
+      mirrorFail: fresh ? 0 : Number(existing.mirrorFail) || 0,
+      startedBy: openid,
+      startedAt: Date.now(),
+      message: `已启动官方 Noto 补全（${total} 条，含 3D 静态图）`,
+      lockAt: 0,
+    };
+  } else if (mode === 'google') {
     seed = {
       mode: 'google',
       status: 'running',
       token,
-      page: restart || !existing || existing.status === 'done' ? 1 : Number(existing.page) || 1,
+      page: fresh ? 1 : Number(existing.page) || 1,
       total: Number((existing && existing.total) || 720),
       includeLottie: false,
-      imported: restart || !existing || existing.status === 'done' ? 0 : Number(existing.imported) || 0,
-      skipped: restart || !existing || existing.status === 'done' ? 0 : Number(existing.skipped) || 0,
-      fail: restart || !existing || existing.status === 'done' ? 0 : Number(existing.fail) || 0,
-      mirrorFail:
-        restart || !existing || existing.status === 'done' ? 0 : Number(existing.mirrorFail) || 0,
+      imported: fresh ? 0 : Number(existing.imported) || 0,
+      skipped: fresh ? 0 : Number(existing.skipped) || 0,
+      fail: fresh ? 0 : Number(existing.fail) || 0,
+      mirrorFail: fresh ? 0 : Number(existing.mirrorFail) || 0,
       startedBy: openid,
       startedAt: Date.now(),
       message: '已启动经典动态导入（约 720 条），可离开页面',
       lockAt: 0,
     };
+  } else {
+    throw new Error('未知导入类型');
   }
 
   await writeImportJob(jobId, seed);
-  // 立刻回进度；首拍由小程序 pullAndDrive → importJobTick 执行
+  // 首拍云端自启，离开页面也会继续
+  await scheduleJobTick(mode, token);
   return publicJob({ ...seed, _id: jobId, updatedAt: Date.now() });
 }
 
@@ -898,20 +1232,24 @@ async function importJobCancel(mode) {
     status: 'cancelled',
     token: newJobToken(),
     message: `已停止。进度 ${
-      mode === 'other' ? `${job.offset || 0}/${job.total || 0}` : `第 ${job.page || 1} 页`
+      mode === 'google'
+        ? `第 ${job.page || 1} 页`
+        : `${job.offset || 0}/${job.total || 0}`
     }，入库 ${job.imported || 0}，跳过 ${job.skipped || 0}`,
   };
   return publicJob(await writeImportJob(jobId, next));
 }
 
 async function importJobStatus() {
-  const [other, google] = await Promise.all([
+  const [other, google, noto] = await Promise.all([
     readImportJob(JOB_MODE.other),
     readImportJob(JOB_MODE.google),
+    readImportJob(JOB_MODE.noto),
   ]);
   return {
     other: publicJob(other),
     google: publicJob(google),
+    noto: publicJob(noto),
   };
 }
 
@@ -950,7 +1288,10 @@ async function importOtherCatalogPage(event = {}) {
 
     // eslint-disable-next-line no-await-in-loop
     const existing = await getExistingItemFiles(srcMeta.id, slug);
-    const need = ['gif', 'webp'].filter((fmt) => row[fmt]);
+    const need =
+      kind === 'community'
+        ? ['gif'].filter((fmt) => row[fmt])
+        : ['gif', 'webp'].filter((fmt) => row[fmt]);
     if (filesComplete(existing, need)) {
       skipped += 1;
       continue;

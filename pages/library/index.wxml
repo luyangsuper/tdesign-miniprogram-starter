@@ -19,80 +19,6 @@
         <text class="lib-hub__desc">按风格挑选，点开即可浏览下载</text>
       </view>
 
-      <view wx:if="{{isAdmin}}" class="lib-hub__admin">
-        <t-button
-          theme="primary"
-          size="medium"
-          shape="round"
-          block
-          loading="{{startingGoogle || importingGoogle}}"
-          disabled="{{startingGoogle}}"
-          content="{{importingGoogle ? '经典导入中（再点看进度）' : '一键导入经典动态'}}"
-          bind:tap="onImportAnimate"
-        />
-        <t-button
-          theme="default"
-          variant="outline"
-          size="medium"
-          shape="round"
-          block
-          loading="{{startingOther || importingOther}}"
-          disabled="{{startingOther}}"
-          content="{{importingOther ? '立体/反应导入中（再点看进度）' : '一键导入立体 + 反应'}}"
-          bind:tap="onImportOther"
-        />
-
-        <view wx:if="{{jobCards.length}}" class="lib-hub__jobs">
-          <view
-            wx:for="{{jobCards}}"
-            wx:key="mode"
-            class="lib-hub__job {{item.running ? 'lib-hub__job--run' : ''}}"
-          >
-            <view class="lib-hub__job-head">
-              <text class="lib-hub__job-title">{{item.title}}</text>
-              <t-tag
-                size="small"
-                variant="light"
-                theme="{{item.running ? 'primary' : item.status === 'done' ? 'success' : 'default'}}"
-                content="{{item.statusText}}"
-              />
-            </view>
-            <view class="lib-hub__job-bar">
-              <view class="lib-hub__job-bar-fill" style="width: {{item.percent}}%;" />
-            </view>
-            <view class="lib-hub__job-meta">
-              <text>{{item.percent}}% · {{item.progressText}}</text>
-            </view>
-            <view class="lib-hub__job-stats">
-              <text>入库 {{item.imported}}</text>
-              <text>跳过 {{item.skipped}}</text>
-              <text wx:if="{{item.fail}}">失败 {{item.fail}}</text>
-            </view>
-            <text wx:if="{{item.detail}}" class="lib-hub__job-detail">{{item.detail}}</text>
-            <view
-              wx:if="{{item.running}}"
-              class="lib-hub__job-stop"
-              data-mode="{{item.mode}}"
-              catchtap="onCancelImport"
-            >
-              <text class="lib-hub__job-stop-text">停止</text>
-            </view>
-          </view>
-        </view>
-
-        <t-button
-          wx:if="{{jobCards.length || hasRunningJob}}"
-          theme="default"
-          variant="text"
-          size="small"
-          block
-          content="清除全部进度卡片"
-          bind:tap="onClearAllJobs"
-        />
-
-        <text class="lib-hub__admin-tip">点「停止」立刻结束该任务；假进度可点「清除全部进度卡片」。导入前请先部署 adminUpsertLibrary。经典 ≈720，立体+反应 ≈793。</text>
-      </view>
-
       <view wx:if="{{loading}}" class="lib-hub__state">
         <fun-loading />
       </view>
@@ -107,7 +33,7 @@
           wx:key="id"
           class="lib-hub__card"
           data-id="{{item.id}}"
-          catchtap="onOpenSource"
+          bindtap="onOpenSource"
           hover-class="lib-hub__card--press"
           hover-stay-time="80"
         >
@@ -137,6 +63,7 @@
                 class="lib-hub__thumb"
                 src="{{thumb}}"
                 mode="aspectFill"
+                lazy-load
               />
             </block>
             <block wx:else>

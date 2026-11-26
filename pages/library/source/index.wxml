@@ -111,11 +111,14 @@
   <view class="lib-src__sheet" wx:if="{{activeItem}}">
     <view class="lib-src__sheet-preview">
       <image
-        wx:if="{{activeItem.previewUrl}}"
+        wx:if="{{previewDisplayUrl}}"
         class="lib-src__sheet-img"
-        src="{{activeItem.previewUrl}}"
+        src="{{previewDisplayUrl}}"
         mode="aspectFit"
       />
+      <view wx:elif="{{previewPlaceholder}}" class="lib-src__sheet-ph">
+        <text>{{previewPlaceholder}}</text>
+      </view>
     </view>
     <view class="lib-src__sheet-title">{{activeItem.name}}</view>
     <view class="lib-src__sheet-sub" wx:if="{{activeItem.externalKey}}">
@@ -137,7 +140,10 @@
     </view>
 
     <view class="lib-src__sheet-tip">
-      {{formatTip}} · {{unitCost}} 积分
+      {{formatTip}} · {{unitCostText}}
+    </view>
+    <view wx:if="{{sourceLicense}}" class="lib-src__sheet-license">
+      {{sourceLicense}}
     </view>
 
     <t-button

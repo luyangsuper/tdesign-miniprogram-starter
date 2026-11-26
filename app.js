@@ -211,9 +211,10 @@ App({
 
   startLotteryPoll() {
     this.stopLotteryPoll();
+    // 5s 太密，切页时和页面云请求抢带宽；45s 足够懒开奖
     this._lotteryPollTimer = setInterval(() => {
       this.pullLotteryPending();
-    }, 5000);
+    }, 45000);
   },
 
   stopLotteryPoll() {
@@ -225,6 +226,9 @@ App({
 
   async pullLotteryPending() {
     if (this._pullingLottery || !this.globalData.openid) return;
+    const now = Date.now();
+    if (this._lotteryPullAt && now - this._lotteryPullAt < 8000) return;
+    this._lotteryPullAt = now;
     this._pullingLottery = true;
     try {
       const res = await callFunction('userLottery', { action: 'pending' });

@@ -359,42 +359,48 @@ Page({
   },
 
   onShow() {
+    // 首帧：主题 / 节日 / 底栏；云同步延后，避免从二级页返回卡顿
     this.syncThemeUi();
     applyThemeToTabBar();
-    if (!this.data.festivalActive) {
-      this.setData({ festivalActive: true });
-    }
     this.refreshFestivalDecor();
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
       if (typeof bar.setSelected === 'function') bar.setSelected('my');
       else bar.setData({ value: 'my' });
-      if (typeof bar.syncTheme === 'function') bar.syncTheme();
-      if (typeof bar.syncFestival === 'function') bar.syncFestival();
     }
-    /* 裁剪全屏时保持藏底栏（cover-view 会盖住裁剪层） */
     this.setTabBarHidden(!!this.data.festivalCropVisible);
-    this.refreshIdentity();
-    /* 用 resolveIsAdmin()，避免 setData 尚未反映到 this.data 时误把预览模式清成 auto */
-    ensureFestivalModeForRole(!!resolveIsAdmin());
-    this.syncProfileFromCloud();
-    this.syncEntitlement();
-    this.refreshAdRewardStatus();
-    this.refreshNotifyStatus();
-    this.refreshFeedbackNotifyStatus();
-    this.refreshLotteryHint();
-    this.refreshCheckinEntry();
-    this.maybeOpenCheckinPopup();
-    loadFestivalConfig({ silent: true }).then(() => {
+
+    if (this._myShowDeferTimer) clearTimeout(this._myShowDeferTimer);
+    this._myShowDeferTimer = setTimeout(() => {
+      this._myShowDeferTimer = null;
+      this.refreshIdentity();
       ensureFestivalModeForRole(!!resolveIsAdmin());
-      this.syncThemeUi();
-      this.refreshFestivalDecor();
-      this.syncTabBarFestival();
-    });
+      const now = Date.now();
+      const due = !this._myCloudAt || now - this._myCloudAt > 20 * 1000;
+      if (due) {
+        this._myCloudAt = now;
+        this.syncProfileFromCloud();
+        this.syncEntitlement();
+        this.refreshAdRewardStatus();
+        this.refreshNotifyStatus();
+        this.refreshFeedbackNotifyStatus();
+        this.refreshLotteryHint();
+        this.refreshCheckinEntry();
+        loadFestivalConfig({ silent: true }).then(() => {
+          ensureFestivalModeForRole(!!resolveIsAdmin());
+          this.syncThemeUi();
+          this.refreshFestivalDecor();
+        });
+      }
+      this.maybeOpenCheckinPopup();
+    }, 32);
   },
 
   onHide() {
-    this.setData({ festivalActive: false });
+    if (this._myShowDeferTimer) {
+      clearTimeout(this._myShowDeferTimer);
+      this._myShowDeferTimer = null;
+    }
   },
 
   onShareAppMessage() {
@@ -512,6 +518,7 @@ Page({
     const assets = fest ? getFestivalAssets(fest.id) : {};
     const hasBanner = !!(assets && assets.banner);
     const festHeaderPx = Math.max(48, Math.round(nav));
+    const festivalId = fest ? fest.id : '';
     const festivalStyle = fest
       ? [
           `--fest-accent:${fest.accent || 'var(--td-brand-color)'}`,
@@ -525,14 +532,20 @@ Page({
           .filter(Boolean)
           .join(' ')
       : '';
+    if (
+      this.data.festivalId === festivalId &&
+      this.data.festivalClass === festivalClass &&
+      this.data.festivalStyle === festivalStyle &&
+      this.data.festHeaderPx === festHeaderPx
+    ) {
+      return;
+    }
     this.setData({
-      festivalId: fest ? fest.id : '',
+      festivalId,
       festivalClass,
       festivalStyle,
       festHeaderPx,
     });
-    const decor = this.selectComponent('#festivalDecor');
-    if (decor && typeof decor.refresh === 'function') decor.refresh();
   },
 
   maybeOpenCheckinPopup() {
@@ -552,21 +565,42 @@ Page({
     const themeId = getThemeId();
     const hit = presets.find((p) => p.id === themeId);
     const fest = getFestivalStatus();
+    const themeStyle = getThemeStyle();
+    const themeBrand = getThemeBrand();
+    const themeName = (hit && hit.name) || '微信绿';
+    const displaySettingsNote = getDisplaySettingsNote();
+    const homePrefNote = getHomePrefNote();
+    const festivalMenu = festivalMenuNote(fest);
+    const festivalFallFull = isFestivalFallFull();
+    if (
+      this.data.themeStyle === themeStyle &&
+      this.data.themeBrand === themeBrand &&
+      this.data.themeId === themeId &&
+      this.data.festivalMode === fest.mode &&
+      this.data.festivalFeatureOn === !!fest.featureOn &&
+      this.data.festivalUserOn === !!fest.userOn &&
+      this.data.festivalFallFull === festivalFallFull &&
+      this.data.displaySettingsNote === displaySettingsNote &&
+      this.data.homePrefNote === homePrefNote &&
+      this.data.festivalMenuNote === festivalMenu
+    ) {
+      return;
+    }
     this.setData({
-      themeStyle: getThemeStyle(),
-      themeBrand: getThemeBrand(),
+      themeStyle,
+      themeBrand,
       themeId,
-      themeName: (hit && hit.name) || '微信绿',
+      themeName,
       themePresets: presets,
-      displaySettingsNote: getDisplaySettingsNote(),
-      homePrefNote: getHomePrefNote(),
+      displaySettingsNote,
+      homePrefNote,
       festivalMode: fest.mode,
       festivalModeLabel: fest.modeLabel,
       festivalActiveName: fest.activeName,
-      festivalMenuNote: festivalMenuNote(fest),
+      festivalMenuNote: festivalMenu,
       festivalFeatureOn: !!fest.featureOn,
       festivalUserOn: !!fest.userOn,
-      festivalFallFull: isFestivalFallFull(),
+      festivalFallFull,
       festivalModeOptions: getFestivalPreviewOptions(),
     });
   },

@@ -9,6 +9,14 @@ const _ = db.command;
 const SOURCE_ANIMATE = 'animatemojis';
 const SOURCE_FLUENT = 'fluent-emoji';
 const SOURCE_COMMUNITY = 'animatemojis-community';
+const SOURCE_MEME = 'meme-api';
+
+/** 使用 Unicode 官方分组的源；meme-api 分组由导入脚本写入 */
+const EMOJI_GROUP_SOURCE_IDS = new Set([
+  SOURCE_ANIMATE,
+  SOURCE_FLUENT,
+  SOURCE_COMMUNITY,
+]);
 
 const ANIMATE_GROUPS = [
   { key: 'smileys', title: '笑脸与情绪', emoji: '😊', sort: 10 },
@@ -28,8 +36,8 @@ const SOURCE_SEEDS = [
     id: SOURCE_ANIMATE,
     title: '经典动态表情',
     subtitle: '多格式',
-    desc: '圆润笑脸与日常表情，动作轻快好用',
-    formatsDefault: ['gif', 'webp', 'lottie'],
+    desc: '圆润笑脸与日常表情，含平面动图与 3D 静态图',
+    formatsDefault: ['gif', 'webp', 'lottie', 'png'],
     sort: 10,
   },
   {
@@ -47,6 +55,15 @@ const SOURCE_SEEDS = [
     desc: '派对、Blob 等聊天反应，发梗更有气氛',
     formatsDefault: ['gif', 'webp'],
     sort: 30,
+  },
+  {
+    id: SOURCE_MEME,
+    title: '萌芽表情包',
+    subtitle: '梗图',
+    desc: '经典网络梗图表情 · 素材来自 meme-api · CC BY-NC-SA 4.0',
+    formatsDefault: ['webp', 'gif'],
+    sort: 40,
+    costs: { anim: 0, static: 0 },
   },
 ];
 
@@ -70,13 +87,21 @@ async function ensureCollection(name) {
   }
 }
 
+/** 冷启动只种子一次，避免每次 list 都串行扫库 */
+let _seededAt = 0;
+const SEED_TTL_MS = 10 * 60 * 1000;
+
 async function ensureLibCollections() {
   await ensureCollection('lib_sources');
   await ensureCollection('lib_groups');
   await ensureCollection('lib_items');
 }
 
-async function ensureLibSources() {
+async function ensureLibSources(opts = false) {
+  const force = typeof opts === 'boolean' ? opts : !!(opts && opts.force);
+  if (!force && _seededAt && Date.now() - _seededAt < SEED_TTL_MS) {
+    return;
+  }
   await ensureLibCollections();
   const groupCol = db.collection('lib_groups');
 
@@ -89,17 +114,21 @@ async function ensureLibSources() {
       const snap = await ref.get();
       exists = !!(snap && snap.data);
       if (exists) {
-        // 同步展示文案（Google / Fluent 分卡）
+        // 同步展示文案（Google / Fluent / 萌芽分卡）
+        const patch = {
+          title: seed.title,
+          subtitle: seed.subtitle,
+          desc: seed.desc,
+          formatsDefault: seed.formatsDefault,
+          sort: seed.sort,
+          updatedAt: db.serverDate(),
+        };
+        if (seed.costs && typeof seed.costs === 'object') {
+          patch.costs = seed.costs;
+        }
         // eslint-disable-next-line no-await-in-loop
         await ref.update({
-          data: {
-            title: seed.title,
-            subtitle: seed.subtitle,
-            desc: seed.desc,
-            formatsDefault: seed.formatsDefault,
-            sort: seed.sort,
-            updatedAt: db.serverDate(),
-          },
+          data: patch,
         });
       }
     } catch (e) {
@@ -108,29 +137,39 @@ async function ensureLibSources() {
 
     if (!exists) {
       try {
+        const seedData = {
+          id: seed.id,
+          title: seed.title,
+          subtitle: seed.subtitle,
+          desc: seed.desc,
+          uiTemplate: 'animated_multiformat',
+          formatsDefault: seed.formatsDefault,
+          coverFileID: '',
+          previewFileIDs: [],
+          itemCount: 0,
+          groupCount: EMOJI_GROUP_SOURCE_IDS.has(seed.id)
+            ? ANIMATE_GROUPS.length
+            : 0,
+          status: 'published',
+          enabled: true,
+          sort: seed.sort,
+          createdAt: db.serverDate(),
+          updatedAt: db.serverDate(),
+        };
+        if (seed.costs && typeof seed.costs === 'object') {
+          seedData.costs = seed.costs;
+        }
         // eslint-disable-next-line no-await-in-loop
         await ref.set({
-          data: {
-            id: seed.id,
-            title: seed.title,
-            subtitle: seed.subtitle,
-            desc: seed.desc,
-            uiTemplate: 'animated_multiformat',
-            formatsDefault: seed.formatsDefault,
-            coverFileID: '',
-            previewFileIDs: [],
-            itemCount: 0,
-            groupCount: ANIMATE_GROUPS.length,
-            status: 'published',
-            enabled: true,
-            sort: seed.sort,
-            createdAt: db.serverDate(),
-            updatedAt: db.serverDate(),
-          },
+          data: seedData,
         });
       } catch (e) {
         console.warn('[listLibrary] seed source', seed.id, e.message || e);
       }
+    }
+
+    if (!EMOJI_GROUP_SOURCE_IDS.has(seed.id)) {
+      continue;
     }
 
     // eslint-disable-next-line no-restricted-syntax
@@ -164,16 +203,33 @@ async function ensureLibSources() {
       }
     }
   }
+  _seededAt = Date.now();
 }
 
 async function listSources() {
-  await ensureLibSources();
-  const res = await db
-    .collection('lib_sources')
-    .where({ enabled: true, status: 'published' })
-    .orderBy('sort', 'asc')
-    .limit(50)
-    .get();
+  // 有数据时跳过 seed，首屏少几十次 DB
+  let res;
+  try {
+    res = await db
+      .collection('lib_sources')
+      .where({ enabled: true, status: 'published' })
+      .orderBy('sort', 'asc')
+      .limit(50)
+      .get();
+  } catch (e) {
+    res = { data: [] };
+  }
+  if (!(res.data && res.data.length)) {
+    await ensureLibSources({ force: true });
+    res = await db
+      .collection('lib_sources')
+      .where({ enabled: true, status: 'published' })
+      .orderBy('sort', 'asc')
+      .limit(50)
+      .get();
+  } else {
+    _seededAt = Date.now();
+  }
   const list = (res.data || []).map((s) => ({
     id: s.id || s._id,
     title: s.title || '',
@@ -186,6 +242,13 @@ async function listSources() {
     coverFileID: s.coverFileID || '',
     previewFileIDs: Array.isArray(s.previewFileIDs) ? s.previewFileIDs : [],
     sort: Number(s.sort) || 0,
+    costs:
+      s.costs && typeof s.costs === 'object'
+        ? {
+            anim: Number(s.costs.anim),
+            static: Number(s.costs.static),
+          }
+        : null,
   }));
 
   const fileIds = [];
@@ -205,13 +268,26 @@ async function listSources() {
 
 async function listGroups(event) {
   const sourceId = String(event.sourceId || SOURCE_ANIMATE).trim() || SOURCE_ANIMATE;
-  await ensureLibSources();
-  const res = await db
-    .collection('lib_groups')
-    .where({ sourceId, status: 'published' })
-    .orderBy('sort', 'asc')
-    .limit(100)
-    .get();
+  let res;
+  try {
+    res = await db
+      .collection('lib_groups')
+      .where({ sourceId, status: 'published' })
+      .orderBy('sort', 'asc')
+      .limit(100)
+      .get();
+  } catch (e) {
+    res = { data: [] };
+  }
+  if (!(res.data && res.data.length)) {
+    await ensureLibSources({ force: true });
+    res = await db
+      .collection('lib_groups')
+      .where({ sourceId, status: 'published' })
+      .orderBy('sort', 'asc')
+      .limit(100)
+      .get();
+  }
   return (res.data || []).map((g) => ({
     id: g._id,
     sourceId: g.sourceId,
@@ -280,22 +356,41 @@ async function listItems(event) {
     }
   }
 
-  const fileIds = [];
+  // 列表只换预览链；各格式临时链在点开预览时客户端再换，避免 40 条 × 多格式拖慢
+  const previewIds = [];
   rows.forEach((row) => {
     const ref = pickPreviewRef(row);
-    if (ref && !isHttpUrl(ref)) fileIds.push(ref);
+    if (ref && !isHttpUrl(ref)) previewIds.push(ref);
   });
-  const urlMap = await resolveTempUrls(cloud, fileIds);
+  const urlMap = await resolveTempUrls(cloud, [...new Set(previewIds)]);
 
   const list = rows.map((row) => {
+    const filesRaw = row.files || {};
+    const files = {};
+    const fileUrls = {};
+    ['gif', 'webp', 'lottie', 'png', 'svg'].forEach((f) => {
+      const ref = String(filesRaw[f] || '').trim();
+      if (!ref) return;
+      files[f] = ref;
+      if (isHttpUrl(ref)) fileUrls[f] = ref;
+    });
+    const formats = Object.keys(files);
     const previewRef = pickPreviewRef(row);
     let previewUrl = '';
     if (isHttpUrl(previewRef)) previewUrl = previewRef;
     else if (previewRef) previewUrl = urlMap[previewRef] || '';
-    const files = row.files || {};
-    const formats = ['gif', 'webp', 'lottie', 'png', 'svg'].filter(
-      (f) => files[f] && String(files[f]).trim(),
-    );
+    if (!previewUrl) {
+      previewUrl =
+        fileUrls.webp || fileUrls.gif || fileUrls.png || fileUrls.lottie || '';
+    }
+    // 预览链回填到对应格式，点开时可直接用
+    if (previewUrl && previewRef && files.webp === previewRef) {
+      fileUrls.webp = previewUrl;
+    } else if (previewUrl && previewRef && files.gif === previewRef) {
+      fileUrls.gif = previewUrl;
+    } else if (previewUrl && previewRef && files.png === previewRef) {
+      fileUrls.png = previewUrl;
+    }
     return {
       _id: row._id,
       sourceId: row.sourceId,
@@ -305,6 +400,8 @@ async function listItems(event) {
       externalKey: row.externalKey || '',
       tags: Array.isArray(row.tags) ? row.tags : [],
       formats,
+      files,
+      fileUrls,
       previewUrl,
       meta: row.meta || {},
       downloadCount: Number(row.downloadCount) || 0,

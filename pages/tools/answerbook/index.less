@@ -687,3 +687,142 @@
   display: flex;
   gap: 14rpx;
 }
+
+/* 暗色：保留书本气质，换成深胡桃 / 暖金 */
+@media (prefers-color-scheme: dark) {
+  .ab-page {
+    background:
+      radial-gradient(circle at 50% 12%, rgba(180, 140, 80, 0.16), transparent 42%),
+      linear-gradient(180deg, #1a1612 0%, #221c16 42%, #181410 100%);
+    color: #e8d9c2;
+  }
+
+  .ab__nav-title {
+    color: #f0e2c8;
+  }
+
+  .ab__eyebrow {
+    color: #d4b078;
+  }
+
+  .ab__title {
+    color: #f3e6cf;
+  }
+
+  .ab__intro {
+    color: #cbb896;
+  }
+
+  .scene__glow {
+    background: radial-gradient(ellipse, rgba(212, 176, 120, 0.18), transparent 70%);
+  }
+
+  .page {
+    background: linear-gradient(90deg, #2c241a 4%, #352b1f 18%, #352b1f 82%, #241c14);
+    box-shadow: inset -2rpx 0 4rpx rgba(0, 0, 0, 0.35);
+  }
+
+  .page--right {
+    background: linear-gradient(270deg, #2c241a 4%, #352b1f 18%, #352b1f 82%, #241c14);
+    box-shadow: inset 2rpx 0 4rpx rgba(0, 0, 0, 0.35);
+  }
+
+  .page__frame {
+    border-color: rgba(212, 176, 120, 0.28);
+  }
+
+  .page__caption,
+  .page__side-star,
+  .page__hint,
+  .page__num--inline {
+    color: #d4b078;
+  }
+
+  .page__quote {
+    color: #f3e6cf;
+  }
+
+  .leaf__face--front {
+    background: linear-gradient(90deg, #3a2f22, #4a3b2a 45%, #35291e);
+  }
+
+  .leaf__face--back {
+    background: linear-gradient(90deg, #35291e, #4a3b2a 55%, #3a2f22);
+  }
+
+  .cover__front {
+    color: #f3e6cf;
+    background:
+      radial-gradient(circle at 50% 26%, rgba(255, 220, 150, 0.16), transparent 48%),
+      linear-gradient(160deg, #8a6838, #5a3f22 58%, #3f2b16);
+  }
+
+  .cover__edition,
+  .cover__star,
+  .cover__kicker {
+    color: #e0c392;
+  }
+
+  .cover__emblem {
+    border-color: rgba(224, 195, 146, 0.4);
+  }
+
+  .cover__line {
+    background: rgba(224, 195, 146, 0.35);
+  }
+
+  .cover__inside {
+    background: linear-gradient(90deg, #2a2218, #342a1e 42%, #271f16);
+  }
+
+  .cover__inside-frame {
+    border-color: rgba(212, 176, 120, 0.35);
+  }
+
+  .cover__inside-star {
+    color: #d4b078;
+  }
+
+  .ab__bar {
+    background: rgba(36, 30, 24, 0.92);
+    border-color: rgba(212, 176, 120, 0.18);
+    box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.28);
+  }
+
+  .ab__status {
+    color: #cbb896;
+  }
+
+  .ab-btn--solid {
+    background: linear-gradient(180deg, #b08a4e, #8a6232);
+    color: #fff8e8;
+  }
+
+  .ab-btn--ghost {
+    background: rgba(255, 248, 232, 0.08);
+    color: #e8d4b0;
+    border-color: rgba(212, 176, 120, 0.35);
+  }
+
+  .ab__tip {
+    color: #b59a6e;
+  }
+
+  .result {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(180, 140, 80, 0.22), transparent 55%),
+      #2a2218;
+    border-color: rgba(212, 176, 120, 0.22);
+    box-shadow: 0 22rpx 48rpx rgba(0, 0, 0, 0.4);
+  }
+
+  .result__brand,
+  .result__title,
+  .result__seal {
+    color: #d4b078;
+  }
+
+  .result__quote {
+    color: #f3e6cf;
+  }
+}

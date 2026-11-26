@@ -73,10 +73,15 @@ Component({
   },
   pageLifetimes: {
     show() {
-      this.syncFestival();
       const pages = getCurrentPages();
       const cur = pages[pages.length - 1];
       this.setSelected(routeToValue(cur && cur.route));
+      // 节日底图延后一帧，先让页面主体上屏
+      if (this._festShowTimer) clearTimeout(this._festShowTimer);
+      this._festShowTimer = setTimeout(() => {
+        this._festShowTimer = null;
+        this.syncFestival();
+      }, 40);
     },
   },
   methods: {

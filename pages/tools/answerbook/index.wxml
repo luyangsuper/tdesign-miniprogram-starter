@@ -1,7 +1,7 @@
 <view class="ab-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
   <festival-decor
     id="festivalDecor"
-    mode="my"
+    mode="navbar"
     active="{{festivalActive}}"
     header-height="{{festHeaderPx}}"
     nav-height="{{navHeight}}"
@@ -19,7 +19,7 @@
       <kubai-icon
         name="{{soundMuted ? 'sound-mute' : 'sound'}}"
         size="40rpx"
-        color="#694325"
+        color="{{navIconColor}}"
       />
     </view>
   </t-navbar>

@@ -38,7 +38,7 @@
   width: 44px;
   text-align: center;
   font-size: 34px;
-  color: #111827;
+  color: inherit;
 }
 
 .bead__nav-cover-title {
@@ -46,7 +46,7 @@
   text-align: center;
   font-size: 17px;
   font-weight: 600;
-  color: #111827;
+  color: inherit;
 }
 
 .bead {
@@ -128,7 +128,7 @@
 .bead__preview {
   min-height: 360rpx;
   position: relative;
-  background: #f3f5f4;
+  background: var(--td-bg-color-secondarycontainer, #f3f5f4);
 }
 
 .bead__preview--empty {
@@ -145,7 +145,7 @@
   height: auto;
   display: flex;
   flex-direction: column;
-  background: #eef1ef;
+  background: var(--td-bg-color-secondarycontainer, #eef1ef);
   padding: 0;
 }
 
@@ -154,7 +154,7 @@
   width: 100%;
   height: 520rpx; /* 占位；生成后 liveCanvasStyle 按格网比例覆盖 */
   overflow: hidden;
-  background: #eef1ef;
+  background: var(--td-bg-color-secondarycontainer, #eef1ef);
 }
 
 .bead__live {
@@ -390,7 +390,7 @@
   min-width: 0;
   padding: 14rpx 6rpx 12rpx;
   border-radius: 18rpx;
-  background: #f3f5f4;
+  background: var(--td-bg-color-secondarycontainer, #f3f5f4);
   border: 2rpx solid transparent;
   box-sizing: border-box;
   display: flex;
@@ -400,7 +400,7 @@
 }
 
 .bead__grid-opt.is-on {
-  background: #f3f5f4;
+  background: var(--td-bg-color-secondarycontainer, #f3f5f4);
   border-color: transparent;
 }
 
@@ -413,7 +413,7 @@
   padding: 0;
   border-radius: 10rpx;
   overflow: hidden;
-  background: #e8eaea;
+  background: rgba(148, 163, 184, 0.22);
   box-sizing: border-box;
 }
 
@@ -423,11 +423,11 @@
   min-width: 0;
   min-height: 0;
   border-radius: 3rpx;
-  background: #b8bcba;
+  background: #8b9198;
 }
 
 .bead__grid-opt-cell.is-alt {
-  background: #c9cdcb;
+  background: #a0a6ad;
 }
 
 .bead__grid-opt-n {
@@ -885,4 +885,63 @@
   color: var(--td-text-color-placeholder);
   text-align: center;
   line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bead-page {
+    background:
+      radial-gradient(120% 55% at 50% -8%, rgba(16, 185, 129, 0.14), transparent 52%),
+      var(--td-bg-color-page);
+  }
+
+  .bead__busy {
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .bead__preview-foot {
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .bead__chip {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .bead__scale-opt {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .bead__grid-opt.is-on.bead__grid-opt--amber .bead__grid-opt-n {
+    color: #fbbf24;
+  }
+  .bead__grid-opt.is-on.bead__grid-opt--amber .bead__grid-opt-canvas {
+    background: rgba(245, 158, 11, 0.22);
+  }
+
+  .bead__grid-opt.is-on.bead__grid-opt--sky .bead__grid-opt-n {
+    color: #7dd3fc;
+  }
+  .bead__grid-opt.is-on.bead__grid-opt--sky .bead__grid-opt-canvas {
+    background: rgba(14, 165, 233, 0.22);
+  }
+
+  .bead__grid-opt.is-on.bead__grid-opt--mint .bead__grid-opt-n {
+    color: #6ee7b7;
+  }
+  .bead__grid-opt.is-on.bead__grid-opt--mint .bead__grid-opt-canvas {
+    background: rgba(16, 185, 129, 0.22);
+  }
+
+  .bead__grid-opt.is-on.bead__grid-opt--violet .bead__grid-opt-n {
+    color: #c4b5fd;
+  }
+  .bead__grid-opt.is-on.bead__grid-opt--violet .bead__grid-opt-canvas {
+    background: rgba(139, 92, 246, 0.22);
+  }
+
+  .bead__grid-opt.is-on.bead__grid-opt--rose .bead__grid-opt-n {
+    color: #fda4af;
+  }
+  .bead__grid-opt.is-on.bead__grid-opt--rose .bead__grid-opt-canvas {
+    background: rgba(244, 63, 94, 0.22);
+  }
 }

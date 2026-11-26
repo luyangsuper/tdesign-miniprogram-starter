@@ -1,21 +1,33 @@
 # 素材库导入
 
-## 推荐：小程序一键导入（管理员）
+小程序页已去掉导入按钮。**推荐本机脚本**直连云存储 + `lib_items`（见下方「本机高速抓取上传」）。
 
-1. **重新部署** `adminUpsertLibrary`（含 `otherCatalog.json` + `fluentZhNames.json` + 云存储镜像）和 `listLibrary`
-2. 管理员打开「素材库」：
-   - **一键导入经典动态** → 公开 API ≈720（GIF/WebP/Lottie）
-   - **一键导入立体 + 反应** → Fluent ≈393 + 社区 ≈400（GIF/WebP）
-3. 点击后进**云端后台任务**（集合 `lib_import_jobs`），可离开/刷新；已入库会跳过。进度看「入库 / 跳过 / 失败」。卡住约 50s 回 Hub 会自动续跑  
-   过程：下载原站 → 上传云存储 `library/{sourceId}/...` → 写入 `lib_*`
+云函数 `adminUpsertLibrary` 仍保留导入任务能力，仅供脚本/后台需要时调用；日常浏览走 `listLibrary`。
 
-### 三个源卡
+### 下载格式（全源统一）
+
+素材库保存到相册时：**默认「动图」**。若条目只有 webp/png 等静图，客户端会转成单帧 GIF 再入库（导入微信更清晰）；用户仍可改选原静图。头像/壁纸合集不走这套逻辑。新源只要写入 `lib_items.files`，弹层选项会自动带上转 GIF。
+
+### 四个源卡
 
 | sourceId | 内容 |
 | --- | --- |
-| `animatemojis` | Google Noto（API） |
+| `animatemojis` | Google Noto（经 AnimateMojis API ≈720；底层多为 `fonts.gstatic.com/.../notoemoji/`） |
 | `fluent-emoji` | Microsoft Fluent Animated（sitemap + 稳定 `/emojis/fluent/{slug}.gif`） |
 | `animatemojis-community` | 社区 `ae-*`（sitemap hashed CDN） |
+| `meme-api` | [萌芽 meme-api](https://github.com/shumengya/meme-api)（≈2648；`meme.smyhub.com`；**CC BY-NC-SA 4.0**，本源免费） |
+
+### 与官方 [Noto Emoji Files](https://googlefonts.github.io/noto-emoji-files/) 的关系
+
+| | 现有「经典动态」 | 官方 Noto Emoji Files |
+| --- | --- | --- |
+| 规模 | ≈720 | 约 4000 |
+| 是否重复 | **同一家族**，字符大量重叠 | 官方目录更全 |
+| 2D | gif / webp / lottie | svg + lottie + webp + gif |
+| 3D | `png`（真正 3D） | GitHub `3D/png/512/emoji_u{cp}.png`（**不是** gstatic `128.png`，那是 2D 平面） |
+| 2D CDN | gif/webp/lottie | `fonts.gstatic.com/s/e/notoemoji/latest/{codepoint}/` |
+
+补全任务会按 codepoint 去重；若旧数据误用了 gstatic `128.png` 当 3D，再跑一遍「补全官方 Noto」会重拉真正的 3D。
 
 ### 重建「其他」目录（开发机）
 
@@ -34,6 +46,36 @@ node scripts/library-import/build-fluent-zh.mjs
 ### 域名
 
 镜像上传在云函数内完成，用户预览/下载走云存储临时链。Fluent 稳定地址来自 `animatemojis.com/emojis/fluent/`；社区走 `animatemojis-media.pages.dev`。
+
+## 本机高速抓取上传（推荐补全时用）
+
+页面一拍一拍慢；本机可并发直接写云存储 + `lib_items`：
+
+1. 腾讯云控制台 → 访问管理 → API 密钥，拿到 `SecretId` / `SecretKey`
+2. 项目根目录建 `.env`（已 gitignore）：
+
+```
+TCB_ENV=cloud1-d4g0731mc55f853ef
+TCB_SECRET_ID=AKIDxxxx
+TCB_SECRET_KEY=xxxx
+```
+
+3. 执行：
+
+```bash
+# Noto 官方补全（含真 3D）
+npm run library:upload -- --mode noto --concurrency 10
+
+# 只重拉/修补 3D
+npm run library:upload -- --mode noto --only-3d --concurrency 12
+
+# Fluent + 社区
+npm run library:upload -- --mode other --concurrency 8
+
+# 萌芽 meme-api（先试跑再全量；可 --category 滑稽 / --fresh 刷新清单）
+npm run library:upload -- --mode meme --limit 30 --concurrency 8
+npm run library:upload -- --mode meme --concurrency 8
+```
 
 ## 备选：本机目录上传
 

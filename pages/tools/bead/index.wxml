@@ -1,7 +1,7 @@
 <view class="bead-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
   <festival-decor
     id="festivalDecor"
-    mode="my"
+    mode="navbar"
     active="{{festivalActive}}"
     header-height="{{festHeaderPx}}"
     nav-height="{{navHeight}}"
@@ -15,19 +15,22 @@
     title=""
     custom-style="{{navBarStyle}};opacity:0;pointer-events:none;"
   />
-  <cover-view class="bead__nav-cover" style="height: {{navHeight}}px; background-color: #ffffff;">
+  <cover-view
+    class="bead__nav-cover"
+    style="height: {{navHeight}}px; background-color: {{navCoverBg}}; border-bottom-color: {{navCoverBorder}};"
+  >
     <cover-view
       class="bead__nav-cover-bar"
       style="margin-top: {{statusBarHeight}}px; height: {{navBarHeight}}px;"
     >
       <cover-view
         class="bead__nav-back"
-        style="height: {{navBarHeight}}px; line-height: {{navBarHeight}}px;"
+        style="height: {{navBarHeight}}px; line-height: {{navBarHeight}}px; color: {{navCoverColor}};"
         bindtap="onBack"
       >‹</cover-view>
       <cover-view
         class="bead__nav-cover-title"
-        style="height: {{navBarHeight}}px; line-height: {{navBarHeight}}px;"
+        style="height: {{navBarHeight}}px; line-height: {{navBarHeight}}px; color: {{navCoverColor}};"
       >拼豆图纸</cover-view>
     </cover-view>
   </cover-view>

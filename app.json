@@ -91,5 +91,19 @@
     "~/*": "/*"
   },
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "preloadRule": {
+    "pages/home/index": {
+      "network": "all",
+      "packages": ["library", "pack"]
+    },
+    "pages/workshop/index": {
+      "network": "all",
+      "packages": ["tools", "puzzle"]
+    },
+    "pages/my/index": {
+      "network": "wifi",
+      "packages": ["history", "about", "lottery"]
+    }
+  }
 }

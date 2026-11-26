@@ -85,7 +85,6 @@ import { shareAppMessage, shareTimeline } from '~/utils/share';
 import {
   getActiveFestival,
   getFestivalAssets,
-  loadFestivalConfig,
   notifyFestivalAccessChange,
 } from '~/utils/festival';
 import { resolveWaterfallColumns } from '~/utils/waterfallColumns';
@@ -343,60 +342,68 @@ Page({
   _freshing: false,
 
   onShow() {
+    // 首帧只做轻量同步，保证从二级页返回/切 Tab 先出画面
     applyThemeToPage(this);
     applyThemeToTabBar();
     this.updateLayout();
-    /* 先恢复 active（仅解暂停），避免先卸图再加载造成闪烁 */
-    if (!this.data.festivalActive) {
-      this.setData({ festivalActive: true });
-    }
     this.refreshFestivalDecor();
-    this.refreshFeedAdGate();
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
       if (typeof bar.setSelected === 'function') bar.setSelected('home');
       else bar.setData({ value: 'home' });
-      if (typeof bar.syncTheme === 'function') bar.syncTheme();
-      /* 各 tab 页自带一份 custom-tab-bar，必须在首页也 sync */
-      if (typeof bar.syncFestival === 'function') bar.syncFestival();
     }
-    /* 配置未变时 loadFestivalConfig 不广播；变了才再刷 */
-    loadFestivalConfig({ silent: true }).then(() => {
-      this.refreshFestivalDecor();
-      if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-        const bar = this.getTabBar();
-        if (bar && typeof bar.syncFestival === 'function') bar.syncFestival();
+
+    if (this._homeShowDeferTimer) {
+      clearTimeout(this._homeShowDeferTimer);
+      this._homeShowDeferTimer = null;
+    }
+    const runDeferred = () => {
+      this._homeShowDeferTimer = null;
+      // refreshAdmin 内已含 refreshFeedAdGate，勿再调一次
+      this.refreshAdmin();
+      this.maybeShowWelcomeGift();
+      this.maybeShowWhatsNew();
+      this.maybeShowActivityGift();
+      const now = Date.now();
+      if (!this._pendingPullAt || now - this._pendingPullAt > 25 * 1000) {
+        this._pendingPullAt = now;
+        this.pullPendingActivityGifts();
       }
-    });
-    this.refreshAdmin();
-    this.maybeShowWelcomeGift();
-    this.maybeShowWhatsNew();
-    this.maybeShowActivityGift();
-    this.pullPendingActivityGifts();
-    this.startActivityGiftPoll();
-    this.maybeShowSubscribeGuide();
-    try {
-      const app = getApp();
-      if (this._pendingHomePrefApply) {
-        this._pendingHomePrefApply = false;
-        if (app.globalData) app.globalData.homeNeedRefresh = false;
-        this.applyHomePrefOnBoot({ forceReload: true });
-        return;
+      this.startActivityGiftPoll();
+      this.maybeShowSubscribeGuide();
+      try {
+        const app = getApp();
+        if (this._pendingHomePrefApply) {
+          this._pendingHomePrefApply = false;
+          if (app.globalData) app.globalData.homeNeedRefresh = false;
+          this.applyHomePrefOnBoot({ forceReload: true });
+          return;
+        }
+        if (app.globalData && app.globalData.homeNeedRefresh) {
+          app.globalData.homeNeedRefresh = false;
+          this.clearListCache();
+          clearHomeSnapshot();
+          this.loadCategories();
+          this.loadList(true, { force: true, forceRefresh: true });
+        }
+      } catch (e) {
+        /* ignore */
       }
-      if (app.globalData && app.globalData.homeNeedRefresh) {
-        app.globalData.homeNeedRefresh = false;
-        this.clearListCache();
-        clearHomeSnapshot();
-        this.loadCategories();
-        this.loadList(true, { force: true, forceRefresh: true });
-      }
-    } catch (e) {
-      /* ignore */
+    };
+    if (typeof wx !== 'undefined' && typeof wx.nextTick === 'function') {
+      wx.nextTick(() => {
+        this._homeShowDeferTimer = setTimeout(runDeferred, 24);
+      });
+    } else {
+      this._homeShowDeferTimer = setTimeout(runDeferred, 24);
     }
   },
 
   onHide() {
-    this.setData({ festivalActive: false });
+    if (this._homeShowDeferTimer) {
+      clearTimeout(this._homeShowDeferTimer);
+      this._homeShowDeferTimer = null;
+    }
     this.stopActivityGiftPoll();
   },
 
@@ -408,6 +415,7 @@ Page({
     const assets = fest ? getFestivalAssets(fest.id) : {};
     /* 无顶栏图时不要透明导航+白字，否则浅底上看不清 */
     const hasBanner = !!(assets && assets.banner);
+    const festivalId = fest ? fest.id : '';
     const festivalStyle = fest
       ? [
           `--fest-accent:${fest.accent || 'var(--td-brand-color)'}`,
@@ -423,14 +431,20 @@ Page({
           .filter(Boolean)
           .join(' ')
       : '';
+    if (
+      this.data.festivalId === festivalId &&
+      this.data.festivalClass === festivalClass &&
+      this.data.festivalStyle === festivalStyle &&
+      this.data.festHeaderPx === festHeaderPx
+    ) {
+      return;
+    }
     this.setData({
-      festivalId: fest ? fest.id : '',
+      festivalId,
       festivalClass,
       festivalStyle,
       festHeaderPx,
     });
-    const decor = this.selectComponent('#festivalDecor');
-    if (decor && typeof decor.refresh === 'function') decor.refresh();
   },
 
   onShareAppMessage() {
@@ -1027,13 +1041,27 @@ Page({
       (windowWidth - gap * 2 - gap * (columnCount - 1)) / columnCount,
     );
 
+    const showFeedAds = shouldShowHomeFeedAds();
+    const nativeAdUnitId = getNativeHomeFeedAdUnitId();
+    const layoutSame =
+      this.data.columnCount === columnCount &&
+      this.data.cardWidth === cardWidth &&
+      this.data.listGap === gap &&
+      this.data.rowGap === rowGap &&
+      this.data.nativeAdUnitId === nativeAdUnitId &&
+      this.data.showFeedAds === showFeedAds;
+    // 切 Tab 回来布局未变且已有列数据：跳过重建瀑布流，显著减 setData
+    if (layoutSame && this.data.columns && this.data.columns.length) {
+      return;
+    }
+
     const patch = {
       columnCount,
       cardWidth,
       listGap: gap,
       rowGap,
-      nativeAdUnitId: getNativeHomeFeedAdUnitId(),
-      showFeedAds: shouldShowHomeFeedAds(),
+      nativeAdUnitId,
+      showFeedAds,
     };
     if (this.data.list && this.data.list.length) {
       patch.columns = buildColumns(this.data.list, columnCount);
@@ -1041,7 +1069,7 @@ Page({
         this.data.list,
         columnCount,
         resolveHomeFeedAdEvery(columnCount),
-        patch.showFeedAds && !this.data.selectMode,
+        showFeedAds && !this.data.selectMode,
       );
     }
     this.setData(patch);
@@ -1050,16 +1078,31 @@ Page({
   refreshFeedAdGate() {
     const show = shouldShowHomeFeedAds();
     const unitId = getNativeHomeFeedAdUnitId();
+    const adsOn = show && !this.data.selectMode;
+    const gateSame =
+      this.data.showFeedAds === show && this.data.nativeAdUnitId === unitId;
+    const needBlocks = !!(this.data.list && this.data.list.length);
+    // 广告开关/列数/多选未变时不要重建瀑布流块，避免回首页卡一下
+    if (
+      gateSame &&
+      this._feedAdsOn === adsOn &&
+      this._feedBlocksCols === this.data.columnCount &&
+      (!needBlocks || (this.data.feedBlocks && this.data.feedBlocks.length))
+    ) {
+      return;
+    }
+    this._feedAdsOn = adsOn;
+    this._feedBlocksCols = this.data.columnCount;
     const patch = {
       showFeedAds: show,
       nativeAdUnitId: unitId,
     };
-    if (this.data.list && this.data.list.length) {
+    if (needBlocks) {
       patch.feedBlocks = buildFeedBlocks(
         this.data.list,
         this.data.columnCount,
         resolveHomeFeedAdEvery(this.data.columnCount),
-        show && !this.data.selectMode,
+        adsOn,
       );
     }
     this.setData(patch);

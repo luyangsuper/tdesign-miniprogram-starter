@@ -69,8 +69,13 @@ async function resolveLibraryCostMap(sourceId) {
       if (costs && typeof costs === 'object') {
         const anim = Number(costs.anim);
         const stil = Number(costs.static);
-        if (anim > 0) map.libraryAnim = Math.min(999, Math.floor(anim));
-        if (stil > 0) map.libraryStatic = Math.min(999, Math.floor(stil));
+        // 允许 0：按源免费（如 CC BY-NC-SA 萌芽图库）
+        if (Number.isFinite(anim) && anim >= 0) {
+          map.libraryAnim = Math.min(999, Math.floor(anim));
+        }
+        if (Number.isFinite(stil) && stil >= 0) {
+          map.libraryStatic = Math.min(999, Math.floor(stil));
+        }
       }
     } catch (e) {
       /* ignore */

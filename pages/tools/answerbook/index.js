@@ -3,11 +3,11 @@ import {
   applyThemeToPage,
   getThemeBrand,
   getThemeStyle,
+  isDarkMode,
 } from '~/utils/theme';
 import {
   getActiveFestival,
   getFestivalAssets,
-  loadFestivalConfig,
 } from '~/utils/festival';
 import {
   getNativeWorkshopAdUnitId,
@@ -115,6 +115,7 @@ Page({
     nativeAdUnitId: '',
     showNativeAd: false,
     soundMuted: false,
+    navIconColor: '#694325',
   },
 
   syncSoundMuted() {
@@ -184,11 +185,13 @@ Page({
   },
 
   onShow() {
-    this.refreshNativeAd();
-    this.syncSoundMuted();
-    if (!this.data.festivalActive) this.setData({ festivalActive: true });
     this.refreshFestivalDecor();
-    loadFestivalConfig({ silent: true }).then(() => this.refreshFestivalDecor());
+    if (this._abShowDeferTimer) clearTimeout(this._abShowDeferTimer);
+    this._abShowDeferTimer = setTimeout(() => {
+      this._abShowDeferTimer = null;
+      this.refreshNativeAd();
+      this.syncSoundMuted();
+    }, 32);
   },
 
   onHide() {
@@ -197,7 +200,6 @@ Page({
     } catch (e) {
       /* ignore */
     }
-    this.setData({ festivalActive: false });
   },
 
   onBack() {
@@ -206,9 +208,11 @@ Page({
 
   syncThemeUi() {
     applyThemeToPage(this);
+    const dark = isDarkMode();
     this.setData({
       themeStyle: getThemeStyle(),
       themeBrand: getThemeBrand(),
+      navIconColor: dark ? '#e8d4b0' : '#694325',
     });
   },
 

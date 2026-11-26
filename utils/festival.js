@@ -844,12 +844,25 @@ function cloudCacheChanged(prev, next) {
 }
 
 /** 拉取云端配置；失败时保留本地缓存。内容未变不广播，避免切 tab 闪图 */
-export async function loadFestivalConfig({ silent } = {}) {
+let _festivalFetchAt = 0;
+const FESTIVAL_FETCH_TTL_MS = 60 * 1000;
+
+export async function loadFestivalConfig({ silent, force } = {}) {
+  const cached = getFestivalCloudCache();
+  if (
+    !force &&
+    _festivalFetchAt &&
+    Date.now() - _festivalFetchAt < FESTIVAL_FETCH_TTL_MS &&
+    cached
+  ) {
+    return cached;
+  }
   try {
-    const prev = getFestivalCloudCache();
+    const prev = cached;
     const res = await callFunction('festivalConfig', { action: 'get' });
     const data = (res && res.data) || {};
     const next = setFestivalCloudCache(data);
+    _festivalFetchAt = Date.now();
     if (cloudCacheChanged(prev, next)) emitFestivalChange();
     return next;
   } catch (e) {

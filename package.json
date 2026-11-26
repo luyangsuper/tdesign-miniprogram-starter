@@ -13,7 +13,8 @@
     "festival:fit": "node scripts/fit-festival-image.js",
     "festival:solar": "node scripts/gen-festival-solar-table.js",
     "build:npm": "node scripts/build-miniprogram-npm.js",
-    "library:import": "node scripts/library-import/import.mjs"
+    "library:import": "node scripts/library-import/import.mjs",
+    "library:upload": "node scripts/library-import/upload-remote.mjs"
   },
   "keywords": [
     "wechat",
@@ -29,6 +30,7 @@
     "tdesign-miniprogram": "^1.11.2"
   },
   "devDependencies": {
+    "@cloudbase/node-sdk": "^4.2.1",
     "eslint": "^8.49.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-prettier": "^9.0.0",
