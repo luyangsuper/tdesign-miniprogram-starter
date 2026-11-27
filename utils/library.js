@@ -5,7 +5,68 @@ export const LIB_SOURCE_FLUENT = 'fluent-emoji';
 export const LIB_SOURCE_COMMUNITY = 'animatemojis-community';
 export const LIB_SOURCE_MEME_API = 'meme-api';
 
-export const LIB_FORMATS = ['gif', 'webp', 'lottie', 'png', 'svg'];
+export const LIB_FORMATS = ['gif', 'webp', 'lottie', 'png', 'jpg', 'jpeg', 'svg'];
+
+/** AstrBot 等语义分类 → 短标签（勿用长描述当分类名） */
+const LIB_GROUP_SHORT = {
+  work: '工作',
+  angry: '生气',
+  confused: '疑惑',
+  happy: '开心',
+  sad: '难过',
+  shy: '害羞',
+  surprised: '惊讶',
+  sleep: '睡觉',
+  like: '喜欢',
+  food: '吃喝',
+  money: '金钱',
+  greeting: '打招呼',
+  entertainment: '娱乐',
+  comfort: '安慰',
+  mischief: '调皮',
+  apology: '道歉',
+  approval: '认可',
+  attack: '吐槽',
+  interaction: '互动',
+  question: '疑问',
+  reply: '回复',
+  sigh: '无奈',
+  see: '偷瞄',
+  morning: '早安',
+  meow: '卖萌',
+  action: '动作',
+  teasing: '调侃',
+  busy: '忙碌',
+  wait: '等待',
+  praise: '夸奖',
+  thanks: '感谢',
+  other: '其他',
+  affection: '亲昵',
+  eating: '吃东西',
+  refusal: '拒绝',
+  surrender: '认输',
+  thinking: '思考',
+  celebrate: '庆祝',
+  celebrate2: '庆祝',
+};
+
+/**
+ * 分类标签短名：过滤「用于…」长描述，优先 externalKey 映射。
+ * @param {{ title?: string, externalKey?: string, key?: string }} g
+ */
+export function shortLibraryGroupTitle(g = {}) {
+  const key = String(g.externalKey || g.key || '')
+    .trim()
+    .toLowerCase();
+  if (key && LIB_GROUP_SHORT[key]) return LIB_GROUP_SHORT[key];
+  const title = String(g.title || '').trim();
+  if (!title) return key || '未分类';
+  if (/^用于/.test(title) || title.length > 10) {
+    if (key && /^[a-z][a-z0-9_-]{0,16}$/i.test(key)) return key;
+    return title.slice(0, 6);
+  }
+  return title;
+}
 
 const DEFAULT_THUMBS = ['😀', '🥰', '🎉', '✨'];
 
@@ -58,6 +119,13 @@ export function presentLibrarySource(source = {}) {
           static: Number(source.costs.static),
         }
       : null;
+  const previewUrls = Array.isArray(source.previewUrls)
+    ? source.previewUrls.map((u) => String(u || '').trim()).filter(Boolean).slice(0, 4)
+    : [];
+  // 与首页合集一致：最后一格叠 +剩余（总数 − 已完整露出的张数）
+  const shown = previewUrls.length || (count > 0 ? 4 : 0);
+  const moreCount =
+    count > shown && shown > 0 ? count - (shown - 1) : 0;
   return {
     id,
     title: preset.title || String(source.title || '表情合集').trim() || '表情合集',
@@ -68,9 +136,10 @@ export function presentLibrarySource(source = {}) {
       '精选动态表情，点开即可浏览下载',
     formatsText,
     countText: count > 0 ? `${count} 个表情` : '即将上新',
-    previewUrls: Array.isArray(source.previewUrls) ? source.previewUrls.slice(0, 4) : [],
+    previewUrls,
     thumbs,
     itemCount: count,
+    moreCount,
     sort: Number(source.sort) || 0,
     costs,
   };
@@ -114,6 +183,9 @@ export const ALBUM_FORMATS = new Set(['gif', 'webp', 'png', 'jpg', 'jpeg']);
 /** 可转成单帧 GIF 再存相册的静图源格式（全源通用，后续新源也走这里） */
 export const CONVERTIBLE_STATIC_FORMATS = ['webp', 'png', 'jpg', 'jpeg'];
 
+/** 静图转 GIF 保存单价（原格式仍可按源 costs，默认免费） */
+export const CONVERT_TO_GIF_COST = 1;
+
 export function normalizeLibFormat(value) {
   const t = String(value || '')
     .trim()
@@ -122,16 +194,19 @@ export function normalizeLibFormat(value) {
   return t;
 }
 
-/** 面向用户的格式名（下载弹层 / 卡片），不展示 GIF、WebP 等术语 */
+/**
+ * 面向用户的格式名：直接显示具体格式。
+ * 「动图 / 静图」只描述素材本身是否动态，不要因为转成 GIF 就叫动图。
+ */
 export function formatLabel(fmt) {
   const key = normalizeLibFormat(fmt);
-  if (key === 'gif') return '动图';
-  if (key === 'webp' || key === 'jpg' || key === 'jpeg') return '静图';
-  /** 官方 Noto 3D 静态图（128.png） */
-  if (key === 'png') return '3D静态图';
-  if (key === 'lottie') return '动画文件';
-  if (key === 'svg') return '矢量图';
-  return '文件';
+  if (key === 'gif') return 'GIF';
+  if (key === 'webp') return 'WebP';
+  if (key === 'jpg' || key === 'jpeg') return 'JPEG';
+  if (key === 'png') return 'PNG';
+  if (key === 'lottie') return 'Lottie';
+  if (key === 'svg') return 'SVG';
+  return key ? key.toUpperCase() : '文件';
 }
 
 /** 条目云端真实有的格式（以 files 为准，避免空壳 formats） */
@@ -163,8 +238,9 @@ export function pickConvertibleStaticFormat(item) {
 
 /**
  * 下载弹层选项（全素材源统一）：
- * - 有原生 gif → 默认动图
- * - 仅有静图 → 补「动图」选项（保存时转成 GIF，导入微信更清晰），原静图仍可选
+ * - 有原生 gif → 默认 GIF
+ * - 仅有静图 → 默认仍给 GIF（保存时转码，导入微信更清晰），原格式可选
+ * 标签一律用具体格式名，不用「动图/静图」指代扩展名
  */
 export function itemDownloadFormatOptions(item) {
   const available = itemAvailableFormats(item);
@@ -201,7 +277,7 @@ export function itemDownloadFormatOptions(item) {
   return opts;
 }
 
-/** 默认下载格式：一律优先动图（含静图转 GIF） */
+/** 默认下载格式：优先 GIF（含静图转 GIF） */
 export function defaultDownloadFormat(item) {
   const opts = itemDownloadFormatOptions(item);
   const gif = opts.find((o) => o.value === 'gif');

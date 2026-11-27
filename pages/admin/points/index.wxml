@@ -291,6 +291,28 @@
       </view>
     </view>
 
+    <view class="admin-points__section">趣味工坊 · 图片工具箱</view>
+    <view class="admin-points__tip admin-points__tip--inline">
+      解锁当前处理结果的保存；也可看 1 条广告解锁。改完立即对云端扣费生效。
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">导出解锁</view>
+          <view class="admin-points__hint">保存到相册 · 默认 2</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costImageExport}}"
+          bind:change="onCostImageExportChange"
+        />
+      </view>
+    </view>
+
     <view class="admin-points__section">趣味拼图</view>
     <view class="admin-points__card">
       <view class="admin-points__row">

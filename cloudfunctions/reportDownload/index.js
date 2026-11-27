@@ -87,14 +87,28 @@ exports.main = async (event) => {
       console.warn('download_logs skip', e.message);
     }
 
-    await db.collection('packs').doc(packId).update({
-      data: { downloadCount: _.inc(1) },
-    });
+    const now = Date.now();
+    const prevLast = Number(pack.lastDownloadAt) || 0;
+    const SLEEP_MS = 30 * 24 * 60 * 60 * 1000;
+    const patch = {
+      downloadCount: _.inc(1),
+      lastDownloadAt: now,
+    };
+    // 沉睡（≥30 天无下载 / 从未下载且上架已久）后再次被下 → 复活窗口
+    const createdAt = Number(pack.createdAt) || 0;
+    const wasSleeping =
+      (prevLast > 0 && now - prevLast >= SLEEP_MS) ||
+      (prevLast <= 0 && createdAt > 0 && now - createdAt >= SLEEP_MS);
+    if (wasSleeping) patch.revivedAt = now;
+
+    await db.collection('packs').doc(packId).update({ data: patch });
 
     return {
       ok: true,
       data: {
         downloadCount: (pack.downloadCount || 0) + 1,
+        lastDownloadAt: now,
+        revived: !!wasSleeping,
       },
     };
   } catch (e) {

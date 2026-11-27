@@ -1,0 +1,123 @@
+@import './tool.less';
+
+.imghub__banner {
+  margin: 0 0 20rpx;
+  padding: 28rpx 26rpx;
+  border-radius: 24rpx;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 6rpx 18rpx rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.imghub__banner-kicker {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--td-brand-color);
+  letter-spacing: 0.04em;
+}
+
+.imghub__banner-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--td-text-color-primary);
+  line-height: 1.25;
+}
+
+.imghub__banner-desc {
+  font-size: 24rpx;
+  line-height: 1.45;
+  color: var(--td-text-color-secondary);
+}
+
+.imghub__section {
+  margin-bottom: 20rpx;
+}
+
+.imghub__section-title {
+  display: block;
+  padding: 0 8rpx 12rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--td-text-color-secondary);
+  letter-spacing: 0.02em;
+}
+
+.imghub__group {
+  border-radius: 24rpx;
+  background: var(--td-bg-color-container);
+  box-shadow: 0 6rpx 18rpx rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.imghub__row {
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  padding: 22rpx 20rpx;
+  box-sizing: border-box;
+  border-bottom: 1rpx solid var(--td-border-level1-color, rgba(15, 23, 42, 0.06));
+}
+
+.imghub__row:last-child {
+  border-bottom: none;
+}
+
+.imghub__row--hover {
+  background: rgba(7, 193, 96, 0.05);
+}
+
+/* 实色圆角块 + 白图标：对比更强，不像「小符号塞浅底」 */
+.imghub__row-icon {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 8rpx 16rpx rgba(15, 23, 42, 0.1);
+}
+
+.imghub__row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.imghub__row-head {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  min-width: 0;
+}
+
+.imghub__row-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--td-text-color-primary);
+  line-height: 1.3;
+}
+
+.imghub__row-desc {
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: var(--td-text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.imghub__row-go {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 999rpx;
+  background: rgba(15, 23, 42, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}

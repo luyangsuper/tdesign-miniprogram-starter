@@ -50,10 +50,25 @@ export function writeHomeSnapshot(payload = {}) {
       previewCount: item.previewCount || 0,
       emojiCount: item.emojiCount || 0,
       downloadCount: item.downloadCount || 0,
+      moreCount: item.moreCount || 0,
+      hasAnim: !!item.hasAnim,
+      isNew: !!item.isNew,
+      isHot: !!item.isHot,
+      moodId: item.moodId || (item.mood && item.mood.id) || '',
+      lastDownloadAt: item.lastDownloadAt || 0,
+      revivedAt: item.revivedAt || 0,
+      createdAt: item.createdAt || 0,
+      countText: item.countText || '',
       contentType: item.contentType || 'emoji',
+      contentTypeName: item.contentTypeName || '',
       categoryId: item.categoryId || '',
       categoryName: item.categoryName || '',
-      previewUrls: [],
+      previewUrls: Array.isArray(item.previewUrls)
+        ? item.previewUrls.filter(Boolean).slice(0, 4)
+        : [],
+      previewFileIDs: Array.isArray(item.previewFileIDs)
+        ? item.previewFileIDs.filter(Boolean).slice(0, 4)
+        : [],
       slides: item.coverUrl ? [item.coverUrl] : [],
     }));
     if (!list.length) return;

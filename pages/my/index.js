@@ -21,6 +21,7 @@ import {
   pricingFromLoginPayload,
 } from '~/utils/pricing';
 import { applyBeadCostsFromSettings } from '~/utils/beadCosts';
+import { applyImageToolCostsFromSettings } from '~/utils/imageToolCosts';
 import { buyPlan, recoverMyPendingOrders } from '~/utils/virtualPay';
 import {
   createAndCopyCode,
@@ -1868,6 +1869,7 @@ Page({
       }
       applyDownloadCostsFromSettings(res || {});
       applyBeadCostsFromSettings(res || {});
+      applyImageToolCostsFromSettings(res || {});
       if (res.entitlement) {
         setCachedEntitlement(res.entitlement);
         this.refreshIdentity();

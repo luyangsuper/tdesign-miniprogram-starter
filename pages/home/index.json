@@ -11,10 +11,12 @@
     "t-popup": "tdesign-miniprogram/popup/popup",
     "t-button": "tdesign-miniprogram/button/button",
     "t-tag": "tdesign-miniprogram/tag/tag",
+    "t-image": "tdesign-miniprogram/image/image",
     "t-back-top": "tdesign-miniprogram/back-top/back-top",
     "pack-card": "/components/pack-card/index",
     "lottery-host": "/components/lottery-host/index",
     "points-reward": "/components/points-reward/index",
-    "festival-decor": "/components/festival-decor/index"
+    "festival-decor": "/components/festival-decor/index",
+    "kubai-icon": "/components/kubai-icon/index"
   }
 }

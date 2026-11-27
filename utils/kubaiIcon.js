@@ -30,6 +30,16 @@ const ALIAS = {
   ticket: 'ticket',
   'badge-percent': 'badge-percent',
   sparkles: 'sparkles',
+  flame: 'flame',
+  fire: 'flame',
+  campfire: 'campfire',
+  zap: 'zap',
+  bolt: 'zap',
+  snowflake: 'snowflake',
+  moon: 'moon',
+  sprout: 'sprout',
+  leaf: 'leaf',
+  'trending-up': 'trending-up',
   'root-list': 'list-ordered',
   'play-circle': 'clapperboard',
   notification: 'bell',
@@ -72,6 +82,12 @@ const ALIAS = {
   play: 'play',
   timer: 'timer',
   clock: 'clock',
+  /** 尺寸/裁剪：Kubai 无 scaling，用 expand；crop 原名可用 */
+  scaling: 'expand',
+  expand: 'expand',
+  'maximize-2': 'expand',
+  crop: 'crop',
+  resize: 'expand',
 };
 
 const FALLBACK_HEX = '07c160';

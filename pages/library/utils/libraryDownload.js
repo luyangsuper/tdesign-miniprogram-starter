@@ -63,8 +63,8 @@ function saveLocalImageToAlbum(filePath) {
 
 /**
  * 下载素材库条目某一格式。
- * - 默认「动图」：有原生 gif 直接存；仅有静图则拉静图后转成 GIF（全源统一，导入微信更清晰）
- * - 用户可选原静图 / 3D / lottie 等
+ * - 默认 GIF：有原生 gif 直接存；仅有静图则拉原图再转成 GIF（导入微信更清晰）
+ * - 用户可改选 WebP / PNG 等原格式
  * gif/webp/png → 相册；lottie/svg → 返回 url 供复制。
  *
  * @param {{ itemId: string, format?: string, item?: object, onEntitlement?: Function, skipAuth?: boolean }} opts
@@ -92,6 +92,7 @@ export async function downloadLibraryItem(opts = {}) {
   const res = await callFunction('getLibraryDownload', {
     itemId,
     format: billFormat,
+    convertToGif: !!convertToGif,
   });
 
   const data = res.data || {};
@@ -155,7 +156,7 @@ export async function downloadLibraryItem(opts = {}) {
   };
 }
 
-/** @param {string} [format] gif/webp/lottie…；缺省按动图价展示 */
+/** @param {string} [format] gif/webp/lottie…；缺省按 gif 对应单价 */
 export function libraryUnitCost(format) {
   return downloadCost(resolveLibraryCostKey(format || 'gif'));
 }
@@ -164,7 +165,7 @@ export function libraryCostKey(format) {
   return resolveLibraryCostKey(format);
 }
 
-/** 弹层展示用单价：按实际扣费格式（转 GIF 时按静图价） */
+/** 弹层展示用单价：按实际扣费格式（静图转 GIF 时按原静图价） */
 export function libraryUnitCostForItem(item, uiFormat) {
   const bill = item
     ? resolveLibraryBillFormat(item, uiFormat)

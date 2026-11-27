@@ -35,36 +35,51 @@
           data-id="{{item.id}}"
           bindtap="onOpenSource"
           hover-class="lib-hub__card--press"
+          hover-start-time="20"
           hover-stay-time="80"
         >
-          <view class="lib-hub__card-main">
-            <view class="lib-hub__card-head">
+          <view class="lib-hub__card-head">
+            <view class="lib-hub__card-title-wrap">
               <text class="lib-hub__card-title">{{item.title}}</text>
-              <t-tag wx:if="{{item.badge}}" size="small" variant="light" content="{{item.badge}}" />
+              <t-tag
+                wx:if="{{item.badge}}"
+                size="small"
+                variant="light"
+                content="{{item.badge}}"
+              />
             </view>
-            <text class="lib-hub__card-desc">{{item.desc}}</text>
-            <view class="lib-hub__card-meta">
-              <text>{{item.countText}}</text>
-              <text class="lib-hub__card-dot">·</text>
-              <text>{{item.formatsText}}</text>
-            </view>
-            <view class="lib-hub__card-cta">
-              <text>进入浏览</text>
-              <text class="cta-arrow">→</text>
-            </view>
+            <text class="lib-hub__card-more">进入</text>
           </view>
-          <view class="lib-hub__card-previews">
+
+          <view class="lib-hub__card-grid">
             <block wx:if="{{item.previewUrls.length}}">
-              <image
+              <view
                 wx:for="{{item.previewUrls}}"
                 wx:for-item="thumb"
                 wx:for-index="ti"
                 wx:key="ti"
-                class="lib-hub__thumb"
-                src="{{thumb}}"
-                mode="aspectFill"
-                lazy-load
-              />
+                class="lib-hub__card-cell"
+              >
+                <t-image
+                  class="lib-hub__card-img"
+                  t-class="lib-hub__card-t-image"
+                  t-class-load="lib-hub__card-t-load"
+                  src="{{thumb}}"
+                  mode="aspectFill"
+                  shape="round"
+                  lazy
+                  webp
+                  loading="slot"
+                  width="100%"
+                  height="100%"
+                >
+                  <view slot="loading" class="lib-hub__card-skeleton" aria-hidden="true" />
+                </t-image>
+                <view
+                  wx:if="{{item.moreCount > 0 && ti === item.previewUrls.length - 1}}"
+                  class="lib-hub__card-moremask"
+                >+{{item.moreCount}}</view>
+              </view>
             </block>
             <block wx:else>
               <view
@@ -72,11 +87,20 @@
                 wx:for-item="emo"
                 wx:for-index="ei"
                 wx:key="ei"
-                class="lib-hub__thumb lib-hub__thumb--emoji"
+                class="lib-hub__card-cell lib-hub__card-cell--emoji"
               >
-                <text class="lib-hub__thumb-emoji">{{emo}}</text>
+                <text class="lib-hub__card-emoji">{{emo}}</text>
+                <view
+                  wx:if="{{item.moreCount > 0 && ei === item.thumbs.length - 1}}"
+                  class="lib-hub__card-moremask"
+                >+{{item.moreCount}}</view>
               </view>
             </block>
+          </view>
+
+          <view class="lib-hub__card-foot">
+            <text class="lib-hub__card-desc">{{item.desc}}</text>
+            <text class="lib-hub__card-meta">{{item.countText}}</text>
           </view>
         </view>
       </view>

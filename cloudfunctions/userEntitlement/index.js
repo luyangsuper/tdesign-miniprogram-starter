@@ -229,6 +229,7 @@ exports.main = async (event = {}) => {
         costLibraryStatic: settings.costLibraryStatic || 2,
         costBeadExport: settings.costBeadExport,
         costBeadAdvanced: settings.costBeadAdvanced,
+        costImageExport: settings.costImageExport,
         // 开奖结果只走 userLottery.pending（校验已参与）
       };
     }
@@ -573,6 +574,11 @@ exports.main = async (event = {}) => {
           cost: settings.costBeadAdvanced,
           reason: 'bead_advanced',
           title: '拼豆高级功能解锁',
+        },
+        imageExport: {
+          cost: settings.costImageExport,
+          reason: 'image_export',
+          title: '图片工具箱导出解锁',
         },
       };
       const conf = FEATURES[feature];

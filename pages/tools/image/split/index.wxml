@@ -1,0 +1,120 @@
+<view class="imgtool-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
+  <festival-decor
+    id="festivalDecor"
+    mode="navbar"
+    active="{{festivalActive}}"
+    header-height="{{festHeaderPx}}"
+    nav-height="{{navHeight}}"
+  />
+  <t-navbar
+    fixed="{{true}}"
+    placeholder="{{true}}"
+    z-index="{{500}}"
+    left-arrow
+    custom-style="{{navBarStyle}}"
+    bind:go-back="onBack"
+  >
+    <view slot="title" class="imgtool__nav-title">九宫格分割</view>
+  </t-navbar>
+
+  <view class="imgtool">
+    <view class="imgtool__hero">
+      <text class="imgtool__kicker">图片工具箱</text>
+      <text class="imgtool__hero-title">九宫格分割</text>
+      <text class="imgtool__hero-desc">按行列切成多张，适合朋友圈拼图</text>
+    </view>
+
+    <view class="imgtool__card">
+      <view class="imgtool__card-title">原图</view>
+      <view
+        class="imgtool__preview {{!srcPath ? 'imgtool__preview--pick' : ''}}"
+        bindtap="onPick"
+        hover-class="imghub__card--hover"
+      >
+        <block wx:if="{{srcPath}}">
+          <image class="imgtool__preview-img" src="{{srcPath}}" mode="aspectFit" />
+        </block>
+        <view wx:elif="{{!checking}}" class="imgtool__preview-empty">
+          <kubai-icon name="image" size="56rpx" color="{{themeBrand}}" />
+          <text class="imgtool__preview-empty-title">点此选图</text>
+          <text class="imgtool__preview-empty-text">需通过安全检测后才能处理</text>
+        </view>
+        <view wx:if="{{checking}}" class="imgtool__preview-loading">
+          <t-loading theme="circular" size="40rpx" text="{{checkText}}" />
+        </view>
+      </view>
+      <view wx:if="{{srcMeta}}" class="imgtool__meta">{{srcMeta}}</view>
+    </view>
+
+    <view class="imgtool__card">
+      <view class="imgtool__card-title">行列</view>
+      <view class="imgtool__param">
+        <view class="imgtool__param-head">
+          <text class="imgtool__label">行数</text>
+          <text class="imgtool__value">{{rows}}</text>
+        </view>
+        <view class="imgtool__chip-grid imgtool__chip-grid--3">
+          <view
+            wx:for="{{rowPresets}}"
+            wx:key="*this"
+            class="imgtool__chip {{rows === item ? 'is-on' : ''}}"
+            data-v="{{item}}"
+            bindtap="onRows"
+          >{{item}}</view>
+        </view>
+      </view>
+      <view class="imgtool__param">
+        <view class="imgtool__param-head">
+          <text class="imgtool__label">列数</text>
+          <text class="imgtool__value">{{cols}}</text>
+        </view>
+        <view class="imgtool__chip-grid imgtool__chip-grid--3">
+          <view
+            wx:for="{{colPresets}}"
+            wx:key="*this"
+            class="imgtool__chip {{cols === item ? 'is-on' : ''}}"
+            data-v="{{item}}"
+            bindtap="onCols"
+          >{{item}}</view>
+        </view>
+      </view>
+      <text class="imgtool__hint">将导出 {{rows}}×{{cols}} = {{pieceCount}} 张</text>
+    </view>
+
+    <view class="imgtool__card">
+      <view class="imgtool__card-title">结果</view>
+      <view wx:if="{{pieces.length}}" class="split-grid" style="grid-template-columns: repeat({{cols}}, 1fr);">
+        <view class="split-grid__cell" wx:for="{{pieces}}" wx:key="path">
+          <image class="split-grid__img" src="{{item.path}}" mode="aspectFill" />
+        </view>
+      </view>
+      <view wx:else class="imgtool__preview">
+        <view class="imgtool__preview-empty">
+          <text class="imgtool__preview-empty-text">分割后在这里预览</text>
+        </view>
+      </view>
+      <view wx:if="{{outMeta}}" class="imgtool__meta">{{outMeta}}</view>
+      <view class="imgtool__actions">
+        <t-button
+          theme="light"
+          size="large"
+          shape="round"
+          block
+          content="{{busy ? '分割中…' : '开始分割'}}"
+          disabled="{{!srcPath || busy || checking}}"
+          bind:tap="onProcess"
+        />
+        <t-button
+          theme="primary"
+          size="large"
+          shape="round"
+          block
+          content="{{gating ? '解锁中…' : '全部保存'}}"
+          disabled="{{!pieces.length || busy || gating}}"
+          bind:tap="onSave"
+        />
+      </view>
+      <text class="imgtool__hint">处理免费；保存需积分解锁或看一次广告（解锁后可存本批全部）</text>
+    </view>
+  </view>
+</view>

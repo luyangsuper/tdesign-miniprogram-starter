@@ -216,6 +216,7 @@
               class="home__lib-banner"
               catchtap="goLibrary"
               hover-class="home__lib-banner--press"
+              hover-start-time="20"
               hover-stay-time="80"
             >
               <view class="home__lib-banner-main">
@@ -229,47 +230,147 @@
                   <text class="cta-arrow">→</text>
                 </view>
               </view>
-              <view class="home__lib-banner-previews">
-                <view class="home__lib-banner-thumb home__lib-banner-thumb--a">
-                  <kubai-icon name="play" size="26rpx" color="{{themeBrand}}" motion="{{false}}" />
-                  <text class="home__lib-banner-label">动图</text>
-                </view>
-                <view class="home__lib-banner-thumb home__lib-banner-thumb--b">
-                  <kubai-icon name="image" size="26rpx" color="{{themeBrand}}" motion="{{false}}" />
-                  <text class="home__lib-banner-label">静图</text>
-                </view>
-                <view class="home__lib-banner-thumb home__lib-banner-thumb--c">
-                  <kubai-icon name="file" size="26rpx" color="#d97706" motion="{{false}}" />
-                  <text class="home__lib-banner-label home__lib-banner-label--warn">动画</text>
-                </view>
-                <view class="home__lib-banner-thumb home__lib-banner-thumb--d">
-                  <kubai-icon name="layout-dashboard" size="26rpx" color="{{themeBrand}}" motion="{{false}}" />
-                  <text class="home__lib-banner-label">更多</text>
-                </view>
-              </view>
             </view>
             <block wx:if="{{!loading && list.length}}">
-              <block wx:for="{{feedBlocks}}" wx:key="key">
-                <view
-                  wx:if="{{item.type === 'grid'}}"
-                  class="home__list"
-                  style="gap: {{listGap}}px;"
-                >
+              <view class="home__feed" style="gap: {{rowGap}}px;">
+                <block wx:for="{{feedBlocks}}" wx:key="key">
+                  <!-- 表情 / 头像：四预览行（与上方 pane 左右 padding 对齐，不再叠一层） -->
                   <view
-                    class="home__col"
-                    wx:for="{{item.columns}}"
-                    wx:for-item="col"
-                    wx:for-index="colIndex"
-                    wx:key="colIndex"
-                    style="width: {{cardWidth}}px; gap: {{rowGap}}px;"
+                    wx:if="{{item.type === 'row' && item.pack}}"
+                    class="home__pack-row {{item.pack.moodId ? 'home__pack-row--mood-' + item.pack.moodId : ''}} {{selectMode && selectedMap[item.pack._id] ? 'home__pack-row--selected' : ''}} {{selectMode && batchContentType && (item.pack.contentType || 'emoji') !== batchContentType && !selectedMap[item.pack._id] ? 'home__pack-row--disabled' : ''}}"
+                    data-id="{{item.pack._id}}"
+                    bindtap="onOpenPackRow"
+                    hover-class="home__pack-row--press"
+                    hover-start-time="20"
+                    hover-stay-time="80"
                   >
-                    <block wx:for="{{col}}" wx:for-item="pack" wx:key="_id">
+                    <!-- 氛围：右上角原比例 GIF + screen 去黑底（不拉伸、无整卡铺满） -->
+                    <view
+                      wx:if="{{item.pack.mood.overlay}}"
+                      class="home__pack-row-mood"
+                      aria-hidden="true"
+                    >
+                      <image
+                        class="home__pack-row-mood-img"
+                        style="{{item.pack.mood.boxStyle}}"
+                        src="{{item.pack.mood.overlay}}"
+                        mode="aspectFit"
+                        lazy-load
+                      />
+                    </view>
+
+                    <view class="home__pack-row-body">
+                      <view class="home__pack-row-head">
+                        <view class="home__pack-row-title-wrap">
+                          <view
+                            wx:if="{{selectMode}}"
+                            class="home__pack-row-check {{selectedMap[item.pack._id] ? 'is-on' : ''}}"
+                          />
+                          <text class="home__pack-row-title">{{item.pack.title}}</text>
+                        </view>
+                        <view wx:if="{{item.pack.mood}}" class="home__pack-row-mood-badge">
+                          <kubai-icon
+                            name="{{item.pack.mood.icon}}"
+                            size="26rpx"
+                            color="{{item.pack.mood.iconColor}}"
+                            motion="{{false}}"
+                          />
+                          <text>{{item.pack.mood.label}}</text>
+                        </view>
+                        <text wx:else class="home__pack-row-more">更多</text>
+                      </view>
+                      <view class="home__pack-row-grid">
+                        <view
+                          wx:for="{{item.pack.previewSlots}}"
+                          wx:for-item="slot"
+                          wx:for-index="ti"
+                          wx:key="key"
+                          class="home__pack-row-cell"
+                        >
+                          <t-image
+                            class="home__pack-row-img"
+                            t-class="home__pack-row-t-image"
+                            t-class-load="home__pack-row-t-load"
+                            t-class-error="home__pack-row-t-error"
+                            src="{{slot.url}}"
+                            mode="aspectFill"
+                            shape="round"
+                            lazy
+                            webp
+                            loading="slot"
+                            error="slot"
+                            width="100%"
+                            height="100%"
+                            data-pack-id="{{item.pack._id}}"
+                            data-index="{{ti}}"
+                            bind:error="onPreviewError"
+                          >
+                            <view slot="loading" class="home__pack-row-skeleton" aria-hidden="true" />
+                            <view slot="error" class="home__pack-row-error" aria-hidden="true">
+                              <view class="home__pack-row-error-x" />
+                            </view>
+                          </t-image>
+                          <view
+                            wx:if="{{ti === 3 && item.pack.moreCount > 0}}"
+                            class="home__pack-row-moremask"
+                          >+{{item.pack.moreCount}}</view>
+                        </view>
+                      </view>
+                      <view class="home__pack-row-foot">
+                        <view class="home__pack-row-tags">
+                          <t-tag
+                            wx:if="{{item.pack.categoryName}}"
+                            size="small"
+                            theme="default"
+                            variant="light"
+                            custom-style="{{item.pack.categoryTagStyle}}"
+                          >{{item.pack.categoryName}}</t-tag>
+                        </view>
+                        <text wx:if="{{item.pack.countText}}" class="home__pack-row-meta">{{item.pack.countText}}</text>
+                      </view>
+                    </view>
+                  </view>
+
+                  <!-- 混合流中的单张壁纸卡 -->
+                  <view wx:elif="{{item.type === 'card' && item.pack}}" class="home__feed-card">
+                    <pack-card
+                      packId="{{item.pack._id}}"
+                      title="{{item.pack.title}}"
+                      coverUrl="{{item.pack.coverUrl}}"
+                      coverFileID="{{item.pack.coverFileID}}"
+                      contentType="{{item.pack.contentType}}"
+                      emojiCount="{{item.pack.emojiCount}}"
+                      downloadCount="{{item.pack.downloadCount}}"
+                      categoryId="{{item.pack.categoryId}}"
+                      categoryName="{{item.pack.categoryName}}"
+                      coverRatio="{{item.pack.coverRatio}}"
+                      cardWidth="{{fullCardWidth || cardWidth}}"
+                      showAdmin="{{isAdmin}}"
+                      showTypeBadge="{{contentType === 'all'}}"
+                      selectMode="{{selectMode}}"
+                      selected="{{selectedMap[item.pack._id] ? true : false}}"
+                      selectDisabled="{{selectMode && batchContentType && (item.pack.contentType || 'emoji') !== batchContentType && !selectedMap[item.pack._id]}}"
+                      bind:toggle="onTogglePack"
+                      bind:ratiochange="onCoverRatioChange"
+                      bind:covererror="onCoverError"
+                      bind:edit="onEditPack"
+                      bind:delete="onDeletePack"
+                    />
+                  </view>
+
+                  <!-- 纯壁纸：两列封面网格（可夹广告） -->
+                  <view
+                    wx:elif="{{item.type === 'wall-grid'}}"
+                    class="home__wall-grid"
+                    style="gap: {{listGap}}px;"
+                  >
+                    <block wx:for="{{item.packs}}" wx:for-item="pack" wx:key="_id">
                       <view
-                        wx:if="{{!pack.isAd || (!pack.hidden && showFeedAds && !selectMode && nativeAdUnitId)}}"
-                        class="home__item"
+                        wx:if="{{!pack.isAd}}"
+                        class="home__wall-cell"
+                        style="width: {{cardWidth}}px;"
                       >
                         <pack-card
-                          wx:if="{{!pack.isAd}}"
                           packId="{{pack._id}}"
                           title="{{pack.title}}"
                           coverUrl="{{pack.coverUrl}}"
@@ -282,7 +383,7 @@
                           coverRatio="{{pack.coverRatio}}"
                           cardWidth="{{cardWidth}}"
                           showAdmin="{{isAdmin}}"
-                          showTypeBadge="{{contentType === 'all'}}"
+                          showTypeBadge="{{false}}"
                           selectMode="{{selectMode}}"
                           selected="{{selectedMap[pack._id] ? true : false}}"
                           selectDisabled="{{selectMode && batchContentType && (pack.contentType || 'emoji') !== batchContentType && !selectedMap[pack._id]}}"
@@ -292,22 +393,34 @@
                           bind:edit="onEditPack"
                           bind:delete="onDeletePack"
                         />
-                        <view
-                          wx:else
-                          class="home__feed-ad-card"
-                          style="width: {{cardWidth}}px; min-height: {{cardWidth}}px;"
-                        >
-                          <ad-custom
-                            unit-id="{{nativeAdUnitId}}"
-                            data-key="{{pack.key}}"
-                            binderror="onFeedAdError"
-                          />
-                        </view>
+                      </view>
+                      <view
+                        wx:elif="{{!pack.hidden && showFeedAds && !selectMode && nativeAdUnitId}}"
+                        class="home__feed-ad-banner"
+                        style="width: 100%;"
+                      >
+                        <ad-custom
+                          unit-id="{{nativeAdUnitId}}"
+                          data-key="{{pack.key}}"
+                          binderror="onFeedAdError"
+                        />
                       </view>
                     </block>
                   </view>
-                </view>
-              </block>
+
+                  <!-- 通栏广告 -->
+                  <view
+                    wx:elif="{{item.type === 'ad' && !item.hidden && showFeedAds && !selectMode && nativeAdUnitId}}"
+                    class="home__feed-ad-banner"
+                  >
+                    <ad-custom
+                      unit-id="{{nativeAdUnitId}}"
+                      data-key="{{item.key}}"
+                      binderror="onFeedAdError"
+                    />
+                  </view>
+                </block>
+              </view>
               <view class="home__footer" wx:if="{{loadingMore}}">
                 <fun-loading size="small" variant="wave" funTips="{{false}}" text="加载更多" />
               </view>

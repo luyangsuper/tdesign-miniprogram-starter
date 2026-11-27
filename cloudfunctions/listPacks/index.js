@@ -1,6 +1,10 @@
 const cloud = require('wx-server-sdk');
 const { resolveTempUrls } = require('./tempUrlCache');
-const { normalizeContentType, CONTENT_TYPES } = require('./contentType');
+const {
+  normalizeContentType,
+  CONTENT_TYPES,
+  contentTypeLabel,
+} = require('./contentType');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -77,14 +81,104 @@ const PACK_FIELDS = {
   coverFileID: true,
   previewFileIDs: true,
   previewCount: true,
+  emojiFileIDs: true,
+  emojiAnimFileIDs: true,
   emojiCount: true,
   downloadCount: true,
+  viewCount: true,
   categoryId: true,
   categoryName: true,
   coverWidth: true,
   coverHeight: true,
   createdAt: true,
+  lastDownloadAt: true,
+  revivedAt: true,
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** 云函数实例内缓存 top5% 下载阈值，避免每页重复扫库 */
+let _viralThresholdCache = { at: 0, value: 0 };
+
+async function resolveViralDownloadMin(where) {
+  const now = Date.now();
+  if (_viralThresholdCache.value > 0 && now - _viralThresholdCache.at < 10 * 60 * 1000) {
+    return _viralThresholdCache.value;
+  }
+  try {
+    const countRes = await db.collection('packs').where(where).count();
+    const total = Math.max(0, Number(countRes.total) || 0);
+    if (total <= 0) {
+      _viralThresholdCache = { at: now, value: 30 };
+      return 30;
+    }
+    // 前 5% 的最低下载量：跳到第 ceil(total*0.05) 名
+    const rank = Math.max(1, Math.ceil(total * 0.05));
+    const skip = Math.max(0, rank - 1);
+    const tip = await db
+      .collection('packs')
+      .where(where)
+      .orderBy('downloadCount', 'desc')
+      .skip(skip)
+      .limit(1)
+      .field({ downloadCount: true })
+      .get();
+    const tipCount = Math.max(0, Number((tip.data && tip.data[0] && tip.data[0].downloadCount) || 0));
+    // 库很小时 top5% 可能几乎是 0，给个保底
+    const value = Math.max(tipCount, total < 20 ? 12 : 8);
+    _viralThresholdCache = { at: now, value };
+    return value;
+  } catch (e) {
+    console.warn('[listPacks] viral threshold fallback', e.message || e);
+    return _viralThresholdCache.value || 30;
+  }
+}
+
+/**
+ * 合集氛围状态（一张卡一个）：爆火 > 飙升 > 复活 > 新发布 > 人气 > 沉睡 > 冷门
+ */
+function resolveMoodId(pack, { viralMin, popularMin, now }) {
+  const createdAt = Number(pack.createdAt) || 0;
+  const downloadCount = Math.max(0, Number(pack.downloadCount) || 0);
+  const lastDownloadAt = Number(pack.lastDownloadAt) || 0;
+  const revivedAt = Number(pack.revivedAt) || 0;
+  const age = createdAt > 0 ? now - createdAt : 0;
+  const vMin = Math.max(1, Number(viralMin) || 30);
+  const pMin = Math.max(8, Number(popularMin) || 12);
+
+  if (downloadCount >= vMin) return 'viral';
+  if (
+    lastDownloadAt > 0 &&
+    now - lastDownloadAt < DAY_MS &&
+    downloadCount >= Math.max(5, Math.floor(pMin * 0.5)) &&
+    age > 3 * DAY_MS
+  ) {
+    return 'rising';
+  }
+  // 复活：显式 revivedAt（14 天）或老合集近三周又有下载（回流）
+  if (revivedAt > 0 && now - revivedAt < 14 * DAY_MS) return 'revived';
+  if (
+    age > 14 * DAY_MS &&
+    lastDownloadAt > 0 &&
+    now - lastDownloadAt < 21 * DAY_MS &&
+    downloadCount >= 1
+  ) {
+    return 'revived';
+  }
+  if (createdAt > 0 && age < 3 * DAY_MS) return 'fresh';
+  if (downloadCount >= pMin) return 'popular';
+
+  const idleMs = lastDownloadAt > 0 ? now - lastDownloadAt : age;
+  if (age > 30 * DAY_MS && idleMs > 30 * DAY_MS) return 'sleeping';
+  if (
+    age > 14 * DAY_MS &&
+    downloadCount > 0 &&
+    downloadCount < Math.max(3, Math.floor(pMin * 0.2)) &&
+    idleMs <= 30 * DAY_MS
+  ) {
+    return 'cold';
+  }
+  return '';
+}
 
 function resolveCoverFileID(pack) {
   if (pack && pack.coverFileID) return pack.coverFileID;
@@ -96,30 +190,140 @@ function resolveCoverFileID(pack) {
   return '';
 }
 
-async function mapPacksWithCovers(packs, { forceRefresh = false } = {}) {
-  const fileIds = packs.map((p) => resolveCoverFileID(p)).filter(Boolean);
-  const urlMap = await resolveTempUrls(cloud, fileIds, { forceRefresh });
+/** 表情/头像列表需要 4 宫格预览；壁纸只靠封面卡 */
+function needsPreviewGrid(contentType) {
+  const t = normalizeContentType(contentType);
+  return t === 'emoji' || t === 'avatar';
+}
+
+/**
+ * 四宫格用图优先级：
+ * - 表情：动图 emojiAnim → 静图 emoji → 预览图 → 封面
+ * - 头像：原图 emoji → 预览图 → 封面（不用拼图封面优先）
+ */
+function pickGridFileIDs(pack, contentType) {
+  const coverId = resolveCoverFileID(pack);
+  const anims = Array.isArray(pack && pack.emojiAnimFileIDs)
+    ? pack.emojiAnimFileIDs
+    : [];
+  const statics = Array.isArray(pack && pack.emojiFileIDs)
+    ? pack.emojiFileIDs
+    : [];
+  const previews = Array.isArray(pack && pack.previewFileIDs)
+    ? pack.previewFileIDs
+    : [];
+  const ids = [];
+  const push = (id) => {
+    const s = String(id || '').trim();
+    if (!s || ids.includes(s) || ids.length >= 4) return;
+    ids.push(s);
+  };
+  if (contentType === 'avatar') {
+    statics.forEach(push);
+    previews.forEach(push);
+    push(coverId);
+  } else {
+    anims.forEach(push);
+    statics.forEach(push);
+    previews.forEach(push);
+    push(coverId);
+  }
+  return ids.slice(0, 4);
+}
+
+async function mapPacksWithCovers(packs, { forceRefresh = false, viralMin = 0, popularMin = 0 } = {}) {
+  const coverIds = packs.map((p) => resolveCoverFileID(p)).filter(Boolean);
+  const previewIdSet = new Set(coverIds);
+  packs.forEach((p) => {
+    const contentType = normalizeContentType(p && p.contentType);
+    if (!needsPreviewGrid(contentType)) return;
+    pickGridFileIDs(p, contentType).forEach((id) => {
+      if (id) previewIdSet.add(id);
+    });
+  });
+  const urlMap = await resolveTempUrls(cloud, Array.from(previewIdSet), {
+    forceRefresh,
+  });
   return packs.map((p) => {
     const coverId = resolveCoverFileID(p);
     const coverUrl = (coverId && urlMap[coverId]) || '';
     const cw = Number(p.coverWidth) || 0;
     const ch = Number(p.coverHeight) || 0;
     const coverRatio = cw > 0 && ch > 0 ? ch / cw : 0;
+    const contentType = normalizeContentType(p.contentType);
+    /** 与 previewUrls 下标对齐，供客户端裂图后按 fileID 换签重载 */
+    let previewFileIDs = [];
+    let previewUrls = [];
+    if (needsPreviewGrid(contentType)) {
+      const pairs = pickGridFileIDs(p, contentType)
+        .map((id) => {
+          const fileID = String(id || '').trim();
+          const url = (fileID && urlMap[fileID]) || '';
+          return fileID && url ? { fileID, url } : null;
+        })
+        .filter(Boolean)
+        .slice(0, 4);
+      previewFileIDs = pairs.map((x) => x.fileID);
+      previewUrls = pairs.map((x) => x.url);
+    }
+    const emojiCount =
+      Number(p.emojiCount) ||
+      (Array.isArray(p.emojiFileIDs) ? p.emojiFileIDs.filter(Boolean).length : 0) ||
+      0;
+    const previewCount =
+      Number(p.previewCount) ||
+      (Array.isArray(p.previewFileIDs)
+        ? p.previewFileIDs.filter(Boolean).length
+        : 0) ||
+      0;
+    const gridTotal = emojiCount > 0 ? emojiCount : previewCount;
+    const hasAnim =
+      contentType === 'emoji' &&
+      Array.isArray(p.emojiAnimFileIDs) &&
+      p.emojiAnimFileIDs.some((id) => String(id || '').trim());
+    const createdAt = Number(p.createdAt) || 0;
+    const now = Date.now();
+    const NEW_MS = 3 * DAY_MS;
+    const isNew = createdAt > 0 && now - createdAt < NEW_MS;
+    const downloadCount = Math.max(0, Number(p.downloadCount) || 0);
+    const viewCount = Math.max(0, Number(p.viewCount) || 0);
+    const lastDownloadAt = Number(p.lastDownloadAt) || 0;
+    const revivedAt = Number(p.revivedAt) || 0;
+    const vMin = Math.max(1, Number(viralMin) || 30);
+    const pMin = Math.max(8, Number(popularMin) || Math.max(8, Math.floor(vMin * 0.25)));
+    const moodId = resolveMoodId(p, { viralMin: vMin, popularMin: pMin, now });
+    const countUnit =
+      contentType === 'avatar' || contentType === 'video' ? '个' : '张';
+    const countText = gridTotal > 0 ? `${gridTotal} ${countUnit}` : '';
     return {
       _id: p._id,
       title: p.title,
       description: p.description || '',
-      contentType: normalizeContentType(p.contentType),
+      contentType,
+      contentTypeName: contentTypeLabel(contentType),
       coverFileID: coverId || '',
       coverUrl,
       coverRatio,
-      previewUrls: [],
+      previewFileIDs,
+      previewUrls,
       slides: coverUrl ? [coverUrl] : [],
-      previewCount: p.previewCount || 0,
-      emojiCount: p.emojiCount || 0,
-      downloadCount: p.downloadCount || 0,
+      previewCount,
+      emojiCount,
+      downloadCount,
+      viewCount,
       categoryId: p.categoryId || '',
-      categoryName: p.categoryName || '',
+      categoryName: String(p.categoryName || '').trim(),
+      hasAnim: !!hasAnim,
+      createdAt,
+      lastDownloadAt,
+      revivedAt,
+      isNew: !!isNew,
+      /** @deprecated 兼容旧客户端；请用 moodId */
+      isHot: moodId === 'viral' || moodId === 'popular',
+      moodId,
+      countText,
+      /** 第 4 格 +N：总数减已露出的 3 张 */
+      moreCount: gridTotal > 4 ? gridTotal - 3 : 0,
     };
   });
 }
@@ -418,6 +622,15 @@ exports.main = async (event = {}) => {
     if (page === 1 && mode === 'mixed' && !keyword) {
       await flushDuePacksQuiet();
     }
+    const moodWhere = buildWhere({
+      keyword: '',
+      categoryId: 'all',
+      categoryIds: [],
+      contentType: 'all',
+    });
+    const viralMin = await resolveViralDownloadMin(moodWhere);
+    const popularMin = Math.max(8, Math.floor(viralMin * 0.25));
+
     if (mode === 'recommend') {
       const packs = await fetchRecommendPacks({
         excludePackId,
@@ -425,7 +638,11 @@ exports.main = async (event = {}) => {
         contentType,
         limit: Math.min(12, Math.max(1, Number(event.limit) || pageSize || 6)),
       });
-      const list = await mapPacksWithCovers(packs, { forceRefresh });
+      const list = await mapPacksWithCovers(packs, {
+        forceRefresh,
+        viralMin,
+        popularMin,
+      });
       return {
         ok: true,
         data: {
@@ -435,6 +652,7 @@ exports.main = async (event = {}) => {
           total: list.length,
           hasMore: false,
           mode,
+          viralMin,
         },
       };
     }
@@ -464,7 +682,11 @@ exports.main = async (event = {}) => {
       hasMore = skip + packs.length < total;
     }
 
-    const list = await mapPacksWithCovers(packs, { forceRefresh });
+    const list = await mapPacksWithCovers(packs, {
+      forceRefresh,
+      viralMin,
+      popularMin,
+    });
 
     return {
       ok: true,
@@ -475,6 +697,7 @@ exports.main = async (event = {}) => {
         total,
         hasMore,
         mode,
+        viralMin,
       },
     };
   } catch (e) {

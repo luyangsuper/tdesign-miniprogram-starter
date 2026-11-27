@@ -78,15 +78,25 @@
           data-id="{{item._id}}"
           bindtap="onOpenItem"
           hover-class="lib-src__cell--press"
+          hover-start-time="20"
+          hover-stay-time="80"
         >
           <view class="lib-src__thumb-wrap">
-            <image
+            <t-image
               wx:if="{{item.previewUrl}}"
               class="lib-src__thumb"
+              t-class="lib-src__t-image"
+              t-class-load="lib-src__t-load"
               src="{{item.previewUrl}}"
               mode="aspectFit"
-              lazy-load
-            />
+              shape="round"
+              lazy
+              loading="slot"
+              width="100%"
+              height="100%"
+            >
+              <view slot="loading" class="lib-src__skeleton" aria-hidden="true" />
+            </t-image>
             <view wx:else class="lib-src__thumb lib-src__thumb--ph">?</view>
           </view>
           <text class="lib-src__name">{{item.name}}</text>
@@ -110,12 +120,20 @@
 >
   <view class="lib-src__sheet" wx:if="{{activeItem}}">
     <view class="lib-src__sheet-preview">
-      <image
+      <t-image
         wx:if="{{previewDisplayUrl}}"
         class="lib-src__sheet-img"
+        t-class="lib-src__sheet-t-image"
+        t-class-load="lib-src__t-load"
         src="{{previewDisplayUrl}}"
         mode="aspectFit"
-      />
+        shape="round"
+        loading="slot"
+        width="100%"
+        height="100%"
+      >
+        <view slot="loading" class="lib-src__skeleton" aria-hidden="true" />
+      </t-image>
       <view wx:elif="{{previewPlaceholder}}" class="lib-src__sheet-ph">
         <text>{{previewPlaceholder}}</text>
       </view>
@@ -141,9 +159,6 @@
 
     <view class="lib-src__sheet-tip">
       {{formatTip}} · {{unitCostText}}
-    </view>
-    <view wx:if="{{sourceLicense}}" class="lib-src__sheet-license">
-      {{sourceLicense}}
     </view>
 
     <t-button

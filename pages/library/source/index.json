@@ -8,6 +8,7 @@
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-button": "tdesign-miniprogram/button/button",
     "t-popup": "tdesign-miniprogram/popup/popup",
+    "t-image": "tdesign-miniprogram/image/image",
     "fun-loading": "/components/fun-loading/index",
     "fun-empty": "/components/fun-empty/index",
     "t-empty": "tdesign-miniprogram/empty/empty"

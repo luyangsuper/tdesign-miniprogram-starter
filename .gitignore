@@ -114,5 +114,19 @@ miniprogram_npm.bak_*
 
 project.private.config.json
 
-# 素材库导入产物
+# 素材库导入产物：本地缓存可再下载，勿进仓库
+scripts/library-import/out/open-packs/
+scripts/library-import/out/sticker-ext*/
+scripts/library-import/out/pack-mood/
+scripts/library-import/out/**/*-extract/
+scripts/library-import/out/**/*-unpack/
+scripts/library-import/out/*.zip
+scripts/library-import/out/*.log
+scripts/library-import/out/*.png
+scripts/library-import/out/*.html
+scripts/library-import/out/*.txt
+scripts/library-import/out/*.xml
+scripts/library-import/out/sample-*
+# 精简 catalog 可本地再生成；默认忽略体积产物
 scripts/library-import/out/*.json
+!scripts/library-import/out/.gitkeep

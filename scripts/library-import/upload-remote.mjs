@@ -544,7 +544,8 @@ async function runMeme(app, args) {
   const groups = categories.map((c) => ({
     key: c.slug,
     title: c.name || c.id,
-    emoji: '🖼',
+    // 不写装饰 emoji：🖼 等符号在微信端常显示成方框乱码
+    emoji: '',
     sort: c.sort,
   }));
 
@@ -594,13 +595,11 @@ async function runMeme(app, args) {
       const needUpload = !prevFiles[row.fmt] || !args.skipExisting;
       if (!needUpload) {
         skip += 1;
-        done += 1;
         return;
       }
 
       if (args.dry) {
         console.log(`[dry] ${row.categoryId}/${row.file}`);
-        done += 1;
         return;
       }
 
@@ -609,7 +608,6 @@ async function runMeme(app, args) {
       const fileID = await uploadBuffer(app, buf, cloudPath);
       if (!fileID) {
         fail += 1;
-        done += 1;
         return;
       }
 

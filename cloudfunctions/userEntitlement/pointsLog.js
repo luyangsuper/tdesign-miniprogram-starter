@@ -40,6 +40,7 @@ const REASON_TITLE = {
   vip_expire: '包月到期清零',
   bead_export: '拼豆图纸导出',
   bead_advanced: '拼豆高级功能',
+  image_export: '图片工具箱导出',
 };
 
 /** 可用总额：购买积分 + 本月包月额度（调用方宜先 sync） */

@@ -65,6 +65,15 @@ const SOURCE_SEEDS = [
     sort: 40,
     costs: { anim: 0, static: 0 },
   },
+  {
+    id: 'sticker-ext',
+    title: '精选聊天表情',
+    subtitle: '全量',
+    desc: '带描述的聊天表情合集 · sticker-ext',
+    formatsDefault: ['gif', 'png', 'jpg', 'webp'],
+    sort: 50,
+    costs: { anim: 0, static: 0 },
+  },
 ];
 
 function isHttpUrl(v) {
@@ -206,6 +215,61 @@ async function ensureLibSources(opts = false) {
   _seededAt = Date.now();
 }
 
+/** 从该源素材里抽几张预览（fileID 或 http），供入口卡展示 */
+async function sampleSourcePreviewRefs(sourceId, limit = 4) {
+  const id = String(sourceId || '').trim();
+  if (!id || limit <= 0) return [];
+  const fetchLimit = Math.max(40, limit * 10);
+  let rows = [];
+  try {
+    const res = await db
+      .collection('lib_items')
+      .where({ sourceId: id, status: 'published' })
+      .orderBy('sort', 'asc')
+      .limit(fetchLimit)
+      .get();
+    rows = res.data || [];
+  } catch (e) {
+    try {
+      const res = await db
+        .collection('lib_items')
+        .where({ sourceId: id, status: 'published' })
+        .limit(fetchLimit)
+        .get();
+      rows = res.data || [];
+    } catch (e2) {
+      console.warn('[listLibrary] sample previews', id, e2.message || e2);
+      return [];
+    }
+  }
+  // 均匀抽：避免永远只拿最前面几个
+  const step = Math.max(1, Math.floor(rows.length / Math.max(limit, 1)));
+  const picked = [];
+  const seenIdx = new Set();
+  for (let i = 0; i < limit && i * step < rows.length; i += 1) {
+    const idx = Math.min(rows.length - 1, i * step);
+    if (seenIdx.has(idx)) continue;
+    seenIdx.add(idx);
+    picked.push(rows[idx]);
+  }
+  // 不够再顺序补
+  for (let i = 0; i < rows.length && picked.length < limit; i += 1) {
+    if (seenIdx.has(i)) continue;
+    seenIdx.add(i);
+    picked.push(rows[i]);
+  }
+  const refs = [];
+  const seen = new Set();
+  picked.forEach((row) => {
+    if (refs.length >= limit) return;
+    const ref = String(pickPreviewRef(row) || '').trim();
+    if (!ref || seen.has(ref)) return;
+    seen.add(ref);
+    refs.push(ref);
+  });
+  return refs;
+}
+
 async function listSources() {
   // 有数据时跳过 seed，首屏少几十次 DB
   let res;
@@ -240,7 +304,9 @@ async function listSources() {
     itemCount: Number(s.itemCount) || 0,
     groupCount: Number(s.groupCount) || 0,
     coverFileID: s.coverFileID || '',
-    previewFileIDs: Array.isArray(s.previewFileIDs) ? s.previewFileIDs : [],
+    previewFileIDs: Array.isArray(s.previewFileIDs)
+      ? s.previewFileIDs.map((x) => String(x || '').trim()).filter(Boolean)
+      : [],
     sort: Number(s.sort) || 0,
     costs:
       s.costs && typeof s.costs === 'object'
@@ -251,6 +317,41 @@ async function listSources() {
         : null,
   }));
 
+  // 缺预览时从该源素材抽 4 张，并尽量回写 lib_sources 供下次直出
+  const sampledHttpBySource = Object.create(null);
+  await Promise.all(
+    list.map(async (s) => {
+      if ((s.previewFileIDs || []).length >= 4) return;
+      const need = 4 - (s.previewFileIDs || []).length;
+      const refs = await sampleSourcePreviewRefs(s.id, Math.max(need, 4));
+      if (!refs.length) return;
+      const cloudIds = [];
+      const https = [];
+      refs.forEach((ref) => {
+        if (isHttpUrl(ref)) https.push(ref);
+        else if (ref) cloudIds.push(ref);
+      });
+      const prevKey = (s.previewFileIDs || []).join('|');
+      const mergedIds = Array.from(
+        new Set([...(s.previewFileIDs || []), ...cloudIds]),
+      ).slice(0, 4);
+      s.previewFileIDs = mergedIds;
+      if (https.length) {
+        sampledHttpBySource[s.id] = https.slice(0, 4);
+      }
+      if (mergedIds.length && mergedIds.join('|') !== prevKey) {
+        try {
+          await db.collection('lib_sources').doc(s.id).update({
+            previewFileIDs: mergedIds,
+            updatedAt: db.serverDate(),
+          });
+        } catch (e) {
+          /* 回写失败不影响本次展示 */
+        }
+      }
+    }),
+  );
+
   const fileIds = [];
   list.forEach((s) => {
     if (s.coverFileID) fileIds.push(s.coverFileID);
@@ -259,11 +360,21 @@ async function listSources() {
     });
   });
   const urlMap = await resolveTempUrls(cloud, fileIds);
-  return list.map((s) => ({
-    ...s,
-    coverUrl: urlMap[s.coverFileID] || '',
-    previewUrls: (s.previewFileIDs || []).map((id) => urlMap[id] || '').filter(Boolean),
-  }));
+  return list.map((s) => {
+    const fromCloud = (s.previewFileIDs || [])
+      .map((id) => urlMap[id] || '')
+      .filter(Boolean);
+    const fromHttp = sampledHttpBySource[s.id] || [];
+    const previewUrls = Array.from(new Set([...fromCloud, ...fromHttp])).slice(
+      0,
+      4,
+    );
+    return {
+      ...s,
+      coverUrl: urlMap[s.coverFileID] || '',
+      previewUrls,
+    };
+  });
 }
 
 async function listGroups(event) {

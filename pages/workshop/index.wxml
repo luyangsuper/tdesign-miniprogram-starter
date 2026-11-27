@@ -20,7 +20,7 @@
       <view class="workshop__banner">
         <text class="workshop__banner-kicker">WORKSHOP</text>
         <text class="workshop__banner-title">动手玩一玩</text>
-        <text class="workshop__banner-desc">拼豆 · 拼图 · 答案之书</text>
+        <text class="workshop__banner-desc">拼豆 · 图片 · 拼图 · 答案之书</text>
       </view>
 
       <view class="workshop__list">
@@ -31,7 +31,8 @@
           data-url="{{item.url}}"
           bindtap="goTool"
           hover-class="workshop__card--hover"
-          hover-stay-time="80"
+          hover-start-time="20"
+          hover-stay-time="120"
         >
           <view class="workshop__preview workshop__preview--{{item.id}}">
             <block wx:if="{{item.id === 'bead'}}">
@@ -44,6 +45,18 @@
                   wx:key="ci"
                   style="background: {{c}};"
                 />
+              </view>
+            </block>
+            <block wx:elif="{{item.id === 'image'}}">
+              <view class="pv-image">
+                <view class="pv-image__frame">
+                  <view class="pv-image__bar pv-image__bar--top" />
+                  <view class="pv-image__body">
+                    <view class="pv-image__shape" />
+                    <view class="pv-image__shape pv-image__shape--sm" />
+                  </view>
+                  <view class="pv-image__bar pv-image__bar--bot" />
+                </view>
               </view>
             </block>
             <block wx:elif="{{item.id === 'puzzle'}}">

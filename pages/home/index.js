@@ -2,6 +2,7 @@ import { callFunction, getTempFileURLs } from '~/utils/cloud';
 import {
   forgetTempUrl,
   packCoverCacheKey,
+  packPreviewCacheKey,
   peekTempUrl,
   rememberTempUrl,
   reuseTempUrl,
@@ -13,7 +14,13 @@ import {
 import { getOpenId, resolveIsAdmin } from '~/utils/auth';
 import {
   CATEGORY_FILTER_ALL,
+  categoryTagStyle,
+  metaTagStyle,
 } from '~/utils/categories';
+import {
+  ensurePackMoodOverlayUrls,
+  resolvePackMood,
+} from '~/utils/packMood';
 import {
   CONTENT_TYPE_ALL,
   coerceBrowseContentType,
@@ -59,6 +66,7 @@ import {
   downloadCostForPack,
 } from '~/utils/pricing';
 import { applyBeadCostsFromSettings } from '~/utils/beadCosts';
+import { applyImageToolCostsFromSettings } from '~/utils/imageToolCosts';
 import { getCustomNavMetrics, getWindowInfoSafe } from '~/utils/systemInfo';
 import {
   requestNewPackSubscribe,
@@ -87,99 +95,161 @@ import {
   getFestivalAssets,
   notifyFestivalAccessChange,
 } from '~/utils/festival';
-import { resolveWaterfallColumns } from '~/utils/waterfallColumns';
-
 const CONFIRM_ICONS = {
   warn: '/static/emoji/warn.png',
   static: '/static/emoji/static.png',
   anim: '/static/emoji/anim.png',
 };
 
-/** Skyline 无 column-count，用最短列堆积模拟瀑布流 */
-function buildColumns(list, columnCount) {
-  const n = Math.max(1, Number(columnCount) || 2);
-  const cols = Array.from({ length: n }, () => []);
-  const heights = Array.from({ length: n }, () => 0);
-  (list || []).forEach((item) => {
-    let minI = 0;
-    for (let i = 1; i < n; i += 1) {
-      if (heights[i] < heights[minI]) minI = i;
-    }
-    cols[minI].push(item);
-    const ratio = Number(item.coverRatio) > 0 ? Number(item.coverRatio) : 1;
-    heights[minI] += ratio + 0.55;
-  });
-  return cols;
+/** 表情/头像 → 四预览行；壁纸 → 封面卡 */
+function isPreviewRowPack(pack) {
+  if (!pack || pack.isAd) return false;
+  const t = String(pack.contentType || 'emoji').trim() || 'emoji';
+  return t === 'emoji' || t === 'avatar';
+}
+
+function enrichPreviewRowPack(pack) {
+  if (!pack) return pack;
+  const cover = String(pack.coverUrl || '').trim();
+  const rawUrls = Array.isArray(pack.previewUrls)
+    ? pack.previewUrls.map((u) => String(u || '').trim())
+    : [];
+  const rawIds = Array.isArray(pack.previewFileIDs)
+    ? pack.previewFileIDs.map((id) => String(id || '').trim())
+    : [];
+  // 不再用封面拼图灌满空槽；保留 url/fileID 下标对齐（换签中可能短暂无 url）
+  const rawReload = Array.isArray(pack.previewReloadKeys)
+    ? pack.previewReloadKeys.map((n) => Number(n) || 0)
+    : [];
+  const previewUrls = [];
+  const previewFileIDs = [];
+  const previewReloadKeys = [];
+  const slotN = Math.min(4, Math.max(rawUrls.length, rawIds.length));
+  for (let i = 0; i < slotN; i += 1) {
+    const url = rawUrls[i] || '';
+    const fileID = rawIds[i] || '';
+    if (!url && !fileID) continue;
+    previewUrls.push(url);
+    previewFileIDs.push(fileID);
+    previewReloadKeys.push(rawReload[i] || 0);
+  }
+  const emojiCount = Math.max(0, Number(pack.emojiCount) || 0);
+  const previewCount = Math.max(
+    0,
+    Number(pack.previewCount) || emojiCount || previewUrls.length || 0,
+  );
+  const gridTotal = emojiCount > 0 ? emojiCount : previewCount;
+  const moreCount =
+    Number(pack.moreCount) > 0
+      ? Number(pack.moreCount)
+      : gridTotal > 4
+        ? gridTotal - 3
+        : 0;
+  const contentType = normalizeContentType(pack.contentType);
+  const createdAt = Number(pack.createdAt) || 0;
+  const countUnit =
+    contentType === 'avatar' || contentType === 'video' ? '个' : '张';
+  const countText =
+    String(pack.countText || '').trim() ||
+    (gridTotal > 0 ? `${gridTotal} ${countUnit}` : '');
+  const categoryName = String(pack.categoryName || '').trim();
+  const categoryId = String(pack.categoryId || '').trim();
+  const mood = resolvePackMood(pack);
+  return {
+    ...pack,
+    contentType,
+    contentTypeName:
+      String(pack.contentTypeName || '').trim() || contentTypeLabel(contentType),
+    categoryId,
+    categoryName,
+    categoryTagStyle: categoryName
+      ? categoryTagStyle(categoryId, categoryName)
+      : '',
+    /** 动图标签：与角色分类同一套 t-tag light + 彩色底 */
+    animTagStyle: metaTagStyle('count'),
+    previewUrls,
+    previewFileIDs,
+    previewReloadKeys,
+    previewSlots: previewUrls.map((url, i) => ({
+      url,
+      fileID: previewFileIDs[i] || '',
+      key: `${previewFileIDs[i] || 'p'}-${i}-${previewReloadKeys[i] || 0}`,
+    })),
+    previewCount,
+    emojiCount,
+    moreCount,
+    hasAnim: !!pack.hasAnim,
+    mood,
+    moodId: mood ? mood.id : '',
+    isNew: !!(mood && mood.id === 'fresh'),
+    isHot: !!(mood && (mood.id === 'viral' || mood.id === 'popular')),
+    createdAt,
+    countText,
+    coverFileID: pack.coverFileID || '',
+    coverUrl: cover,
+  };
 }
 
 /**
- * 只把新增项追加到现有列（不重排旧卡片），避免加载更多时组件重挂导致封面空白。
- */
-function appendColumns(columns, newItems, columnCount) {
-  const n = Math.max(1, Number(columnCount) || 2);
-  const cols = Array.from({ length: n }, (_, i) =>
-    ((columns && columns[i]) || []).slice(),
-  );
-  const heights = cols.map((col) =>
-    col.reduce((sum, item) => {
-      const ratio = Number(item.coverRatio) > 0 ? Number(item.coverRatio) : 1;
-      return sum + ratio + 0.55;
-    }, 0),
-  );
-  (newItems || []).forEach((item) => {
-    let minI = 0;
-    for (let i = 1; i < n; i += 1) {
-      if (heights[i] < heights[minI]) minI = i;
-    }
-    cols[minI].push(item);
-    const ratio = Number(item.coverRatio) > 0 ? Number(item.coverRatio) : 1;
-    heights[minI] += ratio + 0.55;
-  });
-  return cols;
-}
-
-/**
- * 瀑布流：竖版广告卡插入列内（与合集卡同宽），不再通栏切开。
- * every 由 resolveHomeFeedAdEvery(列数) 换算；不插广告时整表一块 grid。
- * 最后不足一组不插，避免总贴在「没有更多了」上面。
+ * 混合信息流：
+ * - 纯壁纸 → wall-grid（两列封面卡）
+ * - 其它 → 按条：row（表情/头像）/ card（壁纸）+ 可选通栏广告
  */
 function buildFeedBlocks(list, columnCount, every, showAds) {
-  const items = list || [];
+  const items = (list || []).filter(Boolean);
   const insertAds = !!showAds && Number(every) > 0;
-  if (!insertAds) {
-    return [
-      {
-        key: 'g-all',
-        type: 'grid',
-        columns: buildColumns(items, columnCount),
-      },
-    ];
+  const adEvery = Math.max(1, Number(every) || 6);
+
+  const allWallpaper =
+    items.length > 0 &&
+    items.every((p) => String(p.contentType || '') === 'wallpaper');
+
+  if (allWallpaper) {
+    const packs = [];
+    let adSeq = 0;
+    items.forEach((p, i) => {
+      packs.push(p);
+      if (insertAds && (i + 1) % adEvery === 0 && i + 1 < items.length) {
+        packs.push({
+          _id: `feed-ad-${adSeq}`,
+          key: `ad-${adSeq}`,
+          isAd: true,
+          hidden: false,
+        });
+        adSeq += 1;
+      }
+    });
+    return [{ key: 'wall-all', type: 'wall-grid', packs }];
   }
-  const n = Math.max(1, Number(every) || 6);
-  const mixed = [];
+
+  const blocks = [];
   let adSeq = 0;
-  for (let i = 0; i < items.length; i += 1) {
-    mixed.push(items[i]);
-    // 每满 every 条插一张；不贴在列表末尾，避免紧挨「没有更多了」
-    if ((i + 1) % n === 0 && i + 1 < items.length) {
-      mixed.push({
-        _id: `feed-ad-${adSeq}`,
+  items.forEach((p, i) => {
+    if (isPreviewRowPack(p)) {
+      const pack = enrichPreviewRowPack(p);
+      blocks.push({
+        key: `row-${pack._id}`,
+        type: 'row',
+        pack,
+      });
+    } else {
+      blocks.push({
+        key: `card-${p._id}`,
+        type: 'card',
+        pack: p,
+      });
+    }
+    if (insertAds && (i + 1) % adEvery === 0 && i + 1 < items.length) {
+      blocks.push({
         key: `ad-${adSeq}`,
+        type: 'ad',
         isAd: true,
         hidden: false,
-        // 竖版卡占位，接近合集封面比例，避免列高估算偏差过大
-        coverRatio: 1.2,
       });
       adSeq += 1;
     }
-  }
-  return [
-    {
-      key: 'g-all',
-      type: 'grid',
-      columns: buildColumns(mixed, columnCount),
-    },
-  ];
+  });
+  return blocks;
 }
 
 /** 列表元数据内存缓存；封面链另用 tempUrlCache，过期则静默换签 */
@@ -198,15 +268,17 @@ Page({
     loading: true,
     list: [],
     columns: [[], []],
-    /** 瀑布流分段：grid 合集块 + ad 通栏广告 */
+    /** 混合信息流：row / card / wall-grid / ad */
     feedBlocks: [],
     nativeAdUnitId: getNativeHomeFeedAdUnitId(),
     showFeedAds: shouldShowHomeFeedAds(),
     page: 1,
     hasMore: true,
     loadingMore: false,
+    /** 壁纸两列卡宽；混合流里单张壁纸卡也用此宽或通栏 */
     columnCount: 2,
     cardWidth: 0,
+    fullCardWidth: 0,
     listGap: 6,
     rowGap: 6,
     keyword: '',
@@ -475,6 +547,7 @@ Page({
       }
       applyDownloadCostsFromSettings(res || {});
       applyBeadCostsFromSettings(res || {});
+      applyImageToolCostsFromSettings(res || {});
       // 权益（VIP）或间隔变化后重建分段，避免留下空广告位/段界空白
       this.refreshFeedAdGate();
       applyPendingPointGifts(res && res.pendingPointGifts);
@@ -691,6 +764,8 @@ Page({
     this._listCache = Object.create(null);
     this._listSeq = 0;
     this._catSeq = 0;
+    // 氛围 GIF 走云存储临时链，不进包体
+    this.ensureMoodOverlays();
     this.setData({ themeStyle: getThemeStyle(), themeBrand: getThemeBrand() });
     this._onThemeChange = () => {
       applyThemeToPage(this);
@@ -1032,39 +1107,39 @@ Page({
 
   updateLayout() {
     const { windowWidth } = getWindowInfoSafe();
-    const columnCount = resolveWaterfallColumns(windowWidth);
-
-    // 页边距与卡片间距同一数值，只扣一次，避免「页边 + 缝」看起来叠宽
+    // 壁纸封面卡固定两列；表情行通栏不依赖瀑布列数
+    const columnCount = 2;
     const gap = 6;
     const rowGap = 6;
     const cardWidth = Math.floor(
       (windowWidth - gap * 2 - gap * (columnCount - 1)) / columnCount,
     );
+    const fullCardWidth = Math.floor(windowWidth - gap * 2);
 
     const showFeedAds = shouldShowHomeFeedAds();
     const nativeAdUnitId = getNativeHomeFeedAdUnitId();
     const layoutSame =
       this.data.columnCount === columnCount &&
       this.data.cardWidth === cardWidth &&
+      this.data.fullCardWidth === fullCardWidth &&
       this.data.listGap === gap &&
       this.data.rowGap === rowGap &&
       this.data.nativeAdUnitId === nativeAdUnitId &&
       this.data.showFeedAds === showFeedAds;
-    // 切 Tab 回来布局未变且已有列数据：跳过重建瀑布流，显著减 setData
-    if (layoutSame && this.data.columns && this.data.columns.length) {
+    if (layoutSame && this.data.feedBlocks && this.data.feedBlocks.length) {
       return;
     }
 
     const patch = {
       columnCount,
       cardWidth,
+      fullCardWidth,
       listGap: gap,
       rowGap,
       nativeAdUnitId,
       showFeedAds,
     };
     if (this.data.list && this.data.list.length) {
-      patch.columns = buildColumns(this.data.list, columnCount);
       patch.feedBlocks = buildFeedBlocks(
         this.data.list,
         columnCount,
@@ -1114,21 +1189,49 @@ Page({
       : '';
     if (!key) return;
     const feedBlocks = (this.data.feedBlocks || []).map((b) => {
-      if (!b || b.type !== 'grid') {
-        return b && b.key === key ? { ...b, hidden: true } : b;
-      }
-      return {
-        ...b,
-        columns: (b.columns || []).map((col) =>
-          (col || []).map((item) =>
-            item && (item.key === key || item._id === key)
-              ? { ...item, hidden: true }
-              : item,
+      if (!b) return b;
+      if (b.type === 'ad' && b.key === key) return { ...b, hidden: true };
+      if (b.type === 'wall-grid') {
+        return {
+          ...b,
+          packs: (b.packs || []).map((pack) =>
+            pack && (pack.key === key || pack._id === key)
+              ? { ...pack, hidden: true }
+              : pack,
           ),
-        ),
-      };
+        };
+      }
+      return b;
     });
     this.setData({ feedBlocks });
+  },
+
+  /** 氛围 GIF 换签后回填已渲染行的 overlay */
+  async ensureMoodOverlays() {
+    try {
+      // force：换云端 GIF 后清掉旧临时链，避免仍显示上一版
+      await ensurePackMoodOverlayUrls({ force: true });
+    } catch (e) {
+      return;
+    }
+    const prev = this.data.feedBlocks || [];
+    if (!prev.length) return;
+    let changed = false;
+    const feedBlocks = prev.map((b) => {
+      if (!b || b.type !== 'row' || !b.pack || !b.pack.moodId) return b;
+      const pack = enrichPreviewRowPack(b.pack);
+      if (
+        pack &&
+        pack.mood &&
+        pack.mood.overlay &&
+        (!b.pack.mood || b.pack.mood.overlay !== pack.mood.overlay)
+      ) {
+        changed = true;
+        return { ...b, pack };
+      }
+      return b;
+    });
+    if (changed) this.setData({ feedBlocks });
   },
 
   filterCount(categoryId) {
@@ -1176,18 +1279,19 @@ Page({
     // 避免 coverFileID / coverUrl 为 null 触发组件属性类型警告
     const normalizePack = (item) => {
       if (!item || typeof item !== 'object') return item;
-      return {
+      const base = {
         ...item,
         coverFileID: item.coverFileID || '',
         coverUrl: item.coverUrl || '',
+        previewUrls: Array.isArray(item.previewUrls) ? item.previewUrls : [],
+        previewFileIDs: Array.isArray(item.previewFileIDs)
+          ? item.previewFileIDs
+          : [],
+        moreCount: Number(item.moreCount) || 0,
       };
+      return isPreviewRowPack(base) ? enrichPreviewRowPack(base) : base;
     };
     const safeList = (list || []).map(normalizePack);
-    const safeAppend = (appendItems || []).map(normalizePack);
-    const columns =
-      safeAppend.length
-        ? appendColumns(this.data.columns, safeAppend, this.data.columnCount)
-        : buildColumns(safeList, this.data.columnCount);
     const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
     const feedBlocks = buildFeedBlocks(
       safeList,
@@ -1198,7 +1302,6 @@ Page({
     // 不在每次列表更新里写 enable，避免误触 refresher-triggered 抖动
     const patch = {
       list: safeList,
-      columns,
       feedBlocks,
       showFeedAds: shouldShowHomeFeedAds(),
       nativeAdUnitId: getNativeHomeFeedAdUnitId(),
@@ -2446,9 +2549,6 @@ Page({
       item && item._id === packId ? { ...item, coverRatio: ratio } : item;
 
     const list = (this.data.list || []).map(patchItem);
-    const columns = (this.data.columns || []).map((col) =>
-      (col || []).map(patchItem),
-    );
     const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
     const feedBlocks = buildFeedBlocks(
       list,
@@ -2456,7 +2556,7 @@ Page({
       resolveHomeFeedAdEvery(this.data.columnCount),
       showAds,
     );
-    this.setData({ list, columns, feedBlocks });
+    this.setData({ list, feedBlocks });
 
     const cacheKey = listCacheKey(
       this.data.categoryId,
@@ -2466,6 +2566,19 @@ Page({
     if (this._listCache && this._listCache[cacheKey] && this._listCache[cacheKey].list) {
       this._listCache[cacheKey].list = this._listCache[cacheKey].list.map(patchItem);
     }
+  },
+
+  /** 表情/头像行：进详情（多选时改勾选） */
+  onOpenPackRow(e) {
+    const id =
+      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      '';
+    if (!id) return;
+    if (this.data.selectMode) {
+      this.onTogglePack({ detail: { packId: id } });
+      return;
+    }
+    wx.navigateTo({ url: `/pages/pack/detail/index?id=${id}` });
   },
 
   /** 单条封面换成新签并刷新瀑布流对应项 */
@@ -2483,9 +2596,6 @@ Page({
       };
     };
     const list = (this.data.list || []).map(patchItem);
-    const columns = (this.data.columns || []).map((col) =>
-      (col || []).map(patchItem),
-    );
     const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
     const feedBlocks = buildFeedBlocks(
       list,
@@ -2493,7 +2603,57 @@ Page({
       resolveHomeFeedAdEvery(this.data.columnCount),
       showAds,
     );
-    this.setData({ list, columns, feedBlocks });
+    this.setData({ list, feedBlocks });
+    const cacheKey = listCacheKey(
+      this.data.categoryId,
+      this.data.keyword,
+      this.data.contentType,
+    );
+    if (this._listCache && this._listCache[cacheKey] && this._listCache[cacheKey].list) {
+      this._listCache[cacheKey].list = this._listCache[cacheKey].list.map(patchItem);
+    }
+  },
+
+  /** 四预览格某一格换成新签 */
+  patchPackPreview(packId, index, previewUrl, previewFileID, opts = {}) {
+    const id = String(packId || '').trim();
+    const i = Number(index);
+    if (!id || !Number.isFinite(i) || i < 0) return;
+    const url = String(previewUrl || '').trim();
+    const forceRemount = !!(opts && opts.forceRemount);
+    const patchItem = (item) => {
+      if (!item || item._id !== id) return item;
+      const urls = Array.isArray(item.previewUrls)
+        ? item.previewUrls.slice()
+        : [];
+      const fileIDs = Array.isArray(item.previewFileIDs)
+        ? item.previewFileIDs.slice()
+        : [];
+      const reloadKeys = Array.isArray(item.previewReloadKeys)
+        ? item.previewReloadKeys.slice()
+        : [];
+      while (urls.length <= i) urls.push('');
+      while (fileIDs.length <= i) fileIDs.push('');
+      while (reloadKeys.length <= i) reloadKeys.push(0);
+      urls[i] = url;
+      if (previewFileID) fileIDs[i] = String(previewFileID).trim();
+      if (forceRemount) reloadKeys[i] = (Number(reloadKeys[i]) || 0) + 1;
+      return {
+        ...item,
+        previewUrls: urls,
+        previewFileIDs: fileIDs,
+        previewReloadKeys: reloadKeys,
+      };
+    };
+    const list = (this.data.list || []).map(patchItem);
+    const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
+    const feedBlocks = buildFeedBlocks(
+      list,
+      this.data.columnCount,
+      resolveHomeFeedAdEvery(this.data.columnCount),
+      showAds,
+    );
+    this.setData({ list, feedBlocks });
     const cacheKey = listCacheKey(
       this.data.categoryId,
       this.data.keyword,
@@ -2505,8 +2665,56 @@ Page({
   },
 
   /**
+   * 四预览临时链失效：按 previewFileIDs[i] 换新签后重载该格。
+   * 切勿整表刷新，避免翻页后连环 error 打回第一页。
+   */
+  async onPreviewError(e) {
+    const ds =
+      (e && e.currentTarget && e.currentTarget.dataset) ||
+      (e && e.target && e.target.dataset) ||
+      {};
+    const packId = String(ds.packId || '').trim();
+    const index = Number(ds.index);
+    if (!packId || !Number.isFinite(index) || index < 0) return;
+
+    const item =
+      (this.data.list || []).find((row) => row && row._id === packId) || null;
+    if (!item) return;
+
+    const fileIDs = Array.isArray(item.previewFileIDs) ? item.previewFileIDs : [];
+    const fileID = String(fileIDs[index] || '').trim();
+
+    forgetTempUrl(packPreviewCacheKey(packId, index));
+    if (fileID) forgetTempUrl(fileID);
+
+    const lockKey = `${packId}:${index}`;
+    if (!this._previewResignKeys) this._previewResignKeys = new Set();
+    if (!this._previewResignCount) this._previewResignCount = Object.create(null);
+    if (this._previewResignKeys.has(lockKey)) return;
+    const tried = Number(this._previewResignCount[lockKey]) || 0;
+    if (tried >= 2) return; // 避免永久裂图死循环
+    this._previewResignKeys.add(lockKey);
+    this._previewResignCount[lockKey] = tried + 1;
+
+    try {
+      if (!fileID) return;
+      const urls = await getTempFileURLs([fileID]);
+      const next = String((urls && urls[0]) || '').trim();
+      if (!next) return;
+      rememberTempUrl(packPreviewCacheKey(packId, index), next);
+      rememberTempUrl(fileID, next);
+      // bump reload token，强制 t-image 重挂再加载
+      this.patchPackPreview(packId, index, next, fileID, { forceRemount: true });
+    } catch (err) {
+      /* 单格失败保留错误态，等下拉刷新 */
+    } finally {
+      this._previewResignKeys.delete(lockKey);
+    }
+  },
+
+  /**
    * 封面临时链失效：按 coverFileID 换新签即可。
-   * 切勿整表 loadList(true)：翻页后瀑布流连环 cover error 会把列表打回第一页。
+   * 切勿整表 loadList(true)：翻页后连环 cover error 会把列表打回第一页。
    */
   async onCoverError(e) {
     const detail = (e && e.detail) || {};
@@ -2621,8 +2829,31 @@ Page({
       } = res.data || {};
       const withStableCover = (list || []).map((item) => {
         if (!item || !item._id) return item;
+        const previewFileIDs = Array.isArray(item.previewFileIDs)
+          ? item.previewFileIDs.map((id) => String(id || '').trim())
+          : [];
+        const rawPreviews = Array.isArray(item.previewUrls)
+          ? item.previewUrls
+          : [];
+        const previewUrls = rawPreviews.map((url, i) => {
+          const u = String(url || '').trim();
+          if (!u) return '';
+          const key = packPreviewCacheKey(item._id, i);
+          const next = forceRefresh
+            ? rememberTempUrl(key, u)
+            : reuseTempUrl(key, u);
+          const fileID = String(previewFileIDs[i] || '').trim();
+          if (fileID && next) rememberTempUrl(fileID, next);
+          return next;
+        });
         if (!item.coverUrl) {
-          return { ...item, coverFileID: item.coverFileID || '', coverUrl: '' };
+          return {
+            ...item,
+            coverFileID: item.coverFileID || '',
+            coverUrl: '',
+            previewFileIDs,
+            previewUrls,
+          };
         }
         // 强制换签时不要复用客户端旧链（可能 CDN 已拒但 TTL 未到）
         const coverUrl = forceRefresh
@@ -2632,6 +2863,8 @@ Page({
           ...item,
           coverFileID: item.coverFileID || '',
           coverUrl,
+          previewFileIDs,
+          previewUrls,
         };
       });
       const withRatio = await this.resolveCoverRatios(withStableCover, seq);

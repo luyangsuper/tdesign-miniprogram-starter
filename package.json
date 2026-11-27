@@ -14,7 +14,9 @@
     "festival:solar": "node scripts/gen-festival-solar-table.js",
     "build:npm": "node scripts/build-miniprogram-npm.js",
     "library:import": "node scripts/library-import/import.mjs",
-    "library:upload": "node scripts/library-import/upload-remote.mjs"
+    "library:upload": "node scripts/library-import/upload-remote.mjs",
+    "library:upload:packs": "node scripts/library-import/upload-open-packs.mjs",
+    "gifski:wx": "node scripts/patch-gifski-wx.mjs"
   },
   "keywords": [
     "wechat",
@@ -27,6 +29,7 @@
   "description": "趣图铺子 · 微信云开发合集分享（表情/壁纸/头像/视频）：封面/预览/原文件，积分保存到相册",
   "dependencies": {
     "dayjs": "^1.11.13",
+    "gifski-wasm": "^2.2.0",
     "tdesign-miniprogram": "^1.11.2"
   },
   "devDependencies": {

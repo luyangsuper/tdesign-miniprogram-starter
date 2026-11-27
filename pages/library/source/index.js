@@ -1,5 +1,6 @@
 import { callFunction, getTempFileURLs } from '~/utils/cloud';
 import {
+  CONVERT_TO_GIF_COST,
   LIB_SOURCE_ANIMATEMOJIS,
   canSaveFormatToAlbum,
   defaultDownloadFormat,
@@ -7,6 +8,7 @@ import {
   presentLibrarySource,
   resolveLibraryBillFormat,
   resolveSourceLibraryUnitCost,
+  shortLibraryGroupTitle,
   shouldConvertDownloadToGif,
 } from '~/utils/library';
 import {
@@ -14,12 +16,14 @@ import {
   libraryCostKeyForItem,
   libraryUnitCost,
   libraryUnitCostForItem,
-} from '~/utils/libraryDownload';
+} from '../utils/libraryDownload';
 import {
   canAttemptDownload,
   getCachedEntitlement,
   setCachedEntitlement,
+  spendablePoints,
 } from '~/utils/entitlement';
+import { promptSaveAdForPoints } from '~/utils/adReward';
 import { getCustomNavMetrics } from '~/utils/systemInfo';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 
@@ -29,6 +33,7 @@ const SOURCE_TITLE_HINT = {
   'fluent-emoji': '立体动态表情',
   'animatemojis-community': '趣味反应表情',
   'meme-api': '萌芽表情包',
+  'sticker-ext': '精选聊天表情',
 };
 
 Page({
@@ -59,7 +64,6 @@ Page({
     saveBtnText: '保存到相册',
     unitCost: 1,
     unitCostText: '1 积分',
-    sourceLicense: '',
     saving: false,
   },
 
@@ -100,6 +104,9 @@ Page({
 
   resolveUnitCost(format, item) {
     const active = item || this.data.activeItem;
+    if (shouldConvertDownloadToGif(active, format)) {
+      return CONVERT_TO_GIF_COST;
+    }
     const bill = active
       ? resolveLibraryBillFormat(active, format)
       : format;
@@ -108,9 +115,13 @@ Page({
     );
   },
 
-  unitCostLabel(cost) {
+  unitCostLabel(cost, format, item) {
     const n = Math.max(0, Number(cost) || 0);
-    return n > 0 ? `${n} 积分` : '免费';
+    if (n <= 0) return '免费';
+    if (shouldConvertDownloadToGif(item || this.data.activeItem, format)) {
+      return `${n} 积分或看广告`;
+    }
+    return `${n} 积分`;
   },
 
   async loadSourceMeta() {
@@ -122,7 +133,8 @@ Page({
         const presented = presentLibrarySource(hit);
         const sourceCount = Number(presented.itemCount) || 0;
         this._sourceCosts = presented.costs || hit.costs || null;
-        const unitCost = this.resolveUnitCost(this.data.downloadFormat || 'gif');
+        const fmt = this.data.downloadFormat || 'gif';
+        const unitCost = this.resolveUnitCost(fmt);
         this.setData({
           sourceTitle:
             presented.title ||
@@ -131,11 +143,7 @@ Page({
           sourceCount,
           allTagText: sourceCount > 0 ? `全部 ${sourceCount}` : '全部',
           unitCost,
-          unitCostText: this.unitCostLabel(unitCost),
-          sourceLicense:
-            this.data.sourceId === 'meme-api'
-              ? '素材来自 meme-api · CC BY-NC-SA 4.0'
-              : '',
+          unitCostText: this.unitCostLabel(unitCost, fmt),
         });
       }
     } catch (e) {
@@ -151,11 +159,17 @@ Page({
       });
       const groups = ((res.data && res.data.list) || []).map((g) => {
         const count = Number(g.itemCount) || 0;
-        const emoji = g.emoji || '';
-        const title = g.title || '';
+        // 🖼 等办公符号在微信字体常显示成方框，直接丢掉
+        const rawEmoji = String(g.emoji || '').trim();
+        const emoji =
+          !rawEmoji || rawEmoji === '🖼' || rawEmoji === '🖼️' ? '' : rawEmoji;
+        // 勿展示「用于…」长描述；优先短中文 / externalKey
+        const title = shortLibraryGroupTitle(g);
+        const label = emoji ? `${emoji} ${title}` : title;
         return {
           ...g,
-          tagText: count > 0 ? `${emoji}${title} ${count}` : `${emoji}${title}`,
+          title,
+          tagText: count > 0 ? `${label} ${count}` : label,
         };
       });
       this.setData({ groups });
@@ -262,7 +276,7 @@ Page({
     this.applyFormatUi(fmt, item);
   },
 
-  /** 按格式取预览地址：动图→gif，静图→webp，3D→png；转 GIF 时用静图预览 */
+  /** 按格式取预览地址；选「转 GIF」时用原静图预览 */
   pickFormatPreview(item, fmt) {
     const key = String(fmt || '').toLowerCase();
     const urls = (item && item.fileUrls) || {};
@@ -296,24 +310,24 @@ Page({
     const album = canSaveFormatToAlbum(key) || convertGif;
     let tip = album ? '将保存到系统相册' : '将复制下载链接（设计软件可用，不能直接存相册）';
     if (key === 'gif' && convertGif) {
-      tip = '将转为动图保存，导入微信更清晰';
+      tip = '转为 GIF，导入微信更清晰';
     } else if (key === 'gif') {
-      tip = '动图，适合发聊天 / 存相册';
+      tip = 'GIF，适合发聊天 / 存相册';
     } else if (key === 'webp' || key === 'jpg' || key === 'jpeg') {
-      tip = '原静图，发微信可能被压缩';
+      tip = '原格式免费，发微信可能被压缩';
     } else if (key === 'png') {
-      tip = '3D静态图原图，发微信可能被压缩';
+      tip = 'PNG 原格式免费，发微信可能被压缩';
     } else if (key === 'lottie') {
-      tip = '动画文件，复制链接后给设计工具用';
+      tip = 'Lottie 文件，复制链接后给设计工具用';
     } else if (key === 'svg') {
-      tip = '矢量图，复制链接后给设计工具用';
+      tip = 'SVG，复制链接后给设计工具用';
     }
     const preview = this.pickFormatPreview(active, key);
     const unitCost = this.resolveUnitCost(fmt, active);
     this.setData({
       downloadFormat: key,
       unitCost,
-      unitCostText: this.unitCostLabel(unitCost),
+      unitCostText: this.unitCostLabel(unitCost, key, active),
       formatTip: tip,
       saveBtnText: album ? '保存到相册' : '复制下载链接',
       previewDisplayUrl: preview.url || '',
@@ -383,15 +397,38 @@ Page({
     if (!activeItem || saving) return;
 
     const unitCost = this.resolveUnitCost(downloadFormat, activeItem);
+    const convertGif = shouldConvertDownloadToGif(activeItem, downloadFormat);
     if (unitCost > 0) {
-      const costKey = libraryCostKeyForItem(activeItem, downloadFormat);
-      const entitlement = getCachedEntitlement();
-      if (!canAttemptDownload(entitlement, costKey)) {
-        wx.showToast({
-          title: `积分不足（需 ${unitCost}）`,
-          icon: 'none',
+      let entitlement = getCachedEntitlement();
+      const enough = convertGif
+        ? spendablePoints(entitlement) >= unitCost
+        : canAttemptDownload(
+            entitlement,
+            libraryCostKeyForItem(activeItem, downloadFormat),
+          );
+      if (!enough) {
+        const ad = await promptSaveAdForPoints({
+          need: unitCost,
+          unitCost,
+          count: 1,
+          actionLabel: convertGif ? '转 GIF 保存' : '保存素材',
+          message: convertGif
+            ? `转 GIF 需 ${unitCost} 积分（原格式免费）`
+            : `保存需 ${unitCost} 积分`,
         });
-        return;
+        if (ad && ad.action === 'go_my') {
+          wx.switchTab({ url: '/pages/my/index' });
+          return;
+        }
+        if (!ad || !ad.ok) return;
+        entitlement = getCachedEntitlement();
+        if (spendablePoints(entitlement) < unitCost) {
+          wx.showToast({
+            title: `积分不足（需 ${unitCost}）`,
+            icon: 'none',
+          });
+          return;
+        }
       }
     }
 

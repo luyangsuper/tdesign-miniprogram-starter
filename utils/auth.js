@@ -2,6 +2,7 @@ import config from '~/config';
 import { setCachedEntitlement } from '~/utils/entitlement';
 import { applyDownloadCostsFromSettings } from '~/utils/pricing';
 import { applyBeadCostsFromSettings } from '~/utils/beadCosts';
+import { applyImageToolCostsFromSettings } from '~/utils/imageToolCosts';
 
 const OPENID_KEY = 'openid';
 const USER_KEY = 'user_profile';
@@ -115,5 +116,6 @@ export function applyLoginResult(res = {}) {
   }
   applyDownloadCostsFromSettings(res || {});
   applyBeadCostsFromSettings(res || {});
+  applyImageToolCostsFromSettings(res || {});
   return profile;
 }

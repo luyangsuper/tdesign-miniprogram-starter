@@ -21,6 +21,11 @@ import {
   getBeadExportCost,
 } from '~/utils/beadCosts';
 import {
+  applyImageToolCostsFromSettings,
+  IMAGE_EXPORT_COST,
+  getImageExportCost,
+} from '~/utils/imageToolCosts';
+import {
   DAILY_CLEAR_BONUS,
   DAILY_MAX_CLEARS,
   DIFFICULTIES,
@@ -72,6 +77,7 @@ Page({
     costVideo: String(downloadCost('video')),
     costBeadExport: String(getBeadExportCost()),
     costBeadAdvanced: String(getBeadAdvancedCost()),
+    costImageExport: String(getImageExportCost()),
     puzzleEnabled: true,
     puzzleDailyMax: String(DAILY_MAX_CLEARS),
     puzzleDailyBonus: String(DAILY_CLEAR_BONUS),
@@ -169,6 +175,11 @@ Page({
             ? data.costBeadAdvanced
             : BEAD_ADVANCED_COST,
         ),
+        costImageExport: String(
+          data.costImageExport != null
+            ? data.costImageExport
+            : IMAGE_EXPORT_COST,
+        ),
         puzzleEnabled: puzzle.enabled !== false,
         puzzleDailyMax: String(
           puzzle.dailyMaxClears != null ? puzzle.dailyMaxClears : DAILY_MAX_CLEARS,
@@ -199,6 +210,7 @@ Page({
       });
       applyDownloadCostsFromSettings(data);
       applyBeadCostsFromSettings(data);
+      applyImageToolCostsFromSettings(data);
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' });
     } finally {
@@ -315,6 +327,10 @@ Page({
 
   onCostBeadAdvancedChange(e) {
     this.setData({ costBeadAdvanced: (e.detail && e.detail.value) || '' });
+  },
+
+  onCostImageExportChange(e) {
+    this.setData({ costImageExport: (e.detail && e.detail.value) || '' });
   },
 
   onCampaignTitleChange(e) {
@@ -497,6 +513,7 @@ Page({
     const costVideo = Number(this.data.costVideo);
     const costBeadExport = Number(this.data.costBeadExport);
     const costBeadAdvanced = Number(this.data.costBeadAdvanced);
+    const costImageExport = Number(this.data.costImageExport);
     const puzzleDailyMax = Number(this.data.puzzleDailyMax);
     const puzzleDailyBonus = Number(this.data.puzzleDailyBonus);
     const puzzleRankFirst = Number(this.data.puzzleRankFirst);
@@ -533,6 +550,7 @@ Page({
       !costOk(costVideo) ||
       !costOk(costBeadExport) ||
       !costOk(costBeadAdvanced) ||
+      !costOk(costImageExport) ||
       Number.isNaN(puzzleDailyMax) ||
       puzzleDailyMax < 1 ||
       puzzleDailyMax > 30 ||
@@ -582,6 +600,7 @@ Page({
           costVideo,
           costBeadExport,
           costBeadAdvanced,
+          costImageExport,
         }),
         callFunction('puzzleGame', {
           action: 'adminSave',
@@ -606,6 +625,7 @@ Page({
       setHomeFeedAdEvery(nextEvery);
       applyDownloadCostsFromSettings(data);
       applyBeadCostsFromSettings(data);
+      applyImageToolCostsFromSettings(data);
       this.setData({
         welcomeGiftPoints: String(data.welcomeGiftPoints ?? welcomeGiftPoints),
         checkinPoints: String(data.checkinPoints ?? checkinPoints),
@@ -626,6 +646,7 @@ Page({
         costVideo: String(data.costVideo ?? costVideo),
         costBeadExport: String(data.costBeadExport ?? costBeadExport),
         costBeadAdvanced: String(data.costBeadAdvanced ?? costBeadAdvanced),
+        costImageExport: String(data.costImageExport ?? costImageExport),
         puzzleEnabled: puzzle.enabled !== false,
         puzzleDailyMax: String(
           puzzle.dailyMaxClears != null ? puzzle.dailyMaxClears : puzzleDailyMax,

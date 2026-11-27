@@ -183,7 +183,15 @@ exports.main = async (event = {}) => {
     const fileID = String(fileRef).trim();
     const sourceId = String(item.sourceId || '').trim();
     const costKey = resolveLibraryCostKey(format);
-    const costMap = await resolveLibraryCostMap(sourceId);
+    let costMap = await resolveLibraryCostMap(sourceId);
+    // 客户端静图→GIF：固定 1 积分；原格式仍走源 costs（可为 0）
+    if (event.convertToGif) {
+      costMap = {
+        ...costMap,
+        libraryStatic: 1,
+        libraryAnim: Math.max(1, Number(costMap.libraryAnim) || 1),
+      };
+    }
 
     const { ref, data: user } = await ensureUser(OPENID);
     const synced = await syncVipMonthQuota(ref, user, db.serverDate(), db);

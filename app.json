@@ -39,7 +39,20 @@
     {
       "root": "pages/tools",
       "name": "tools",
-      "pages": ["bead/index", "answerbook/index"]
+      "pages": [
+        "bead/index",
+        "answerbook/index",
+        "image/index",
+        "image/compress/index",
+        "image/resize/index",
+        "image/crop/index",
+        "image/convert/index",
+        "image/to-gif/index",
+        "image/watermark/index",
+        "image/stitch/index",
+        "image/split/index",
+        "image/to-size/index"
+      ]
     },
     {
       "root": "pages/history",

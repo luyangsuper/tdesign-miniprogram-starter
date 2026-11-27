@@ -196,6 +196,7 @@ exports.main = async (event = {}) => {
     let downloadCosts = null;
     let costBeadExport = null;
     let costBeadAdvanced = null;
+    let costImageExport = null;
     try {
       const settings = await getPointsSettings(db);
       downloadCosts = {
@@ -209,6 +210,7 @@ exports.main = async (event = {}) => {
       };
       costBeadExport = settings.costBeadExport;
       costBeadAdvanced = settings.costBeadAdvanced;
+      costImageExport = settings.costImageExport;
     } catch (e) {
       /* ignore */
     }
@@ -224,6 +226,7 @@ exports.main = async (event = {}) => {
       downloadCosts,
       costBeadExport,
       costBeadAdvanced,
+      costImageExport,
     };
   }
 
@@ -272,6 +275,7 @@ exports.main = async (event = {}) => {
   let downloadCosts = null;
   let costBeadExport = null;
   let costBeadAdvanced = null;
+  let costImageExport = null;
   try {
     const settings = await getPointsSettings(db);
     downloadCosts = {
@@ -285,6 +289,7 @@ exports.main = async (event = {}) => {
     };
     costBeadExport = settings.costBeadExport;
     costBeadAdvanced = settings.costBeadAdvanced;
+    costImageExport = settings.costImageExport;
   } catch (e) {
     /* ignore */
   }
@@ -303,6 +308,7 @@ exports.main = async (event = {}) => {
     downloadCosts,
     costBeadExport,
     costBeadAdvanced,
+    costImageExport,
     // 开奖结果不在此返回：只走 userLottery.pending（校验已参与）
   };
 };

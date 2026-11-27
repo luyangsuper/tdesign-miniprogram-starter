@@ -1,0 +1,68 @@
+@import '../tool.less';
+
+/* chip 兜底：子页本地再写一遍，避免仅靠 @import 时色块/网格丢失 */
+.imgtool__chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.imgtool__chip-grid .imgtool__chip {
+  width: calc((100% - 36rpx) / 4);
+  flex: none;
+  text-align: center;
+  padding: 18rpx 4rpx;
+  border-radius: 16rpx;
+  background: rgba(15, 23, 42, 0.06);
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.55);
+  line-height: 1.2;
+}
+
+.imgtool__chip-grid--3 .imgtool__chip {
+  width: calc((100% - 24rpx) / 3);
+}
+
+.imgtool__chip-grid--2 .imgtool__chip {
+  width: calc((100% - 12rpx) / 2);
+}
+
+.imgtool__chip-grid .imgtool__chip.is-on {
+  background: rgba(7, 193, 96, 0.14);
+  border-color: rgba(7, 193, 96, 0.45);
+  color: #07c160;
+}
+
+.imgtool__chip-grid .imgtool__chip--wide {
+  width: calc((100% - 12rpx) / 2);
+}
+
+.imgtool__chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12rpx;
+}
+
+.imgtool__chips .imgtool__chip {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  padding: 18rpx 8rpx;
+  border-radius: 16rpx;
+  background: rgba(15, 23, 42, 0.06);
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.55);
+  line-height: 1.2;
+}
+
+.imgtool__chips .imgtool__chip.is-on {
+  background: rgba(7, 193, 96, 0.14);
+  border-color: rgba(7, 193, 96, 0.45);
+  color: #07c160;
+}

@@ -5,6 +5,7 @@ const { normalizeContentType, isEmojiType, contentTypeLabel } = require('./conte
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
+const _ = db.command;
 
 const FALLBACK_ADMINS = ['oOtg0xqcOEHgBAL7u3M7g9S8ln2c'];
 
@@ -85,6 +86,17 @@ async function getDetail(packId, OPENID) {
     };
   });
 
+  // 浏览量：打开详情 +1（失败不影响详情返回）
+  const viewCount = Math.max(0, Number(pack.viewCount) || 0) + 1;
+  try {
+    await db.collection('packs').doc(packId).update({
+      viewCount: _.inc(1),
+      updatedAt: Date.now(),
+    });
+  } catch (e) {
+    console.warn('[getPackDetail] viewCount', e.message || e);
+  }
+
   const admin = isAdminOpenid(OPENID);
   const data = {
     _id: pack._id,
@@ -102,6 +114,7 @@ async function getDetail(packId, OPENID) {
     hasAnimAny,
     emojiCount,
     downloadCount: pack.downloadCount || 0,
+    viewCount,
   };
 
   if (admin) {

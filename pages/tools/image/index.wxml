@@ -1,0 +1,72 @@
+<view class="imgtool-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
+  <festival-decor
+    id="festivalDecor"
+    mode="navbar"
+    active="{{festivalActive}}"
+    header-height="{{festHeaderPx}}"
+    nav-height="{{navHeight}}"
+  />
+  <t-navbar
+    fixed="{{true}}"
+    placeholder="{{true}}"
+    z-index="{{500}}"
+    left-arrow
+    custom-style="{{navBarStyle}}"
+    bind:go-back="onBack"
+  >
+    <view slot="title" class="imgtool__nav-title">图片工具箱</view>
+  </t-navbar>
+
+  <view class="imgtool">
+    <view class="imghub__banner">
+      <text class="imghub__banner-kicker">趣味工坊</text>
+      <text class="imghub__banner-title">图片工具箱</text>
+      <text class="imghub__banner-desc">压缩、裁剪、水印、拼接、转 GIF，处理好再保存</text>
+    </view>
+
+    <view wx:for="{{sections}}" wx:key="id" class="imghub__section">
+      <text class="imghub__section-title">{{item.title}}</text>
+      <view class="imghub__group">
+        <view
+          wx:for="{{item.tools}}"
+          wx:for-item="tool"
+          wx:key="id"
+          class="imghub__row"
+          data-url="{{tool.url}}"
+          bindtap="goTool"
+          hover-class="imghub__row--hover"
+          hover-stay-time="80"
+        >
+          <view class="imghub__row-icon" style="background: {{tool.color}};">
+            <kubai-icon
+              name="{{tool.icon}}"
+              size="52rpx"
+              color="#ffffff"
+              motion="{{false}}"
+            />
+          </view>
+          <view class="imghub__row-body">
+            <view class="imghub__row-head">
+              <text class="imghub__row-title">{{tool.title}}</text>
+              <t-tag
+                wx:if="{{tool.tag}}"
+                size="small"
+                variant="light"
+                theme="{{tool.tagTheme || 'success'}}"
+              >{{tool.tag}}</t-tag>
+            </view>
+            <text class="imghub__row-desc">{{tool.desc}}</text>
+          </view>
+          <view class="imghub__row-go">
+            <kubai-icon
+              name="chevron-right"
+              size="28rpx"
+              color="{{themeChevron}}"
+              motion="{{false}}"
+            />
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,132 @@
+<view class="imgtool-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
+  <festival-decor
+    id="festivalDecor"
+    mode="navbar"
+    active="{{festivalActive}}"
+    header-height="{{festHeaderPx}}"
+    nav-height="{{navHeight}}"
+  />
+  <t-navbar
+    fixed="{{true}}"
+    placeholder="{{true}}"
+    z-index="{{500}}"
+    left-arrow
+    custom-style="{{navBarStyle}}"
+    bind:go-back="onBack"
+  >
+    <view slot="title" class="imgtool__nav-title">裁剪图片</view>
+  </t-navbar>
+
+  <view class="imgtool">
+    <view class="imgtool__hero">
+      <text class="imgtool__kicker">图片工具箱</text>
+      <text class="imgtool__hero-title">裁剪图片</text>
+      <text class="imgtool__hero-desc">选比例后拖动/双指缩放，框内区域将导出</text>
+    </view>
+
+    <view class="imgtool__card">
+      <view class="imgtool__card-title">选图</view>
+      <view
+        wx:if="{{!srcPath || checking}}"
+        class="imgtool__preview imgtool__preview--pick"
+        bindtap="onPick"
+        hover-class="imghub__card--hover"
+      >
+        <view wx:if="{{!checking}}" class="imgtool__preview-empty">
+          <kubai-icon name="image" size="56rpx" color="{{themeBrand}}" />
+          <text class="imgtool__preview-empty-title">点此选图</text>
+          <text class="imgtool__preview-empty-text">需通过安全检测后才能处理</text>
+        </view>
+        <view wx:if="{{checking}}" class="imgtool__preview-loading">
+          <t-loading theme="circular" size="40rpx" text="{{checkText}}" />
+        </view>
+      </view>
+      <view
+        wx:elif="{{srcPath}}"
+        class="crop-stage"
+        style="height: {{stageH}}px;"
+        bindtouchstart="onTouchStart"
+        catchtouchmove="onTouchMove"
+        bindtouchend="onTouchEnd"
+        bindtouchcancel="onTouchEnd"
+      >
+        <image
+          class="crop-stage__img"
+          src="{{srcPath}}"
+          mode="scaleToFill"
+          style="width: {{drawW}}px; height: {{drawH}}px; transform: translate({{tx}}px, {{ty}}px);"
+        />
+        <view
+          class="crop-stage__mask"
+          style="left: {{frameL}}px; top: {{frameT}}px; width: {{frameW}}px; height: {{frameH}}px;"
+        />
+        <text class="crop-stage__hint">单指拖动 · 双指缩放</text>
+      </view>
+      <view wx:if="{{srcMeta}}" class="imgtool__meta">{{srcMeta}}</view>
+      <view wx:if="{{srcPath}}" class="imgtool__actions" style="margin-top: 16rpx;">
+        <t-button
+          theme="light"
+          size="medium"
+          shape="round"
+          block
+          content="换一张"
+          disabled="{{checking || busy}}"
+          bind:tap="onPick"
+        />
+      </view>
+    </view>
+
+    <view class="imgtool__card">
+      <view class="imgtool__card-title">比例</view>
+      <view class="imgtool__param">
+        <view class="imgtool__param-head">
+          <text class="imgtool__label">常用比例</text>
+          <text class="imgtool__value">{{ratioLabel}}</text>
+        </view>
+        <view class="imgtool__chip-grid imgtool__chip-grid--3">
+          <view
+            wx:for="{{ratioList}}"
+            wx:key="id"
+            class="imgtool__chip {{ratioId === item.id ? 'is-on' : ''}}"
+            data-v="{{item.id}}"
+            bindtap="onRatio"
+          >{{item.label}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="imgtool__card">
+      <view class="imgtool__card-title">结果</view>
+      <view class="imgtool__preview">
+        <block wx:if="{{outPath}}">
+          <image class="imgtool__preview-img" src="{{outPath}}" mode="aspectFit" />
+        </block>
+        <view wx:else class="imgtool__preview-empty">
+          <text class="imgtool__preview-empty-text">裁剪后在这里预览</text>
+        </view>
+      </view>
+      <view wx:if="{{outMeta}}" class="imgtool__meta">{{outMeta}}</view>
+      <view class="imgtool__actions">
+        <t-button
+          theme="light"
+          size="large"
+          shape="round"
+          block
+          content="{{busy ? '裁剪中…' : '开始裁剪'}}"
+          disabled="{{!srcPath || busy || checking || !ready}}"
+          bind:tap="onProcess"
+        />
+        <t-button
+          theme="primary"
+          size="large"
+          shape="round"
+          block
+          content="{{gating ? '解锁中…' : '保存到相册'}}"
+          disabled="{{!outPath || busy || gating}}"
+          bind:tap="onSave"
+        />
+      </view>
+      <text class="imgtool__hint">处理免费；保存需积分解锁或看一次广告</text>
+    </view>
+  </view>
+</view>
