@@ -51,6 +51,63 @@
         />
       </view>
     </scroll-view>
+
+    <view wx:if="{{sourceId === 'particlefx'}}" class="lib-src__bg-bar">
+      <text class="lib-src__bg-bar-label">预览底</text>
+      <view class="lib-src__bg-bar-tags">
+        <t-check-tag
+          wx:for="{{previewBgOptions}}"
+          wx:key="id"
+          size="small"
+          shape="round"
+          variant="light"
+          content="{{item.label}}"
+          checked="{{previewBg === item.id}}"
+          data-id="{{item.id}}"
+          bind:change="onPreviewBgTap"
+        />
+      </view>
+    </view>
+
+    <view wx:if="{{showMoodAdmin}}" class="lib-src__mood-bar">
+      <view class="lib-src__mood-bar-head">
+        <text class="lib-src__mood-bar-title">合集氛围</text>
+        <text class="lib-src__mood-bar-tip">点开查看 · 预览里可设定</text>
+      </view>
+      <scroll-view
+        class="lib-src__mood-scroll"
+        scroll-x
+        enhanced
+        show-scrollbar="{{false}}"
+        enable-flex
+      >
+        <view class="lib-src__mood-row">
+          <view
+            wx:for="{{moodRows}}"
+            wx:key="id"
+            class="lib-src__mood-chip {{item.custom ? 'lib-src__mood-chip--custom' : ''}}"
+            data-id="{{item.id}}"
+            bind:tap="onViewMood"
+            hover-class="lib-src__mood-chip--press"
+          >
+            <view class="lib-src__mood-thumb">
+              <view class="lib-src__stage-bg lib-src__stage-bg--{{previewBg}}" />
+              <smart-image
+                wx:if="{{item.previewUrl}}"
+                src="{{item.previewUrl}}"
+                mode="aspectFit"
+                shape="round"
+                lazy
+                transparent
+                radius="10rpx"
+              />
+            </view>
+            <text class="lib-src__mood-label">{{item.label}}</text>
+            <text wx:if="{{item.sub}}" class="lib-src__mood-sub">{{item.sub}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
   </view>
 
   <scroll-view
@@ -62,51 +119,68 @@
     bindscrolltolower="onReachBottom"
   >
     <view class="lib-src__body">
-      <view wx:if="{{loading && !list.length}}" class="lib-src__state">
+      <view wx:if="{{loading && !rawList.length}}" class="lib-src__state">
         <fun-loading />
       </view>
 
-      <view wx:elif="{{!list.length}}" class="lib-src__state">
+      <view wx:elif="{{!rawList.length}}" class="lib-src__state">
         <fun-empty description="{{emptyTip}}" />
       </view>
 
       <view wx:else class="lib-src__grid">
-        <view
-          wx:for="{{list}}"
-          wx:key="_id"
-          class="lib-src__cell"
-          data-id="{{item._id}}"
-          bindtap="onOpenItem"
-          hover-class="lib-src__cell--press"
-          hover-start-time="20"
-          hover-stay-time="80"
-        >
-          <view class="lib-src__thumb-wrap">
-            <t-image
-              wx:if="{{item.previewUrl}}"
-              class="lib-src__thumb"
-              t-class="lib-src__t-image"
-              t-class-load="lib-src__t-load"
-              src="{{item.previewUrl}}"
-              mode="aspectFit"
-              shape="round"
-              lazy
-              loading="slot"
-              width="100%"
-              height="100%"
-            >
-              <view slot="loading" class="lib-src__skeleton" aria-hidden="true" />
-            </t-image>
-            <view wx:else class="lib-src__thumb lib-src__thumb--ph">?</view>
+        <block wx:for="{{displayList}}" wx:key="_id">
+          <!-- 两格宽横版广告（无正方形模板时合并两格） -->
+          <view
+            wx:if="{{item.isAd && !item.hidden && showGridAds && nativeAdUnitId}}"
+            class="lib-src__cell lib-src__cell--ad"
+          >
+            <view class="lib-src__thumb-wrap lib-src__ad-wrap">
+              <ad-custom
+                unit-id="{{nativeAdUnitId}}"
+                data-key="{{item._id}}"
+                binderror="onGridAdError"
+              />
+            </view>
+            <text class="lib-src__name lib-src__name--ad">广告</text>
           </view>
-          <text class="lib-src__name">{{item.name}}</text>
-        </view>
+
+          <view
+            wx:elif="{{!item.isAd}}"
+            class="lib-src__cell"
+            data-id="{{item._id}}"
+            bindtap="onOpenItem"
+            hover-class="lib-src__cell--press"
+            hover-start-time="20"
+            hover-stay-time="80"
+          >
+            <view class="lib-src__thumb-wrap {{sourceId === 'particlefx' ? 'lib-src__thumb-wrap--stage' : ''}}">
+              <view
+                wx:if="{{sourceId === 'particlefx'}}"
+                class="lib-src__stage-bg lib-src__stage-bg--{{previewBg}}"
+              />
+              <smart-image
+                wx:if="{{item.previewUrl}}"
+                src="{{item.previewUrl}}"
+                file-id="{{item.previewFileID}}"
+                mode="aspectFit"
+                shape="round"
+                lazy
+                transparent
+                radius="18rpx"
+                bind:resign="onItemPreviewResign"
+                data-id="{{item._id}}"
+              />
+              <view wx:else class="lib-src__thumb lib-src__thumb--ph">?</view>
+            </view>
+            <text class="lib-src__name">{{item.name}}</text>
+          </view>
+        </block>
       </view>
 
       <view class="lib-src__footer" wx:if="{{loadingMore}}">
         <fun-loading size="small" variant="wave" funTips="{{false}}" text="加载更多" />
       </view>
-      <view class="lib-src__footer" wx:elif="{{list.length && !hasMore}}">
+      <view class="lib-src__footer" wx:elif="{{rawList.length && !hasMore}}">
         共 {{total}} 个
       </view>
     </view>
@@ -120,20 +194,20 @@
 >
   <view class="lib-src__sheet" wx:if="{{activeItem}}">
     <view class="lib-src__sheet-preview">
-      <t-image
+      <view
+        wx:if="{{sourceId === 'particlefx'}}"
+        class="lib-src__stage-bg lib-src__stage-bg--{{previewBg}}"
+      />
+      <smart-image
         wx:if="{{previewDisplayUrl}}"
-        class="lib-src__sheet-img"
-        t-class="lib-src__sheet-t-image"
-        t-class-load="lib-src__t-load"
         src="{{previewDisplayUrl}}"
+        file-id="{{previewFileID}}"
         mode="aspectFit"
         shape="round"
-        loading="slot"
-        width="100%"
-        height="100%"
-      >
-        <view slot="loading" class="lib-src__skeleton" aria-hidden="true" />
-      </t-image>
+        lazy="{{false}}"
+        transparent
+        radius="24rpx"
+      />
       <view wx:elif="{{previewPlaceholder}}" class="lib-src__sheet-ph">
         <text>{{previewPlaceholder}}</text>
       </view>
@@ -143,7 +217,7 @@
       {{activeItem.externalKey}}
     </view>
 
-    <view class="lib-src__formats">
+    <view class="lib-src__formats" wx:if="{{formatOptions.length > 1}}">
       <t-check-tag
         wx:for="{{formatOptions}}"
         wx:key="value"
@@ -157,11 +231,65 @@
       />
     </view>
 
+    <view class="lib-src__colors" wx:if="{{colorOptions.length}}">
+      <view class="lib-src__colors-label">颜色</view>
+      <view class="lib-src__colors-row">
+        <t-check-tag
+          wx:for="{{colorOptions}}"
+          wx:key="value"
+          size="medium"
+          shape="round"
+          variant="light"
+          content="{{item.label}}"
+          checked="{{selectedColor === item.value}}"
+          data-value="{{item.value}}"
+          bind:change="onColorTap"
+        />
+      </view>
+    </view>
+
     <view class="lib-src__sheet-tip">
       {{formatTip}} · {{unitCostText}}
     </view>
 
     <t-button
+      wx:if="{{showMoodAdmin}}"
+      theme="light"
+      size="large"
+      block
+      shape="round"
+      content="设为合集氛围"
+      bind:tap="onOpenMoodPicker"
+      t-class="lib-src__mood-assign"
+    />
+
+    <view
+      class="lib-src__sheet-actions"
+      wx:if="{{downloadFormat === 'gif' && unitCost <= 0}}"
+    >
+      <t-button
+        class="lib-src__sheet-action"
+        theme="light"
+        size="large"
+        shape="round"
+        loading="{{saving}}"
+        disabled="{{saving || !downloadFormat}}"
+        content="发给好友"
+        bind:tap="onShareFriend"
+      />
+      <t-button
+        class="lib-src__sheet-action"
+        theme="primary"
+        size="large"
+        shape="round"
+        loading="{{saving}}"
+        disabled="{{saving || !downloadFormat}}"
+        content="{{saveBtnText}}"
+        bind:tap="onSave"
+      />
+    </view>
+    <t-button
+      wx:else
       theme="primary"
       size="large"
       block
@@ -178,6 +306,102 @@
       block
       content="关闭"
       bind:tap="closePreview"
+    />
+  </view>
+</t-popup>
+
+<t-popup
+  visible="{{moodPickerVisible}}"
+  placement="bottom"
+  z-index="{{12000}}"
+  bind:visible-change="onMoodPickerVisibleChange"
+>
+  <view class="lib-src__mood-sheet">
+    <view class="lib-src__mood-sheet-title">设为合集氛围</view>
+    <view class="lib-src__mood-sheet-sub" wx:if="{{moodAssignHint}}">
+      {{moodAssignHint}}
+    </view>
+    <view
+      wx:for="{{moodRows}}"
+      wx:key="id"
+      class="lib-src__mood-pick"
+      data-id="{{item.id}}"
+      bind:tap="onAssignMood"
+      hover-class="lib-src__mood-pick--press"
+    >
+      <view class="lib-src__mood-pick-main">
+        <text class="lib-src__mood-pick-label">{{item.label}}</text>
+        <text class="lib-src__mood-pick-sub">{{item.sub ? '当前：' + item.sub : '当前用内置'}}</text>
+      </view>
+      <kubai-icon name="chevron-right" size="36rpx" color="#bbbbbb" />
+    </view>
+    <t-button
+      theme="default"
+      variant="text"
+      block
+      content="取消"
+      loading="{{moodSaving}}"
+      bind:tap="closeMoodPicker"
+    />
+  </view>
+</t-popup>
+
+<t-popup
+  visible="{{moodViewVisible}}"
+  placement="bottom"
+  z-index="{{12000}}"
+  bind:visible-change="onMoodViewVisibleChange"
+>
+  <view class="lib-src__mood-sheet" wx:if="{{moodView}}">
+    <view class="lib-src__mood-sheet-title">{{moodView.label}}</view>
+    <view class="lib-src__mood-sheet-sub">
+      {{moodView.sub ? moodView.sub : '内置默认效果'}}
+    </view>
+    <view class="lib-src__sheet-preview lib-src__mood-view-preview">
+      <view class="lib-src__stage-bg lib-src__stage-bg--{{previewBg}}" />
+      <smart-image
+        wx:if="{{moodView.previewUrl}}"
+        src="{{moodView.previewUrl}}"
+        mode="aspectFit"
+        shape="round"
+        lazy="{{false}}"
+        transparent
+        radius="24rpx"
+      />
+      <view wx:else class="lib-src__sheet-ph">暂无预览</view>
+    </view>
+    <view class="lib-src__bg-bar lib-src__bg-bar--sheet">
+      <text class="lib-src__bg-bar-label">预览底</text>
+      <view class="lib-src__bg-bar-tags">
+        <t-check-tag
+          wx:for="{{previewBgOptions}}"
+          wx:key="id"
+          size="small"
+          shape="round"
+          variant="light"
+          content="{{item.label}}"
+          checked="{{previewBg === item.id}}"
+          data-id="{{item.id}}"
+          bind:change="onPreviewBgTap"
+        />
+      </view>
+    </view>
+    <t-button
+      wx:if="{{moodView.custom}}"
+      theme="light"
+      size="large"
+      block
+      shape="round"
+      content="恢复内置默认"
+      data-id="{{moodView.id}}"
+      bind:tap="onResetMood"
+    />
+    <t-button
+      theme="default"
+      variant="text"
+      block
+      content="关闭"
+      bind:tap="closeMoodView"
     />
   </view>
 </t-popup>

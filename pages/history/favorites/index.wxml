@@ -5,15 +5,6 @@
       <kubai-icon name="heart" size="32rpx" color="#EB5757" />
       <text>{{list.length ? list.length + ' 个合集' : '我的收藏'}}</text>
     </view>
-    <t-button
-      t-class="favorites__bar-btn"
-      theme="light"
-      variant="text"
-      size="small"
-      icon="{{layout === 'waterfall' ? 'view-list' : 'view-module'}}"
-      content="{{layout === 'waterfall' ? '列表' : '瀑布流'}}"
-      bind:tap="onToggleLayout"
-    />
   </view>
 
   <view
@@ -42,86 +33,79 @@
     </view>
   </block>
 
-  <view wx:elif="{{layout === 'list'}}" class="favorites__list">
+  <view wx:else class="favorites__feed" style="gap: {{rowGap}}px;">
     <view
-      class="favorites__row"
+      class="favorites__pack-row"
       wx:for="{{list}}"
       wx:key="packId"
       data-id="{{item.packId}}"
-      hover-class="favorites__row--press"
       bindtap="onOpenPack"
+      hover-class="favorites__pack-row--press"
+      hover-start-time="20"
+      hover-stay-time="80"
     >
-      <t-image
-        t-class="favorites__cover"
-        src="{{item.coverUrl}}"
-        mode="aspectFill"
-        shape="round"
-        width="160rpx"
-        height="160rpx"
-        lazy
-        loading="slot"
-      >
-        <view slot="loading" class="favorites__cover-load">
-          <t-loading theme="dots" size="40rpx" />
-        </view>
-      </t-image>
-      <view class="favorites__main">
-        <text class="favorites__title">{{item.title}}</text>
-        <text class="favorites__meta">
-          {{item.contentTypeName || ''}}{{item.contentTypeName && item.categoryName ? ' · ' : ''}}{{item.categoryName ? item.categoryName + ' · ' : ''}}{{item.itemCountText || (item.emojiCount + ' 张')}}
-        </text>
-        <text wx:if="{{item.createdText}}" class="favorites__time">收藏于 {{item.createdText}}</text>
-      </view>
-      <view
-        class="favorites__heart"
-        data-id="{{item.packId}}"
-        catchtap="onUnfavorite"
-        aria-role="button"
-        aria-label="取消收藏"
-      >
-        <kubai-icon name="heart-filled" size="44rpx" color="#EB5757" />
-      </view>
-    </view>
-  </view>
-
-  <view
-    wx:else
-    class="favorites__water"
-    style="gap: {{listGap}}px; padding-left: {{listGap}}px; padding-right: {{listGap}}px;"
-  >
-    <view
-      class="favorites__col"
-      wx:for="{{columns}}"
-      wx:for-item="col"
-      wx:for-index="colIndex"
-      wx:key="colIndex"
-      style="width: {{cardWidth}}px; gap: {{rowGap}}px;"
-    >
-      <view class="favorites__water-card" wx:for="{{col}}" wx:for-item="item" wx:key="packId">
-        <pack-card
-          packId="{{item.packId}}"
-          title="{{item.title}}"
-          coverUrl="{{item.coverUrl}}"
-          contentType="{{item.contentType}}"
-          emojiCount="{{item.emojiCount}}"
-          downloadCount="{{item.downloadCount}}"
-          showDownloadCount="{{false}}"
-          categoryId="{{item.categoryId}}"
-          categoryName="{{item.categoryName}}"
-          coverRatio="{{item.coverRatio}}"
-          cardWidth="{{cardWidth}}"
-          bind:ratiochange="onCoverRatioChange"
-          bind:covererror="onCoverError"
-        />
+      <view class="favorites__pack-row-head">
+        <text class="favorites__pack-row-title">{{item.title}}</text>
         <view
-          class="favorites__water-fav"
+          class="favorites__pack-row-heart"
           data-id="{{item.packId}}"
           catchtap="onUnfavorite"
           aria-role="button"
           aria-label="取消收藏"
         >
-          <kubai-icon name="heart-filled" size="44rpx" color="#EB5757" />
+          <kubai-icon name="heart-filled" size="36rpx" color="#EB5757" />
         </view>
+      </view>
+
+      <view
+        wx:if="{{item.previewSlots && item.previewSlots.length}}"
+        class="favorites__pack-row-grid"
+        style="grid-template-columns: repeat({{previewRowCount}}, 1fr);"
+      >
+        <view
+          class="favorites__pack-row-cell"
+          wx:for="{{item.previewSlots}}"
+          wx:for-item="slot"
+          wx:key="key"
+        >
+          <smart-image
+            src="{{slot.url}}"
+            file-id="{{slot.fileID}}"
+            cache-key="{{slot.cacheKey}}"
+            mode="aspectFill"
+            shape="round"
+            lazy
+            radius="14rpx"
+            transparent
+          />
+          <view
+            wx:if="{{slot.showMore && item.moreCount > 0}}"
+            class="favorites__pack-row-moremask"
+          >+{{item.moreCount}}</view>
+        </view>
+      </view>
+      <view wx:else class="favorites__pack-row-cover-wrap">
+        <image
+          class="favorites__pack-row-cover"
+          src="{{item.coverUrl}}"
+          mode="aspectFill"
+          lazy-load
+        />
+      </view>
+
+      <view class="favorites__pack-row-foot">
+        <view class="favorites__pack-row-tags">
+          <t-tag
+            wx:if="{{item.categoryName}}"
+            size="small"
+            theme="default"
+            variant="light"
+            custom-style="{{item.categoryTagStyle}}"
+          >{{item.categoryName}}</t-tag>
+          <text wx:if="{{item.createdText}}" class="favorites__pack-row-time">收藏于 {{item.createdText}}</text>
+        </view>
+        <text wx:if="{{isAdmin}}" class="favorites__pack-row-meta">下载 {{item.downloadCount || 0}}</text>
+        <text wx:elif="{{item.itemCountText}}" class="favorites__pack-row-meta">{{item.itemCountText}}</text>
       </view>
     </view>
   </view>

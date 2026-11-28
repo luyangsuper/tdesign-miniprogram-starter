@@ -67,6 +67,14 @@ const PRODUCTS = {
     value: 170,
     priceFen: 3200,
   },
+  frame_skin: {
+    productId: 'frame_skin',
+    planKey: 'frame',
+    title: '高级头像框',
+    type: 'avatar_frame',
+    value: 1,
+    priceFen: 300,
+  },
 };
 
 function getProduct(productId) {

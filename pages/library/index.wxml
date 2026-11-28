@@ -19,6 +19,16 @@
         <text class="lib-hub__desc">按风格挑选，点开即可浏览下载</text>
       </view>
 
+      <view
+        wx:if="{{showNativeAd && nativeAdUnitId}}"
+        class="lib-hub__native-ad"
+      >
+        <ad-custom
+          unit-id="{{nativeAdUnitId}}"
+          binderror="onNativeAdError"
+        />
+      </view>
+
       <view wx:if="{{loading}}" class="lib-hub__state">
         <fun-loading />
       </view>
@@ -42,41 +52,41 @@
             <view class="lib-hub__card-title-wrap">
               <text class="lib-hub__card-title">{{item.title}}</text>
               <t-tag
+                wx:if="{{item.isFree}}"
+                size="small"
+                variant="light"
+                theme="success"
+              >免费</t-tag>
+              <t-tag
                 wx:if="{{item.badge}}"
                 size="small"
                 variant="light"
-                content="{{item.badge}}"
-              />
+              >{{item.badge}}</t-tag>
             </view>
             <text class="lib-hub__card-more">进入</text>
           </view>
 
           <view class="lib-hub__card-grid">
-            <block wx:if="{{item.previewUrls.length}}">
+            <block wx:if="{{item.previewSlots.length}}">
               <view
-                wx:for="{{item.previewUrls}}"
+                wx:for="{{item.previewSlots}}"
                 wx:for-item="thumb"
                 wx:for-index="ti"
                 wx:key="ti"
                 class="lib-hub__card-cell"
               >
-                <t-image
-                  class="lib-hub__card-img"
-                  t-class="lib-hub__card-t-image"
-                  t-class-load="lib-hub__card-t-load"
-                  src="{{thumb}}"
+                <smart-image
+                  src="{{thumb.url}}"
+                  file-id="{{thumb.fileId}}"
                   mode="aspectFill"
                   shape="round"
                   lazy
                   webp
-                  loading="slot"
-                  width="100%"
-                  height="100%"
-                >
-                  <view slot="loading" class="lib-hub__card-skeleton" aria-hidden="true" />
-                </t-image>
+                  radius="14rpx"
+                  transparent
+                />
                 <view
-                  wx:if="{{item.moreCount > 0 && ti === item.previewUrls.length - 1}}"
+                  wx:if="{{item.moreCount > 0 && ti === item.previewSlots.length - 1}}"
                   class="lib-hub__card-moremask"
                 >+{{item.moreCount}}</view>
               </view>

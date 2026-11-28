@@ -61,18 +61,18 @@
       data-index="{{index}}"
       bindtap="onSelectUser"
     >
-      <t-avatar
-        t-class="users-page__avatar"
-        image="{{item.avatarUrl}}"
-        icon="user"
-        size="88rpx"
-        shape="circle"
-        data-index="{{index}}"
-        bind:error="onListAvatarError"
-      />
+      <view class="users-page__avatar-wrap">
+        <avatar-with-frame
+          avatar-url="{{item.avatarUrl}}"
+          frame-url="{{item.avatarFrameUrl}}"
+          size="80rpx"
+          data-index="{{index}}"
+          bind:error="onListAvatarError"
+        />
+      </view>
       <view class="users-page__meta">
         <view class="users-page__name-row">
-          <text class="users-page__name">{{item.nickName || '未设置昵称'}}</text>
+          <text class="users-page__name">{{item.nickName || '随机用户'}}</text>
           <t-tag wx:if="{{item.isAdmin}}" size="small" theme="danger" variant="light">管理员</t-tag>
           <t-tag wx:if="{{item.entitlement.isVip}}" size="small" theme="warning" variant="light">包月</t-tag>
           <t-tag wx:if="{{item.paidFen > 0}}" size="small" theme="primary" variant="light">付费</t-tag>
@@ -115,16 +115,16 @@
         enable-flex
       >
         <view class="users-panel__profile">
-          <t-avatar
-            t-class="users-panel__avatar"
-            image="{{user.avatarUrl}}"
-            icon="user"
-            size="120rpx"
-            shape="circle"
-            bind:error="onPanelAvatarError"
-          />
+          <view class="users-panel__avatar-wrap">
+            <avatar-with-frame
+              avatar-url="{{user.avatarUrl}}"
+              frame-url="{{user.avatarFrameUrl}}"
+              size="112rpx"
+              bind:error="onPanelAvatarError"
+            />
+          </view>
           <view class="users-panel__meta">
-            <view class="users-page__name">{{user.nickName || '未设置昵称'}}</view>
+            <view class="users-page__name">{{user.nickName || '随机用户'}}</view>
             <view class="users-page__id" bindtap="copyOpenid">{{user.openid}}</view>
             <view class="users-page__tags">
               <t-tag wx:if="{{user.entitlement.isVip}}" theme="warning" variant="light" size="small">包月中</t-tag>

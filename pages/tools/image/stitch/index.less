@@ -66,3 +66,140 @@
   border-color: rgba(7, 193, 96, 0.45);
   color: #07c160;
 }
+
+.imgtool__chip.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.stitch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.stitch-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 12rpx;
+  border-radius: 16rpx;
+  background: rgba(15, 23, 42, 0.03);
+  box-sizing: border-box;
+}
+
+.stitch-row__img {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 12rpx;
+  flex-shrink: 0;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.stitch-row__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.stitch-row__idx {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+}
+
+.stitch-row__ops {
+  display: flex;
+  gap: 8rpx;
+}
+
+.imgtool__thumb-btn {
+  flex: 1;
+  text-align: center;
+  padding: 10rpx 0;
+  border-radius: 10rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: var(--td-text-color-secondary);
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.imgtool__thumb-btn.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.imgtool__thumb-btn--danger {
+  color: #e34d59;
+}
+
+.stitch-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  height: 88rpx;
+  border-radius: 16rpx;
+  border: 2rpx dashed rgba(7, 193, 96, 0.35);
+  background: rgba(7, 193, 96, 0.04);
+  color: var(--td-brand-color);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.imgtool__chip.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.imgtool__thumb-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-bottom: 12rpx;
+}
+
+.imgtool__thumb-wrap .imgtool__thumb {
+  width: 100%;
+  height: 160rpx;
+}
+
+.imgtool__thumb-ops {
+  display: flex;
+  gap: 10rpx;
+}
+
+.imgtool__thumb-btn {
+  flex: 1;
+  text-align: center;
+  padding: 10rpx 0;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: var(--td-brand-color);
+  background: rgba(7, 193, 96, 0.08);
+}
+
+.imgtool__thumb-btn.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.imgtool__thumb-btn--danger {
+  color: #e34d59;
+  background: rgba(227, 77, 89, 0.08);
+}
+
+.imgtool__thumbs {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.imgtool__thumbs > .imgtool__thumb--add {
+  width: 100%;
+  height: 120rpx;
+}

@@ -24,6 +24,17 @@
       <text class="imgtool__hero-desc">{{heroDesc}}</text>
     </view>
 
+    <view
+      wx:if="{{showNativeAd && nativeAdUnitId}}"
+      class="imgtool__native-ad"
+    >
+      <ad-custom
+        unit-id="{{nativeAdUnitId}}"
+        binderror="onNativeAdError"
+      />
+    </view>
+
+
     <view class="imgtool__card">
       <view class="imgtool__card-title">原图</view>
       <view
@@ -50,6 +61,23 @@
       <view class="imgtool__card-title">参数</view>
       <view class="imgtool__param">
         <view class="imgtool__param-head">
+          <text class="imgtool__label">水印类型</text>
+        </view>
+        <view class="imgtool__chip-grid imgtool__chip-grid--2">
+          <view
+            class="imgtool__chip {{wmType === 'text' ? 'is-on' : ''}}"
+            data-v="text"
+            bindtap="onWmType"
+          >文字水印</view>
+          <view
+            class="imgtool__chip {{wmType === 'image' ? 'is-on' : ''}}"
+            data-v="image"
+            bindtap="onWmType"
+          >图片水印</view>
+        </view>
+      </view>
+      <view wx:if="{{wmType === 'text'}}" class="imgtool__param">
+        <view class="imgtool__param-head">
           <text class="imgtool__label">水印文字</text>
         </view>
         <view class="imgtool__field">
@@ -62,6 +90,27 @@
           />
         </view>
       </view>
+      <view wx:else class="imgtool__param">
+        <view class="imgtool__param-head">
+          <text class="imgtool__label">水印图</text>
+          <text class="imgtool__value">{{wmPath ? '已选择' : '未选择'}}</text>
+        </view>
+        <t-button
+          theme="light"
+          size="medium"
+          shape="round"
+          block
+          content="{{wmPath ? '更换水印图' : '选择水印图（推荐透明 PNG）'}}"
+          disabled="{{checking || busy}}"
+          bind:tap="onPickWm"
+        />
+        <image
+          wx:if="{{wmPath}}"
+          src="{{wmPath}}"
+          mode="aspectFit"
+          style="margin-top: 12rpx; width: 160rpx; height: 160rpx; border-radius: 12rpx; background: rgba(15,23,42,0.04);"
+        />
+      </view>
       <view class="imgtool__param">
         <view class="imgtool__param-head">
           <text class="imgtool__label">位置</text>
@@ -73,6 +122,20 @@
             class="imgtool__chip {{wmPos === item.id ? 'is-on' : ''}}"
             data-v="{{item.id}}"
             bindtap="onWmPos"
+          >{{item.label}}</view>
+        </view>
+      </view>
+      <view wx:if="{{wmType === 'text'}}" class="imgtool__param">
+        <view class="imgtool__param-head">
+          <text class="imgtool__label">文字颜色</text>
+        </view>
+        <view class="imgtool__chip-grid imgtool__chip-grid--3">
+          <view
+            wx:for="{{colorList}}"
+            wx:key="v"
+            class="imgtool__chip {{wmColor === item.v ? 'is-on' : ''}}"
+            data-v="{{item.v}}"
+            bindtap="onWmColor"
           >{{item.label}}</view>
         </view>
       </view>
@@ -91,7 +154,7 @@
           bind:change="onOpacity"
         />
       </view>
-      <view class="imgtool__param">
+      <view wx:if="{{wmType === 'text'}}" class="imgtool__param">
         <view class="imgtool__param-head">
           <text class="imgtool__label">字号</text>
           <text class="imgtool__value">{{fontSize}}</text>
@@ -100,16 +163,39 @@
           class="imgtool__slider"
           value="{{fontSize}}"
           min="{{18}}"
-          max="{{96}}"
+          max="{{120}}"
           step="{{2}}"
           label
           bind:change="onFontSize"
+        />
+      </view>
+      <view wx:else class="imgtool__param">
+        <view class="imgtool__param-head">
+          <text class="imgtool__label">水印大小</text>
+          <text class="imgtool__value">{{sizePct}}%</text>
+        </view>
+        <t-slider
+          class="imgtool__slider"
+          value="{{sizePct}}"
+          min="{{4}}"
+          max="{{40}}"
+          step="{{1}}"
+          label
+          bind:change="onSizePct"
         />
       </view>
     </view>
 
     <view class="imgtool__card">
       <view class="imgtool__card-title">结果</view>
+      <view
+        wx:if="{{paramsDirty && outPath}}"
+        class="imgtool__dirty-tip"
+        bindtap="onProcess"
+      >
+        <text class="imgtool__dirty-tip-t">参数已改，点这里重新处理</text>
+        <text class="imgtool__dirty-tip-go">去处理</text>
+      </view>
       <view class="imgtool__preview">
         <block wx:if="{{outPath}}">
           <image class="imgtool__preview-img" src="{{outPath}}" mode="aspectFit" />
@@ -125,7 +211,7 @@
           size="large"
           shape="round"
           block
-          content="{{busy ? '处理中…' : '开始处理'}}"
+          content="{{busy ? '处理中…' : (paramsDirty ? '重新处理' : '开始处理')}}"
           disabled="{{!srcPath || busy || checking}}"
           bind:tap="onProcess"
         />

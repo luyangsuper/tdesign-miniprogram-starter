@@ -22,13 +22,17 @@ Page({
     gating: false,
     exportUnlocked: false,
     direction: 'vertical',
+    unify: true,
     gap: 8,
+    gapPresets: [0, 4, 8, 16, 24, 32],
     bgColor: '#ffffff',
     bgList: [
       { v: '#ffffff', label: '白色' },
       { v: '#000000', label: '黑色' },
       { v: '#f3f4f6', label: '浅灰' },
+      { v: 'transparent', label: '透明' },
     ],
+    fileType: 'png',
   },
 
   onLoad() {
@@ -41,6 +45,12 @@ Page({
 
   onShow() {
     this.refreshFestivalDecor();
+    this.refreshNativeAd();
+  },
+
+  /** 换图 / 重选：清空结果 */
+  clearResult() {
+    return { exportUnlocked: false, outPath: '', outMeta: '', paramsDirty: false };
   },
 
   async onPick() {
@@ -56,9 +66,7 @@ Page({
       this.setData({
         srcList: next,
         srcCount: next.length,
-        outPath: '',
-        outMeta: '',
-        exportUnlocked: false,
+        ...this.clearResult(),
       });
     } catch (e) {
       if (e && e.code === 'CANCEL') return;
@@ -82,9 +90,7 @@ Page({
       this.setData({
         srcList: files.slice(0, 9),
         srcCount: Math.min(9, files.length),
-        outPath: '',
-        outMeta: '',
-        exportUnlocked: false,
+        ...this.clearResult(),
       });
     } catch (e) {
       if (e && e.code === 'CANCEL') return;
@@ -97,42 +103,72 @@ Page({
     }
   },
 
+  onRemove(e) {
+    const i = Number(e.currentTarget.dataset.i);
+    if (!Number.isFinite(i)) return;
+    const next = (this.data.srcList || []).filter((_, idx) => idx !== i);
+    this.setData({ srcList: next, srcCount: next.length, ...this.clearResult() });
+  },
+
+  onMove(e) {
+    const i = Number(e.currentTarget.dataset.i);
+    const dir = Number(e.currentTarget.dataset.dir);
+    const list = [...(this.data.srcList || [])];
+    const j = i + dir;
+    if (i < 0 || j < 0 || i >= list.length || j >= list.length) return;
+    const tmp = list[i];
+    list[i] = list[j];
+    list[j] = tmp;
+    this.setData({ srcList: list, ...this.clearResult() });
+  },
+
   onDirection(e) {
     const v =
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.v) ||
       'vertical';
-    this.setData({
-      direction: v,
-      exportUnlocked: false,
-      outPath: '',
-      outMeta: '',
+    this.markParamsDirty({ direction: v });
+  },
+
+  onUnifyChange(e) {
+    this.markParamsDirty({
+      unify: !!(e.detail && e.detail.value),
     });
   },
 
   onGap(e) {
     const v = Math.round(Number((e.detail && e.detail.value) || 0));
-    this.setData({
-      gap: v,
-      exportUnlocked: false,
-      outPath: '',
-      outMeta: '',
-    });
+    this.markParamsDirty({ gap: Math.max(0, Math.min(64, v)) });
+  },
+
+  onGapPreset(e) {
+    const v = Math.round(Number(e.currentTarget.dataset.v) || 0);
+    this.markParamsDirty({ gap: v });
   },
 
   onBg(e) {
     const v =
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.v) ||
       '#ffffff';
-    this.setData({
-      bgColor: v,
-      exportUnlocked: false,
-      outPath: '',
-      outMeta: '',
-    });
+    const patch = { bgColor: v };
+    if (v === 'transparent') patch.fileType = 'png';
+    this.markParamsDirty(patch);
+  },
+
+  onFileType(e) {
+    const v =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.v) ||
+      'png';
+    if (v === 'jpg' && this.data.bgColor === 'transparent') {
+      wx.showToast({ title: '透明背景请用 PNG', icon: 'none' });
+      return;
+    }
+    this.markParamsDirty({ fileType: v });
   },
 
   async onProcess() {
-    if ((this.data.srcList || []).length < 2 || this.data.busy || this.data.checking) {
+    if (this.data.busy || this.data.checking) return;
+    if ((this.data.srcList || []).length < 2) {
+      wx.showToast({ title: '至少选 2 张图', icon: 'none' });
       return;
     }
     this.setData({ busy: true });
@@ -143,11 +179,14 @@ Page({
         direction: this.data.direction,
         gap: this.data.gap,
         bgColor: this.data.bgColor,
+        unify: this.data.unify,
+        fileType: this.data.fileType,
       });
       this.setData({
         outPath: res.path,
         outMeta: `${res.width}×${res.height} · ${formatBytes(res.size)}`,
         exportUnlocked: false,
+        paramsDirty: false,
       });
       wx.showToast({ title: '拼接完成', icon: 'success' });
     } catch (e) {
@@ -163,6 +202,7 @@ Page({
 
   async onSave() {
     if (!this.data.outPath || this.data.busy || this.data.gating) return;
+    if (!(await this.confirmSaveIfDirty())) return;
     this.setData({ gating: true });
     try {
       if (!this.data.exportUnlocked) {

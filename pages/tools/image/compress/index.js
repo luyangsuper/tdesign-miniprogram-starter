@@ -54,6 +54,7 @@ Page({
 
   onShow() {
     this.refreshFestivalDecor();
+    this.refreshNativeAd();
   },
 
   async onPick() {
@@ -73,6 +74,7 @@ Page({
         outPath: '',
         outMeta: '',
         exportUnlocked: false,
+        paramsDirty: false,
       });
       if (typeof this.afterPick === 'function') this.afterPick(f);
     } catch (e) {
@@ -96,6 +98,7 @@ Page({
         outPath: res.path,
         outMeta: res.meta || '',
         exportUnlocked: false,
+        paramsDirty: false,
       });
       wx.showToast({ title: '处理完成', icon: 'success' });
     } catch (e) {
@@ -111,6 +114,7 @@ Page({
 
   async onSave() {
     if (!this.data.outPath || this.data.busy || this.data.gating) return;
+    if (!(await this.confirmSaveIfDirty())) return;
     this.setData({ gating: true });
     try {
       if (!this.data.exportUnlocked) {
@@ -134,17 +138,15 @@ Page({
 
   onQualityChange(e) {
     const v = Math.round(Number((e.detail && e.detail.value) || 80));
-    this.setData({ qualityPct: v, qualityLabel: v + '%', exportUnlocked: false, outPath: '', outMeta: '' });
+    this.markParamsDirty({ qualityPct: v, qualityLabel: v + '%' });
   },
+
   applyMaxEdge(edge) {
     const n = Number.isFinite(edge) ? Math.max(0, Math.min(8192, Math.floor(edge))) : 0;
-    this.setData({
+    this.markParamsDirty({
       maxEdge: n,
       maxEdgeLabel: n > 0 ? `${n} px` : '原尺寸',
       maxEdgeInput: n > 0 ? String(n) : '',
-      exportUnlocked: false,
-      outPath: '',
-      outMeta: '',
     });
   },
 

@@ -24,6 +24,17 @@
       <text class="imgtool__hero-desc">{{heroDesc}}</text>
     </view>
 
+    <view
+      wx:if="{{showNativeAd && nativeAdUnitId}}"
+      class="imgtool__native-ad"
+    >
+      <ad-custom
+        unit-id="{{nativeAdUnitId}}"
+        binderror="onNativeAdError"
+      />
+    </view>
+
+
     <view class="imgtool__card">
       <view class="imgtool__card-title">原图</view>
       <view

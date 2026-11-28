@@ -190,6 +190,7 @@ exports.main = async (event = {}) => {
           saveAdRewardPoints: event.saveAdRewardPoints,
           saveAdRewardDailyMax: event.saveAdRewardDailyMax,
           homeFeedAdEvery: event.homeFeedAdEvery,
+          libraryGridAdEvery: event.libraryGridAdEvery,
           costStatic: event.costStatic,
           costAnim: event.costAnim,
           costWallpaper: event.costWallpaper,

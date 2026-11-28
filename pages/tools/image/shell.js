@@ -1,5 +1,5 @@
 /**
- * 图片工具页共用：主题 / 导航 / 节日装饰 / 返回
+ * 图片工具页共用：主题 / 导航 / 节日装饰 / 返回 / 原生广告
  */
 import { getCustomNavMetrics } from '~/utils/systemInfo';
 import {
@@ -12,11 +12,66 @@ import {
   getActiveFestival,
   getFestivalAssets,
 } from '~/utils/festival';
+import {
+  getNativeWorkshopAdUnitId,
+  shouldShowNativeAds,
+} from '~/utils/nativeAd';
 
 export function createShellMethods() {
   return {
+    /**
+     * 已有结果时改参数：保留上一版预览，标脏提示重新处理（对齐拼豆）
+     * @param {object} [extra] 一并写入的字段（质量、尺寸等）
+     */
+    markParamsDirty(extra = {}) {
+      const hasOut = !!(
+        this.data.outPath ||
+        (this.data.pieces && this.data.pieces.length)
+      );
+      const patch = { exportUnlocked: false, ...extra };
+      if (hasOut) patch.paramsDirty = true;
+      this.setData(patch);
+    },
+
+    clearParamsDirty() {
+      if (!this.data.paramsDirty) return;
+      this.setData({ paramsDirty: false });
+    },
+
+    /** 保存前：参数已改但未重跑时二次确认 */
+    confirmSaveIfDirty() {
+      if (!this.data.paramsDirty) return Promise.resolve(true);
+      return new Promise((resolve) => {
+        wx.showModal({
+          title: '参数尚未重新处理',
+          content: '参数已改，但还没重新处理。现在保存的仍是上一版结果。',
+          confirmText: '仍要保存',
+          cancelText: '先去处理',
+          success: (res) => resolve(!!res.confirm),
+        });
+      });
+    },
+
     onBack() {
-      wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/workshop/index' }) });
+      // t-navbar 触发 go-back 后还会自行 navigateBack(delta=1)。
+      // 这里再退一层会连退两级（工具页 → 工具箱 → 工坊），故栈内有上一页时只交给 navbar。
+      const pages = getCurrentPages();
+      if (pages.length > 1) return;
+      const route =
+        (pages[0] && (pages[0].route || (pages[0].$page && pages[0].$page.fullPath))) ||
+        '';
+      const onToolPage =
+        typeof route === 'string' &&
+        route.indexOf('pages/tools/image/') === 0 &&
+        route !== 'pages/tools/image/index';
+      if (onToolPage) {
+        wx.redirectTo({
+          url: '/pages/tools/image/index',
+          fail: () => wx.switchTab({ url: '/pages/workshop/index' }),
+        });
+        return;
+      }
+      wx.switchTab({ url: '/pages/workshop/index' });
     },
 
     syncThemeUi() {
@@ -85,17 +140,38 @@ export function createShellMethods() {
       });
     },
 
+    refreshNativeAd() {
+      const unitId = getNativeWorkshopAdUnitId();
+      const showNativeAd = !!unitId && shouldShowNativeAds();
+      if (
+        this.data.nativeAdUnitId === unitId &&
+        this.data.showNativeAd === showNativeAd
+      ) {
+        return;
+      }
+      this.setData({
+        nativeAdUnitId: unitId,
+        showNativeAd,
+      });
+    },
+
+    onNativeAdError() {
+      this.setData({ showNativeAd: false });
+    },
+
     bindShellEvents() {
       this._onFestivalChange = () => {
         this.updateNavHeight();
         this.refreshFestivalDecor();
       };
       this._onThemeChange = () => this.syncThemeUi();
+      this._onEntitlementChange = () => this.refreshNativeAd();
       try {
         const app = getApp();
         if (app && app.eventBus) {
           app.eventBus.on('festivalChange', this._onFestivalChange);
           app.eventBus.on('themeChange', this._onThemeChange);
+          app.eventBus.on('entitlementChange', this._onEntitlementChange);
         }
       } catch (e) {
         /* ignore */
@@ -112,6 +188,9 @@ export function createShellMethods() {
           if (this._onThemeChange) {
             app.eventBus.off('themeChange', this._onThemeChange);
           }
+          if (this._onEntitlementChange) {
+            app.eventBus.off('entitlementChange', this._onEntitlementChange);
+          }
         }
       } catch (e) {
         /* ignore */
@@ -122,6 +201,7 @@ export function createShellMethods() {
       this.updateNavHeight();
       this.syncThemeUi();
       this.refreshFestivalDecor();
+      this.refreshNativeAd();
       this.bindShellEvents();
     },
   };
@@ -140,4 +220,7 @@ export const SHELL_DATA = {
   festivalClass: '',
   festivalStyle: '',
   festHeaderPx: 88,
+  nativeAdUnitId: '',
+  showNativeAd: false,
+  paramsDirty: false,
 };

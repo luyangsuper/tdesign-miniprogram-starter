@@ -40,7 +40,7 @@ import { resolveIsAdmin } from '~/utils/auth';
 import { applyThemeToPage, getThemeBrand, getThemeStyle } from '~/utils/theme';
 import { getFestivalConfettiColors } from '~/utils/festival';
 import { getWindowInfoSafe } from '~/utils/systemInfo';
-import { resolveWaterfallColumns } from '~/utils/waterfallColumns';
+import { resolveWaterfallColumns } from '~/utils/previewRowCount';
 import { getFavoriteCached, queueFavorite, rememberFavorite } from '~/utils/favoriteQueue';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
 import {
@@ -289,6 +289,7 @@ Page({
     hasAnimAny: false,
     showVariantToggle: false,
     contentType: 'emoji',
+    isEmojiPack: true,
     contentTypeName: '表情',
     contentTypeIconSrc: contentTypeIconSrc('emoji'),
     contentTypeColorStyle: contentTypeColorStyle('emoji'),
@@ -825,6 +826,7 @@ Page({
         heroSlides,
         heroCurrent: 0,
         contentType,
+        isEmojiPack: isEmojiType(contentType),
         contentTypeName,
         contentTypeIconSrc: contentTypeIconSrc(contentType),
         contentTypeColorStyle: contentTypeColorStyle(contentType),

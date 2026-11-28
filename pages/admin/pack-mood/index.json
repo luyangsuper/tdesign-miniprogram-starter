@@ -1,0 +1,14 @@
+{
+  "navigationBarTitleText": "合集氛围",
+  "navigationStyle": "default",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "t-popup": "tdesign-miniprogram/popup/popup",
+    "t-image": "tdesign-miniprogram/image/image",
+    "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
+    "t-empty": "tdesign-miniprogram/empty/empty",
+    "t-search": "tdesign-miniprogram/search/search",
+    "fun-loading": "/components/fun-loading/index"
+  }
+}

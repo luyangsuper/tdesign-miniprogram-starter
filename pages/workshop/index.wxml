@@ -24,97 +24,98 @@
       </view>
 
       <view class="workshop__list">
-        <view
-          wx:for="{{tools}}"
-          wx:key="id"
-          class="workshop__card"
-          data-url="{{item.url}}"
-          bindtap="goTool"
-          hover-class="workshop__card--hover"
-          hover-start-time="20"
-          hover-stay-time="120"
-        >
-          <view class="workshop__preview workshop__preview--{{item.id}}">
-            <block wx:if="{{item.id === 'bead'}}">
-              <view class="pv-grid">
-                <view
-                  class="pv-grid__cell"
-                  wx:for="{{beadCells}}"
-                  wx:for-item="c"
-                  wx:for-index="ci"
-                  wx:key="ci"
-                  style="background: {{c}};"
-                />
-              </view>
-            </block>
-            <block wx:elif="{{item.id === 'image'}}">
-              <view class="pv-image">
-                <view class="pv-image__frame">
-                  <view class="pv-image__bar pv-image__bar--top" />
-                  <view class="pv-image__body">
-                    <view class="pv-image__shape" />
-                    <view class="pv-image__shape pv-image__shape--sm" />
+        <block wx:for="{{tools}}" wx:key="id">
+          <view
+            class="workshop__card"
+            data-url="{{item.url}}"
+            bindtap="goTool"
+            hover-class="workshop__card--hover"
+            hover-start-time="20"
+            hover-stay-time="120"
+          >
+            <view class="workshop__preview workshop__preview--{{item.id}}">
+              <block wx:if="{{item.id === 'bead'}}">
+                <view class="pv-grid">
+                  <view
+                    class="pv-grid__cell"
+                    wx:for="{{beadCells}}"
+                    wx:for-item="c"
+                    wx:for-index="ci"
+                    wx:key="ci"
+                    style="background: {{c}};"
+                  />
+                </view>
+              </block>
+              <block wx:elif="{{item.id === 'image'}}">
+                <view class="pv-image">
+                  <view class="pv-image__frame">
+                    <view class="pv-image__bar pv-image__bar--top" />
+                    <view class="pv-image__body">
+                      <view class="pv-image__shape" />
+                      <view class="pv-image__shape pv-image__shape--sm" />
+                    </view>
+                    <view class="pv-image__bar pv-image__bar--bot" />
                   </view>
-                  <view class="pv-image__bar pv-image__bar--bot" />
                 </view>
-              </view>
-            </block>
-            <block wx:elif="{{item.id === 'puzzle'}}">
-              <view class="pv-grid pv-grid--puzzle">
-                <view
-                  class="pv-grid__cell {{pi === 8 ? 'pv-grid__cell--empty' : ''}}"
-                  wx:for="{{puzzleCells}}"
-                  wx:for-item="c"
-                  wx:for-index="pi"
-                  wx:key="pi"
-                  style="background: {{c}};"
-                />
-              </view>
-            </block>
-            <block wx:else>
-              <view class="pv-book">
-                <view class="pv-book__page pv-book__page--left">
-                  <text class="pv-book__line" />
-                  <text class="pv-book__line pv-book__line--short" />
-                  <text class="pv-book__line" />
+              </block>
+              <block wx:elif="{{item.id === 'puzzle'}}">
+                <view class="pv-grid pv-grid--puzzle">
+                  <view
+                    class="pv-grid__cell {{pi === 8 ? 'pv-grid__cell--empty' : ''}}"
+                    wx:for="{{puzzleCells}}"
+                    wx:for-item="c"
+                    wx:for-index="pi"
+                    wx:key="pi"
+                    style="background: {{c}};"
+                  />
                 </view>
-                <view class="pv-book__spine" />
-                <view class="pv-book__page pv-book__page--right">
-                  <text class="pv-book__mark">✦</text>
+              </block>
+              <block wx:else>
+                <view class="pv-book">
+                  <view class="pv-book__page pv-book__page--left">
+                    <text class="pv-book__line" />
+                    <text class="pv-book__line pv-book__line--short" />
+                    <text class="pv-book__line" />
+                  </view>
+                  <view class="pv-book__spine" />
+                  <view class="pv-book__page pv-book__page--right">
+                    <text class="pv-book__mark">✦</text>
+                  </view>
                 </view>
+              </block>
+            </view>
+
+            <view class="workshop__meta">
+              <view class="workshop__meta-icon" style="background: {{item.bg}};">
+                <kubai-icon name="{{item.icon}}" size="36rpx" color="{{item.color}}" />
               </view>
-            </block>
+              <view class="workshop__meta-body">
+                <view class="workshop__meta-head">
+                  <text class="workshop__meta-title">{{item.title}}</text>
+                  <t-tag
+                    wx:if="{{item.tag}}"
+                    size="small"
+                    variant="light"
+                    theme="{{item.tagTheme || 'success'}}"
+                  >{{item.tag}}</t-tag>
+                </view>
+                <text class="workshop__meta-desc">{{item.desc}}</text>
+              </view>
+              <kubai-icon name="chevron-right" size="32rpx" color="{{themeChevron}}" />
+            </view>
           </view>
 
-          <view class="workshop__meta">
-            <view class="workshop__meta-icon" style="background: {{item.bg}};">
-              <kubai-icon name="{{item.icon}}" size="36rpx" color="{{item.color}}" />
-            </view>
-            <view class="workshop__meta-body">
-              <view class="workshop__meta-head">
-                <text class="workshop__meta-title">{{item.title}}</text>
-                <t-tag
-                  wx:if="{{item.tag}}"
-                  size="small"
-                  variant="light"
-                  theme="{{item.tagTheme || 'success'}}"
-                >{{item.tag}}</t-tag>
-              </view>
-              <text class="workshop__meta-desc">{{item.desc}}</text>
-            </view>
-            <kubai-icon name="chevron-right" size="32rpx" color="{{themeChevron}}" />
+          <!-- 插在前两个工具之后，避免沉底看不见 -->
+          <view
+            wx:if="{{index === 1 && showNativeAd && nativeAdUnitId}}"
+            class="workshop__native-ad"
+          >
+            <ad-custom
+              unit-id="{{nativeAdUnitId}}"
+              binderror="onNativeAdError"
+            />
           </view>
-        </view>
-      </view>
-
-      <view
-        wx:if="{{showNativeAd && nativeAdUnitId}}"
-        class="workshop__native-ad"
-      >
-        <ad-custom
-          unit-id="{{nativeAdUnitId}}"
-          binderror="onNativeAdError"
-        />
+        </block>
       </view>
     </view>
   </scroll-view>

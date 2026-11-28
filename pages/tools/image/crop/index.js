@@ -65,6 +65,7 @@ Page({
 
   onShow() {
     this.refreshFestivalDecor();
+    this.refreshNativeAd();
   },
 
   async onPick() {
@@ -86,6 +87,7 @@ Page({
         outPath: '',
         outMeta: '',
         exportUnlocked: false,
+        paramsDirty: false,
         ready: false,
       });
       this.initCropLayout();
@@ -105,15 +107,12 @@ Page({
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.v) ||
       '1:1';
     const hit = RATIO_LIST.find((r) => r.id === id);
-    this.setData({
+    this.markParamsDirty({
       ratioId: id,
       ratioLabel: (hit && hit.label) || id,
-      exportUnlocked: false,
-      outPath: '',
-      outMeta: '',
-    });
-    if (this.data.srcPath) this.initCropLayout();
-  },
+      });
+      if (this.data.srcPath) this.initCropLayout();
+      },
 
   initCropLayout() {
     if (!this.data.srcPath || !this._natW || !this._natH) return;
@@ -185,6 +184,7 @@ Page({
 
   onTouchStart(e) {
     if (!this.data.ready || this.data.busy) return;
+    this._gestMoved = false;
     const touches = e.touches || [];
     if (touches.length === 1) {
       this._gest = {
@@ -213,6 +213,7 @@ Page({
     if (!g || !this.data.ready) return;
     const touches = e.touches || [];
     if (g.mode === 'pan' && touches.length === 1) {
+      this._gestMoved = true;
       this.applyClamp({
         tx: g.tx0 + (touches[0].clientX - g.x0),
         ty: g.ty0 + (touches[0].clientY - g.y0),
@@ -220,6 +221,7 @@ Page({
       return;
     }
     if (g.mode === 'pinch' && touches.length >= 2 && g.d0 > 0) {
+      this._gestMoved = true;
       const d1 = dist(touches[0], touches[1]);
       let k = d1 / g.d0;
       const minScale = Math.max(
@@ -239,7 +241,10 @@ Page({
   },
 
   onTouchEnd() {
+    const moved = !!this._gestMoved;
     this._gest = null;
+    this._gestMoved = false;
+    if (moved && this.data.outPath) this.markParamsDirty();
   },
 
   calcCropRect() {
@@ -269,6 +274,7 @@ Page({
         outPath: res.path,
         outMeta: `${res.width}×${res.height} · ${formatBytes(res.size)}`,
         exportUnlocked: false,
+        paramsDirty: false,
       });
       wx.showToast({ title: '裁剪完成', icon: 'success' });
     } catch (e) {
@@ -284,6 +290,7 @@ Page({
 
   async onSave() {
     if (!this.data.outPath || this.data.busy || this.data.gating) return;
+    if (!(await this.confirmSaveIfDirty())) return;
     this.setData({ gating: true });
     try {
       if (!this.data.exportUnlocked) {

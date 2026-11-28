@@ -6,12 +6,13 @@ import {
   defaultAdRewardPoints,
   defaultCheckinPoints,
   defaultHomeFeedAdEvery,
+  defaultLibraryGridAdEvery,
   defaultOaBonusPoints,
   defaultSaveAdRewardDailyMax,
   defaultSaveAdRewardPoints,
   defaultWelcomeGiftPoints,
 } from '~/utils/giftHint';
-import { setHomeFeedAdEvery } from '~/utils/nativeAd';
+import { setHomeFeedAdEvery, setLibraryGridAdEvery } from '~/utils/nativeAd';
 import { applyDownloadCostsFromSettings, downloadCost } from '~/utils/pricing';
 import {
   applyBeadCostsFromSettings,
@@ -70,6 +71,7 @@ Page({
     saveAdRewardPoints: String(defaultSaveAdRewardPoints()),
     saveAdRewardDailyMax: String(defaultSaveAdRewardDailyMax()),
     homeFeedAdEvery: String(defaultHomeFeedAdEvery()),
+    libraryGridAdEvery: String(defaultLibraryGridAdEvery()),
     costStatic: String(downloadCost('static')),
     costAnim: String(downloadCost('anim')),
     costWallpaper: String(downloadCost('wallpaper')),
@@ -78,6 +80,7 @@ Page({
     costBeadExport: String(getBeadExportCost()),
     costBeadAdvanced: String(getBeadAdvancedCost()),
     costImageExport: String(getImageExportCost()),
+    costAvatarCreate: '2',
     puzzleEnabled: true,
     puzzleDailyMax: String(DAILY_MAX_CLEARS),
     puzzleDailyBonus: String(DAILY_CLEAR_BONUS),
@@ -150,6 +153,11 @@ Page({
             ? data.homeFeedAdEvery
             : defaultHomeFeedAdEvery(),
         ),
+        libraryGridAdEvery: String(
+          data.libraryGridAdEvery != null
+            ? data.libraryGridAdEvery
+            : defaultLibraryGridAdEvery(),
+        ),
         costStatic: String(
           data.costStatic != null ? data.costStatic : downloadCost('static'),
         ),
@@ -179,6 +187,9 @@ Page({
           data.costImageExport != null
             ? data.costImageExport
             : IMAGE_EXPORT_COST,
+        ),
+        costAvatarCreate: String(
+          data.costAvatarCreate != null ? data.costAvatarCreate : 2,
         ),
         puzzleEnabled: puzzle.enabled !== false,
         puzzleDailyMax: String(
@@ -301,6 +312,10 @@ Page({
     this.setData({ homeFeedAdEvery: (e.detail && e.detail.value) || '' });
   },
 
+  onLibraryGridAdEveryChange(e) {
+    this.setData({ libraryGridAdEvery: (e.detail && e.detail.value) || '' });
+  },
+
   onCostStaticChange(e) {
     this.setData({ costStatic: (e.detail && e.detail.value) || '' });
   },
@@ -331,6 +346,10 @@ Page({
 
   onCostImageExportChange(e) {
     this.setData({ costImageExport: (e.detail && e.detail.value) || '' });
+  },
+
+  onCostAvatarCreateChange(e) {
+    this.setData({ costAvatarCreate: (e.detail && e.detail.value) || '' });
   },
 
   onCampaignTitleChange(e) {
@@ -506,6 +525,7 @@ Page({
     const saveAdRewardPoints = Number(this.data.saveAdRewardPoints);
     const saveAdRewardDailyMax = Number(this.data.saveAdRewardDailyMax);
     const homeFeedAdEvery = Number(this.data.homeFeedAdEvery);
+    const libraryGridAdEvery = Number(this.data.libraryGridAdEvery);
     const costStatic = Number(this.data.costStatic);
     const costAnim = Number(this.data.costAnim);
     const costWallpaper = Number(this.data.costWallpaper);
@@ -514,6 +534,7 @@ Page({
     const costBeadExport = Number(this.data.costBeadExport);
     const costBeadAdvanced = Number(this.data.costBeadAdvanced);
     const costImageExport = Number(this.data.costImageExport);
+    const costAvatarCreate = Number(this.data.costAvatarCreate);
     const puzzleDailyMax = Number(this.data.puzzleDailyMax);
     const puzzleDailyBonus = Number(this.data.puzzleDailyBonus);
     const puzzleRankFirst = Number(this.data.puzzleRankFirst);
@@ -543,6 +564,10 @@ Page({
       Number.isNaN(homeFeedAdEvery) ||
       homeFeedAdEvery < 0 ||
       homeFeedAdEvery > 20 ||
+      Number.isNaN(libraryGridAdEvery) ||
+      libraryGridAdEvery < 0 ||
+      libraryGridAdEvery > 40 ||
+      (libraryGridAdEvery > 0 && libraryGridAdEvery < 4) ||
       !costOk(costStatic) ||
       !costOk(costAnim) ||
       !costOk(costWallpaper) ||
@@ -551,6 +576,7 @@ Page({
       !costOk(costBeadExport) ||
       !costOk(costBeadAdvanced) ||
       !costOk(costImageExport) ||
+      !costOk(costAvatarCreate) ||
       Number.isNaN(puzzleDailyMax) ||
       puzzleDailyMax < 1 ||
       puzzleDailyMax > 30 ||
@@ -593,6 +619,7 @@ Page({
           saveAdRewardPoints,
           saveAdRewardDailyMax,
           homeFeedAdEvery,
+          libraryGridAdEvery,
           costStatic,
           costAnim,
           costWallpaper,
@@ -601,6 +628,7 @@ Page({
           costBeadExport,
           costBeadAdvanced,
           costImageExport,
+          costAvatarCreate,
         }),
         callFunction('puzzleGame', {
           action: 'adminSave',
@@ -622,7 +650,9 @@ Page({
       const data = (res && res.data) || {};
       const puzzle = (puzzleRes && puzzleRes.data) || {};
       const nextEvery = data.homeFeedAdEvery ?? homeFeedAdEvery;
+      const nextLibEvery = data.libraryGridAdEvery ?? libraryGridAdEvery;
       setHomeFeedAdEvery(nextEvery);
+      setLibraryGridAdEvery(nextLibEvery);
       applyDownloadCostsFromSettings(data);
       applyBeadCostsFromSettings(data);
       applyImageToolCostsFromSettings(data);
@@ -639,6 +669,7 @@ Page({
           data.saveAdRewardDailyMax ?? saveAdRewardDailyMax,
         ),
         homeFeedAdEvery: String(nextEvery),
+        libraryGridAdEvery: String(nextLibEvery),
         costStatic: String(data.costStatic ?? costStatic),
         costAnim: String(data.costAnim ?? costAnim),
         costWallpaper: String(data.costWallpaper ?? costWallpaper),
@@ -647,6 +678,7 @@ Page({
         costBeadExport: String(data.costBeadExport ?? costBeadExport),
         costBeadAdvanced: String(data.costBeadAdvanced ?? costBeadAdvanced),
         costImageExport: String(data.costImageExport ?? costImageExport),
+        costAvatarCreate: String(data.costAvatarCreate ?? costAvatarCreate),
         puzzleEnabled: puzzle.enabled !== false,
         puzzleDailyMax: String(
           puzzle.dailyMaxClears != null ? puzzle.dailyMaxClears : puzzleDailyMax,

@@ -1,0 +1,25 @@
+<view class="af" style="width: {{boxSize}}; height: {{boxSize}};">
+  <view class="af__avatar" style="width: {{size}}; height: {{size}};">
+    <image
+      wx:if="{{avatarUrl}}"
+      class="af__avatar-img"
+      src="{{avatarUrl}}"
+      mode="aspectFill"
+      binderror="onAvatarError"
+    />
+    <t-avatar
+      wx:else
+      t-class="af__avatar-inner"
+      icon="{{icon}}"
+      size="{{size}}"
+      shape="circle"
+      bind:error="onAvatarError"
+    />
+  </view>
+  <image
+    wx:if="{{frameUrl}}"
+    class="af__frame"
+    src="{{frameUrl}}"
+    mode="aspectFit"
+  />
+</view>

@@ -215,7 +215,7 @@ function pickGridFileIDs(pack, contentType) {
   const ids = [];
   const push = (id) => {
     const s = String(id || '').trim();
-    if (!s || ids.includes(s) || ids.length >= 4) return;
+    if (!s || ids.includes(s) || ids.length >= 6) return;
     ids.push(s);
   };
   if (contentType === 'avatar') {
@@ -228,7 +228,7 @@ function pickGridFileIDs(pack, contentType) {
     previews.forEach(push);
     push(coverId);
   }
-  return ids.slice(0, 4);
+  return ids.slice(0, 6);
 }
 
 async function mapPacksWithCovers(packs, { forceRefresh = false, viralMin = 0, popularMin = 0 } = {}) {
@@ -262,7 +262,7 @@ async function mapPacksWithCovers(packs, { forceRefresh = false, viralMin = 0, p
           return fileID && url ? { fileID, url } : null;
         })
         .filter(Boolean)
-        .slice(0, 4);
+        .slice(0, 6);
       previewFileIDs = pairs.map((x) => x.fileID);
       previewUrls = pairs.map((x) => x.url);
     }
@@ -277,6 +277,7 @@ async function mapPacksWithCovers(packs, { forceRefresh = false, viralMin = 0, p
         : 0) ||
       0;
     const gridTotal = emojiCount > 0 ? emojiCount : previewCount;
+    const previewSlotCap = Math.max(1, previewUrls.length || 4);
     const hasAnim =
       contentType === 'emoji' &&
       Array.isArray(p.emojiAnimFileIDs) &&
@@ -322,8 +323,9 @@ async function mapPacksWithCovers(packs, { forceRefresh = false, viralMin = 0, p
       isHot: moodId === 'viral' || moodId === 'popular',
       moodId,
       countText,
-      /** 第 4 格 +N：总数减已露出的 3 张 */
-      moreCount: gridTotal > 4 ? gridTotal - 3 : 0,
+      /** 末格 +N：总数减已露出的（格数-1）张；客户端再按偏好截断 */
+      moreCount:
+        gridTotal > previewSlotCap ? gridTotal - (previewSlotCap - 1) : 0,
     };
   });
 }

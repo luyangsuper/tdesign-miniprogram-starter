@@ -513,9 +513,16 @@
     padding-bottom: 133.333%;
     border-radius: 12rpx;
     overflow: hidden;
-    /* aspectFit 原图四周留白底 */
-    background: var(--td-bg-color-secondarycontainer);
+    /* 壁纸/头像等：淡底衬 aspectFit 留白 */
+    background: var(--td-bg-color-container);
+    --td-image-bg-color: var(--td-bg-color-container);
     animation: detail-fade-in 0.28s ease 0.04s both;
+
+    &--clear {
+      background: transparent;
+      --td-image-bg-color: transparent;
+      --td-image-color: #00000000;
+    }
 
     > .detail__slot-cover,
     > .detail__slot-skeleton {

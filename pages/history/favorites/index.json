@@ -5,11 +5,12 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "t-loading": "tdesign-miniprogram/loading/loading",
-    "t-image": "tdesign-miniprogram/image/image",
     "t-button": "tdesign-miniprogram/button/button",
+    "t-tag": "tdesign-miniprogram/tag/tag",
     "fun-empty": "/components/fun-empty/index",
-    "pack-card": "/components/pack-card/index",
     "lottery-host": "/components/lottery-host/index",
-    "heart-burst": "/components/heart-burst/index"
+    "heart-burst": "/components/heart-burst/index",
+    "kubai-icon": "/components/kubai-icon/index",
+    "smart-image": "/components/smart-image/index"
   }
 }

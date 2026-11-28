@@ -37,6 +37,7 @@ Page({
 
   onShow() {
     this.refreshFestivalDecor();
+    this.refreshNativeAd();
   },
 
   async onPick() {
@@ -56,6 +57,7 @@ Page({
         outPath: '',
         outMeta: '',
         exportUnlocked: false,
+        paramsDirty: false,
       });
       if (typeof this.afterPick === 'function') this.afterPick(f);
     } catch (e) {
@@ -79,6 +81,7 @@ Page({
         outPath: res.path,
         outMeta: res.meta || '',
         exportUnlocked: false,
+        paramsDirty: false,
       });
       wx.showToast({ title: '处理完成', icon: 'success' });
     } catch (e) {
@@ -94,6 +97,7 @@ Page({
 
   async onSave() {
     if (!this.data.outPath || this.data.busy || this.data.gating) return;
+    if (!(await this.confirmSaveIfDirty())) return;
     this.setData({ gating: true });
     try {
       if (!this.data.exportUnlocked) {
@@ -117,12 +121,12 @@ Page({
 
   onFormat(e) {
     const v = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.v) || 'png';
-    this.setData({ format: v, exportUnlocked: false, outPath: '', outMeta: '' });
+    this.markParamsDirty({ format: v });
   },
   onQualityChange(e) {
     const v = Math.round(Number((e.detail && e.detail.value) || 90));
-    this.setData({ qualityPct: v, qualityLabel: v + '%', exportUnlocked: false, outPath: '', outMeta: '' });
-  },
+    this.markParamsDirty({ qualityPct: v, qualityLabel: v + '%' });
+    },
   async runProcess() {
     const res = await convertImage(this.data.srcPath, {
       format: this.data.format,

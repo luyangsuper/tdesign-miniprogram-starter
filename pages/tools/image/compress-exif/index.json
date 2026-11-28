@@ -1,0 +1,13 @@
+{
+  "navigationStyle": "custom",
+  "styleIsolation": "shared",
+  "usingComponents": {
+    "t-navbar": "tdesign-miniprogram/navbar/navbar",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-slider": "tdesign-miniprogram/slider/slider",
+    "t-input": "tdesign-miniprogram/input/input",
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "festival-decor": "/components/festival-decor/index",
+    "kubai-icon": "/components/kubai-icon/index"
+  }
+}

@@ -274,6 +274,16 @@
   "appid": "wxc53da678dce0b8d1",
   "projectname": "趣图铺子",
   "cloudfunctionRoot": "cloudfunctions/",
+  "watchOptions": {
+    "ignore": [
+      "scripts/**",
+      "cloudfunctions/**",
+      "node_modules/**",
+      ".miniprogram_npm_build/**",
+      "miniprogram_npm.bak_*",
+      "static/kubai-ui/**"
+    ]
+  },
   "condition": {
     "miniprogram": {
       "list": [

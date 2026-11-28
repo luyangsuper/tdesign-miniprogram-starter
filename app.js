@@ -48,6 +48,8 @@ function pickOaIdFromOptions(opts) {
 
 App({
   onLaunch(options) {
+    // 首页素材入口右侧三图：每次冷启动重新随机
+    this.globalData.homeLibBannerThumbs = null;
     initTheme();
     ensureBrandDisplayFont().catch(() => {});
     this.captureOaEntry(options);
@@ -268,6 +270,8 @@ App({
     ackedLotteryResultIds: [],
     /** 当前前台页 lottery-host 令牌，避免栈内多实例叠弹 */
     lotteryHostToken: 0,
+    /** 首页「发现更多有趣素材」右侧三图（本会话缓存） */
+    homeLibBannerThumbs: null,
   },
 
   eventBus: createBus(),

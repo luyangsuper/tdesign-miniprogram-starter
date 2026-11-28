@@ -11,6 +11,7 @@ const PRODUCT_ORDER = [
   'points_20',
   'points_66',
   'points_170',
+  'frame_skin',
 ];
 
 /** Kubai 套餐图（npm run icons:gen → static/pricing）作默认道具图 */
@@ -23,6 +24,7 @@ const DEFAULT_PROP_ICONS = {
   points_20: '/static/pricing/points.png',
   points_66: '/static/pricing/points2.png',
   points_170: '/static/pricing/points3.png',
+  frame_skin: '/static/pricing/points.png',
 };
 
 const PLAN_META = {
@@ -34,6 +36,7 @@ const PLAN_META = {
   points_20: { tone: 'points', shortTitle: '', iconSrc: '/static/pricing/points.png' },
   points_66: { tone: 'points2', shortTitle: '', iconSrc: '/static/pricing/points2.png' },
   points_170: { tone: 'points3', shortTitle: '', iconSrc: '/static/pricing/points3.png' },
+  frame_skin: { tone: 'points', shortTitle: '头像框', iconSrc: '/static/pricing/points.png' },
 };
 
 const MONTHLY_QUOTA = 48;
@@ -49,17 +52,30 @@ function formatYuan(n) {
   return Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100);
 }
 
+function slotType(slotId, type) {
+  if (type === 'points' || type === 'avatar_frame' || type === 'vip_days') return type;
+  if (String(slotId) === 'frame_skin') return 'avatar_frame';
+  if (String(slotId).startsWith('points')) return 'points';
+  return 'vip_days';
+}
+
 function buildDisplay(item) {
   const slotId = item.slotId || item.productId;
   const meta = PLAN_META[slotId] || { tone: 'month', shortTitle: item.title, iconSrc: '' };
-  const isPoints = item.type === 'points' || String(slotId).startsWith('points');
+  const type = slotType(slotId, item.type);
+  const isPoints = type === 'points';
+  const isFrame = type === 'avatar_frame';
   const value = Math.max(0, Number(item.value) || 0);
   const yuan = Number(item.priceYuan);
   const yuanSafe = Number.isNaN(yuan) ? 0 : yuan;
   let displayTitle = meta.shortTitle || item.title || slotId;
   let period = '';
   let desc = '';
-  if (isPoints) {
+  if (isFrame) {
+    displayTitle = meta.shortTitle || item.title || '高级头像框';
+    period = '单框永久';
+    desc = '衣橱「选购」按框下单 · 支付现网价';
+  } else if (isPoints) {
     displayTitle = `${value} 积分`;
     period = `共 ${value} 积分`;
     desc = `约 ${Math.floor(value / ANIM_COST)} 动 / ${Math.floor(value / STATIC_COST)} 静 · 壁纸${WALLPAPER_COST}/头像${AVATAR_COST}/视频${VIDEO_COST}`;
@@ -103,6 +119,7 @@ function splitItems(items) {
     items: list,
     vipItems: list.filter((it) => it.type === 'vip_days'),
     pointItems: list.filter((it) => it.type === 'points'),
+    frameItems: list.filter((it) => it.type === 'avatar_frame'),
     missingIconCount: list.filter((it) => !it.itemFileId).length,
   };
 }
@@ -201,6 +218,7 @@ Page({
     items: [],
     vipItems: [],
     pointItems: [],
+    frameItems: [],
   },
 
   _pollTimer: null,
@@ -242,7 +260,7 @@ Page({
         bySlot[slotId] || {
           slotId,
           productId: slotId,
-          type: slotId.startsWith('points') ? 'points' : 'vip_days',
+          type: slotType(slotId),
         };
       const meta = wxMeta(p.wx);
       const draft = p.draft;
@@ -276,7 +294,7 @@ Page({
         title: editTitle,
         priceYuan: fenToYuanStr(editPriceFen),
         value: String(editValue != null ? editValue : ''),
-        type: p.type || (slotId.startsWith('points') ? 'points' : 'vip_days'),
+        type: slotType(slotId, p.type),
         itemFileId: p.itemFileId || '',
         previewUrl: p._previewUrl || '',
         wxStatus: !propPublished && !draft && meta.wxStatus === 'ok' ? 'await_mp' : meta.wxStatus,

@@ -1,0 +1,105 @@
+.smart-img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: var(--td-bg-color-container);
+  /* 无传 radius 时继承父级格子的圆角 token */
+  border-radius: var(--td-image-round-radius, 14rpx);
+
+  /* 透明 PNG：加载完无底色；加载中仍用骨架，避免空白闪一下 */
+  &--transparent {
+    background: transparent;
+
+    .smart-img__error {
+      background: transparent;
+      animation: none;
+    }
+  }
+
+  &--transparent&--ready {
+    .smart-img__skeleton {
+      display: none;
+    }
+  }
+}
+
+.smart-img__inner,
+.smart-img__t {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.smart-img__load,
+.smart-img__err-wrap {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box;
+}
+
+.smart-img__skeleton {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    110deg,
+    var(--td-bg-color-secondarycontainer) 30%,
+    rgba(0, 0, 0, 0.04) 45%,
+    var(--td-bg-color-secondarycontainer) 60%
+  );
+  background-size: 200% 100%;
+  animation: smart-img-shimmer 1.2s ease-in-out infinite;
+}
+
+.smart-img__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--td-bg-color-secondarycontainer);
+  box-sizing: border-box;
+}
+
+.smart-img__error-x {
+  position: relative;
+  width: 28rpx;
+  height: 28rpx;
+  opacity: 0.45;
+  flex-shrink: 0;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 28rpx;
+    height: 3rpx;
+    border-radius: 2rpx;
+    background: var(--td-text-color-placeholder, #94a3b8);
+  }
+
+  &::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  &::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+  }
+}
+
+@keyframes smart-img-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}

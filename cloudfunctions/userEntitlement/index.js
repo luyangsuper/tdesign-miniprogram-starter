@@ -210,6 +210,8 @@ exports.main = async (event = {}) => {
         saveAdReward: buildAdRewardStatus(settings, synced, 'save'),
         /** 首页信息流广告间隔（合集数）；0=关闭 */
         homeFeedAdEvery: settings.homeFeedAdEvery,
+        /** 素材库网格广告间隔（表情数）；0=关闭 */
+        libraryGridAdEvery: settings.libraryGridAdEvery,
         /** 保存单价（管理端可改） */
         downloadCosts: {
           static: settings.costStatic,
@@ -230,6 +232,7 @@ exports.main = async (event = {}) => {
         costBeadExport: settings.costBeadExport,
         costBeadAdvanced: settings.costBeadAdvanced,
         costImageExport: settings.costImageExport,
+        costAvatarCreate: settings.costAvatarCreate || 2,
         // 开奖结果只走 userLottery.pending（校验已参与）
       };
     }
@@ -580,6 +583,11 @@ exports.main = async (event = {}) => {
           reason: 'image_export',
           title: '图片工具箱导出解锁',
         },
+        avatarCreate: {
+          cost: settings.costAvatarCreate || 2,
+          reason: 'avatar_create',
+          title: '设置头像',
+        },
       };
       const conf = FEATURES[feature];
       if (!conf) {
@@ -587,6 +595,7 @@ exports.main = async (event = {}) => {
       }
       // 价格以云端积分配置为准，忽略客户端传入的 cost
       const cost = conf.cost;
+      const wantAnimated = !!event.animated;
 
       const { ref, data: user } = await ensureUser(OPENID);
       let userData = user;
@@ -598,6 +607,17 @@ exports.main = async (event = {}) => {
       }
 
       const synced = await syncVipMonthQuota(ref, userData, db.serverDate(), db);
+      if (wantAnimated && feature === 'avatarCreate') {
+        const ent = buildEntitlement(synced);
+        if (!ent.isVip && !assertAdmin(OPENID)) {
+          return {
+            ok: false,
+            code: 'VIP_REQUIRED',
+            message: '动态头像仅会员可用',
+            entitlement: ent,
+          };
+        }
+      }
       let vipMonthQuota = Math.max(0, Number(synced.vipMonthQuota) || 0);
       let points = Math.max(0, Number(synced.points) || 0);
       if (vipMonthQuota + points < cost) {

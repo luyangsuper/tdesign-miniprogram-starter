@@ -145,6 +145,21 @@
           bind:change="onHomeFeedAdEveryChange"
         />
       </view>
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">素材库网格广告间隔</view>
+          <view class="admin-points__hint">每隔 N 个表情插 1 条（占两格宽）· 建议 8～16 · 0 关闭 · 最小 4</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="个"
+          value="{{libraryGridAdEvery}}"
+          bind:change="onLibraryGridAdEveryChange"
+        />
+      </view>
     </view>
 
     <view class="admin-points__section">保存单价</view>
@@ -309,6 +324,28 @@
           suffix="积分"
           value="{{costImageExport}}"
           bind:change="onCostImageExportChange"
+        />
+      </view>
+    </view>
+
+    <view class="admin-points__section">设置头像</view>
+    <view class="admin-points__tip admin-points__tip--inline">
+      静态/动态设头像均扣此积分；动态仅会员。先月额度再扣积分。
+    </view>
+    <view class="admin-points__card">
+      <view class="admin-points__row">
+        <view class="admin-points__meta">
+          <view class="admin-points__label">设头像</view>
+          <view class="admin-points__hint">静态或动态 · 默认 2</view>
+        </view>
+        <t-input
+          class="admin-points__field admin-points__field--num"
+          type="number"
+          borderless
+          align="right"
+          suffix="积分"
+          value="{{costAvatarCreate}}"
+          bind:change="onCostAvatarCreateChange"
         />
       </view>
     </view>

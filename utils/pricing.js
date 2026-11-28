@@ -99,7 +99,10 @@ export function downloadCost(costKey) {
       : DEFAULT_COSTS.libraryAnim;
   }
   const n = Number(costs[key]);
-  return n > 0 ? n : costs.static || 1;
+  // 允许 0（素材库按源免费）；缺省 / NaN 再回退 static
+  if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  const fallback = Number(costs.static);
+  return Number.isFinite(fallback) && fallback >= 0 ? Math.floor(fallback) : 1;
 }
 
 /** 素材库格式 → 扣费 key（gif/lottie=动图） */

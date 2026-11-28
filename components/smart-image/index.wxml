@@ -1,0 +1,33 @@
+<view
+  class="smart-img {{transparent ? 'smart-img--transparent' : ''}} {{ready ? 'smart-img--ready' : ''}}"
+  style="{{wrapStyle}}"
+>
+  <t-image
+    wx:if="{{displaySrc && !failed}}"
+    class="smart-img__inner"
+    t-class="smart-img__t"
+    t-class-load="smart-img__load"
+    t-class-error="smart-img__err-wrap"
+    src="{{displaySrc}}"
+    mode="{{mode}}"
+    shape="{{shape}}"
+    lazy="{{lazy}}"
+    webp="{{webp}}"
+    loading="slot"
+    error="slot"
+    width="100%"
+    height="100%"
+    data-key="{{imgKey}}"
+    bind:load="onImageLoad"
+    bind:error="onImageError"
+  >
+    <view slot="loading" class="smart-img__skeleton" aria-hidden="true" />
+    <view slot="error" class="smart-img__error" aria-hidden="true">
+      <view class="smart-img__error-x" />
+    </view>
+  </t-image>
+  <view wx:elif="{{failed}}" class="smart-img__error" aria-hidden="true">
+    <view class="smart-img__error-x" />
+  </view>
+  <view wx:else class="smart-img__skeleton" aria-hidden="true" />
+</view>

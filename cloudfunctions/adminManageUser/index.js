@@ -3,6 +3,7 @@ const { dayjs, toMs, formatDate } = require('./time');
 const { buildEntitlement, syncVipMonthQuota } = require('./membership');
 const { getPointsSettings } = require('./pointsSettings');
 const { recordPointsLog, applyUserPoints, queryPointsLogs } = require('./pointsLog');
+const { resolveNickName } = require('./randomNick');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -150,7 +151,38 @@ async function resolvePaidFenMap(openids = []) {
   return map;
 }
 
-function formatUser(doc, avatarMap = {}, paidFenMap = {}) {
+async function resolveFrameUrlMap(frameIds = []) {
+  const ids = Array.from(
+    new Set((frameIds || []).map((s) => String(s || '').trim()).filter(Boolean)),
+  );
+  const out = {};
+  if (!ids.length) return out;
+  const fileByFrame = {};
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const snap = await db.collection('avatar_frames').doc(id).get();
+        const row = snap.data || {};
+        const nested =
+          row.data && typeof row.data === 'object' && row.data.fileID
+            ? row.data
+            : row;
+        const fileID = String(nested.fileID || nested.thumbFileID || '').trim();
+        if (fileID) fileByFrame[id] = fileID;
+      } catch (e) {
+        /* ignore */
+      }
+    }),
+  );
+  const urlMap = await resolveAvatarMap(Object.values(fileByFrame));
+  Object.keys(fileByFrame).forEach((id) => {
+    const url = urlMap[fileByFrame[id]] || '';
+    if (url) out[id] = url;
+  });
+  return out;
+}
+
+function formatUser(doc, avatarMap = {}, paidFenMap = {}, frameUrlMap = {}) {
   const data = doc || {};
   const openid = data._id || data.openid || '';
   const lastLoginMs = toMs(data.lastLoginAt);
@@ -158,10 +190,13 @@ function formatUser(doc, avatarMap = {}, paidFenMap = {}) {
   const cloudAvatar =
     (data.avatarFileID && avatarMap[data.avatarFileID]) || '';
   const paidFen = Math.max(0, Number(paidFenMap[openid]) || 0);
+  const frameId = String(data.avatarFrameId || '').trim();
   return {
     openid,
-    nickName: data.nickName || '',
+    nickName: resolveNickName(data, openid),
     avatarUrl: cloudAvatar || defaultAvatarUrl(openid),
+    avatarFrameId: frameId,
+    avatarFrameUrl: (frameId && frameUrlMap[frameId]) || '',
     isAdmin: !!data.isAdmin,
     entitlement,
     paidFen,
@@ -268,11 +303,13 @@ async function fetchUsersByOpenids(openids = []) {
 
 async function formatUserAsync(doc) {
   const openid = (doc && (doc._id || doc.openid)) || '';
-  const [map, paidFenMap] = await Promise.all([
+  const frameId = String((doc && doc.avatarFrameId) || '').trim();
+  const [map, paidFenMap, frameUrlMap] = await Promise.all([
     resolveAvatarMap([doc && doc.avatarFileID]),
     resolvePaidFenMap([openid]),
+    resolveFrameUrlMap(frameId ? [frameId] : []),
   ]);
-  return formatUser(doc, map, paidFenMap);
+  return formatUser(doc, map, paidFenMap, frameUrlMap);
 }
 
 async function getUserByOpenid(openid) {
@@ -548,7 +585,12 @@ exports.main = async (event = {}) => {
       const paidFenMap = await resolvePaidFenMap(
         rows.map((u) => u._id || u.openid),
       );
-      const list = rows.map((u) => formatUser(u, avatarMap, paidFenMap));
+      const frameUrlMap = await resolveFrameUrlMap(
+        rows.map((u) => u.avatarFrameId),
+      );
+      const list = rows.map((u) =>
+        formatUser(u, avatarMap, paidFenMap, frameUrlMap),
+      );
 
       return {
         ok: true,
@@ -838,14 +880,27 @@ exports.main = async (event = {}) => {
     const ref = db.collection('users').doc(targetOpenid);
 
     if (action === 'cancelVip') {
-      await ref.update({
-        data: {
-          vipExpireAt: null,
-          vipMonthQuota: 0,
-          vipQuotaPeriod: '',
-          updatedAt: db.serverDate(),
-        },
-      });
+      const patch = {
+        vipExpireAt: null,
+        vipMonthQuota: 0,
+        vipQuotaPeriod: '',
+        updatedAt: db.serverDate(),
+      };
+      // 卸下会员专属框；付费/成就框保留
+      const wearing = String((user && user.avatarFrameId) || '').trim();
+      if (wearing) {
+        try {
+          const fs = await db.collection('avatar_frames').doc(wearing).get();
+          let f = (fs && fs.data) || {};
+          if (f.data && typeof f.data === 'object' && f.data.fileID) f = f.data;
+          if (String(f.access || '') === 'vip') {
+            patch.avatarFrameId = '';
+          }
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      await ref.update({ data: patch });
       const fresh = await getUserByOpenid(targetOpenid);
       return { ok: true, message: '已取消包月', data: await formatUserAsync(fresh) };
     }

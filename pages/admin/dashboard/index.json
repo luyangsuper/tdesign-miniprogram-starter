@@ -5,9 +5,11 @@
   "usingComponents": {
     "t-loading": "tdesign-miniprogram/loading/loading",
     "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
+    "t-popup": "tdesign-miniprogram/popup/popup",
+    "t-button": "tdesign-miniprogram/button/button",
     "fun-empty": "/components/fun-empty/index",
     "fun-line-chart": "/components/fun-line-chart/index",
-    "t-button": "tdesign-miniprogram/button/button",
+    "kubai-icon": "/components/kubai-icon/index",
     "lottery-host": "/components/lottery-host/index"
   }
 }

@@ -1,6 +1,10 @@
 import { callFunction } from '~/utils/cloud';
 import { resolveIsAdmin } from '~/utils/auth';
-import { presentLibrarySource } from '~/utils/library';
+import { presentLibrarySource } from './utils/library';
+import {
+  getNativeLibraryAdUnitId,
+  shouldShowNativeAds,
+} from '~/utils/nativeAd';
 import { getCustomNavMetrics } from '~/utils/systemInfo';
 import { applyThemeToPage, getThemeStyle } from '~/utils/theme';
 
@@ -13,9 +17,30 @@ Page({
     loading: true,
     sources: [],
     emptyTip: '暂无素材源',
+    nativeAdUnitId: '',
+    showNativeAd: false,
   },
 
   _opening: false,
+
+  refreshNativeAd() {
+    const unitId = getNativeLibraryAdUnitId();
+    const showNativeAd = !!unitId && shouldShowNativeAds();
+    if (
+      this.data.nativeAdUnitId === unitId &&
+      this.data.showNativeAd === showNativeAd
+    ) {
+      return;
+    }
+    this.setData({
+      nativeAdUnitId: unitId,
+      showNativeAd,
+    });
+  },
+
+  onNativeAdError() {
+    this.setData({ showNativeAd: false });
+  },
 
   onLoad() {
     try {
@@ -33,11 +58,33 @@ Page({
       });
     }
     applyThemeToPage(this);
+    this.refreshNativeAd();
+    this._onEntitlementChange = () => this.refreshNativeAd();
+    try {
+      const app = getApp();
+      if (app && app.eventBus) {
+        app.eventBus.on('entitlementChange', this._onEntitlementChange);
+      }
+    } catch (e) {
+      /* ignore */
+    }
     this.loadSources();
+  },
+
+  onUnload() {
+    try {
+      const app = getApp();
+      if (app && app.eventBus && this._onEntitlementChange) {
+        app.eventBus.off('entitlementChange', this._onEntitlementChange);
+      }
+    } catch (e) {
+      /* ignore */
+    }
   },
 
   onShow() {
     applyThemeToPage(this);
+    this.refreshNativeAd();
     this._opening = false;
   },
 
@@ -94,24 +141,53 @@ Page({
         this._opening = false;
       }, 450);
     };
-    wx.navigateTo({
-      url,
-      success: unlock,
-      fail: (err) => {
+    // 禁止用 redirectTo：会顶掉素材库列表页，返回就直接回首页
+    const tryNavigate = () =>
+      new Promise((resolve, reject) => {
+        wx.navigateTo({ url, success: resolve, fail: reject });
+      });
+    const loadPkg = () =>
+      new Promise((resolve) => {
+        if (typeof wx.loadSubpackage !== 'function') {
+          resolve();
+          return;
+        }
+        try {
+          const task = wx.loadSubpackage({
+            name: 'library',
+            success: () => resolve(),
+            fail: () => resolve(),
+          });
+          if (task && typeof task.catch === 'function') {
+            task.catch(() => resolve());
+          }
+        } catch (e) {
+          resolve();
+        }
+      });
+    (async () => {
+      try {
+        await tryNavigate();
+        unlock();
+      } catch (err) {
         console.warn('[open source]', err);
-        wx.redirectTo({
-          url,
-          complete: unlock,
-          fail: () => {
-            this._opening = false;
-            wx.showToast({ title: '打不开该合集', icon: 'none' });
-          },
-        });
-      },
-    });
+        await loadPkg();
+        try {
+          await tryNavigate();
+          unlock();
+        } catch (err2) {
+          console.warn('[open source retry]', err2);
+          this._opening = false;
+          wx.showToast({ title: '打不开该合集', icon: 'none' });
+        }
+      }
+    })();
   },
 
   onBack() {
-    wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/home/index' }) });
+    // t-navbar 会自行 navigateBack；再退一层会直接回更早页面
+    const pages = getCurrentPages() || [];
+    if (pages.length > 1) return;
+    wx.switchTab({ url: '/pages/home/index' });
   },
 });

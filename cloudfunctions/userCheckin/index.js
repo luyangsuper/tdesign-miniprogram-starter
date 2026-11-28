@@ -569,6 +569,15 @@ exports.main = async (event = {}) => {
         makeupUsedMonth,
       });
 
+      try {
+        await cloud.callFunction({
+          name: 'userAchievement',
+          data: { action: 'sync', targetOpenid: OPENID },
+        });
+      } catch (achErr) {
+        console.warn('[achievement] sync', achErr.message || achErr);
+      }
+
       return {
         ok: true,
         message: isMakeup

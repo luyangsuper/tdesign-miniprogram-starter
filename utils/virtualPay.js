@@ -205,6 +205,38 @@ export async function buyPlan(plan) {
   return pollDelivered(order.outTradeNo, { forceAfterClientSuccess: true });
 }
 
+/** 购买高级头像框（¥3 槽位 frame_skin） */
+export async function buyAvatarFrame(frameId) {
+  const id = String(frameId || '').trim();
+  if (!id) {
+    const err = new Error('缺少头像框');
+    err.code = 'BAD_FRAME';
+    throw err;
+  }
+  if (!checkIosWechatVersion()) {
+    const err = new Error('微信版本过低');
+    err.code = 'IOS_VERSION';
+    throw err;
+  }
+  const code = await wxLoginCode();
+  const created = await callFunction('createVirtualOrder', {
+    action: 'create',
+    slotId: 'frame_skin',
+    planKey: 'frame',
+    productId: 'frame_skin',
+    frameId: id,
+    code,
+  });
+  const { pay, order } = created;
+  try {
+    await requestVirtualPayment(pay);
+  } catch (err) {
+    if (err && err.code === 'CANCEL') throw err;
+    throw err;
+  }
+  return pollDelivered(order.outTradeNo, { forceAfterClientSuccess: true });
+}
+
 /**
  * 手动补发当前用户未完结订单（「我的」页「补发权益」）
  */

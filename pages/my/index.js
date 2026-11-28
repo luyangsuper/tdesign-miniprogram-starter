@@ -12,6 +12,7 @@ import {
   formatBenefitCard,
   getCachedEntitlement,
   setCachedEntitlement,
+  spendablePoints,
 } from '~/utils/entitlement';
 import {
   applyDownloadCostsFromSettings,
@@ -22,7 +23,7 @@ import {
 } from '~/utils/pricing';
 import { applyBeadCostsFromSettings } from '~/utils/beadCosts';
 import { applyImageToolCostsFromSettings } from '~/utils/imageToolCosts';
-import { buyPlan, recoverMyPendingOrders } from '~/utils/virtualPay';
+import { buyPlan, buyAvatarFrame, recoverMyPendingOrders } from '~/utils/virtualPay';
 import {
   createAndCopyCode,
   extractRedeemCode,
@@ -32,7 +33,28 @@ import {
   hasCloudAvatar,
   isAvatarTempUrlFresh,
   resolveDisplayAvatarUrl,
+  resolvePixabotParams,
 } from '~/utils/avatar';
+import {
+  buildCategoryTabs,
+  buildPartOptions,
+  decodeId,
+  encodeCombo,
+  HUE_PRESETS,
+  isValidId,
+  loadLastPixabot,
+  normalizePalette,
+  parsePixabotIdFromFileID,
+  randomCombo,
+  randomPalette,
+  saveLastPixabot,
+} from '~/utils/pixabotParts';
+import { renderPixabotGif, renderPixabotPng } from '~/utils/pixabotRender';
+import {
+  syncAchievements,
+  listAchievements,
+  equipAvatarFrame,
+} from '~/utils/achievement';
 import { applyPendingPointGifts } from '~/utils/giftHint';
 import {
   applyPendingLotteryInvites,
@@ -48,6 +70,7 @@ import {
 } from '~/utils/adReward';
 import {
   applyHomeFeedAdEveryFromSettings,
+  applyLibraryGridAdEveryFromSettings,
   getNativeMyPageAdUnitId,
   shouldShowNativeAds,
 } from '~/utils/nativeAd';
@@ -105,12 +128,12 @@ import {
 import { getCustomNavMetrics, getWindowInfoSafe } from '~/utils/systemInfo';
 import { shareAppMessage, shareTimeline } from '~/utils/share';
 import {
-  buildWaterfallPreviewColumns,
+  buildPreviewRowPreview,
   getDisplaySettingsNote,
-  getWaterfallColumnOptions,
-  getWaterfallColumnsPref,
-  setWaterfallColumnsPref,
-} from '~/utils/waterfallColumns';
+  getPreviewRowCountOptions,
+  getPreviewRowCountPref,
+  setPreviewRowCountPref,
+} from '~/utils/previewRowCount';
 import {
   buildFontScaleStyle,
   getFontScaleId,
@@ -140,7 +163,9 @@ import { CATEGORY_FILTER_ALL } from '~/utils/categories';
  * （方便管理员自充会员后测「有会员的普通用户」）
  */
 function buildRoleLabel({ isAdmin, isVip, points, vipMonthQuota, previewAsUser }) {
-  if (!previewAsUser && isAdmin) return '管理员';
+  // 对外不暴露「管理员」身份，按真实权益展示
+  void isAdmin;
+  void previewAsUser;
   if (isVip) return '包月会员';
   if ((points || 0) + (vipMonthQuota || 0) > 0) {
     return `积分 ${(points || 0) + (vipMonthQuota || 0)}`;
@@ -159,11 +184,10 @@ function festivalMenuNote(fest) {
   return '已开启';
 }
 
-/** 头像角标：VIP 红色 user-vip；积分礼盒；管理员「管」（预览时不显示管） */
+/** 头像角标：VIP 红色 user-vip；积分礼盒（不展示管理员角标） */
 function buildAvatarBadge({ isAdmin, isVip, points, vipMonthQuota, previewAsUser }) {
-  if (!previewAsUser && isAdmin) {
-    return { tone: 'admin', icon: 'user-vip', text: '管' };
-  }
+  void isAdmin;
+  void previewAsUser;
   if (isVip) {
     return { tone: 'vip', icon: 'user-vip', text: 'VIP' };
   }
@@ -174,7 +198,8 @@ function buildAvatarBadge({ isAdmin, isVip, points, vipMonthQuota, previewAsUser
 }
 
 function buildRoleTagTheme({ isAdmin, isVip, points, vipMonthQuota, previewAsUser }) {
-  if (!previewAsUser && isAdmin) return 'danger';
+  void isAdmin;
+  void previewAsUser;
   if (isVip) return 'danger';
   if ((points || 0) + (vipMonthQuota || 0) > 0) return 'success';
   return 'default';
@@ -192,6 +217,47 @@ Page({
     avatarBadge: null,
     nickName: '',
     avatarUrl: '',
+    avatarFrameUrl: '',
+    avatarFrameId: '',
+    frameWardrobeVisible: false,
+    frameWardrobeLoading: false,
+    frameWardrobeTab: 'achievement',
+    frameTabOptions: [
+      { id: 'achievement', label: '成就' },
+      { id: 'vip', label: '会员' },
+      { id: 'shop', label: '选购' },
+    ],
+    frameAchievements: [],
+    frameVipList: [],
+    frameShopList: [],
+    frameList: [],
+    frameMetricsText: '',
+    frameBuyingId: '',
+    pixabotSheetVisible: false,
+    pixabotPageStyle: '',
+    pixabotId: '2156',
+    pixabotCombo: { eyes: 2, heads: 1, body: 5, top: 6 },
+    pixabotCategory: 'eyes',
+    pixabotCategoryTabs: buildCategoryTabs(),
+    pixabotPartOptions: buildPartOptions('eyes'),
+    pixabotSelectedIndex: 2,
+    pixabotPreviewUrl: '',
+    pixabotCost: 2,
+    pixabotFormat: 'png',
+    pixabotFormatTabs: [
+      { id: 'png', label: 'PNG' },
+      { id: 'gif', label: 'GIF' },
+      { id: 'json', label: 'JSON' },
+    ],
+    pixabotFormatHint: 'PNG：设为静态头像需积分',
+    pixabotSetLabel: '设为静态头像 · 2 积分',
+    pixabotSetting: false,
+    pixabotPreviewLoading: false,
+    pixabotCanAnimate: false,
+    pixabotHue: 0,
+    pixabotSaturate: 1,
+    pixabotHuePresetId: '0',
+    pixabotHuePresets: HUE_PRESETS,
     savingProfile: false,
     benefit: formatBenefitCard(),
     pricing: getPricingPlans(),
@@ -211,12 +277,11 @@ Page({
     themePresets: [],
     themePopupVisible: false,
     displaySettingsNote: getDisplaySettingsNote(),
-    displayPrefDraft: 'auto',
-    displayPrefHint: '按屏幕宽度自动',
-    displayPreviewColumns: [],
-    displayPreviewColumnCount: 2,
-    displayPreviewIsAuto: true,
-    displayColumnOptions: getWaterfallColumnOptions(),
+    displayPrefDraft: 4,
+    displayPrefHint: '默认密度',
+    displayPreviewCells: [],
+    displayPreviewColumnCount: 4,
+    displayColumnOptions: getPreviewRowCountOptions(),
     fontScaleDraft: 'standard',
     fontScaleOptions: getFontScaleOptions(),
     fontPreviewStyle: buildFontScaleStyle('standard'),
@@ -370,7 +435,6 @@ Page({
       else bar.setData({ value: 'my' });
     }
     this.setTabBarHidden(!!this.data.festivalCropVisible);
-
     if (this._myShowDeferTimer) clearTimeout(this._myShowDeferTimer);
     this._myShowDeferTimer = setTimeout(() => {
       this._myShowDeferTimer = null;
@@ -387,6 +451,7 @@ Page({
         this.refreshFeedbackNotifyStatus();
         this.refreshLotteryHint();
         this.refreshCheckinEntry();
+        this.refreshAvatarFrame();
         loadFestivalConfig({ silent: true }).then(() => {
           ensureFestivalModeForRole(!!resolveIsAdmin());
           this.syncThemeUi();
@@ -480,6 +545,7 @@ Page({
   },
 
   onUnload() {
+    this._pixabotPreviewToken = (this._pixabotPreviewToken || 0) + 1;
     try {
       const app = getApp();
       if (app && app.eventBus) {
@@ -711,30 +777,28 @@ Page({
   },
 
   _displayPrefHint(pref) {
-    const hit = (this.data.displayColumnOptions || getWaterfallColumnOptions()).find(
+    const hit = (this.data.displayColumnOptions || getPreviewRowCountOptions()).find(
       (o) => o.id === pref,
     );
     return (hit && hit.hint) || '';
   },
 
   _buildDisplayPreview(pref) {
-    const { windowWidth } = getWindowInfoSafe();
-    const preview = buildWaterfallPreviewColumns(pref, { windowWidth });
+    const preview = buildPreviewRowPreview(pref);
     return {
-      displayPrefDraft: pref,
-      displayPreviewColumns: preview.columns,
-      displayPreviewColumnCount: preview.columnCount,
-      displayPreviewIsAuto: preview.isAuto,
-      displayPrefHint: this._displayPrefHint(pref),
+      displayPrefDraft: preview.count,
+      displayPreviewCells: preview.cells,
+      displayPreviewColumnCount: preview.count,
+      displayPrefHint: this._displayPrefHint(preview.count) || preview.hint,
     };
   },
 
   openDisplaySettings() {
-    const pref = getWaterfallColumnsPref();
+    const pref = getPreviewRowCountPref();
     const fontId = getFontScaleId();
     this.setData({
       displayPopupVisible: true,
-      displayColumnOptions: getWaterfallColumnOptions(),
+      displayColumnOptions: getPreviewRowCountOptions(),
       fontScaleOptions: getFontScaleOptions(),
       fontScaleDraft: fontId,
       fontPreviewStyle: buildFontScaleStyle(fontId),
@@ -757,9 +821,8 @@ Page({
       (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
       (e.target && e.target.dataset && e.target.dataset.id) ||
       '';
-    let pref = raw;
-    if (raw === '1' || raw === '2' || raw === '3') pref = Number(raw);
-    if (pref !== 'auto' && pref !== 1 && pref !== 2 && pref !== 3) return;
+    const pref = Number(raw);
+    if (pref !== 3 && pref !== 4 && pref !== 5 && pref !== 6) return;
     /* check-tag 点已选项会取消勾选：强制保持选中 */
     this.setData(this._buildDisplayPreview(pref));
   },
@@ -778,7 +841,7 @@ Page({
   },
 
   onConfirmDisplaySettings() {
-    setWaterfallColumnsPref(this.data.displayPrefDraft);
+    setPreviewRowCountPref(this.data.displayPrefDraft);
     setFontScaleId(this.data.fontScaleDraft);
     applyThemeToTabBar();
     this.setData({
@@ -1842,8 +1905,223 @@ Page({
       avatarUrlAt: cached.avatarUrlAt || 0,
       openid,
     });
+    if (cached.avatarFrameUrl) {
+      patch.avatarFrameUrl = cached.avatarFrameUrl;
+      patch.avatarFrameId = cached.avatarFrameId || '';
+    }
 
     this.setData(patch);
+  },
+
+  mapFrameRow(a) {
+    const frame = a.frame || null;
+    const previewUrl = frame
+      ? frame.url || frame.thumbUrl || ''
+      : a.framePreviewUrl || '';
+    return {
+      ...a,
+      framePreviewUrl: previewUrl,
+      frameEquipped: !!(
+        a.frameEquipped ||
+        (frame && frame.equipped) ||
+        (a.frameId && a.frameId === this.data.avatarFrameId)
+      ),
+      hasFrame: !!(frame && previewUrl) || !!previewUrl,
+    };
+  },
+
+  frameListForTab(tab, data) {
+    const id = tab || 'achievement';
+    if (id === 'vip') return data.frameVipList || [];
+    if (id === 'shop') return data.frameShopList || [];
+    return data.frameAchievements || [];
+  },
+
+  async refreshAvatarFrame() {
+    try {
+      const data = await listAchievements();
+      const equipped = data.equippedFrame || null;
+      const url = (equipped && (equipped.url || equipped.thumbUrl)) || '';
+      const id = (equipped && equipped.id) || data.equippedFrameId || '';
+      const app = getApp();
+      if (app.globalData.userInfo) {
+        app.globalData.userInfo.avatarFrameUrl = url;
+        app.globalData.userInfo.avatarFrameId = id;
+      }
+      const m = data.metrics || {};
+      const metricsText = `连签 ${m.streak || 0} · 下载 ${m.downloads || 0} · 付费 ¥${(
+        (m.paidFen || 0) / 100
+      ).toFixed(0)}`;
+      const achievements = (data.achievements || []).map((a) =>
+        this.mapFrameRow(a),
+      );
+      const frameVipList = (data.vipFrames || []).map((a) => this.mapFrameRow(a));
+      const frameShopList = (data.shopFrames || []).map((a) =>
+        this.mapFrameRow(a),
+      );
+      const tab = this.data.frameWardrobeTab || 'achievement';
+      const patch = {
+        avatarFrameUrl: url,
+        avatarFrameId: id,
+        frameAchievements: achievements,
+        frameVipList,
+        frameShopList,
+        frameMetricsText: metricsText,
+      };
+      patch.frameList = this.frameListForTab(tab, patch);
+      this.setData(patch);
+      if (Array.isArray(data.newly) && data.newly.length) {
+        const titles = data.newly
+          .map((n) => n.title)
+          .filter(Boolean)
+          .slice(0, 2);
+        wx.showToast({
+          title: titles.length
+            ? `解锁：${titles.join('、')}`
+            : `解锁 ${data.newly.length} 个头像框`,
+          icon: 'none',
+        });
+      }
+    } catch (e) {
+      console.warn('[avatarFrame]', e && e.message);
+    }
+  },
+
+  openFrameWardrobe() {
+    this.setData({
+      frameWardrobeVisible: true,
+      frameWardrobeLoading: true,
+      frameWardrobeTab: 'achievement',
+    });
+    this.refreshAvatarFrame()
+      .catch(() => {})
+      .finally(() => this.setData({ frameWardrobeLoading: false }));
+  },
+
+  onFrameWardrobeVisible(e) {
+    const visible = !!(e && e.detail && e.detail.visible);
+    this.setData({ frameWardrobeVisible: visible });
+  },
+
+  closeFrameWardrobe() {
+    this.setData({ frameWardrobeVisible: false });
+  },
+
+  onFrameTabChange(e) {
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      '';
+    if (!id || id === this.data.frameWardrobeTab) return;
+    this.setData({
+      frameWardrobeTab: id,
+      frameList: this.frameListForTab(id, this.data),
+    });
+  },
+
+  async onEquipFrame(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const item = (this.data.frameList || [])[index];
+    if (!item) return;
+    const source = item.source || 'achievement';
+    const frameId = String(item.frameId || '').trim();
+
+    if (!item.unlocked) {
+      if (source === 'vip') {
+        this.closeFrameWardrobe();
+        this.openPricing();
+        return;
+      }
+      if (source === 'paid') {
+        if (!frameId) return;
+        await this.onBuyFrame(frameId);
+        return;
+      }
+      wx.showToast({ title: '尚未达成该成就', icon: 'none' });
+      return;
+    }
+    if (!frameId) {
+      wx.showToast({ title: '暂无头像框', icon: 'none' });
+      return;
+    }
+    const wearing = this.data.avatarFrameId === frameId;
+    wx.showLoading({ title: wearing ? '取消佩戴' : '佩戴中', mask: true });
+    try {
+      const res = await equipAvatarFrame(wearing ? '' : frameId);
+      if (res && res.ok === false) {
+        throw new Error(res.message || '佩戴失败');
+      }
+      const frame = (res && res.frame) || null;
+      const url = frame ? frame.url || frame.thumbUrl || '' : '';
+      const id = wearing ? '' : frameId;
+      const app = getApp();
+      if (app.globalData.userInfo) {
+        app.globalData.userInfo.avatarFrameUrl = url;
+        app.globalData.userInfo.avatarFrameId = id;
+      }
+      const mark = (list) =>
+        (list || []).map((a) => {
+          const equipped = !!(a.frameId && a.frameId === id);
+          return {
+            ...a,
+            frameEquipped: equipped,
+            frame: a.frame ? { ...a.frame, equipped } : a.frame,
+          };
+        });
+      const frameAchievements = mark(this.data.frameAchievements);
+      const frameVipList = mark(this.data.frameVipList);
+      const frameShopList = mark(this.data.frameShopList);
+      this.setData({
+        avatarFrameUrl: url,
+        avatarFrameId: id,
+        frameAchievements,
+        frameVipList,
+        frameShopList,
+        frameList: this.frameListForTab(this.data.frameWardrobeTab, {
+          frameAchievements,
+          frameVipList,
+          frameShopList,
+        }),
+      });
+      wx.showToast({
+        title: wearing ? '已取消佩戴' : '已佩戴',
+        icon: 'success',
+      });
+    } catch (err) {
+      wx.showToast({
+        title: (err.message || '操作失败').slice(0, 40),
+        icon: 'none',
+      });
+    } finally {
+      wx.hideLoading();
+    }
+  },
+
+  async onBuyFrame(frameId) {
+    if (this.data.frameBuyingId) return;
+    const id = String(frameId || '').trim();
+    if (!id) return;
+    this.setData({ frameBuyingId: id });
+    wx.showLoading({ title: '拉起支付', mask: true });
+    try {
+      const res = await buyAvatarFrame(id);
+      if (res && res.entitlement) {
+        setCachedEntitlement(res.entitlement);
+      }
+      wx.showToast({ title: res.message || '购买成功', icon: 'success' });
+      await this.refreshAvatarFrame();
+    } catch (err) {
+      if (err && err.code === 'CANCEL') {
+        wx.showToast({ title: '已取消', icon: 'none' });
+      } else {
+        wx.showToast({
+          title: (err.message || '购买失败').slice(0, 40),
+          icon: 'none',
+        });
+      }
+    } finally {
+      this.setData({ frameBuyingId: '' });
+      wx.hideLoading();
+    }
   },
 
   onTogglePreviewAsUser() {
@@ -1852,7 +2130,7 @@ Page({
     this.refreshIdentity();
     applyThemeToTabBar();
     wx.showToast({
-      title: next ? '已切换为普通用户预览' : '已恢复管理员视图',
+      title: next ? '已切换为普通用户预览' : '已退出普通用户预览',
       icon: 'none',
     });
   },
@@ -1863,9 +2141,13 @@ Page({
 
   async syncEntitlement() {
     try {
+      const prevVip = !!getCachedEntitlement().isVip;
       const res = await callFunction('userEntitlement', { action: 'get' });
       if (res && res.homeFeedAdEvery != null) {
         applyHomeFeedAdEveryFromSettings(res);
+      }
+      if (res && res.libraryGridAdEvery != null) {
+        applyLibraryGridAdEveryFromSettings(res);
       }
       applyDownloadCostsFromSettings(res || {});
       applyBeadCostsFromSettings(res || {});
@@ -1873,6 +2155,10 @@ Page({
       if (res.entitlement) {
         setCachedEntitlement(res.entitlement);
         this.refreshIdentity();
+        // 会员刚过期：拉衣橱 list，服务端会卸会员框并回写正确佩戴
+        if (prevVip && !res.entitlement.isVip) {
+          this.refreshAvatarFrame().catch(() => {});
+        }
         notifyFestivalAccessChange();
         this.refreshFestivalDecor();
         this.syncThemeUi();
@@ -1970,9 +2256,502 @@ Page({
     }
   },
 
+  canUseAnimatedAvatar() {
+    const ent = getCachedEntitlement() || {};
+    if (ent.isVip) return true;
+    // 管理员（非「预览为用户」）也可设动态头像
+    return !!resolveIsAdmin() && !this.data.previewAsUser;
+  },
+
+  pixabotPaletteOpts() {
+    return normalizePalette({
+      hue: this.data.pixabotHue,
+      saturate: this.data.pixabotSaturate,
+    });
+  },
+
+  matchHuePresetId(hue, saturate) {
+    const p = normalizePalette({ hue, saturate });
+    const hit = HUE_PRESETS.find(
+      (item) =>
+        item.hue === p.hue &&
+        Math.abs(Number(item.saturate) - p.saturate) < 0.05,
+    );
+    return hit ? hit.id : '';
+  },
+
+  /**
+   * @param {object} combo
+   * @param {string} [category]
+   * @param {{ hue?: number, saturate?: number }} [paletteOverride]
+   *   色相变更必须传入；勿读尚未落地的 setData
+   */
+  async applyPixabotCombo(combo, category, paletteOverride) {
+    const next = {
+      eyes: Number(combo.eyes) || 0,
+      heads: Number(combo.heads) || 0,
+      body: Number(combo.body) || 0,
+      top: Number(combo.top) || 0,
+    };
+    const id = encodeCombo(next);
+    const cat = category || this.data.pixabotCategory || 'eyes';
+    this._pixabotCombo = next;
+    const token = (this._pixabotPreviewToken = (this._pixabotPreviewToken || 0) + 1);
+    const palette = normalizePalette(
+      paletteOverride != null ? paletteOverride : this.pixabotPaletteOpts(),
+    );
+    const wantGif = (this.data.pixabotFormat || 'png') === 'gif';
+
+    await new Promise((resolve) => {
+      this.setData(
+        {
+          pixabotCombo: next,
+          pixabotId: id,
+          pixabotPartOptions: buildPartOptions(cat),
+          pixabotSelectedIndex: Number(next[cat]) || 0,
+          pixabotHue: palette.hue,
+          pixabotSaturate: palette.saturate,
+          pixabotHuePresetId: this.matchHuePresetId(palette.hue, palette.saturate),
+          pixabotPreviewLoading: true,
+        },
+        resolve,
+      );
+    });
+
+    try {
+      const pngPath = await renderPixabotPng(next, {
+        size: 160,
+        bg: '#f3f4f6',
+        ...palette,
+      });
+      if (token !== this._pixabotPreviewToken) return;
+      this.setData({
+        pixabotPreviewUrl: pngPath,
+        pixabotPreviewLoading: false,
+      });
+      if (!wantGif) return;
+      renderPixabotGif(next, { size: 160, bg: '#f3f4f6', ...palette })
+        .then((gifPath) => {
+          if (token !== this._pixabotPreviewToken) return;
+          if (!this.data.pixabotSheetVisible) return;
+          this.setData({ pixabotPreviewUrl: gifPath });
+        })
+        .catch(() => {
+          /* GIF 失败保留 PNG 预览 */
+        });
+    } catch (err) {
+      if (token !== this._pixabotPreviewToken) return;
+      this.setData({ pixabotPreviewLoading: false });
+      wx.showToast({
+        title: ((err && err.message) || '预览失败').slice(0, 40),
+        icon: 'none',
+      });
+    }
+  },
+
+  pixabotFormatMeta(format, cost, canAnimate) {
+    const c = Math.max(1, Number(cost) || Number(this.data.pixabotCost) || 2);
+    const anim =
+      typeof canAnimate === 'boolean' ? canAnimate : this.canUseAnimatedAvatar();
+    const fmt = format === 'gif' || format === 'json' ? format : 'png';
+    if (fmt === 'gif') {
+      return {
+        pixabotFormat: 'gif',
+        pixabotCanAnimate: anim,
+        pixabotFormatHint: anim
+          ? `GIF：设为动态头像 · ${c} 积分`
+          : 'GIF：动态头像仅会员可设',
+        pixabotSetLabel: anim ? `设为动态头像 · ${c} 积分` : '开通会员后可设',
+      };
+    }
+    if (fmt === 'json') {
+      return {
+        pixabotFormat: 'json',
+        pixabotCanAnimate: anim,
+        pixabotFormatHint: 'JSON：复制部件组合（免费）',
+        pixabotSetLabel: '复制 JSON',
+      };
+    }
+    return {
+      pixabotFormat: 'png',
+      pixabotCanAnimate: anim,
+      pixabotFormatHint: `PNG：设为静态头像 · ${c} 积分`,
+      pixabotSetLabel: `设为静态头像 · ${c} 积分`,
+    };
+  },
+
+  refreshPixabotExportLabel() {
+    const meta = this.pixabotFormatMeta(
+      this.data.pixabotFormat,
+      this.data.pixabotCost,
+      this.data.pixabotCanAnimate,
+    );
+    this.setData({
+      pixabotFormatHint: meta.pixabotFormatHint,
+      pixabotSetLabel: meta.pixabotSetLabel,
+      pixabotCanAnimate: meta.pixabotCanAnimate,
+    });
+  },
+
+  async ensureAvatarPoints({ animated = false } = {}) {
+    const cost = Math.max(1, Number(this.data.pixabotCost) || 2);
+    const ent = getCachedEntitlement() || {};
+    if (animated && !this.canUseAnimatedAvatar()) {
+      const go = await new Promise((resolve) => {
+        wx.showModal({
+          title: '会员专属',
+          content: '动态头像仅包月会员可用，要去看看会员吗？',
+          confirmText: '去看看',
+          cancelText: '取消',
+          success: (r) => resolve(!!r.confirm),
+          fail: () => resolve(false),
+        });
+      });
+      if (go) {
+        this.closePixabotSheet();
+        this.openPricing();
+      }
+      return { ok: false };
+    }
+    const bal = spendablePoints(ent);
+    if (bal < cost) {
+      const go = await new Promise((resolve) => {
+        wx.showModal({
+          title: '积分不足',
+          content: `设头像需 ${cost} 积分，当前可用 ${bal}。去开通或买积分？`,
+          confirmText: '去看看',
+          cancelText: '取消',
+          success: (r) => resolve(!!r.confirm),
+          fail: () => resolve(false),
+        });
+      });
+      if (go) {
+        this.closePixabotSheet();
+        this.openPricing();
+      }
+      return { ok: false };
+    }
+    const spend = await callFunction('userEntitlement', {
+      action: 'spendFeature',
+      feature: 'avatarCreate',
+      animated: !!animated,
+    });
+    if (spend && spend.ok === false) {
+      if (spend.code === 'VIP_REQUIRED') {
+        const go = await new Promise((resolve) => {
+          wx.showModal({
+            title: '会员专属',
+            content: spend.message || '动态头像仅会员可用',
+            confirmText: '去看看',
+            cancelText: '取消',
+            success: (r) => resolve(!!r.confirm),
+            fail: () => resolve(false),
+          });
+        });
+        if (go) {
+          this.closePixabotSheet();
+          this.openPricing();
+        }
+      } else {
+        wx.showToast({
+          title: (spend.message || '扣费失败').slice(0, 40),
+          icon: 'none',
+        });
+      }
+      return { ok: false, spend };
+    }
+    if (spend && spend.entitlement) {
+      setCachedEntitlement(spend.entitlement);
+      this.refreshIdentity();
+    }
+    return { ok: true, spend, cost };
+  },
+
+  setPixabotSheetUi(visible) {
+    if (visible) {
+      this.setData({
+        pixabotSheetVisible: true,
+        pixabotPageStyle: 'overflow: hidden;',
+      });
+    } else {
+      this._pixabotPreviewToken = (this._pixabotPreviewToken || 0) + 1;
+      this.setData({
+        pixabotSheetVisible: false,
+        pixabotPreviewLoading: false,
+        pixabotPageStyle: '',
+      });
+    }
+  },
+
+  resolvePixabotOpenState() {
+    const last = loadLastPixabot();
+    if (last) {
+      return {
+        combo: last.combo,
+        hue: last.hue,
+        saturate: last.saturate,
+        format: last.format || 'png',
+      };
+    }
+    const cached = getUserProfile() || {};
+    const fromFile = parsePixabotIdFromFileID(
+      cached.avatarFileID || this.data.avatarFileID || '',
+    );
+    if (fromFile && isValidId(fromFile)) {
+      return {
+        combo: decodeId(fromFile),
+        hue: 0,
+        saturate: 1,
+        format: 'png',
+      };
+    }
+    const openid = getOpenId() || '';
+    const seeded = resolvePixabotParams(openid);
+    return {
+      combo: decodeId(seeded.id),
+      hue: Number(seeded.hue) || 0,
+      saturate: 1.25,
+      format: this.data.pixabotFormat || 'png',
+    };
+  },
+
+  openPixabotSheet() {
+    const boot = this.resolvePixabotOpenState();
+    const combo = boot.combo;
+    const hue = boot.hue;
+    const saturate = boot.saturate;
+    const ent = getCachedEntitlement() || {};
+    const cost = Math.max(
+      1,
+      Number(ent.costAvatarCreate || this.data.pixabotCost || 2) || 2,
+    );
+    const canAnimate = this.canUseAnimatedAvatar();
+    const formatMeta = this.pixabotFormatMeta(
+      boot.format || this.data.pixabotFormat || 'png',
+      cost,
+      canAnimate,
+    );
+    this._pixabotOpening = true;
+    this.setPixabotSheetUi(true);
+    this.setData({
+      pixabotCategory: 'eyes',
+      pixabotCost: cost,
+      pixabotCanAnimate: canAnimate,
+      pixabotPartOptions: buildPartOptions('eyes'),
+      pixabotHue: hue,
+      pixabotSaturate: saturate,
+      pixabotHuePresetId: this.matchHuePresetId(hue, saturate),
+      pixabotHuePresets: HUE_PRESETS,
+      pixabotPreviewUrl: '',
+      ...formatMeta,
+    });
+    this.applyPixabotCombo(combo, 'eyes', { hue, saturate });
+    setTimeout(() => {
+      this._pixabotOpening = false;
+    }, 0);
+    callFunction('userEntitlement', { action: 'get' })
+      .then((res) => {
+        if (res && res.entitlement) setCachedEntitlement(res.entitlement);
+        const nextEnt = (res && res.entitlement) || getCachedEntitlement() || {};
+        const nextCost = Math.max(
+          1,
+          Number(
+            (res && res.costAvatarCreate) != null
+              ? res.costAvatarCreate
+              : nextEnt.costAvatarCreate || this.data.pixabotCost || 2,
+          ) || 2,
+        );
+        const nextAnim = this.canUseAnimatedAvatar();
+        const meta = this.pixabotFormatMeta(this.data.pixabotFormat, nextCost, nextAnim);
+        this.setData({
+          pixabotCost: nextCost,
+          pixabotCanAnimate: nextAnim,
+          ...meta,
+        });
+      })
+      .catch(() => {});
+  },
+
+  closePixabotSheet() {
+    this.setPixabotSheetUi(false);
+  },
+
+  onPixabotSheetVisible(e) {
+    const visible = !!(e && e.detail && e.detail.visible);
+    if (!visible) {
+      this.setPixabotSheetUi(false);
+      return;
+    }
+    // 打开由 openPixabotSheet 负责，避免 visible-change 再跑一遍抢 token
+    if (this._pixabotOpening) return;
+    this.setPixabotSheetUi(true);
+  },
+
+  onPixabotFormatChange(e) {
+    const format =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.format) ||
+      (e.target && e.target.dataset && e.target.dataset.format) ||
+      'png';
+    const meta = this.pixabotFormatMeta(
+      format,
+      this.data.pixabotCost,
+      this.canUseAnimatedAvatar(),
+    );
+    this.setData(meta, () => {
+      if (meta.pixabotFormat === 'json') return;
+      this.applyPixabotCombo(
+        this._pixabotCombo || this.data.pixabotCombo,
+        this.data.pixabotCategory || 'eyes',
+        this.pixabotPaletteOpts(),
+      );
+    });
+  },
+
+  onPixabotCopyId() {
+    const id = String(this.data.pixabotId || '').trim();
+    if (!id) return;
+    wx.setClipboardData({
+      data: id,
+      success: () => wx.showToast({ title: '已复制 ID', icon: 'success' }),
+    });
+  },
+
+  onPixabotCategoryChange(e) {
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      '';
+    if (!id || id === this.data.pixabotCategory) return;
+    const combo = this.data.pixabotCombo || {};
+    this.setData({
+      pixabotCategory: id,
+      pixabotPartOptions: buildPartOptions(id),
+      pixabotSelectedIndex: Number(combo[id]) || 0,
+    });
+  },
+
+  onPixabotPartPick(e) {
+    if (this.data.pixabotSetting) return;
+    const index = Number(e.currentTarget.dataset.index);
+    if (!Number.isFinite(index) || index < 0) return;
+    const cat = this.data.pixabotCategory || 'eyes';
+    const combo = { ...(this._pixabotCombo || this.data.pixabotCombo || {}) };
+    if (Number(combo[cat]) === index) return;
+    combo[cat] = index;
+    this.applyPixabotCombo(combo);
+  },
+
+  onPixabotHuePick(e) {
+    if (this.data.pixabotSetting) return;
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      '';
+    const preset = HUE_PRESETS.find((item) => item.id === id);
+    if (!preset) return;
+    if (
+      preset.id === this.data.pixabotHuePresetId &&
+      preset.hue === this.data.pixabotHue
+    ) {
+      return;
+    }
+    this.applyPixabotCombo(this._pixabotCombo || this.data.pixabotCombo, null, {
+      hue: preset.hue,
+      saturate: preset.saturate,
+    });
+  },
+
+  onPixabotShuffle() {
+    if (this.data.pixabotSetting) return;
+    const palette = randomPalette();
+    const combo = randomCombo();
+    // 部件 + 色相一起随机，并立刻反映到选中态
+    this.applyPixabotCombo(combo, this.data.pixabotCategory || 'eyes', palette);
+  },
+
+  copyPixabotJson() {
+    const id = String(this.data.pixabotId || '').trim();
+    const combo = this._pixabotCombo || this.data.pixabotCombo || {};
+    const palette = this.pixabotPaletteOpts();
+    const payload = JSON.stringify(
+      {
+        id,
+        eyes: Number(combo.eyes) || 0,
+        heads: Number(combo.heads) || 0,
+        body: Number(combo.body) || 0,
+        top: Number(combo.top) || 0,
+        hue: palette.hue,
+        saturate: palette.saturate,
+      },
+      null,
+      2,
+    );
+    wx.setClipboardData({
+      data: payload,
+      success: () => wx.showToast({ title: '已复制 JSON', icon: 'success' }),
+    });
+  },
+
+  /** 设为资料头像（扣积分） */
+  async onPixabotSetAvatar() {
+    if (this.data.pixabotSetting) return;
+    const id = String(this.data.pixabotId || '').trim();
+    if (!id) return;
+    const format = this.data.pixabotFormat || 'png';
+    if (format === 'json') {
+      this.copyPixabotJson();
+      return;
+    }
+
+    const animated = format === 'gif';
+    if (animated && !this.canUseAnimatedAvatar()) {
+      await this.ensureAvatarPoints({ animated: true });
+      return;
+    }
+
+    const combo = this._pixabotCombo || this.data.pixabotCombo;
+    const palette = this.pixabotPaletteOpts();
+    this.setData({ pixabotSetting: true, pixabotPreviewLoading: true });
+    wx.showLoading({ title: animated ? '设为动图头像' : '设为头像', mask: true });
+    try {
+      const paidKey = `set:${id}:${format}:${palette.hue}:${palette.saturate}`;
+      if (this._pixabotPaidId !== paidKey) {
+        const paid = await this.ensureAvatarPoints({ animated });
+        if (!paid.ok) return;
+        this._pixabotPaidId = paidKey;
+      }
+
+      const openid = getOpenId() || 'anon';
+      const filePath = animated
+        ? await renderPixabotGif(combo, { size: 256, bg: '#f3f4f6', ...palette })
+        : await renderPixabotPng(combo, { size: 256, bg: '#f3f4f6', ...palette });
+      const ext = animated ? 'gif' : 'png';
+      const cloudPath = `avatars/${openid}_pixabot_${id}_${Date.now()}.${ext}`;
+      const fileID = await uploadFile(cloudPath, filePath);
+      await this.saveProfile({ avatarFileID: fileID });
+      saveLastPixabot({
+        id,
+        hue: palette.hue,
+        saturate: palette.saturate,
+        format: animated ? 'gif' : 'png',
+      });
+      this._pixabotPaidId = '';
+      this.closePixabotSheet();
+    } catch (err) {
+      wx.showToast({
+        title: (err && err.message ? err.message : '设置失败').slice(0, 40),
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ pixabotSetting: false, pixabotPreviewLoading: false });
+      this.refreshPixabotExportLabel();
+      wx.hideLoading();
+    }
+  },
+
+  /** 微信头像：免费上传 */
   async onChooseAvatar(e) {
     const tempPath = e.detail && e.detail.avatarUrl;
-    if (!tempPath) return;
+    if (!tempPath || this.data.pixabotSetting) return;
+    this.setPixabotSheetUi(false);
     this.setData({ avatarUrl: tempPath });
     wx.showLoading({ title: '上传头像', mask: true });
     try {
@@ -1981,7 +2760,7 @@ Page({
       const fileID = await uploadFile(cloudPath, tempPath);
       await this.saveProfile({ avatarFileID: fileID });
     } catch (err) {
-      wx.showToast({ title: err.message || '头像上传失败', icon: 'none' });
+      wx.showToast({ title: (err && err.message) || '头像上传失败', icon: 'none' });
     } finally {
       wx.hideLoading();
     }
@@ -2206,6 +2985,7 @@ Page({
     });
     this.syncEntitlement();
     this.refreshIdentity();
+    syncAchievements({ toast: true }).then(() => this.refreshAvatarFrame());
   },
 
   async refreshCheckinEntry() {

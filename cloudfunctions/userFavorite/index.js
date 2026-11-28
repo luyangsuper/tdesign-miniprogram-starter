@@ -18,7 +18,44 @@ const PACK_FIELDS = {
   coverWidth: true,
   coverHeight: true,
   status: true,
+  emojiFileIDs: true,
+  emojiAnimFileIDs: true,
+  previewFileIDs: true,
 };
+
+/** 与 listPacks 对齐：表情/头像取最多 6 张预览 */
+function pickGridFileIDs(pack, contentType) {
+  const coverId = String((pack && pack.coverFileID) || '').trim();
+  const anims = Array.isArray(pack && pack.emojiAnimFileIDs)
+    ? pack.emojiAnimFileIDs
+    : [];
+  const statics = Array.isArray(pack && pack.emojiFileIDs) ? pack.emojiFileIDs : [];
+  const previews = Array.isArray(pack && pack.previewFileIDs)
+    ? pack.previewFileIDs
+    : [];
+  const ids = [];
+  const push = (id) => {
+    const s = String(id || '').trim();
+    if (!s || ids.includes(s) || ids.length >= 6) return;
+    ids.push(s);
+  };
+  if (contentType === 'avatar') {
+    statics.forEach(push);
+    previews.forEach(push);
+    push(coverId);
+  } else {
+    anims.forEach(push);
+    statics.forEach(push);
+    previews.forEach(push);
+    push(coverId);
+  }
+  return ids.slice(0, 6);
+}
+
+function needsPreviewGrid(contentType) {
+  const t = normalizeContentType(contentType);
+  return t === 'emoji' || t === 'avatar';
+}
 
 function normalizePackId(raw) {
   return String(raw || '').trim().slice(0, 64);
@@ -194,21 +231,51 @@ async function listFavorites(openid, event = {}) {
     );
   }
 
-  const urlMap = await resolveCoverUrls(live.map((x) => x.pack.coverFileID));
+  const fileIdSet = new Set();
+  live.forEach(({ pack }) => {
+    const ct = normalizeContentType(pack.contentType);
+    if (pack.coverFileID) fileIdSet.add(String(pack.coverFileID).trim());
+    if (needsPreviewGrid(ct)) {
+      pickGridFileIDs(pack, ct).forEach((id) => {
+        if (id) fileIdSet.add(id);
+      });
+    }
+  });
+  const urlMap = await resolveCoverUrls(Array.from(fileIdSet));
   const list = live.map(({ fav, pack }) => {
     const cw = Number(pack.coverWidth) || 0;
     const ch = Number(pack.coverHeight) || 0;
     const ms = toMs(fav.createdAt);
+    const contentType = normalizeContentType(pack.contentType);
+    let previewFileIDs = [];
+    let previewUrls = [];
+    if (needsPreviewGrid(contentType)) {
+      const pairs = pickGridFileIDs(pack, contentType)
+        .map((id) => {
+          const fileID = String(id || '').trim();
+          const url = (fileID && urlMap[fileID]) || '';
+          return fileID && url ? { fileID, url } : null;
+        })
+        .filter(Boolean);
+      previewFileIDs = pairs.map((x) => x.fileID);
+      previewUrls = pairs.map((x) => x.url);
+    }
+    const emojiCount = Number(pack.emojiCount) || 0;
+    const slotCap = Math.max(1, previewUrls.length || 4);
+    const moreCount = emojiCount > slotCap ? emojiCount - (slotCap - 1) : 0;
     return {
       packId: pack._id,
       title: pack.title || '未命名合集',
       coverUrl: urlMap[pack.coverFileID] || '',
       coverRatio: cw > 0 && ch > 0 ? ch / cw : 0,
-      contentType: normalizeContentType(pack.contentType),
-      emojiCount: pack.emojiCount || 0,
+      contentType,
+      emojiCount,
       downloadCount: pack.downloadCount || 0,
       categoryId: pack.categoryId || '',
       categoryName: pack.categoryName || '',
+      previewFileIDs,
+      previewUrls,
+      moreCount,
       createdAt: ms,
       createdText: formatDate(ms),
     };

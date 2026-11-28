@@ -19,7 +19,17 @@
     t-class="home__navbar"
     custom-style="{{navBarStyle}}"
   >
-    <view wx:if="{{!searchExpanded}}" slot="title" class="home__brand">
+    <view
+      wx:if="{{!searchExpanded}}"
+      slot="title"
+      class="home__brand"
+      hover-class="home__brand--press"
+      hover-start-time="20"
+      hover-stay-time="80"
+      catchtap="onBrandTap"
+      aria-role="button"
+      aria-label="趣图铺子，查看更新说明"
+    >
       <image
         class="home__brand-logo"
         src="/static/brand/logo.png"
@@ -27,6 +37,7 @@
         aria-hidden="true"
       />
       <text class="home__brand-name">趣图铺子</text>
+      <view wx:if="{{whatsNewBadge}}" class="home__brand-dot" aria-hidden="true" />
     </view>
   </t-navbar>
   <!-- 搜索抬到导航行：展开用 left+right 限位，右缘停在「多选」左侧 -->
@@ -134,52 +145,24 @@
   <view
     class="home__body"
     style="padding-top: {{fixedOffset}}px;"
-    bindtouchstart="onBodyTouchStart"
-    bindtouchmove="onBodyTouchMove"
-    bindtouchend="onBodyTouchEnd"
-    bindtouchcancel="onBodyTouchEnd"
   >
     <view class="home__swipe-stage">
-      <!-- 露白提示：hidden 代替 wx:if，避免跟手时反复挂载 -->
       <view
-        class="home__swipe-hint home__swipe-hint--left"
-        hidden="{{!swipeHintLeft.show}}"
-        style="width: {{swipeHintLeft.revealWidth}}px; top: {{navHeight + fixedOffset}}px; opacity: {{swipeHintLeft.opacity}};"
+        class="home__pane"
+        style="padding-left: {{listGap}}px; padding-right: {{listGap}}px;"
       >
-        <image class="home__swipe-hint-icon" src="{{swipeHintLeft.icon}}" mode="aspectFit" />
-        <text class="home__swipe-hint-title">{{swipeHintLeft.title}}</text>
-        <text class="home__swipe-hint-name">{{swipeHintLeft.name}}</text>
-      </view>
-      <view
-        class="home__swipe-hint home__swipe-hint--right"
-        hidden="{{!swipeHintRight.show}}"
-        style="width: {{swipeHintRight.revealWidth}}px; top: {{navHeight + fixedOffset}}px; opacity: {{swipeHintRight.opacity}};"
-      >
-        <image class="home__swipe-hint-icon" src="{{swipeHintRight.icon}}" mode="aspectFit" />
-        <text class="home__swipe-hint-title">{{swipeHintRight.title}}</text>
-        <text class="home__swipe-hint-name">{{swipeHintRight.name}}</text>
-      </view>
-
-      <view
-        class="home__pane {{swipeDragging ? 'home__pane--dragging' : ''}} {{swipeX ? 'home__pane--away' : ''}}"
-        style="transform: translate3d({{swipeX}}px, 0, 0); padding-left: {{listGap}}px; padding-right: {{listGap}}px;"
-      >
-        <view class="home__pane-inner home__pane-inner--{{pageAnim}}">
-          <!--
-            用原生 scroll-view：TDesign pull-down-refresh 无法动态关 scroll-y，
-            左右滑切分类时必须禁止纵向滚动，否则和跟手 transform 抢主线程会卡顿。
-          -->
+        <view class="home__pane-inner">
           <scroll-view
             class="home__scroller"
             style="height: {{scrollerHeight}}px;"
-            scroll-y="{{!swipeScrollLock}}"
+            scroll-y
             enhanced
             show-scrollbar="{{false}}"
             bounces="{{false}}"
             scroll-top="{{scrollerTop}}"
             scroll-into-view="{{scrollerIntoView}}"
             scroll-with-animation
-            refresher-enabled="{{!swipeScrollLock}}"
+            refresher-enabled
             refresher-threshold="{{80}}"
             refresher-default-style="none"
             refresher-triggered="{{enable}}"
@@ -222,7 +205,7 @@
               <view class="home__lib-banner-main">
                 <view class="home__lib-banner-head">
                   <text class="home__lib-banner-title">发现更多有趣素材</text>
-                  <t-tag size="small" variant="light" content="NEW" />
+                  <t-tag size="small" variant="light" theme="danger">NEW</t-tag>
                 </view>
                 <text class="home__lib-banner-desc">表情 · 梗图 · 动图 · 静图</text>
                 <view class="home__lib-banner-cta">
@@ -230,7 +213,82 @@
                   <text class="cta-arrow">→</text>
                 </view>
               </view>
+              <view
+                wx:if="{{libBannerThumbs.length}}"
+                class="home__lib-banner-thumbs"
+                aria-hidden="true"
+              >
+                <view
+                  wx:for="{{libBannerThumbs}}"
+                  wx:key="url"
+                  class="home__lib-banner-thumb"
+                >
+                  <smart-image
+                    src="{{item.url}}"
+                    file-id="{{item.fileId}}"
+                    mode="aspectFill"
+                    shape="round"
+                    lazy
+                    radius="16rpx"
+                    transparent
+                  />
+                </view>
+              </view>
             </view>
+
+            <!-- 搜索命中素材库（与合集列表并行，轻量横滑） -->
+            <view
+              wx:if="{{!selectMode && keyword && (libSearchHits.length || libSearchLoading)}}"
+              class="home__lib-hits"
+            >
+              <view class="home__lib-hits-head">
+                <text class="home__lib-hits-title">素材库</text>
+                <text wx:if="{{libSearchLoading}}" class="home__lib-hits-meta">搜索中…</text>
+                <text
+                  wx:elif="{{libSearchHits.length}}"
+                  class="home__lib-hits-more"
+                  catchtap="goLibrarySearchMore"
+                >更多</text>
+              </view>
+              <scroll-view
+                wx:if="{{libSearchHits.length}}"
+                class="home__lib-hits-scroll"
+                scroll-x
+                enhanced
+                show-scrollbar="{{false}}"
+                enable-flex
+              >
+                <view class="home__lib-hits-row">
+                  <view
+                    wx:for="{{libSearchHits}}"
+                    wx:key="_id"
+                    class="home__lib-hit"
+                    data-id="{{item._id}}"
+                    data-sourceid="{{item.sourceId}}"
+                    bindtap="onLibSearchTap"
+                    hover-class="home__lib-hit--press"
+                    hover-start-time="20"
+                    hover-stay-time="80"
+                  >
+                    <view class="home__lib-hit-thumb">
+                      <smart-image
+                        wx:if="{{item.previewUrl}}"
+                        src="{{item.previewUrl}}"
+                        file-id="{{item.previewFileID}}"
+                        mode="aspectFill"
+                        shape="round"
+                        lazy
+                        radius="20rpx"
+                        transparent
+                      />
+                    </view>
+                    <text class="home__lib-hit-name">{{item.name}}</text>
+                    <text class="home__lib-hit-src">{{item.sourceTitle}}</text>
+                  </view>
+                </view>
+              </scroll-view>
+            </view>
+
             <block wx:if="{{!loading && list.length}}">
               <view class="home__feed" style="gap: {{rowGap}}px;">
                 <block wx:for="{{feedBlocks}}" wx:key="key">
@@ -279,7 +337,10 @@
                         </view>
                         <text wx:else class="home__pack-row-more">更多</text>
                       </view>
-                      <view class="home__pack-row-grid">
+                      <view
+                        class="home__pack-row-grid"
+                        style="grid-template-columns: repeat({{previewRowCount}}, 1fr);"
+                      >
                         <view
                           wx:for="{{item.pack.previewSlots}}"
                           wx:for-item="slot"
@@ -287,31 +348,22 @@
                           wx:key="key"
                           class="home__pack-row-cell"
                         >
-                          <t-image
-                            class="home__pack-row-img"
-                            t-class="home__pack-row-t-image"
-                            t-class-load="home__pack-row-t-load"
-                            t-class-error="home__pack-row-t-error"
+                          <smart-image
                             src="{{slot.url}}"
+                            file-id="{{slot.fileID}}"
+                            cache-key="{{slot.cacheKey}}"
                             mode="aspectFill"
                             shape="round"
                             lazy
                             webp
-                            loading="slot"
-                            error="slot"
-                            width="100%"
-                            height="100%"
+                            radius="14rpx"
+                            transparent
                             data-pack-id="{{item.pack._id}}"
                             data-index="{{ti}}"
-                            bind:error="onPreviewError"
-                          >
-                            <view slot="loading" class="home__pack-row-skeleton" aria-hidden="true" />
-                            <view slot="error" class="home__pack-row-error" aria-hidden="true">
-                              <view class="home__pack-row-error-x" />
-                            </view>
-                          </t-image>
+                            bind:resign="onPreviewResign"
+                          />
                           <view
-                            wx:if="{{ti === 3 && item.pack.moreCount > 0}}"
+                            wx:if="{{slot.showMore && item.pack.moreCount > 0}}"
                             class="home__pack-row-moremask"
                           >+{{item.pack.moreCount}}</view>
                         </view>
@@ -326,7 +378,14 @@
                             custom-style="{{item.pack.categoryTagStyle}}"
                           >{{item.pack.categoryName}}</t-tag>
                         </view>
-                        <text wx:if="{{item.pack.countText}}" class="home__pack-row-meta">{{item.pack.countText}}</text>
+                        <text
+                          wx:if="{{isAdmin}}"
+                          class="home__pack-row-meta"
+                        >{{item.pack.countText ? item.pack.countText + ' · ' : ''}}下载 {{item.pack.downloadCount || 0}}</text>
+                        <text
+                          wx:elif="{{item.pack.countText}}"
+                          class="home__pack-row-meta"
+                        >{{item.pack.countText}}</text>
                       </view>
                     </view>
                   </view>
@@ -533,7 +592,7 @@
   </view>
 </t-dialog>
 
-<!-- 版本更新说明（每个版本仅首次） -->
+<!-- 版本更新说明（全部历史；升级时展示旧 → 新） -->
 <t-popup
   visible="{{whatsNewVisible}}"
   placement="center"
@@ -544,17 +603,52 @@
       <kubai-icon name="sparkles" size="40rpx" color="#f59e0b" />
       <text>{{whatsNewTitle}}</text>
     </view>
-    <view wx:if="{{whatsNewVersion}}" class="home__whats-new-ver">v{{whatsNewVersion}}</view>
-    <view class="home__whats-new-list">
-      <view
-        wx:for="{{whatsNewItems}}"
-        wx:key="index"
-        class="home__whats-new-item"
-      >
-        <text class="home__whats-new-num">{{index + 1}}.</text>
-        <text class="home__whats-new-text">{{item}}</text>
+
+    <view wx:if="{{whatsNewShowUpgrade}}" class="home__whats-new-upgrade">
+      <view class="home__whats-new-pill home__whats-new-pill--from">
+        v{{whatsNewFromVersion}}
+      </view>
+      <view class="home__whats-new-arrow" aria-hidden="true">
+        <kubai-icon name="chevron-right" size="28rpx" color="#00b853" />
+      </view>
+      <view class="home__whats-new-pill home__whats-new-pill--to">
+        v{{whatsNewVersion}}
       </view>
     </view>
+    <view wx:elif="{{whatsNewVersion}}" class="home__whats-new-ver">
+      v{{whatsNewVersion}}
+    </view>
+
+    <scroll-view
+      class="home__whats-new-scroll"
+      scroll-y
+      enhanced
+      show-scrollbar="{{false}}"
+    >
+      <view
+        wx:for="{{whatsNewReleases}}"
+        wx:key="version"
+        class="home__whats-new-release {{item.isCurrent ? 'home__whats-new-release--current' : ''}}"
+      >
+        <view class="home__whats-new-release-head">
+          <text class="home__whats-new-release-ver">v{{item.version}}</text>
+          <text wx:if="{{item.isCurrent}}" class="home__whats-new-release-tag">当前</text>
+        </view>
+        <view class="home__whats-new-list">
+          <view
+            wx:for="{{item.items}}"
+            wx:for-item="line"
+            wx:for-index="lineIdx"
+            wx:key="lineIdx"
+            class="home__whats-new-item"
+          >
+            <text class="home__whats-new-num">{{lineIdx + 1}}.</text>
+            <text class="home__whats-new-text">{{line}}</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
     <t-button
       theme="primary"
       size="large"

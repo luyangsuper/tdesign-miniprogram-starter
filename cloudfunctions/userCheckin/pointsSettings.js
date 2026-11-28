@@ -12,6 +12,8 @@ const DEFAULTS = {
   saveAdRewardDailyMax: 8,
   /** 首页信息流每隔多少个合集插一条原生广告；0=关闭；建议 6～8 */
   homeFeedAdEvery: 6,
+  /** 素材库网格每隔多少个表情插一条广告；0=关闭；建议 8～16 */
+  libraryGridAdEvery: 12,
   /** 保存单价（与客户端 config.downloadCosts 默认对齐） */
   costStatic: 1,
   costAnim: 2,
@@ -39,6 +41,13 @@ function clampHomeFeedAdEvery(n, fallback) {
   const v = Number(n);
   if (Number.isNaN(v)) return fallback;
   return Math.max(0, Math.min(20, Math.floor(v)));
+}
+
+function clampLibraryGridAdEvery(n, fallback) {
+  const v = Number(n);
+  if (Number.isNaN(v)) return fallback;
+  if (v === 0) return 0;
+  return Math.max(4, Math.min(40, Math.floor(v)));
 }
 
 /** 保存单价：至少 1，避免误设成免费 */
@@ -69,6 +78,10 @@ function normalizeSettings(raw = {}) {
     homeFeedAdEvery: clampHomeFeedAdEvery(
       raw.homeFeedAdEvery,
       DEFAULTS.homeFeedAdEvery,
+    ),
+    libraryGridAdEvery: clampLibraryGridAdEvery(
+      raw.libraryGridAdEvery,
+      DEFAULTS.libraryGridAdEvery,
     ),
     costStatic: clampDownloadCost(raw.costStatic, DEFAULTS.costStatic),
     costAnim: clampDownloadCost(raw.costAnim, DEFAULTS.costAnim),
@@ -150,6 +163,10 @@ async function savePointsSettings(db, patch, meta = {}) {
       patch.homeFeedAdEvery !== undefined && patch.homeFeedAdEvery !== null
         ? patch.homeFeedAdEvery
         : prev.homeFeedAdEvery,
+    libraryGridAdEvery:
+      patch.libraryGridAdEvery !== undefined && patch.libraryGridAdEvery !== null
+        ? patch.libraryGridAdEvery
+        : prev.libraryGridAdEvery,
     costStatic:
       patch.costStatic !== undefined && patch.costStatic !== null
         ? patch.costStatic

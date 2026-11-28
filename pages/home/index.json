@@ -17,6 +17,7 @@
     "lottery-host": "/components/lottery-host/index",
     "points-reward": "/components/points-reward/index",
     "festival-decor": "/components/festival-decor/index",
-    "kubai-icon": "/components/kubai-icon/index"
+    "kubai-icon": "/components/kubai-icon/index",
+    "smart-image": "/components/smart-image/index"
   }
 }

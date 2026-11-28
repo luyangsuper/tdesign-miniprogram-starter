@@ -7,6 +7,7 @@
     "t-image": "tdesign-miniprogram/image/image",
     "fun-loading": "/components/fun-loading/index",
     "fun-empty": "/components/fun-empty/index",
-    "t-empty": "tdesign-miniprogram/empty/empty"
+    "t-empty": "tdesign-miniprogram/empty/empty",
+    "smart-image": "/components/smart-image/index"
   }
 }

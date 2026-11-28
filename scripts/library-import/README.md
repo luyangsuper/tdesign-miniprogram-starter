@@ -10,7 +10,7 @@
 
 微信侧 wasm 在 `wasm/gifski/`（`npm run gifski:wx` 从 `gifski-wasm` 生成）。该库为 **AGPL-3.0**，上线前请自行评估开源义务。
 
-### 四个源卡
+### 源卡
 
 | sourceId | 内容 |
 | --- | --- |
@@ -18,6 +18,7 @@
 | `fluent-emoji` | Microsoft Fluent Animated（sitemap + 稳定 `/emojis/fluent/{slug}.gif`） |
 | `animatemojis-community` | 社区 `ae-*`（sitemap hashed CDN） |
 | `meme-api` | [萌芽 meme-api](https://github.com/shumengya/meme-api)（≈2648；`meme.smyhub.com`；**CC BY-NC-SA 4.0**，本源免费） |
+| `particlefx` | [ParticleFX](https://particlefx.studio) 粒子特效动图（一效果一条，颜色在 `meta.variants`；**4 积分**） |
 
 ### 与官方 [Noto Emoji Files](https://googlefonts.github.io/noto-emoji-files/) 的关系
 
@@ -77,7 +78,17 @@ npm run library:upload -- --mode other --concurrency 8
 # 萌芽 meme-api（先试跑再全量；可 --category 滑稽 / --fresh 刷新清单）
 npm run library:upload -- --mode meme --limit 30 --concurrency 8
 npm run library:upload -- --mode meme --concurrency 8
+
+# ParticleFX 粒子特效（一效果一条，颜色进 meta.variants；可断点续传）
+npm run library:upload:particlefx -- --limit 2
+npm run library:upload:particlefx -- --resume
+npm run library:upload:particlefx -- --only-slug drifting-embers-overlay
+
+# 上传后若素材库看不到：强制 enabled + 刷新计数/预览
+node scripts/library-import/repair-particlefx-source.mjs
 ```
+
+列表不按颜色拆行；小程序点开后选颜色再下载。源 `particlefx` 须 `enabled: true` + `status: published`（`listLibrary` 会同步种子配置）。定价 4 积分。
 
 ## 备选：本机目录上传
 

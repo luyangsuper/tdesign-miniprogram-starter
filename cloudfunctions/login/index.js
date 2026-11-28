@@ -4,6 +4,7 @@ const { code2Session, saveSessionKey } = require('./session');
 const { getPointsSettings } = require('./pointsSettings');
 const { getPricingDoc, listLiveProducts } = require('./pricingSettings');
 const { recordPointsLog } = require('./pointsLog');
+const { randomNickFromSeed, resolveNickName } = require('./randomNick');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -53,10 +54,12 @@ async function getOrCreateUser(openid, isAdmin) {
   }
 
   if (!data) {
+    const autoNick = randomNickFromSeed(openid);
     const blank = {
       openid,
       isAdmin,
-      nickName: '',
+      nickName: autoNick,
+      nickAuto: true,
       avatarFileID: '',
       points: giftPoints,
       vipMonthQuota: 0,
@@ -100,6 +103,11 @@ async function getOrCreateUser(openid, isAdmin) {
     isAdmin,
     lastLoginAt: db.serverDate(),
   };
+  // 老用户未设昵称：登录时补一个稳定随机名（同 openid 不变）
+  if (!String(data.nickName || '').trim()) {
+    patch.nickName = randomNickFromSeed(openid);
+    patch.nickAuto = true;
+  }
   let welcomeGift = null;
   const alreadyGifted = !!data.welcomeGiftAt;
   if (!alreadyGifted && giftPoints > 0) {
@@ -158,7 +166,14 @@ exports.main = async (event = {}) => {
       isAdmin,
     };
     if (typeof event.nickName === 'string') {
-      patch.nickName = event.nickName.trim().slice(0, 32);
+      const nextNick = event.nickName.trim().slice(0, 32);
+      if (nextNick) {
+        patch.nickName = nextNick;
+        patch.nickAuto = false;
+      } else {
+        patch.nickName = randomNickFromSeed(OPENID);
+        patch.nickAuto = true;
+      }
     }
     if (typeof event.avatarFileID === 'string' && event.avatarFileID) {
       patch.avatarFileID = event.avatarFileID;
@@ -171,7 +186,8 @@ exports.main = async (event = {}) => {
       await ref.set({
         data: {
           openid: OPENID,
-          nickName: '',
+          nickName: randomNickFromSeed(OPENID),
+          nickAuto: true,
           avatarFileID: '',
           createdAt: db.serverDate(),
           ...patch,
@@ -218,7 +234,7 @@ exports.main = async (event = {}) => {
       ok: true,
       openid: OPENID,
       isAdmin,
-      nickName: user.nickName || '',
+      nickName: resolveNickName(user, OPENID),
       avatarFileID: user.avatarFileID || '',
       avatarUrl,
       entitlement: buildEntitlement(user),
@@ -293,14 +309,43 @@ exports.main = async (event = {}) => {
   } catch (e) {
     /* ignore */
   }
+  // 登录时同步卸下已失效的会员框（付费/成就框不动）
+  let avatarFrameId = String(user.avatarFrameId || '').trim();
+  const entitlement = buildEntitlement(user);
+  if (avatarFrameId && !entitlement.isVip) {
+    try {
+      const fs = await db.collection('avatar_frames').doc(avatarFrameId).get();
+      let f = (fs && fs.data) || {};
+      if (f.data && typeof f.data === 'object' && f.data.fileID) f = f.data;
+      if (String(f.access || '') === 'vip') {
+        await db.collection('users').doc(OPENID).update({
+          data: { avatarFrameId: '', updatedAt: db.serverDate() },
+        });
+        avatarFrameId = '';
+        user = { ...user, avatarFrameId: '' };
+      }
+    } catch (e) {
+      console.warn('[login] clear vip frame', e.message || e);
+    }
+  }
+
+  // 懒同步成就（不阻塞登录返回；sync 内也会再清一次无效佩戴）
+  cloud
+    .callFunction({
+      name: 'userAchievement',
+      data: { action: 'sync', targetOpenid: OPENID },
+    })
+    .catch((e) => console.warn('[achievement] sync', e.message || e));
+
   return {
     ok: true,
     openid: OPENID,
     isAdmin,
-    nickName: user.nickName || '',
+    nickName: resolveNickName(user, OPENID),
     avatarFileID: user.avatarFileID || '',
     avatarUrl,
-    entitlement: buildEntitlement(user),
+    avatarFrameId,
+    entitlement,
     welcomeGift,
     pendingPointGifts,
     pendingLotteryInvites,

@@ -1,7 +1,7 @@
 <page-meta page-style="{{themeStyle}}" />
 <view class="dash" style="{{themeStyle}}">
   <view class="dash__tip">
-    今日实时；累计可切近七日 / 当月 / 全部。更新于 {{updatedText || '—'}}
+    今日实时；累计可切近七日 / 当月 / 全部。带 › 的指标可下钻。更新于 {{updatedText || '—'}}
   </view>
 
   <view wx:if="{{loading}}" class="dash__loading">
@@ -15,7 +15,14 @@
         <text class="dash__stat-num">{{summary.downloadsToday}}</text>
         <text class="dash__stat-label">下载次数</text>
       </view>
-      <view class="dash__stat">
+      <view
+        class="dash__stat dash__stat--link"
+        data-kind="downloadPacks"
+        data-scope="today"
+        bind:tap="onDrillOpen"
+        hover-class="dash__stat--press"
+      >
+        <view class="dash__stat-icon"><kubai-icon name="chevron-right" size="28rpx" color="{{themeBrand || '#00b853'}}" /></view>
         <text class="dash__stat-num">{{summary.activeToday}}</text>
         <text class="dash__stat-label">下载用户</text>
       </view>
@@ -23,7 +30,14 @@
         <text class="dash__stat-num">{{summary.ordersToday}}</text>
         <text class="dash__stat-label">成交笔数</text>
       </view>
-      <view class="dash__stat">
+      <view
+        class="dash__stat dash__stat--link"
+        data-kind="orders"
+        data-scope="today"
+        bind:tap="onDrillOpen"
+        hover-class="dash__stat--press"
+      >
+        <view class="dash__stat-icon"><kubai-icon name="chevron-right" size="28rpx" color="{{themeBrand || '#00b853'}}" /></view>
         <text class="dash__stat-num">¥{{summary.revenueTodayYuan}}</text>
         <text class="dash__stat-label">成交额</text>
       </view>
@@ -34,6 +48,48 @@
       <view class="dash__stat">
         <text class="dash__stat-num">{{summary.ordersPending}}</text>
         <text class="dash__stat-label">待发货单</text>
+      </view>
+    </view>
+
+    <view class="dash__section">素材库 · 趣味工坊</view>
+    <view class="dash__grid">
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.librarySources}}</text>
+        <text class="dash__stat-label">素材源</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.libraryItems}}</text>
+        <text class="dash__stat-label">素材条目</text>
+      </view>
+      <view
+        class="dash__stat dash__stat--link"
+        data-kind="librarySources"
+        data-scope="today"
+        bind:tap="onDrillOpen"
+        hover-class="dash__stat--press"
+      >
+        <view class="dash__stat-icon"><kubai-icon name="chevron-right" size="28rpx" color="{{themeBrand || '#00b853'}}" /></view>
+        <text class="dash__stat-num">{{summary.libraryDownloadsToday}}</text>
+        <text class="dash__stat-label">今日素材下载</text>
+      </view>
+      <view
+        class="dash__stat dash__stat--link"
+        data-kind="workshop"
+        data-scope="today"
+        bind:tap="onDrillOpen"
+        hover-class="dash__stat--press"
+      >
+        <view class="dash__stat-icon"><kubai-icon name="chevron-right" size="28rpx" color="{{themeBrand || '#00b853'}}" /></view>
+        <text class="dash__stat-num">{{summary.workshopUsesToday}}</text>
+        <text class="dash__stat-label">今日工坊使用</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.workshopBeadToday}}</text>
+        <text class="dash__stat-label">拼豆相关</text>
+      </view>
+      <view class="dash__stat">
+        <text class="dash__stat-num">{{summary.workshopImageToday}}</text>
+        <text class="dash__stat-label">图片工具箱</text>
       </view>
     </view>
 
@@ -60,7 +116,14 @@
         <text class="dash__stat-num">{{periodSummary.users}}</text>
         <text class="dash__stat-label">{{usersLabel}}</text>
       </view>
-      <view class="dash__stat">
+      <view
+        class="dash__stat dash__stat--link"
+        data-kind="downloadPacks"
+        data-scope="period"
+        bind:tap="onDrillOpen"
+        hover-class="dash__stat--press"
+      >
+        <view class="dash__stat-icon"><kubai-icon name="chevron-right" size="28rpx" color="{{themeBrand || '#00b853'}}" /></view>
         <text class="dash__stat-num">{{periodSummary.downloads}}</text>
         <text class="dash__stat-label">下载次数</text>
       </view>
@@ -68,9 +131,38 @@
         <text class="dash__stat-num">{{periodSummary.orders}}</text>
         <text class="dash__stat-label">成交笔数</text>
       </view>
-      <view class="dash__stat">
+      <view
+        class="dash__stat dash__stat--link"
+        data-kind="orders"
+        data-scope="period"
+        bind:tap="onDrillOpen"
+        hover-class="dash__stat--press"
+      >
+        <view class="dash__stat-icon"><kubai-icon name="chevron-right" size="28rpx" color="{{themeBrand || '#00b853'}}" /></view>
         <text class="dash__stat-num">¥{{periodSummary.revenueYuan}}</text>
         <text class="dash__stat-label">成交额</text>
+      </view>
+      <view
+        class="dash__stat dash__stat--link"
+        data-kind="librarySources"
+        data-scope="period"
+        bind:tap="onDrillOpen"
+        hover-class="dash__stat--press"
+      >
+        <view class="dash__stat-icon"><kubai-icon name="chevron-right" size="28rpx" color="{{themeBrand || '#00b853'}}" /></view>
+        <text class="dash__stat-num">{{periodSummary.libraryDownloads}}</text>
+        <text class="dash__stat-label">素材下载</text>
+      </view>
+      <view
+        class="dash__stat dash__stat--link"
+        data-kind="workshop"
+        data-scope="period"
+        bind:tap="onDrillOpen"
+        hover-class="dash__stat--press"
+      >
+        <view class="dash__stat-icon"><kubai-icon name="chevron-right" size="28rpx" color="{{themeBrand || '#00b853'}}" /></view>
+        <text class="dash__stat-num">{{periodSummary.workshopUses}}</text>
+        <text class="dash__stat-label">工坊使用</text>
       </view>
     </view>
 
@@ -162,6 +254,61 @@
       <t-button theme="primary" variant="outline" content="刷新" block bind:tap="onRefresh" />
     </view>
   </block>
+
+  <t-popup
+    visible="{{drillVisible}}"
+    placement="bottom"
+    bind:visible-change="onDrillClose"
+  >
+    <view class="dash-drill">
+      <view class="dash-drill__head">
+        <view
+          wx:if="{{drillStack.length > 1}}"
+          class="dash-drill__back"
+          bind:tap="onDrillBack"
+          hover-class="dash-drill__back--press"
+        >
+          <kubai-icon name="chevron-left" size="40rpx" color="#666666" />
+          <text>返回</text>
+        </view>
+        <text class="dash-drill__title">{{drillTitle}}</text>
+        <view class="dash-drill__close" bind:tap="onDrillClose" data-close="1">
+          <kubai-icon name="close" size="40rpx" color="#999999" />
+        </view>
+      </view>
+
+      <view wx:if="{{drillLoading}}" class="dash-drill__loading">
+        <t-loading theme="circular" size="40rpx" text="加载中" />
+      </view>
+      <scroll-view wx:else scroll-y class="dash-drill__scroll">
+        <fun-empty
+          wx:if="{{!drillList.length}}"
+          size="small"
+          description="{{drillEmpty}}"
+        />
+        <view
+          wx:for="{{drillList}}"
+          wx:key="id"
+          class="dash-drill__row"
+          data-index="{{index}}"
+          bind:tap="onDrillItem"
+          hover-class="dash-drill__row--press"
+        >
+          <view class="dash-drill__meta">
+            <text class="dash-drill__name">{{item.title}}</text>
+            <text wx:if="{{item.sub}}" class="dash-drill__sub">{{item.sub}}</text>
+            <text wx:elif="{{item.timeText}}" class="dash-drill__sub">{{item.timeText}}</text>
+            <text wx:elif="{{item.lastText}}" class="dash-drill__sub">最近 {{item.lastText}}</text>
+          </view>
+          <view class="dash-drill__right">
+            <text wx:if="{{item.yuan}}" class="dash-drill__value">¥{{item.yuan}}</text>
+            <text wx:elif="{{item.count != null}}" class="dash-drill__value">{{item.count}}{{item.users != null ? ' · ' + item.users + '人' : ''}}</text>
+            <kubai-icon name="chevron-right" size="36rpx" color="#bbbbbb" />
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
 
   <lottery-host />
 </view>

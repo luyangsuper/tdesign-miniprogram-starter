@@ -176,7 +176,36 @@ exports.main = async (event = {}) => {
       return { ok: false, code: 'NOT_FOUND', message: '素材不存在' };
     }
 
-    const fileRef = item.files && item.files[format];
+    const colorKey = String(event.color || event.variant || '')
+      .trim()
+      .toLowerCase();
+    let fileRef = item.files && item.files[format];
+    // ParticleFX 等：按颜色从 meta.variants 取链；指定了颜色就不能静默回退原色
+    if (colorKey && item.meta && item.meta.variants) {
+      const variants = item.meta.variants;
+      let variant = variants[colorKey];
+      if (!variant) {
+        const hitKey = Object.keys(variants).find(
+          (k) => String(k).toLowerCase() === colorKey,
+        );
+        variant = hitKey ? variants[hitKey] : null;
+      }
+      if (!variant) {
+        return { ok: false, code: 'NO_COLOR', message: '该颜色不存在' };
+      }
+      const fromVariant =
+        (typeof variant === 'string' && variant) ||
+        (variant && (variant[format] || variant.gif)) ||
+        '';
+      if (!fromVariant || !String(fromVariant).trim()) {
+        return {
+          ok: false,
+          code: 'NO_FORMAT',
+          message: `该颜色没有 ${format.toUpperCase()} 格式`,
+        };
+      }
+      fileRef = fromVariant;
+    }
     if (!fileRef || !String(fileRef).trim()) {
       return { ok: false, code: 'NO_FORMAT', message: `该表情没有 ${format.toUpperCase()} 格式` };
     }
@@ -226,8 +255,8 @@ exports.main = async (event = {}) => {
     const fromVip = Math.max(0, Number(auth.fromVip) || 0);
     const fromPoints = Math.max(0, Number(auth.fromPoints) || 0);
     const total = fromVip + fromPoints;
+    const itemTitle = String(item.name || item.externalKey || '').trim().slice(0, 40);
     if (total > 0) {
-      const title = String(item.name || item.externalKey || '').trim().slice(0, 40);
       const ent = auth.entitlement || {};
       await recordPointsLog(db, {
         openid: OPENID,
@@ -236,11 +265,12 @@ exports.main = async (event = {}) => {
           Math.max(0, Number(ent.points) || 0) +
           Math.max(0, Number(ent.vipMonthQuota) || 0),
         reason: 'download',
-        title: title ? `保存素材「${title}」` : '保存素材',
+        title: itemTitle ? `保存素材「${itemTitle}」` : '保存素材',
         meta: {
           itemId,
           sourceId,
           format,
+          color: colorKey || '',
           costKey,
           anim: isLibraryAnimFormat(format),
           fromVip,
@@ -248,6 +278,46 @@ exports.main = async (event = {}) => {
           library: true,
         },
       });
+    }
+
+    // 素材库用量日志（含免费 0 积分），供管理看板统计 / 下钻
+    try {
+      await db.collection('library_logs').add({
+        data: {
+          openid: OPENID,
+          itemId,
+          sourceId,
+          itemTitle,
+          format,
+          color: colorKey || '',
+          cost: Math.max(0, Number(auth.cost) || 0),
+          fromVip,
+          fromPoints,
+          grantType: auth.grantType || '',
+          createdAt: db.serverDate(),
+        },
+      });
+    } catch (e) {
+      try {
+        await db.createCollection('library_logs');
+        await db.collection('library_logs').add({
+          data: {
+            openid: OPENID,
+            itemId,
+            sourceId,
+            itemTitle,
+            format,
+            color: colorKey || '',
+            cost: Math.max(0, Number(auth.cost) || 0),
+            fromVip,
+            fromPoints,
+            grantType: auth.grantType || '',
+            createdAt: db.serverDate(),
+          },
+        });
+      } catch (err) {
+        console.warn('[library_logs] skip', err.message || err);
+      }
     }
 
     try {
@@ -279,6 +349,15 @@ exports.main = async (event = {}) => {
       format === 'png' ||
       format === 'jpg' ||
       format === 'jpeg';
+
+    try {
+      await cloud.callFunction({
+        name: 'userAchievement',
+        data: { action: 'sync', targetOpenid: OPENID },
+      });
+    } catch (achErr) {
+      console.warn('[achievement] sync', achErr.message || achErr);
+    }
 
     return {
       ok: true,

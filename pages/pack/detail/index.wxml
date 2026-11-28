@@ -264,7 +264,7 @@
           wx:for="{{emojiSlots}}"
           wx:key="index"
         >
-          <view class="detail__slot-cover-wrap">
+          <view class="detail__slot-cover-wrap {{isEmojiPack ? 'detail__slot-cover-wrap--clear' : ''}}">
             <t-image
               wx:if="{{item.displayUrl}}"
               t-class="detail__slot-cover"

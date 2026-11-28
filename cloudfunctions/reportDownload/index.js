@@ -103,6 +103,15 @@ exports.main = async (event) => {
 
     await db.collection('packs').doc(packId).update({ data: patch });
 
+    try {
+      await cloud.callFunction({
+        name: 'userAchievement',
+        data: { action: 'sync', targetOpenid: OPENID },
+      });
+    } catch (achErr) {
+      console.warn('[achievement] sync', achErr.message || achErr);
+    }
+
     return {
       ok: true,
       data: {

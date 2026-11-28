@@ -99,6 +99,18 @@ export const LIB_SOURCE_PRESENTATION = {
     desc: '经典网络梗图表情 · 素材来自 meme-api · CC BY-NC-SA 4.0',
     thumbs: ['😂', '🐼', '🐱', '🍵'],
   },
+  'sticker-ext': {
+    title: '精选聊天表情',
+    badge: '聊天',
+    desc: '带描述的聊天表情，点开即可浏览下载',
+    thumbs: ['💬', '😄', '🔥', '✨'],
+  },
+  particlefx: {
+    title: '粒子特效素材',
+    badge: '特效',
+    desc: '氛围粒子动图，点开可选颜色再保存',
+    thumbs: ['✨', '🌀', '💫', '🎆'],
+  },
 };
 
 /** 把云端源记录整理成卡片展示字段（兼容未知新源） */
@@ -119,9 +131,36 @@ export function presentLibrarySource(source = {}) {
           static: Number(source.costs.static),
         }
       : null;
-  const previewUrls = Array.isArray(source.previewUrls)
-    ? source.previewUrls.map((u) => String(u || '').trim()).filter(Boolean).slice(0, 4)
-    : [];
+  // 源上显式配了 0 单价才算免费（未配则走全局素材单价）
+  const isFree =
+    !!costs &&
+    Number.isFinite(costs.anim) &&
+    Number.isFinite(costs.static) &&
+    costs.anim <= 0 &&
+    costs.static <= 0;
+  // 优先用云端对齐好的 previewSlots（url + fileId），裂图可换签
+  let previewSlots = [];
+  if (Array.isArray(source.previewSlots) && source.previewSlots.length) {
+    previewSlots = source.previewSlots
+      .map((s) => ({
+        url: String((s && s.url) || '').trim(),
+        fileId: String((s && s.fileId) || '').trim(),
+      }))
+      .filter((s) => s.url)
+      .slice(0, 4);
+  } else {
+    const urls = Array.isArray(source.previewUrls)
+      ? source.previewUrls.map((u) => String(u || '').trim()).filter(Boolean)
+      : [];
+    const ids = Array.isArray(source.previewFileIDs)
+      ? source.previewFileIDs.map((id) => String(id || '').trim())
+      : [];
+    previewSlots = urls.slice(0, 4).map((url, i) => ({
+      url,
+      fileId: ids[i] || '',
+    }));
+  }
+  const previewUrls = previewSlots.map((s) => s.url);
   // 与首页合集一致：最后一格叠 +剩余（总数 − 已完整露出的张数）
   const shown = previewUrls.length || (count > 0 ? 4 : 0);
   const moreCount =
@@ -130,12 +169,14 @@ export function presentLibrarySource(source = {}) {
     id,
     title: preset.title || String(source.title || '表情合集').trim() || '表情合集',
     badge: preset.badge || '',
+    isFree,
     desc:
       preset.desc ||
       String(source.desc || '').trim() ||
       '精选动态表情，点开即可浏览下载',
     formatsText,
     countText: count > 0 ? `${count} 个表情` : '即将上新',
+    previewSlots,
     previewUrls,
     thumbs,
     itemCount: count,

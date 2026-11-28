@@ -1,0 +1,141 @@
+<view class="pm" style="{{themeStyle}}">
+  <view class="pm__tip">为爆火 / 飙升等状态选择粒子特效；先选效果再选颜色。留空则用内置默认图。</view>
+
+  <view wx:if="{{loading}}" class="pm__loading">
+    <t-loading theme="circular" size="40rpx" text="加载中" />
+  </view>
+
+  <block wx:else>
+    <view class="pm__row" wx:for="{{rows}}" wx:key="id">
+      <view class="pm__row-head">
+        <view class="pm__row-title">
+          <text class="pm__row-label">{{item.label}}</text>
+          <text class="pm__row-sub">{{item.sub}}</text>
+        </view>
+        <view class="pm__row-preview">
+          <t-image
+            wx:if="{{item.previewUrl}}"
+            src="{{item.previewUrl}}"
+            mode="aspectFit"
+            width="120rpx"
+            height="120rpx"
+            shape="round"
+          />
+          <view wx:else class="pm__row-ph">默认</view>
+        </view>
+      </view>
+      <view class="pm__row-actions">
+        <t-button
+          size="small"
+          theme="primary"
+          variant="outline"
+          shape="round"
+          content="从粒子库选"
+          data-id="{{item.id}}"
+          bind:tap="onPick"
+        />
+        <t-button
+          size="small"
+          theme="default"
+          variant="text"
+          content="恢复默认"
+          data-id="{{item.id}}"
+          bind:tap="onResetOne"
+        />
+      </view>
+    </view>
+  </block>
+
+  <t-popup
+    visible="{{pickerVisible}}"
+    placement="bottom"
+    bind:visible-change="onPickerVisibleChange"
+  >
+    <view class="pm__sheet">
+      <view class="pm__sheet-title">选择粒子效果 · {{pickingLabel}}</view>
+      <t-search
+        shape="round"
+        placeholder="搜索效果名"
+        value="{{pickerKeyword}}"
+        bind:change="onPickerSearch"
+        bind:clear="onPickerSearchClear"
+      />
+
+      <view wx:if="{{pickerStep === 'color'}}" class="pm__color-block">
+        <view class="pm__color-name">{{activeEffect.name}}</view>
+        <view class="pm__colors">
+          <t-check-tag
+            wx:for="{{colorOptions}}"
+            wx:key="value"
+            size="medium"
+            shape="round"
+            variant="light"
+            content="{{item.label}}"
+            checked="{{selectedColor === item.value}}"
+            data-value="{{item.value}}"
+            bind:change="onPickColor"
+          />
+        </view>
+        <view class="pm__color-preview" wx:if="{{colorPreviewUrl}}">
+          <t-image
+            src="{{colorPreviewUrl}}"
+            mode="aspectFit"
+            width="100%"
+            height="240rpx"
+            shape="round"
+          />
+        </view>
+        <t-button
+          theme="primary"
+          size="large"
+          block
+          shape="round"
+          loading="{{saving}}"
+          content="用作「{{pickingLabel}}」"
+          bind:tap="onConfirmColor"
+        />
+        <t-button
+          theme="default"
+          variant="text"
+          block
+          content="返回效果列表"
+          bind:tap="onBackToEffects"
+        />
+      </view>
+
+      <scroll-view
+        wx:else
+        scroll-y
+        class="pm__picker-list"
+        bindscrolltolower="onPickerMore"
+      >
+        <view wx:if="{{pickerLoading}}" class="pm__picker-loading">
+          <fun-loading size="small" variant="wave" funTips="{{false}}" text="加载" />
+        </view>
+        <t-empty wx:elif="{{!pickerList.length}}" description="暂无粒子素材，请先入库" />
+        <view
+          class="pm__pick-item"
+          wx:for="{{pickerList}}"
+          wx:key="_id"
+          data-id="{{item._id}}"
+          bindtap="onPickEffect"
+        >
+          <t-image
+            wx:if="{{item.previewUrl}}"
+            src="{{item.previewUrl}}"
+            mode="aspectFit"
+            width="96rpx"
+            height="96rpx"
+            shape="round"
+          />
+          <view wx:else class="pm__pick-ph">?</view>
+          <view class="pm__pick-meta">
+            <text class="pm__pick-name">{{item.name}}</text>
+            <text class="pm__pick-sub">{{item.externalKey}}</text>
+          </view>
+        </view>
+        <view class="pm__picker-foot" wx:if="{{pickerLoadingMore}}">加载更多…</view>
+      </scroll-view>
+    </view>
+  </t-popup>
+</view>

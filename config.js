@@ -28,8 +28,8 @@ export default {
    * 原生模板广告（按坑位选横/竖模板）
    * 空=该位置不展示；VIP 客户端不展示被动原生广告
    */
-  /** 首页瀑布流 · 竖版卡片（插在列里，与合集卡同宽） */
-  nativeHomeFeedAdUnitId: 'adunit-3ed8b8cc8f0409b9',
+  /** 首页信息流 · 通栏横版（竖版模板太高，挤占列表） */
+  nativeHomeFeedAdUnitId: 'adunit-955ce8dea99a2a65',
   /** 合集详情 · 保存原图上方（横版） */
   nativePackDetailAdUnitId: 'adunit-955ce8dea99a2a65',
   /** 合集详情 · 推荐横滑（横版） */
@@ -40,8 +40,20 @@ export default {
   nativeFavoritesAdUnitId: 'adunit-494a61cf3ce09618',
   /** 趣味拼图 · 难度下方（未开局；VIP/管理员不展示） */
   nativePuzzleAdUnitId: 'adunit-95a12cc17e9ca0d1',
-  /** 趣味工坊 / 拼豆工具 · 常显原生广告（VIP/管理员不展示）；空则回退合集详情横版位 */
+  /** 趣味工坊 / 拼豆 / 图片工具 · 常显原生广告（VIP/管理员不展示）；空则回退合集详情横版位 */
   nativeWorkshopAdUnitId: 'adunit-955ce8dea99a2a65',
+  /** 素材库入口 · 常显原生广告；空则回退「我的」坑位 */
+  nativeLibraryAdUnitId: 'adunit-95a12cc17e9ca0d1',
+  /**
+   * 素材库源列表 · 混排广告（占两格宽的横版原生广告；无正方形模板时两格合并）
+   * 空则回退 nativeLibraryAdUnitId；建议横版模板
+   */
+  nativeLibraryGridAdUnitId: '',
+  /**
+   * 素材网格每隔多少个表情插入 1 条广告；0=关闭
+   * 管理端「积分与广告」可改；4 列下 8≈两行、12≈三行
+   */
+  libraryGridAdEvery: 12,
   /**
    * 首页每多少个合集插入一条原生广告（离线默认）
    * 线上以云库 app_config/points.homeFeedAdEvery 为准；0=关闭信息流广告；建议 6～8。

@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk');
 const { dayjs, TZ, toMs, formatDate } = require('./time');
 const { resolveTempUrls } = require('./tempUrlCache');
+const { resolveNickName } = require('./randomNick');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -170,15 +171,437 @@ function buildAllRevenueTrend(now, orders) {
   );
 }
 
-function periodBlock(users, downloads, orders) {
+function periodBlock(users, downloads, orders, extra = {}) {
   return {
     summary: {
       users,
       downloads,
       orders: orders.length,
       revenueYuan: yuanStr(sumFen(orders)),
+      libraryDownloads: Math.max(0, Number(extra.libraryDownloads) || 0),
+      workshopUses: Math.max(0, Number(extra.workshopUses) || 0),
     },
   };
+}
+
+const WORKSHOP_REASONS = ['bead_export', 'bead_advanced', 'image_export'];
+const WORKSHOP_LABEL = {
+  bead_export: '拼豆图纸导出',
+  bead_advanced: '拼豆高级功能',
+  image_export: '图片工具箱导出',
+};
+
+function scopeSinceMs(scope, now) {
+  if (scope === 'week') return now.subtract(6, 'day').startOf('day').valueOf();
+  if (scope === 'month') return now.startOf('month').valueOf();
+  if (scope === 'all') return 0;
+  return now.startOf('day').valueOf();
+}
+
+function scopeLabel(scope) {
+  if (scope === 'week') return '近七日';
+  if (scope === 'month') return '当月';
+  if (scope === 'all') return '全部';
+  return '今日';
+}
+
+async function loadUsersBrief(openids) {
+  const map = {};
+  const ids = Array.from(new Set((openids || []).filter(Boolean))).slice(0, 80);
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const snap = await db.collection('users').doc(id).get();
+        const u = snap.data || {};
+        map[id] = {
+          openid: id,
+          nickName: resolveNickName(u, id),
+          points: Math.max(0, Number(u.points) || 0),
+          vipMonthQuota: Math.max(0, Number(u.vipMonthQuota) || 0),
+          isVip: !!(u.vipExpireAt && toMs(u.vipExpireAt) > Date.now()),
+          vipExpireText: u.vipExpireAt ? formatDate(toMs(u.vipExpireAt)) : '',
+        };
+      } catch (e) {
+        map[id] = {
+          openid: id,
+          nickName: resolveNickName('', id),
+          points: 0,
+          vipMonthQuota: 0,
+          isVip: false,
+          vipExpireText: '',
+        };
+      }
+    }),
+  );
+  return map;
+}
+
+async function handleDrill(event = {}) {
+  const kind = String(event.kind || '').trim();
+  const scope = ['today', 'week', 'month', 'all'].includes(event.scope)
+    ? event.scope
+    : 'today';
+  const now = dayjs().tz(TZ);
+  const sinceMs = scopeSinceMs(scope, now);
+  const sinceDate = sinceMs ? new Date(sinceMs) : null;
+  const titleScope = scopeLabel(scope);
+
+  if (kind === 'downloadPacks') {
+    const where = sinceDate ? { createdAt: _.gte(sinceDate) } : null;
+    const logs = await fetchAllPaged('download_logs', where, 'createdAt', 3000);
+    const packCount = {};
+    const packUsers = {};
+    const packTitleHint = {};
+    logs.forEach((row) => {
+      const id = String(row.packId || '').trim();
+      if (!id) return;
+      packCount[id] = (packCount[id] || 0) + 1;
+      if (!packUsers[id]) packUsers[id] = new Set();
+      if (row.openid) packUsers[id].add(row.openid);
+      if (!packTitleHint[id] && row.packTitle) {
+        packTitleHint[id] = String(row.packTitle).trim();
+      }
+    });
+    const ids = Object.keys(packCount)
+      .sort((a, b) => packCount[b] - packCount[a])
+      .slice(0, 40);
+    const packMap = {};
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const snap = await db.collection('packs').doc(id).get();
+          if (snap.data) packMap[id] = snap.data;
+        } catch (e) {
+          /* ignore */
+        }
+      }),
+    );
+    const list = ids.map((id) => {
+      const p = packMap[id] || {};
+      return {
+        id,
+        title: String(
+          p.title || p.name || packTitleHint[id] || id,
+        ).trim(),
+        count: packCount[id],
+        users: (packUsers[id] && packUsers[id].size) || 0,
+        kind: 'pack',
+      };
+    });
+    return {
+      ok: true,
+      data: {
+        title: `${titleScope} · 下载合集`,
+        kind: 'downloadPacks',
+        scope,
+        list,
+        emptyText: '该时段暂无合集下载',
+      },
+    };
+  }
+
+  if (kind === 'downloadUsers') {
+    const packId = String(event.packId || '').trim();
+    if (!packId) {
+      return { ok: false, code: 'BAD_PARAM', message: '缺少合集' };
+    }
+    const where = sinceDate
+      ? { packId, createdAt: _.gte(sinceDate) }
+      : { packId };
+    const logs = await fetchAllPaged('download_logs', where, 'createdAt', 2000);
+    const byUser = {};
+    logs.forEach((row) => {
+      const oid = String(row.openid || '').trim();
+      if (!oid) return;
+      if (!byUser[oid]) {
+        byUser[oid] = { openid: oid, count: 0, lastAt: 0 };
+      }
+      byUser[oid].count += 1;
+      const at = toMs(row.createdAt) || 0;
+      if (at > byUser[oid].lastAt) byUser[oid].lastAt = at;
+    });
+    const openids = Object.keys(byUser)
+      .sort((a, b) => byUser[b].count - byUser[a].count)
+      .slice(0, 60);
+    const userMap = await loadUsersBrief(openids);
+    let packTitle = packId;
+    try {
+      const snap = await db.collection('packs').doc(packId).get();
+      packTitle = String((snap.data && (snap.data.title || snap.data.name)) || packId).trim();
+    } catch (e) {
+      /* ignore */
+    }
+    const list = openids.map((oid) => {
+      const u = userMap[oid] || {};
+      const row = byUser[oid];
+      return {
+        id: oid,
+        openid: oid,
+        title: u.nickName || resolveNickName('', oid),
+        sub: `${row.count} 次 · ${u.isVip ? '包月中' : `积分 ${u.points}`}${
+          u.vipMonthQuota ? ` · 月额 ${u.vipMonthQuota}` : ''
+        }`,
+        count: row.count,
+        lastText: row.lastAt ? formatDate(row.lastAt) : '',
+        points: u.points || 0,
+        vipMonthQuota: u.vipMonthQuota || 0,
+        isVip: !!u.isVip,
+        vipExpireText: u.vipExpireText || '',
+        kind: 'user',
+      };
+    });
+    return {
+      ok: true,
+      data: {
+        title: `${packTitle} · 下载用户`,
+        kind: 'downloadUsers',
+        scope,
+        packId,
+        list,
+        emptyText: '该合集暂无下载用户',
+      },
+    };
+  }
+
+  if (kind === 'orders') {
+    const orders = await fetchAllPaged('orders', { status: 'delivered' }, 'createdAt', 2000);
+    const filtered = sinceMs
+      ? filterSince(orders, sinceMs, orderTimeMs)
+      : orders;
+    const sorted = filtered
+      .slice()
+      .sort((a, b) => orderTimeMs(b) - orderTimeMs(a))
+      .slice(0, 80);
+    const userMap = await loadUsersBrief(sorted.map((o) => o.openid));
+    const list = sorted.map((o) => {
+      const oid = String(o.openid || '').trim();
+      const u = userMap[oid] || {};
+      const fen = Math.max(0, Number(o.priceFen) || 0);
+      const at = orderTimeMs(o);
+      return {
+        id: o._id || o.outTradeNo || `${oid}-${at}`,
+        openid: oid,
+        title: String(o.title || o.productTitle || o.slotId || '订单').trim(),
+        sub: `${u.nickName || resolveNickName('', oid)} · ${
+          u.isVip ? '包月中' : `积分 ${u.points || 0}`
+        }`,
+        yuan: yuanStr(fen),
+        timeText: at ? formatDate(at) : '',
+        points: u.points || 0,
+        vipMonthQuota: u.vipMonthQuota || 0,
+        isVip: !!u.isVip,
+        vipExpireText: u.vipExpireText || '',
+        kind: 'order',
+      };
+    });
+    return {
+      ok: true,
+      data: {
+        title: `${titleScope} · 成交明细`,
+        kind: 'orders',
+        scope,
+        list,
+        emptyText: '该时段暂无成交',
+      },
+    };
+  }
+
+  if (kind === 'librarySources') {
+    const where = sinceDate ? { createdAt: _.gte(sinceDate) } : null;
+    const logs = await fetchAllPaged('library_logs', where, 'createdAt', 3000);
+    const bySource = {};
+    logs.forEach((row) => {
+      const sid = String(row.sourceId || '').trim() || '_unknown';
+      if (!bySource[sid]) {
+        bySource[sid] = { id: sid, count: 0, users: new Set() };
+      }
+      bySource[sid].count += 1;
+      if (row.openid) bySource[sid].users.add(row.openid);
+    });
+    const sourceIds = Object.keys(bySource)
+      .filter((id) => id !== '_unknown')
+      .sort((a, b) => bySource[b].count - bySource[a].count)
+      .slice(0, 40);
+    const titleMap = {};
+    await Promise.all(
+      sourceIds.map(async (id) => {
+        try {
+          const snap = await db.collection('lib_sources').doc(id).get();
+          titleMap[id] = String((snap.data && (snap.data.title || snap.data.name)) || id).trim();
+        } catch (e) {
+          titleMap[id] = id;
+        }
+      }),
+    );
+    const list = sourceIds.map((id) => ({
+      id,
+      title: titleMap[id] || id,
+      count: bySource[id].count,
+      users: bySource[id].users.size,
+      kind: 'librarySource',
+    }));
+    if (bySource._unknown) {
+      list.push({
+        id: '_unknown',
+        title: '未归类源',
+        count: bySource._unknown.count,
+        users: bySource._unknown.users.size,
+        kind: 'librarySource',
+      });
+    }
+    return {
+      ok: true,
+      data: {
+        title: `${titleScope} · 素材库下载`,
+        kind: 'librarySources',
+        scope,
+        list,
+        emptyText: '该时段暂无素材下载（部署 library_logs 后开始统计）',
+      },
+    };
+  }
+
+  if (kind === 'libraryUsers') {
+    const sourceId = String(event.sourceId || '').trim();
+    const where = { ...(sinceDate ? { createdAt: _.gte(sinceDate) } : {}) };
+    if (sourceId && sourceId !== '_unknown') where.sourceId = sourceId;
+    const logs = await fetchAllPaged('library_logs', where, 'createdAt', 2000);
+    const filtered =
+      sourceId === '_unknown'
+        ? logs.filter((r) => !String(r.sourceId || '').trim())
+        : logs;
+    const byUser = {};
+    filtered.forEach((row) => {
+      const oid = String(row.openid || '').trim();
+      if (!oid) return;
+      if (!byUser[oid]) byUser[oid] = { openid: oid, count: 0, lastAt: 0 };
+      byUser[oid].count += 1;
+      const at = toMs(row.createdAt) || 0;
+      if (at > byUser[oid].lastAt) byUser[oid].lastAt = at;
+    });
+    const openids = Object.keys(byUser)
+      .sort((a, b) => byUser[b].count - byUser[a].count)
+      .slice(0, 60);
+    const userMap = await loadUsersBrief(openids);
+    const list = openids.map((oid) => {
+      const u = userMap[oid] || {};
+      const row = byUser[oid];
+      return {
+        id: oid,
+        openid: oid,
+        title: u.nickName || resolveNickName('', oid),
+        sub: `${row.count} 次 · ${u.isVip ? '包月中' : `积分 ${u.points}`}`,
+        count: row.count,
+        lastText: row.lastAt ? formatDate(row.lastAt) : '',
+        points: u.points || 0,
+        vipMonthQuota: u.vipMonthQuota || 0,
+        isVip: !!u.isVip,
+        vipExpireText: u.vipExpireText || '',
+        kind: 'user',
+      };
+    });
+    return {
+      ok: true,
+      data: {
+        title: '素材下载用户',
+        kind: 'libraryUsers',
+        scope,
+        sourceId,
+        list,
+        emptyText: '暂无用户',
+      },
+    };
+  }
+
+  if (kind === 'workshop') {
+    const where = {
+      reason: _.in(WORKSHOP_REASONS),
+      ...(sinceDate ? { createdAt: _.gte(sinceDate) } : {}),
+    };
+    const logs = await fetchAllPaged('points_logs', where, 'createdAt', 3000);
+    const byReason = {};
+    WORKSHOP_REASONS.forEach((r) => {
+      byReason[r] = { id: r, count: 0, users: new Set() };
+    });
+    logs.forEach((row) => {
+      const reason = String(row.reason || '').trim();
+      if (!byReason[reason]) return;
+      byReason[reason].count += 1;
+      if (row.openid) byReason[reason].users.add(row.openid);
+    });
+    const list = WORKSHOP_REASONS.map((r) => ({
+      id: r,
+      title: WORKSHOP_LABEL[r] || r,
+      count: byReason[r].count,
+      users: byReason[r].users.size,
+      kind: 'workshopFeature',
+    }));
+    return {
+      ok: true,
+      data: {
+        title: `${titleScope} · 趣味工坊`,
+        kind: 'workshop',
+        scope,
+        list,
+        emptyText: '该时段暂无工坊付费使用',
+      },
+    };
+  }
+
+  if (kind === 'workshopUsers') {
+    const reason = String(event.feature || event.reason || '').trim();
+    if (!WORKSHOP_REASONS.includes(reason)) {
+      return { ok: false, code: 'BAD_PARAM', message: '未知功能' };
+    }
+    const where = {
+      reason,
+      ...(sinceDate ? { createdAt: _.gte(sinceDate) } : {}),
+    };
+    const logs = await fetchAllPaged('points_logs', where, 'createdAt', 2000);
+    const byUser = {};
+    logs.forEach((row) => {
+      const oid = String(row.openid || '').trim();
+      if (!oid) return;
+      if (!byUser[oid]) byUser[oid] = { openid: oid, count: 0, lastAt: 0 };
+      byUser[oid].count += 1;
+      const at = toMs(row.createdAt) || 0;
+      if (at > byUser[oid].lastAt) byUser[oid].lastAt = at;
+    });
+    const openids = Object.keys(byUser)
+      .sort((a, b) => byUser[b].count - byUser[a].count)
+      .slice(0, 60);
+    const userMap = await loadUsersBrief(openids);
+    const list = openids.map((oid) => {
+      const u = userMap[oid] || {};
+      const row = byUser[oid];
+      return {
+        id: oid,
+        openid: oid,
+        title: u.nickName || resolveNickName('', oid),
+        sub: `${row.count} 次 · ${u.isVip ? '包月中' : `积分 ${u.points}`}`,
+        count: row.count,
+        lastText: row.lastAt ? formatDate(row.lastAt) : '',
+        points: u.points || 0,
+        vipMonthQuota: u.vipMonthQuota || 0,
+        isVip: !!u.isVip,
+        vipExpireText: u.vipExpireText || '',
+        kind: 'user',
+      };
+    });
+    return {
+      ok: true,
+      data: {
+        title: `${WORKSHOP_LABEL[reason] || reason} · 用户`,
+        kind: 'workshopUsers',
+        scope,
+        reason,
+        list,
+        emptyText: '暂无用户',
+      },
+    };
+  }
+
+  return { ok: false, code: 'BAD_PARAM', message: '未知下钻类型' };
 }
 
 async function safeCount(collection, where) {
@@ -265,12 +688,26 @@ exports.main = async (event = {}) => {
     return { ok: false, code: 'FORBIDDEN', message: '无管理员权限' };
   }
 
+  const action = String((event && event.action) || 'summary').trim();
+  if (action === 'drill') {
+    try {
+      return await handleDrill(event);
+    } catch (e) {
+      console.error(e);
+      return {
+        ok: false,
+        code: 'DRILL_FAIL',
+        message: e.message || '下钻失败',
+      };
+    }
+  }
+
   const force = !!(event && event.force);
 
   try {
     if (!force) {
       const cached = await readDashboardCache();
-      if (cached && cached.periods) {
+      if (cached && cached.periods && cached.summary && cached.summary.librarySources != null) {
         return {
           ok: true,
           data: {
@@ -310,6 +747,16 @@ exports.main = async (event = {}) => {
       downloadsWeek,
       downloadsMonth,
       downloadsAll,
+      librarySources,
+      libraryItems,
+      libraryLogsToday,
+      libraryLogsWeek,
+      libraryLogsMonth,
+      libraryDownloadsAll,
+      workshopTodayRows,
+      workshopWeekRows,
+      workshopMonthRows,
+      workshopAllRows,
     ] = await Promise.all([
       safeCount('users'),
       safeCount('packs', { status: 'published' }),
@@ -336,6 +783,31 @@ exports.main = async (event = {}) => {
       safeCount('download_logs', { createdAt: _.gte(weekStart) }),
       safeCount('download_logs', { createdAt: _.gte(monthStart) }),
       safeCount('download_logs'),
+      safeCount('lib_sources'),
+      safeCount('lib_items', { status: 'published' }),
+      fetchAll('library_logs', { createdAt: _.gte(todayStart) }, 'createdAt', MAX),
+      fetchAll('library_logs', { createdAt: _.gte(weekStart) }, 'createdAt', MAX),
+      fetchAll('library_logs', { createdAt: _.gte(monthStart) }, 'createdAt', MAX),
+      safeCount('library_logs'),
+      fetchAll(
+        'points_logs',
+        { reason: _.in(WORKSHOP_REASONS), createdAt: _.gte(todayStart) },
+        'createdAt',
+        MAX,
+      ),
+      fetchAll(
+        'points_logs',
+        { reason: _.in(WORKSHOP_REASONS), createdAt: _.gte(weekStart) },
+        'createdAt',
+        MAX,
+      ),
+      fetchAll(
+        'points_logs',
+        { reason: _.in(WORKSHOP_REASONS), createdAt: _.gte(monthStart) },
+        'createdAt',
+        MAX,
+      ),
+      fetchAll('points_logs', { reason: _.in(WORKSHOP_REASONS) }, 'createdAt', MAX),
     ]);
 
     const activeToday = new Set(
@@ -441,6 +913,38 @@ exports.main = async (event = {}) => {
     );
     const allTrend = buildAllRevenueTrend(now, ordersDelivered);
 
+    let libraryDownloadsAllSafe = libraryDownloadsAll;
+    // library_logs 上线前的历史量：回退到各源上的 downloadCount 合计
+    if (!libraryDownloadsAllSafe) {
+      try {
+        const sources = await fetchAll('lib_sources', null, 'updatedAt', MAX);
+        libraryDownloadsAllSafe = sources.reduce(
+          (s, row) => s + Math.max(0, Number(row.downloadCount) || 0),
+          0,
+        );
+      } catch (e) {
+        libraryDownloadsAllSafe = 0;
+      }
+    }
+    const libraryToday = (libraryLogsToday || []).length;
+    const libraryWeek = (libraryLogsWeek || []).length;
+    const libraryMonth = (libraryLogsMonth || []).length;
+    const libraryActiveToday = new Set(
+      (libraryLogsToday || []).map((r) => r.openid).filter(Boolean),
+    ).size;
+    const workshopToday = (workshopTodayRows || []).length;
+    const workshopWeek = (workshopWeekRows || []).length;
+    const workshopMonth = (workshopMonthRows || []).length;
+    const workshopAll = (workshopAllRows || []).length;
+    const workshopByReasonToday = {};
+    WORKSHOP_REASONS.forEach((r) => {
+      workshopByReasonToday[r] = 0;
+    });
+    (workshopTodayRows || []).forEach((row) => {
+      const reason = String(row.reason || '').trim();
+      if (workshopByReasonToday[reason] != null) workshopByReasonToday[reason] += 1;
+    });
+
     const payload = {
       updatedText: formatDate(Date.now()),
       summary: {
@@ -456,18 +960,37 @@ exports.main = async (event = {}) => {
         ordersPending,
         revenueTodayYuan: yuanStr(revenueTodayFen),
         revenueWeekYuan: yuanStr(revenueWeekFen),
+        librarySources,
+        libraryItems,
+        libraryDownloadsToday: libraryToday,
+        libraryActiveToday,
+        libraryDownloadsAll: libraryDownloadsAllSafe,
+        workshopUsesToday: workshopToday,
+        workshopBeadToday:
+          (workshopByReasonToday.bead_export || 0) +
+          (workshopByReasonToday.bead_advanced || 0),
+        workshopImageToday: workshopByReasonToday.image_export || 0,
       },
       periods: {
         week: {
-          ...periodBlock(newUsersWeek, downloadsWeek, weekOrders),
+          ...periodBlock(newUsersWeek, downloadsWeek, weekOrders, {
+            libraryDownloads: libraryWeek,
+            workshopUses: workshopWeek,
+          }),
           revenueTrend: weekTrend,
         },
         month: {
-          ...periodBlock(newUsersMonth, downloadsMonth, monthOrders),
+          ...periodBlock(newUsersMonth, downloadsMonth, monthOrders, {
+            libraryDownloads: libraryMonth,
+            workshopUses: workshopMonth,
+          }),
           revenueTrend: monthTrend,
         },
         all: {
-          ...periodBlock(usersTotal, downloadsAll, ordersDelivered),
+          ...periodBlock(usersTotal, downloadsAll, ordersDelivered, {
+            libraryDownloads: libraryDownloadsAllSafe,
+            workshopUses: workshopAll,
+          }),
           revenueTrend: allTrend,
         },
       },

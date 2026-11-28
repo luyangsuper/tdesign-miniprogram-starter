@@ -82,14 +82,109 @@
     transform: scale(0.94);
   }
 
+  &__cell--ad {
+    /* 四列网格里占两格宽，放横版原生广告 */
+    grid-column: span 2;
+    pointer-events: auto;
+  }
+
   &__thumb-wrap {
     width: 100%;
     aspect-ratio: 1;
     border-radius: 18rpx;
-    background: var(--td-bg-color-secondarycontainer);
+    /* 素材格统一容器底，透明 PNG 叠在上面 */
+    background: var(--td-bg-color-container);
     box-shadow: 0 4rpx 12rpx rgba(15, 23, 42, 0.04);
     overflow: hidden;
     position: relative;
+
+    .smart-img,
+    smart-image {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      display: block !important;
+      z-index: 1;
+    }
+
+    /* ParticleFX 等：格子透明，由 stage-bg 控制深浅/棋盘 */
+    &--stage {
+      background: transparent;
+      box-shadow: none;
+    }
+  }
+
+  &__stage-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+
+    &--light {
+      background: #ffffff;
+    }
+
+    &--dark {
+      background: #1f2937;
+    }
+
+    &--checker {
+      background-color: #c5c9d0;
+      background-image:
+        linear-gradient(45deg, #eef0f3 25%, transparent 25%),
+        linear-gradient(-45deg, #eef0f3 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #eef0f3 75%),
+        linear-gradient(-45deg, transparent 75%, #eef0f3 75%);
+      background-size: 24rpx 24rpx;
+      background-position: 0 0, 0 12rpx, 12rpx -12rpx, -12rpx 0;
+    }
+  }
+
+  &__bg-bar {
+    margin-top: 12rpx;
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+  }
+
+  &__bg-bar--sheet {
+    margin: 0 0 16rpx;
+    justify-content: center;
+  }
+
+  &__bg-bar-label {
+    flex-shrink: 0;
+    font-size: 22rpx;
+    color: var(--td-text-color-secondary);
+  }
+
+  &__bg-bar-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10rpx;
+    min-width: 0;
+  }
+
+  /* 两格合并：约 2:1 横版槽，适配流量主横版模板 */
+  &__ad-wrap {
+    aspect-ratio: 2 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: var(--td-bg-color-secondarycontainer);
+
+    ad-custom {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+  }
+
+  &__name--ad {
+    color: var(--td-text-color-placeholder);
+    font-size: 20rpx;
   }
 
   &__thumb,
@@ -125,7 +220,7 @@
     height: 100%;
     color: var(--td-text-color-placeholder);
     font-size: 28rpx;
-    background: var(--td-bg-color-secondarycontainer);
+    background: var(--td-bg-color-container);
   }
 
   &__name {
@@ -155,16 +250,32 @@
   }
 
   &__sheet-preview {
+    position: relative;
     height: 320rpx;
     border-radius: 24rpx;
-    background: var(--td-bg-color-secondarycontainer);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    /* 非粒子库用容器底；粒子库由 stage-bg 盖住 */
+    background: var(--td-bg-color-container);
+    display: block;
     margin-bottom: 18rpx;
     overflow: hidden;
     padding: 0;
     box-sizing: border-box;
+
+    /* virtualHost 后 smart-image 根节点需显式铺满 */
+    .smart-img,
+    smart-image {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      display: block !important;
+      z-index: 1;
+      background: transparent !important;
+    }
+  }
+
+  &__mood-view-preview {
+    margin-top: 8rpx;
   }
 
   &__sheet-img,
@@ -175,10 +286,17 @@
   }
 
   &__sheet-ph {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 24rpx;
+    box-sizing: border-box;
     text-align: center;
     font-size: 24rpx;
-    color: var(--td-text-color-placeholder);
+    color: rgba(255, 255, 255, 0.72);
     line-height: 1.45;
   }
 
@@ -204,11 +322,207 @@
     justify-content: center;
   }
 
+  &__colors {
+    margin: 8rpx 0 12rpx;
+  }
+
+  &__colors-label {
+    text-align: center;
+    font-size: 22rpx;
+    color: var(--td-text-color-secondary);
+    margin-bottom: 10rpx;
+  }
+
+  &__colors-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+    justify-content: center;
+  }
+
   &__sheet-tip {
     margin-bottom: 18rpx;
     text-align: center;
     font-size: 22rpx;
     color: var(--td-text-color-secondary);
+  }
+
+  &__sheet-actions {
+    display: flex;
+    align-items: stretch;
+    gap: 16rpx;
+    margin-bottom: 8rpx;
+  }
+
+  &__sheet-action {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__mood-assign {
+    margin-bottom: 12rpx;
+  }
+
+  &__mood-bar {
+    margin-top: 10rpx;
+  }
+
+  &__mood-bar-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12rpx;
+    margin-bottom: 8rpx;
+  }
+
+  &__mood-bar-title {
+    font-size: 22rpx;
+    font-weight: 650;
+    color: var(--td-text-color-secondary);
+  }
+
+  &__mood-bar-tip {
+    font-size: 20rpx;
+    color: var(--td-text-color-placeholder);
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__mood-scroll {
+    width: 100%;
+    white-space: nowrap;
+  }
+
+  &__mood-row {
+    display: inline-flex;
+    gap: 10rpx;
+    padding-bottom: 2rpx;
+  }
+
+  &__mood-chip {
+    width: 112rpx;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6rpx;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  &__mood-chip--custom {
+    .lib-src__mood-label {
+      color: var(--td-brand-color);
+    }
+  }
+
+  &__mood-chip--press {
+    opacity: 0.86;
+  }
+
+  &__mood-thumb {
+    position: relative;
+    width: 96rpx;
+    height: 96rpx;
+    border-radius: 16rpx;
+    overflow: hidden;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 跟「预览底」联动，不加阴影框 */
+    box-shadow: none;
+
+    .lib-src__stage-bg {
+      z-index: 0;
+      border-radius: 16rpx;
+    }
+
+    .smart-img,
+    smart-image {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 1;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+  }
+
+  &__mood-label {
+    font-size: 22rpx;
+    font-weight: 600;
+    color: var(--td-text-color-primary);
+    line-height: 1.2;
+  }
+
+  &__mood-sub {
+    max-width: 108rpx;
+    font-size: 18rpx;
+    color: var(--td-text-color-placeholder);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  &__mood-sheet {
+    padding: 28rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+    background: var(--td-bg-color-container);
+    border-radius: 24rpx 24rpx 0 0;
+    box-sizing: border-box;
+  }
+
+  &__mood-sheet-title {
+    text-align: center;
+    font-size: 32rpx;
+    font-weight: 650;
+    color: var(--td-text-color-primary);
+  }
+
+  &__mood-sheet-sub {
+    margin: 8rpx 0 18rpx;
+    text-align: center;
+    font-size: 22rpx;
+    color: var(--td-text-color-secondary);
+  }
+
+  &__mood-pick {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    padding: 22rpx 8rpx;
+    border-bottom: 1rpx solid var(--td-component-border);
+  }
+
+  &__mood-pick--press {
+    opacity: 0.86;
+  }
+
+  &__mood-pick-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__mood-pick-label {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: var(--td-text-color-primary);
+  }
+
+  &__mood-pick-sub {
+    display: block;
+    margin-top: 4rpx;
+    font-size: 22rpx;
+    color: var(--td-text-color-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

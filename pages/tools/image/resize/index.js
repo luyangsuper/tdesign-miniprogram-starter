@@ -41,6 +41,7 @@ Page({
 
   onShow() {
     this.refreshFestivalDecor();
+    this.refreshNativeAd();
   },
 
   async onPick() {
@@ -60,6 +61,7 @@ Page({
         outPath: '',
         outMeta: '',
         exportUnlocked: false,
+        paramsDirty: false,
       });
       if (typeof this.afterPick === 'function') this.afterPick(f);
     } catch (e) {
@@ -83,6 +85,7 @@ Page({
         outPath: res.path,
         outMeta: res.meta || '',
         exportUnlocked: false,
+        paramsDirty: false,
       });
       wx.showToast({ title: '处理完成', icon: 'success' });
     } catch (e) {
@@ -98,6 +101,7 @@ Page({
 
   async onSave() {
     if (!this.data.outPath || this.data.busy || this.data.gating) return;
+    if (!(await this.confirmSaveIfDirty())) return;
     this.setData({ gating: true });
     try {
       if (!this.data.exportUnlocked) {
@@ -120,37 +124,34 @@ Page({
   },
 
   onLockChange(e) {
-    this.setData({ lockRatio: !!(e.detail && e.detail.value), exportUnlocked: false, outPath: '', outMeta: '' });
+    this.markParamsDirty({ lockRatio: !!(e.detail && e.detail.value) });
   },
   onWidthChange(e) {
     const w = String((e.detail && e.detail.value) || '');
-    const patch = { widthInput: w, scalePct: 0, exportUnlocked: false, outPath: '', outMeta: '' };
+    const patch = { widthInput: w, scalePct: 0 };
     if (this.data.lockRatio && this.data.srcW && this.data.srcH) {
       const nw = Math.max(1, Math.round(Number(w) || 0));
       if (nw) patch.heightInput = String(Math.max(1, Math.round((nw / this.data.srcW) * this.data.srcH)));
     }
-    this.setData(patch);
+    this.markParamsDirty(patch);
   },
   onHeightChange(e) {
     const h = String((e.detail && e.detail.value) || '');
-    const patch = { heightInput: h, scalePct: 0, exportUnlocked: false, outPath: '', outMeta: '' };
+    const patch = { heightInput: h, scalePct: 0 };
     if (this.data.lockRatio && this.data.srcW && this.data.srcH) {
       const nh = Math.max(1, Math.round(Number(h) || 0));
       if (nh) patch.widthInput = String(Math.max(1, Math.round((nh / this.data.srcH) * this.data.srcW)));
     }
-    this.setData(patch);
+    this.markParamsDirty(patch);
   },
   onScalePreset(e) {
     const v = Number((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.v) || 100);
     const w = Math.max(1, Math.round((this.data.srcW * v) / 100));
     const h = Math.max(1, Math.round((this.data.srcH * v) / 100));
-    this.setData({
+    this.markParamsDirty({
       scalePct: v,
       widthInput: String(w),
       heightInput: String(h),
-      exportUnlocked: false,
-      outPath: '',
-      outMeta: '',
     });
   },
   afterPick(file) {
@@ -170,6 +171,7 @@ Page({
       height,
       lockRatio: false,
       fileType: 'png',
+      quality: 1,
     });
     return { ...res, meta: res.width + '×' + res.height + ' · ' + formatBytes(res.size) };
   },

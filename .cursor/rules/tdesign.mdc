@@ -32,3 +32,30 @@ UI **必须**用 `tdesign-miniprogram`。每次改页面/组件前先查 TDesign
 - ❌ `<view class="btn">删除</view>` → ✅ `<t-button theme="danger" variant="text" icon="delete" content="删除" />`
 - ❌ 自制蓝底白字分类 pill → ✅ `<t-check-tag checked content="哆啦A梦" />`
 - ❌ 裸 `input` 搜索框 → ✅ `<t-search shape="round" />`
+
+## `t-tag` 文案（强制，反复踩坑）
+
+本仓库 `tdesign-miniprogram` 的 `t-tag` **只渲染默认 slot**，**没有**用 `content` 属性画文字。  
+写成 `content="NEW"` / `content="{{x}}"` 会变成**只有底色的空色块**（首页「发现素材」、素材库入口卡已多次踩坑）。
+
+```xml
+<!-- ❌ 禁止：空色块 -->
+<t-tag size="small" variant="light" content="NEW" />
+<t-tag content="{{item.badge}}" />
+
+<!-- ✅ 必须：子节点 / slot 写文案 -->
+<t-tag size="small" variant="light">NEW</t-tag>
+<t-tag size="small" variant="light">{{item.badge}}</t-tag>
+```
+
+对照：`t-button` / `t-check-tag` 可以用 `content="…"`；**唯独 `t-tag` 不行，必须插槽。**
+
+## 合集 / 素材预览格底色
+
+表情透明 PNG：
+
+- 首页合集四预览格、收藏、合集详情表情格、首页「发现素材」横滑缩略图：格子 **透明**（`smart-image transparent`，勿加白底/阴影框）
+- 素材库列表缩略图：格子用容器底 `var(--td-bg-color-container)`，图组件 `transparent` 叠上去；ParticleFX 等 `--stage` 仍透明 + stage-bg
+- ❌ 不要用 `var(--td-bg-color-secondarycontainer)` 当表情预览底（会发灰）
+
+壁纸 / 头像封面等不透明图：容器底同一 token。

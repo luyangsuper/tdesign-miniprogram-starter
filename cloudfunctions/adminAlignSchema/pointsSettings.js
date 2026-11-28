@@ -9,6 +9,7 @@ const DEFAULTS = {
   saveAdRewardPoints: 1,
   saveAdRewardDailyMax: 8,
   homeFeedAdEvery: 6,
+  libraryGridAdEvery: 12,
   costStatic: 1,
   costAnim: 2,
   costWallpaper: 4,
@@ -38,6 +39,13 @@ function clampHomeFeedAdEvery(n, fallback) {
   return Math.max(0, Math.min(20, Math.floor(v)));
 }
 
+function clampLibraryGridAdEvery(n, fallback) {
+  const v = Number(n);
+  if (Number.isNaN(v)) return fallback;
+  if (v === 0) return 0;
+  return Math.max(4, Math.min(40, Math.floor(v)));
+}
+
 function clampDownloadCost(n, fallback) {
   const v = Number(n);
   if (Number.isNaN(v)) return fallback;
@@ -57,6 +65,10 @@ function normalizeSettings(raw = {}) {
       DEFAULTS.saveAdRewardDailyMax,
     ),
     homeFeedAdEvery: clampHomeFeedAdEvery(raw.homeFeedAdEvery, DEFAULTS.homeFeedAdEvery),
+    libraryGridAdEvery: clampLibraryGridAdEvery(
+      raw.libraryGridAdEvery,
+      DEFAULTS.libraryGridAdEvery,
+    ),
     costStatic: clampDownloadCost(raw.costStatic, DEFAULTS.costStatic),
     costAnim: clampDownloadCost(raw.costAnim, DEFAULTS.costAnim),
     costWallpaper: clampDownloadCost(raw.costWallpaper, DEFAULTS.costWallpaper),

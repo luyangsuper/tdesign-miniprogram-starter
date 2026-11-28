@@ -14,15 +14,26 @@
     custom-style="{{navBarStyle}}"
     bind:go-back="onBack"
   >
-    <view slot="title" class="imgtool__nav-title">九宫格分割</view>
+    <view slot="title" class="imgtool__nav-title">分割图片</view>
   </t-navbar>
 
   <view class="imgtool">
     <view class="imgtool__hero">
       <text class="imgtool__kicker">图片工具箱</text>
-      <text class="imgtool__hero-title">九宫格分割</text>
-      <text class="imgtool__hero-desc">按行列切成多张，适合朋友圈拼图</text>
+      <text class="imgtool__hero-title">分割图片</text>
+      <text class="imgtool__hero-desc">按行列切成网格，可自定义数字</text>
     </view>
+
+    <view
+      wx:if="{{showNativeAd && nativeAdUnitId}}"
+      class="imgtool__native-ad"
+    >
+      <ad-custom
+        unit-id="{{nativeAdUnitId}}"
+        binderror="onNativeAdError"
+      />
+    </view>
+
 
     <view class="imgtool__card">
       <view class="imgtool__card-title">原图</view>
@@ -62,6 +73,16 @@
             bindtap="onRows"
           >{{item}}</view>
         </view>
+        <view class="imgtool__field" style="margin-top: 12rpx;">
+          <t-input
+            borderless
+            type="number"
+            value="{{rowsInput}}"
+            placeholder="自定义行数 1～12"
+            bind:change="onRowsInput"
+            bind:blur="onRowsBlur"
+          />
+        </view>
       </view>
       <view class="imgtool__param">
         <view class="imgtool__param-head">
@@ -77,13 +98,31 @@
             bindtap="onCols"
           >{{item}}</view>
         </view>
+        <view class="imgtool__field" style="margin-top: 12rpx;">
+          <t-input
+            borderless
+            type="number"
+            value="{{colsInput}}"
+            placeholder="自定义列数 1～12"
+            bind:change="onColsInput"
+            bind:blur="onColsBlur"
+          />
+        </view>
       </view>
-      <text class="imgtool__hint">将导出 {{rows}}×{{cols}} = {{pieceCount}} 张</text>
+      <text class="imgtool__hint">将导出 {{rows}}×{{cols}} = {{pieceCount}} 张（最多 12×12）</text>
     </view>
 
     <view class="imgtool__card">
       <view class="imgtool__card-title">结果</view>
-      <view wx:if="{{pieces.length}}" class="split-grid" style="grid-template-columns: repeat({{cols}}, 1fr);">
+      <view
+        wx:if="{{paramsDirty && pieces.length}}"
+        class="imgtool__dirty-tip"
+        bindtap="onProcess"
+      >
+        <text class="imgtool__dirty-tip-t">参数已改，点这里重新处理</text>
+        <text class="imgtool__dirty-tip-go">去处理</text>
+      </view>
+      <view wx:if="{{pieces.length}}" class="split-grid" style="grid-template-columns: repeat({{resultCols}}, 1fr);">
         <view class="split-grid__cell" wx:for="{{pieces}}" wx:key="path">
           <image class="split-grid__img" src="{{item.path}}" mode="aspectFill" />
         </view>
@@ -100,7 +139,7 @@
           size="large"
           shape="round"
           block
-          content="{{busy ? '分割中…' : '开始分割'}}"
+          content="{{busy ? '分割中…' : (paramsDirty ? '重新分割' : '开始分割')}}"
           disabled="{{!srcPath || busy || checking}}"
           bind:tap="onProcess"
         />

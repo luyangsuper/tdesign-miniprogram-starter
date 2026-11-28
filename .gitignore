@@ -118,6 +118,8 @@ project.private.config.json
 scripts/library-import/out/open-packs/
 scripts/library-import/out/sticker-ext*/
 scripts/library-import/out/pack-mood/
+scripts/library-import/out/particlefx/
+scripts/avatar-frames/out/
 scripts/library-import/out/**/*-extract/
 scripts/library-import/out/**/*-unpack/
 scripts/library-import/out/*.zip

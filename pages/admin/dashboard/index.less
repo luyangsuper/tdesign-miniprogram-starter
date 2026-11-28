@@ -59,10 +59,34 @@
   }
 
   &__stat {
+    position: relative;
     background: var(--td-bg-color-container);
     border-radius: 16rpx;
     padding: 24rpx 16rpx;
     text-align: center;
+    min-height: 120rpx;
+    box-sizing: border-box;
+
+    &--link {
+      /* 可点：右上角小箭头，不加描边/底色以免高低不一 */
+    }
+
+    &--press {
+      opacity: 0.88;
+    }
+  }
+
+  &__stat-icon {
+    position: absolute;
+    top: 8rpx;
+    right: 6rpx;
+    width: 28rpx;
+    height: 28rpx;
+    opacity: 0.5;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   &__stat-num {
@@ -182,5 +206,107 @@
 
   &__actions {
     margin: 32rpx 24rpx 0;
+  }
+}
+
+.dash-drill {
+  background: var(--td-bg-color-container);
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 8rpx 0 calc(24rpx + env(safe-area-inset-bottom));
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    padding: 16rpx 24rpx 12rpx;
+    min-height: 80rpx;
+    box-sizing: border-box;
+  }
+
+  &__back {
+    display: flex;
+    align-items: center;
+    gap: 2rpx;
+    .ui-caption();
+    color: var(--td-text-color-secondary);
+    flex-shrink: 0;
+
+    &--press {
+      opacity: 0.7;
+    }
+  }
+
+  &__title {
+    .ui-strong();
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__close {
+    padding: 8rpx;
+    flex-shrink: 0;
+  }
+
+  &__loading {
+    padding: 80rpx 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  &__scroll {
+    max-height: 64vh;
+    padding: 0 8rpx 16rpx;
+    box-sizing: border-box;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    padding: 20rpx 20rpx;
+    border-bottom: 1rpx solid var(--td-border-level1-color);
+
+    &--press {
+      background: var(--td-bg-color-secondarycontainer);
+    }
+  }
+
+  &__meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    .ui-body();
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__sub {
+    .ui-caption();
+    display: block;
+    margin-top: 6rpx;
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    flex-shrink: 0;
+  }
+
+  &__value {
+    .ui-caption();
+    color: var(--td-brand-color);
+    font-weight: 600;
   }
 }

@@ -1,0 +1,9 @@
+{
+  "name": "packMoodConfig",
+  "version": "1.0.0",
+  "description": "合集氛围 GIF：全局 overlays 覆盖本地默认",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

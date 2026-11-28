@@ -215,6 +215,15 @@ function computeGrantPatch(user, type, value) {
       pointsInc: add,
     };
   }
+  if (type === 'avatar_frame') {
+    const frameId = String(value || '').trim();
+    if (!frameId) throw new Error('缺少头像框');
+    return {
+      grant: { grantType: 'avatar_frame', frameId },
+      userPatch: null,
+      ownedFrameAdd: frameId,
+    };
+  }
   throw new Error('不支持的发放类型');
 }
 
@@ -224,6 +233,12 @@ function computeGrantPatch(user, type, value) {
 async function resolveGrantFromOrder(db, orderLike) {
   let grantType = orderLike && orderLike.grantType;
   let grantValue = orderLike && orderLike.grantValue;
+  const frameId = String((orderLike && orderLike.frameId) || '').trim();
+  if (grantType === 'avatar_frame') {
+    const id = frameId || String(grantValue || '').trim();
+    if (!id) throw new Error('头像框订单缺少 frameId');
+    return { grantType: 'avatar_frame', grantValue: id };
+  }
   if (grantType && grantValue != null && grantValue !== '') {
     return { grantType, grantValue };
   }
@@ -232,10 +247,20 @@ async function resolveGrantFromOrder(db, orderLike) {
     planKey: orderLike && orderLike.planKey,
     slotId: orderLike && orderLike.slotId,
   });
+  if (live && live.type === 'avatar_frame') {
+    const id = frameId || String(grantValue || '').trim();
+    if (!id) throw new Error('头像框订单缺少 frameId');
+    return { grantType: 'avatar_frame', grantValue: id };
+  }
   if (live) return { grantType: live.type, grantValue: live.value };
   const productId = orderLike && orderLike.productId;
   const catalog = getProduct(productId);
   if (!catalog) throw new Error(`未知道具 ${productId}`);
+  if (catalog.type === 'avatar_frame') {
+    const id = frameId || String(grantValue || '').trim();
+    if (!id) throw new Error('头像框订单缺少 frameId');
+    return { grantType: 'avatar_frame', grantValue: id };
+  }
   return { grantType: catalog.type, grantValue: catalog.value };
 }
 
@@ -292,7 +317,12 @@ async function deliverOrderDirect(db, order, meta = {}, presetGrant = null) {
     grantValue = resolved.grantValue;
   }
   const qty = Math.max(1, Math.floor(Number(meta.quantity || fresh.buyQuantity || order.buyQuantity || 1)));
-  grantValue = Number(grantValue) * qty;
+  if (grantType === 'avatar_frame') {
+    grantValue = String(fresh.frameId || grantValue || '').trim();
+    if (!grantValue) throw new Error('头像框订单缺少 frameId');
+  } else {
+    grantValue = Number(grantValue) * qty;
+  }
 
   const openid = fresh.openid;
   if (!openid) throw new Error('订单无 openid');
@@ -308,6 +338,9 @@ async function deliverOrderDirect(db, order, meta = {}, presetGrant = null) {
   };
   if (computed.pointsInc) {
     userData.points = _.inc(computed.pointsInc);
+  }
+  if (computed.ownedFrameAdd) {
+    userData.ownedFrameIds = _.addToSet(String(computed.ownedFrameAdd));
   }
   await userRef.update({ data: userData });
 
@@ -391,7 +424,23 @@ async function deliverOrder(db, cloud, order, meta = {}) {
 
   // paid / 补发场景优先走非事务，避免云库事务兼容问题
   try {
-    return await deliverOrderDirect(db, { ...order, _id: orderId }, meta, presetGrant);
+    const delivered = await deliverOrderDirect(
+      db,
+      { ...order, _id: orderId },
+      meta,
+      presetGrant,
+    );
+    if (delivered && delivered.ok && openidHint) {
+      try {
+        await cloud.callFunction({
+          name: 'userAchievement',
+          data: { action: 'sync', targetOpenid: openidHint },
+        });
+      } catch (achErr) {
+        console.warn('[achievement] sync', achErr.message || achErr);
+      }
+    }
+    return delivered;
   } catch (e) {
     console.error('deliverOrderDirect', e.message || e);
     try {
@@ -455,6 +504,37 @@ async function reclaimOrderGrant(db, order) {
           updatedAt: db.serverDate(),
         },
       });
+      // 退会员后若已非 VIP，卸下会员框（付费/成就框保留）
+      if (!(nextMs > now)) {
+        const fid = String(user.avatarFrameId || '').trim();
+        if (fid) {
+          try {
+            const fs = await db.collection('avatar_frames').doc(fid).get();
+            let f = (fs && fs.data) || {};
+            if (f.data && typeof f.data === 'object' && f.data.fileID) f = f.data;
+            if (String(f.access || '') === 'vip') {
+              await userRef.update({
+                data: { avatarFrameId: '', updatedAt: db.serverDate() },
+              });
+            }
+          } catch (_) {
+            /* ignore */
+          }
+        }
+      }
+    } else if (grant.grantType === 'avatar_frame') {
+      const frameId = String(grant.frameId || order.frameId || order.grantValue || '').trim();
+      if (frameId) {
+        const _ = db.command;
+        const patch = {
+          ownedFrameIds: _.pull(frameId),
+          updatedAt: db.serverDate(),
+        };
+        if (String(user.avatarFrameId || '') === frameId) {
+          patch.avatarFrameId = '';
+        }
+        await userRef.update({ data: patch });
+      }
     }
   }
 
@@ -798,6 +878,9 @@ function grantMessage(grant) {
   }
   if (grant.grantType === 'points') {
     return `已到账 ${grant.add} 积分`;
+  }
+  if (grant.grantType === 'avatar_frame') {
+    return grant.stacked ? '已拥有该头像框' : '头像框已到账';
   }
   return '权益已到账';
 }

@@ -143,6 +143,36 @@
   line-height: 1.4;
 }
 
+/* —— 参数已改提示（对齐拼豆 dirty-tip） —— */
+.imgtool__dirty-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin: 0 0 16rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 16rpx;
+  background: rgba(7, 193, 96, 0.1);
+  border: 2rpx solid rgba(7, 193, 96, 0.28);
+  box-sizing: border-box;
+}
+
+.imgtool__dirty-tip-t {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+  line-height: 1.35;
+}
+
+.imgtool__dirty-tip-go {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--td-brand-color);
+}
+
 /* —— 参数区 —— */
 .imgtool__param {
   margin-bottom: 28rpx;
@@ -276,10 +306,22 @@
   color: var(--td-text-color-placeholder);
 }
 
+.imgtool__native-ad {
+  margin: 4rpx 0 18rpx;
+  overflow: hidden;
+  border-radius: 16rpx;
+  background: transparent;
+}
+
 .imgtool__thumbs {
   display: flex;
   flex-wrap: wrap;
   gap: 12rpx;
+  align-items: flex-start;
+}
+
+.imgtool__thumb-wrap {
+  width: 128rpx;
 }
 
 .imgtool__thumb {

@@ -1,0 +1,82 @@
+<view class="imgtool-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
+  <festival-decor
+    id="festivalDecor"
+    mode="navbar"
+    active="{{festivalActive}}"
+    header-height="{{festHeaderPx}}"
+    nav-height="{{navHeight}}"
+  />
+  <t-navbar
+    fixed="{{true}}"
+    placeholder="{{true}}"
+    z-index="{{500}}"
+    left-arrow
+    custom-style="{{navBarStyle}}"
+    bind:go-back="onBack"
+  >
+    <view slot="title" class="imgtool__nav-title">读取 EXIF</view>
+  </t-navbar>
+
+  <view class="imgtool">
+    <view class="imgtool__hero">
+      <text class="imgtool__kicker">图片工具箱</text>
+      <text class="imgtool__hero-title">读取 EXIF</text>
+      <text class="imgtool__hero-desc">{{heroDesc}}</text>
+    </view>
+
+    <view
+      wx:if="{{showNativeAd && nativeAdUnitId}}"
+      class="imgtool__native-ad"
+    >
+      <ad-custom
+        unit-id="{{nativeAdUnitId}}"
+        binderror="onNativeAdError"
+      />
+    </view>
+
+    <view class="imgtool__card">
+      <view class="imgtool__card-title">图片</view>
+      <view
+        class="imgtool__preview {{!srcPath ? 'imgtool__preview--pick' : ''}}"
+        bindtap="onPick"
+        hover-class="imghub__card--hover"
+      >
+        <block wx:if="{{srcPath}}">
+          <image class="imgtool__preview-img" src="{{srcPath}}" mode="aspectFit" />
+        </block>
+        <view wx:elif="{{!checking}}" class="imgtool__preview-empty">
+          <kubai-icon name="image" size="56rpx" color="{{themeBrand}}" />
+          <text class="imgtool__preview-empty-title">点此选 JPG</text>
+          <text class="imgtool__preview-empty-text">PNG / 截图通常没有 EXIF</text>
+        </view>
+        <view wx:if="{{checking || busy}}" class="imgtool__preview-loading">
+          <t-loading theme="circular" size="40rpx" text="{{busy ? '解析中…' : checkText}}" />
+        </view>
+      </view>
+      <view wx:if="{{srcMeta}}" class="imgtool__meta">{{srcMeta}}</view>
+    </view>
+
+    <view class="imgtool__card">
+      <view class="imgtool__card-title">元数据</view>
+      <view wx:if="{{gpsText}}" class="exif-gps" bindtap="onOpenMap">
+        {{gpsText}} · 点此在地图查看
+      </view>
+      <view wx:if="{{emptyTip}}" class="imgtool__preview-empty" style="height: auto; padding: 48rpx 20rpx;">
+        <text class="imgtool__preview-empty-text">{{emptyTip}}</text>
+      </view>
+      <view wx:elif="{{entries.length}}" class="exif-list">
+        <t-cell-group>
+          <t-cell
+            wx:for="{{entries}}"
+            wx:key="key"
+            title="{{item.key}}"
+            note="{{item.value}}"
+          />
+        </t-cell-group>
+      </view>
+      <view wx:elif="{{!srcPath}}" class="imgtool__preview-empty" style="height: auto; padding: 48rpx 20rpx;">
+        <text class="imgtool__preview-empty-text">选一张相机拍的 JPG 试试</text>
+      </view>
+    </view>
+  </view>
+</view>

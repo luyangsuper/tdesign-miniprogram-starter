@@ -18,7 +18,8 @@
         "pricing/index",
         "ai/index",
         "lottery/index",
-        "dashboard/index"
+        "dashboard/index",
+        "pack-mood/index"
       ]
     },
     {
@@ -51,7 +52,11 @@
         "image/watermark/index",
         "image/stitch/index",
         "image/split/index",
-        "image/to-size/index"
+        "image/to-size/index",
+        "image/rotate/index",
+        "image/round/index",
+        "image/compress-exif/index",
+        "image/exif/index"
       ]
     },
     {

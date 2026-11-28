@@ -46,6 +46,14 @@ export function defaultHomeFeedAdEvery() {
   return Math.max(0, Math.min(20, Math.floor(v)));
 }
 
+/** 素材库网格每隔多少个表情插一条广告；0=关闭 */
+export function defaultLibraryGridAdEvery() {
+  const v = Number(config.libraryGridAdEvery);
+  if (Number.isNaN(v)) return 12;
+  if (v === 0) return 0;
+  return Math.max(4, Math.min(40, Math.floor(v)));
+}
+
 /**
  * 多笔待弹活动礼合并为一次展示文案（避免连环弹窗）。
  * @param {Array<{ id?: string, title?: string, points?: number }>} list

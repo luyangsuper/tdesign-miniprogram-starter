@@ -21,22 +21,55 @@
     <view class="imgtool__hero">
       <text class="imgtool__kicker">图片工具箱</text>
       <text class="imgtool__hero-title">拼接长图</text>
-      <text class="imgtool__hero-desc">选 2～9 张图，横拼或竖拼成一张</text>
+      <text class="imgtool__hero-desc">横拼 / 竖拼，可调间距、统一尺寸与背景</text>
+    </view>
+
+    <view
+      wx:if="{{showNativeAd && nativeAdUnitId}}"
+      class="imgtool__native-ad"
+    >
+      <ad-custom
+        unit-id="{{nativeAdUnitId}}"
+        binderror="onNativeAdError"
+      />
     </view>
 
     <view class="imgtool__card">
       <view class="imgtool__card-title">图片（{{srcCount}}/9）</view>
-      <view class="imgtool__thumbs">
-        <view class="imgtool__thumb" wx:for="{{srcList}}" wx:key="path">
-          <image class="imgtool__thumb-img" src="{{item.path}}" mode="aspectFill" />
+      <view class="stitch-list">
+        <view class="stitch-row" wx:for="{{srcList}}" wx:key="path" wx:for-index="idx">
+          <image class="stitch-row__img" src="{{item.path}}" mode="aspectFill" />
+          <view class="stitch-row__meta">
+            <text class="stitch-row__idx">第 {{idx + 1}} 张</text>
+            <view class="stitch-row__ops">
+              <view
+                class="imgtool__thumb-btn {{idx === 0 ? 'is-disabled' : ''}}"
+                data-i="{{idx}}"
+                data-dir="-1"
+                bindtap="onMove"
+              >上移</view>
+              <view
+                class="imgtool__thumb-btn {{idx === srcCount - 1 ? 'is-disabled' : ''}}"
+                data-i="{{idx}}"
+                data-dir="1"
+                bindtap="onMove"
+              >下移</view>
+              <view
+                class="imgtool__thumb-btn imgtool__thumb-btn--danger"
+                data-i="{{idx}}"
+                bindtap="onRemove"
+              >删除</view>
+            </view>
+          </view>
         </view>
         <view
           wx:if="{{srcCount < 9}}"
-          class="imgtool__thumb imgtool__thumb--add"
+          class="stitch-add"
           bindtap="onPick"
           hover-class="imghub__card--hover"
         >
-          <kubai-icon name="plus" size="40rpx" color="{{themeBrand}}" />
+          <kubai-icon name="plus" size="36rpx" color="{{themeBrand}}" />
+          <text>添加图片</text>
         </view>
       </view>
       <view wx:if="{{checking}}" class="imgtool__checking">
@@ -57,6 +90,7 @@
 
     <view class="imgtool__card">
       <view class="imgtool__card-title">参数</view>
+
       <view class="imgtool__param">
         <view class="imgtool__param-head">
           <text class="imgtool__label">方向</text>
@@ -75,21 +109,40 @@
           >横向</view>
         </view>
       </view>
+
+      <view class="imgtool__param imgtool__param--row">
+        <text class="imgtool__label">统一{{direction === 'vertical' ? '宽度' : '高度'}}</text>
+        <t-switch value="{{unify}}" bind:change="onUnifyChange" />
+      </view>
+      <text class="imgtool__hint" style="margin-top: -12rpx; margin-bottom: 20rpx;">
+        {{unify ? '按最短边等比缩小对齐' : '保持原尺寸，另一边取最大并居中'}}
+      </text>
+
       <view class="imgtool__param">
         <view class="imgtool__param-head">
           <text class="imgtool__label">间距</text>
           <text class="imgtool__value">{{gap}} px</text>
         </view>
+        <view class="imgtool__chip-grid imgtool__chip-grid--3">
+          <view
+            wx:for="{{gapPresets}}"
+            wx:key="*this"
+            class="imgtool__chip {{gap === item ? 'is-on' : ''}}"
+            data-v="{{item}}"
+            bindtap="onGapPreset"
+          >{{item}}</view>
+        </view>
         <t-slider
           class="imgtool__slider"
           value="{{gap}}"
           min="{{0}}"
-          max="{{48}}"
-          step="{{2}}"
+          max="{{64}}"
+          step="{{1}}"
           label
           bind:change="onGap"
         />
       </view>
+
       <view class="imgtool__param">
         <view class="imgtool__param-head">
           <text class="imgtool__label">背景</text>
@@ -104,10 +157,37 @@
           >{{item.label}}</view>
         </view>
       </view>
+
+      <view class="imgtool__param">
+        <view class="imgtool__param-head">
+          <text class="imgtool__label">输出格式</text>
+          <text class="imgtool__value">{{fileType === 'jpg' ? 'JPG' : 'PNG'}}</text>
+        </view>
+        <view class="imgtool__chip-grid imgtool__chip-grid--2">
+          <view
+            class="imgtool__chip {{fileType === 'png' ? 'is-on' : ''}}"
+            data-v="png"
+            bindtap="onFileType"
+          >PNG</view>
+          <view
+            class="imgtool__chip {{fileType === 'jpg' ? 'is-on' : ''}} {{bgColor === 'transparent' ? 'is-disabled' : ''}}"
+            data-v="jpg"
+            bindtap="onFileType"
+          >JPG</view>
+        </view>
+      </view>
     </view>
 
     <view class="imgtool__card">
       <view class="imgtool__card-title">结果</view>
+      <view
+        wx:if="{{paramsDirty && outPath}}"
+        class="imgtool__dirty-tip"
+        bindtap="onProcess"
+      >
+        <text class="imgtool__dirty-tip-t">参数已改，点这里重新处理</text>
+        <text class="imgtool__dirty-tip-go">去处理</text>
+      </view>
       <view class="imgtool__preview">
         <block wx:if="{{outPath}}">
           <image class="imgtool__preview-img" src="{{outPath}}" mode="aspectFit" />
@@ -123,7 +203,7 @@
           size="large"
           shape="round"
           block
-          content="{{busy ? '拼接中…' : '开始拼接'}}"
+          content="{{busy ? '拼接中…' : (paramsDirty ? '重新拼接' : '开始拼接')}}"
           disabled="{{srcCount < 2 || busy || checking}}"
           bind:tap="onProcess"
         />

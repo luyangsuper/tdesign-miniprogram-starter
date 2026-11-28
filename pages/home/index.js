@@ -42,6 +42,7 @@ import {
 import { promptSaveAdForPoints } from '~/utils/adReward';
 import {
   applyHomeFeedAdEveryFromSettings,
+  applyLibraryGridAdEveryFromSettings,
   getNativeHomeFeedAdUnitId,
   resolveHomeFeedAdEvery,
   shouldShowHomeFeedAds,
@@ -54,6 +55,7 @@ import {
 } from '~/utils/giftHint';
 import {
   getPendingWhatsNew,
+  getWhatsNewPanel,
   markWhatsNewSeen,
 } from '~/utils/whatsNew';
 import {
@@ -68,6 +70,7 @@ import {
 import { applyBeadCostsFromSettings } from '~/utils/beadCosts';
 import { applyImageToolCostsFromSettings } from '~/utils/imageToolCosts';
 import { getCustomNavMetrics, getWindowInfoSafe } from '~/utils/systemInfo';
+import { resolvePreviewRowCount } from '~/utils/previewRowCount';
 import {
   requestNewPackSubscribe,
   shouldShowNewPackGuide,
@@ -108,8 +111,9 @@ function isPreviewRowPack(pack) {
   return t === 'emoji' || t === 'avatar';
 }
 
-function enrichPreviewRowPack(pack) {
+function enrichPreviewRowPack(pack, rowCount = 4) {
   if (!pack) return pack;
+  const slotsWanted = Math.max(3, Math.min(6, Number(rowCount) || 4));
   const cover = String(pack.coverUrl || '').trim();
   const rawUrls = Array.isArray(pack.previewUrls)
     ? pack.previewUrls.map((u) => String(u || '').trim())
@@ -124,7 +128,7 @@ function enrichPreviewRowPack(pack) {
   const previewUrls = [];
   const previewFileIDs = [];
   const previewReloadKeys = [];
-  const slotN = Math.min(4, Math.max(rawUrls.length, rawIds.length));
+  const slotN = Math.min(slotsWanted, Math.max(rawUrls.length, rawIds.length));
   for (let i = 0; i < slotN; i += 1) {
     const url = rawUrls[i] || '';
     const fileID = rawIds[i] || '';
@@ -139,11 +143,13 @@ function enrichPreviewRowPack(pack) {
     Number(pack.previewCount) || emojiCount || previewUrls.length || 0,
   );
   const gridTotal = emojiCount > 0 ? emojiCount : previewCount;
+  const slotShown = previewUrls.length;
+  // 末格盖 +N：总数减去前面完整露出的张数
   const moreCount =
-    Number(pack.moreCount) > 0
-      ? Number(pack.moreCount)
-      : gridTotal > 4
-        ? gridTotal - 3
+    slotShown > 0 && gridTotal > slotShown
+      ? Math.max(0, gridTotal - (slotShown - 1))
+      : slotShown > 0 && gridTotal > slotsWanted
+        ? Math.max(0, gridTotal - (slotsWanted - 1))
         : 0;
   const contentType = normalizeContentType(pack.contentType);
   const createdAt = Number(pack.createdAt) || 0;
@@ -173,11 +179,14 @@ function enrichPreviewRowPack(pack) {
     previewSlots: previewUrls.map((url, i) => ({
       url,
       fileID: previewFileIDs[i] || '',
+      cacheKey: pack._id ? `packPreview:${pack._id}:${i}` : '',
       key: `${previewFileIDs[i] || 'p'}-${i}-${previewReloadKeys[i] || 0}`,
+      showMore: moreCount > 0 && i === previewUrls.length - 1,
     })),
     previewCount,
     emojiCount,
     moreCount,
+    previewRowCount: slotsWanted,
     hasAnim: !!pack.hasAnim,
     mood,
     moodId: mood ? mood.id : '',
@@ -195,7 +204,7 @@ function enrichPreviewRowPack(pack) {
  * - 纯壁纸 → wall-grid（两列封面卡）
  * - 其它 → 按条：row（表情/头像）/ card（壁纸）+ 可选通栏广告
  */
-function buildFeedBlocks(list, columnCount, every, showAds) {
+function buildFeedBlocks(list, columnCount, every, showAds, previewRowCount = 4) {
   const items = (list || []).filter(Boolean);
   const insertAds = !!showAds && Number(every) > 0;
   const adEvery = Math.max(1, Number(every) || 6);
@@ -226,7 +235,7 @@ function buildFeedBlocks(list, columnCount, every, showAds) {
   let adSeq = 0;
   items.forEach((p, i) => {
     if (isPreviewRowPack(p)) {
-      const pack = enrichPreviewRowPack(p);
+      const pack = enrichPreviewRowPack(p, previewRowCount);
       blocks.push({
         key: `row-${pack._id}`,
         type: 'row',
@@ -340,6 +349,11 @@ Page({
     batchUnitLabel: '张',
     batchMetaText: '已选 0 个合集',
     batchSaving: false,
+    /** 首页素材库入口右侧随机三图 */
+    libBannerThumbs: [],
+    /** 首页搜索命中的素材库条目 */
+    libSearchHits: [],
+    libSearchLoading: false,
     confirmVisible: false,
     confirmTitle: '',
     confirmContent: '',
@@ -349,9 +363,12 @@ Page({
     giftPoints: 0,
     giftAffordLine: '',
     whatsNewVisible: false,
+    whatsNewBadge: false,
     whatsNewTitle: '更新说明',
     whatsNewVersion: '',
-    whatsNewItems: [],
+    whatsNewFromVersion: '',
+    whatsNewShowUpgrade: false,
+    whatsNewReleases: [],
     activityGiftVisible: false,
     activityGiftTitle: '',
     activityGiftPoints: 0,
@@ -419,6 +436,8 @@ Page({
     applyThemeToTabBar();
     this.updateLayout();
     this.refreshFestivalDecor();
+    // 真机吸顶栏高度偶发首测偏小，回前台再量一次，避免入口卡贴分类
+    setTimeout(() => this.measureFixedBar(), 80);
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       const bar = this.getTabBar();
       if (typeof bar.setSelected === 'function') bar.setSelected('home');
@@ -434,7 +453,7 @@ Page({
       // refreshAdmin 内已含 refreshFeedAdGate，勿再调一次
       this.refreshAdmin();
       this.maybeShowWelcomeGift();
-      this.maybeShowWhatsNew();
+      this.syncWhatsNewBadge();
       this.maybeShowActivityGift();
       const now = Date.now();
       if (!this._pendingPullAt || now - this._pendingPullAt > 25 * 1000) {
@@ -545,6 +564,9 @@ Page({
       if (res && res.homeFeedAdEvery != null) {
         applyHomeFeedAdEveryFromSettings(res);
       }
+      if (res && res.libraryGridAdEvery != null) {
+        applyLibraryGridAdEveryFromSettings(res);
+      }
       applyDownloadCostsFromSettings(res || {});
       applyBeadCostsFromSettings(res || {});
       applyImageToolCostsFromSettings(res || {});
@@ -620,29 +642,40 @@ Page({
       }
     }
     this.setData({ giftVisible: false });
-    this.maybeShowWhatsNew();
+    this.syncWhatsNewBadge();
     this.maybeShowActivityGift();
   },
 
-  maybeShowWhatsNew() {
+  /** 不再自动弹更新说明；仅顶栏红点提示 */
+  syncWhatsNewBadge() {
     try {
-      if (
-        this.data.giftVisible ||
-        this.data.whatsNewVisible ||
-        this.data.activityGiftVisible ||
-        this.data.subscribeGuideVisible
-      ) {
+      const pending = !!getPendingWhatsNew();
+      if (pending !== this.data.whatsNewBadge) {
+        this.setData({ whatsNewBadge: pending });
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  },
+
+  onBrandTap() {
+    this.openWhatsNew();
+  },
+
+  openWhatsNew() {
+    try {
+      const panel = getWhatsNewPanel();
+      if (!panel) {
+        wx.showToast({ title: '暂无更新说明', icon: 'none' });
         return;
       }
-      const app = getApp();
-      if (app.globalData && app.globalData.pendingWelcomeGift) return;
-      const release = getPendingWhatsNew();
-      if (!release) return;
       this.setData({
         whatsNewVisible: true,
-        whatsNewTitle: release.title,
-        whatsNewVersion: release.version,
-        whatsNewItems: release.items,
+        whatsNewTitle: panel.title,
+        whatsNewVersion: panel.version,
+        whatsNewFromVersion: panel.fromVersion || '',
+        whatsNewShowUpgrade: !!panel.showUpgrade,
+        whatsNewReleases: panel.releases || [],
       });
     } catch (e) {
       /* ignore */
@@ -653,7 +686,7 @@ Page({
     if (this._closingWhatsNew) return;
     this._closingWhatsNew = true;
     markWhatsNewSeen(this.data.whatsNewVersion);
-    this.setData({ whatsNewVisible: false });
+    this.setData({ whatsNewVisible: false, whatsNewBadge: false });
     this._closingWhatsNew = false;
     this.maybeShowWelcomeGift();
     this.maybeShowActivityGift();
@@ -685,6 +718,67 @@ Page({
 
   goLibrary() {
     wx.navigateTo({ url: '/pages/library/index' });
+  },
+
+  /**
+   * 首页「发现更多有趣素材」右侧三图：每次冷启动随机抽一次，本会话内复用
+   */
+  async ensureLibBannerThumbs() {
+    try {
+      const app = getApp();
+      const cached =
+        app &&
+        app.globalData &&
+        Array.isArray(app.globalData.homeLibBannerThumbs)
+          ? app.globalData.homeLibBannerThumbs
+          : null;
+      if (cached && cached.length) {
+        const slots = cached
+          .map((s) =>
+            typeof s === 'string'
+              ? { url: String(s).trim(), fileId: '' }
+              : {
+                  url: String((s && s.url) || '').trim(),
+                  fileId: String((s && s.fileId) || '').trim(),
+                },
+          )
+          .filter((s) => s.url)
+          .slice(0, 3);
+        if (
+          JSON.stringify(this.data.libBannerThumbs || []) !==
+          JSON.stringify(slots)
+        ) {
+          this.setData({ libBannerThumbs: slots });
+        }
+        return;
+      }
+      if (this._loadingLibBannerThumbs) return;
+      this._loadingLibBannerThumbs = true;
+      const res = await callFunction('listLibrary', {
+        action: 'randomPreviews',
+        limit: 3,
+      });
+      const data = (res && res.data) || {};
+      let slots = Array.isArray(data.slots) ? data.slots : [];
+      if (!slots.length && Array.isArray(data.urls)) {
+        slots = data.urls.map((u) => ({ url: u, fileId: '' }));
+      }
+      slots = slots
+        .map((s) => ({
+          url: String((s && s.url) || '').trim(),
+          fileId: String((s && s.fileId) || '').trim(),
+        }))
+        .filter((s) => s.url)
+        .slice(0, 3);
+      if (app && app.globalData) {
+        app.globalData.homeLibBannerThumbs = slots;
+      }
+      this.setData({ libBannerThumbs: slots });
+    } catch (e) {
+      console.warn('[home lib banner thumbs]', e);
+    } finally {
+      this._loadingLibBannerThumbs = false;
+    }
   },
 
   maybeShowActivityGift() {
@@ -781,7 +875,8 @@ Page({
         if (bar && typeof bar.syncFestival === 'function') bar.syncFestival();
       }
     };
-    this._onWaterfallColumnsChange = () => this.updateLayout();
+    this._onWaterfallColumnsChange = () => this.applyPreviewRowCount(true);
+    this._onPreviewRowCountChange = () => this.applyPreviewRowCount(true);
     this._onHomePrefChange = () => {
       this._pendingHomePrefApply = true;
     };
@@ -800,15 +895,19 @@ Page({
         app.eventBus.on('adminViewChange', this._onAdminViewChange);
         app.eventBus.on('festivalChange', this._onFestivalChange);
         app.eventBus.on('waterfallColumnsChange', this._onWaterfallColumnsChange);
+        app.eventBus.on('previewRowCountChange', this._onPreviewRowCountChange);
         app.eventBus.on('homePrefChange', this._onHomePrefChange);
       }
     } catch (e) {
       /* ignore */
     }
     this.updateNavHeight();
+    this.setData({ previewRowCount: resolvePreviewRowCount() });
     this.updateLayout();
     this.updateScrollerHeight();
     this.refreshAdmin();
+    this.ensureLibBannerThumbs();
+    this.syncWhatsNewBadge();
     // 有保存偏好则先套默认筛选，再出快照壳 / 拉列表
     this.applyHomePrefOnBoot();
     this.hydrateFromSnapshot();
@@ -847,6 +946,9 @@ Page({
         if (this._onFestivalChange) app.eventBus.off('festivalChange', this._onFestivalChange);
         if (this._onWaterfallColumnsChange) {
           app.eventBus.off('waterfallColumnsChange', this._onWaterfallColumnsChange);
+        }
+        if (this._onPreviewRowCountChange) {
+          app.eventBus.off('previewRowCountChange', this._onPreviewRowCountChange);
         }
         if (this._onHomePrefChange) {
           app.eventBus.off('homePrefChange', this._onHomePrefChange);
@@ -1068,7 +1170,7 @@ Page({
       const rect = res && res[0];
       if (!rect || !rect.height) return;
       // t-navbar（fixed + placeholder）已占位，这里只需给「吸顶搜索+分类」留高
-      const fixedOffset = Math.ceil(rect.height) + 8;
+      const fixedOffset = Math.ceil(rect.height) + 6;
       this.setData({ fixedOffset }, () => {
         this.updateScrollerHeight();
         this.refreshFestivalDecor();
@@ -1097,6 +1199,39 @@ Page({
     } catch (e) {
       /* ignore */
     }
+  },
+
+  
+  feedBlocksFrom(list, showAds) {
+    const cols = this.data.columnCount || 2;
+    const rowN = this.data.previewRowCount || resolvePreviewRowCount();
+    return buildFeedBlocks(
+      list || this.data.list || [],
+      cols,
+      resolveHomeFeedAdEvery(cols),
+      !!showAds,
+      rowN,
+    );
+  },
+
+  applyPreviewRowCount(force) {
+    const n = resolvePreviewRowCount();
+    if (!force && n === this.data.previewRowCount) return;
+    const list = (this.data.list || []).map((item) =>
+      isPreviewRowPack(item) ? enrichPreviewRowPack(item, n) : item,
+    );
+    const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
+    this.setData({
+      previewRowCount: n,
+      list,
+      feedBlocks: buildFeedBlocks(
+        list,
+        this.data.columnCount || 2,
+        resolveHomeFeedAdEvery(this.data.columnCount || 2),
+        showAds,
+        n,
+      ),
+    });
   },
 
   refreshAdmin() {
@@ -1140,11 +1275,13 @@ Page({
       showFeedAds,
     };
     if (this.data.list && this.data.list.length) {
+      patch.previewRowCount = resolvePreviewRowCount();
       patch.feedBlocks = buildFeedBlocks(
         this.data.list,
         columnCount,
         resolveHomeFeedAdEvery(columnCount),
         showFeedAds && !this.data.selectMode,
+        patch.previewRowCount,
       );
     }
     this.setData(patch);
@@ -1173,12 +1310,7 @@ Page({
       nativeAdUnitId: unitId,
     };
     if (needBlocks) {
-      patch.feedBlocks = buildFeedBlocks(
-        this.data.list,
-        this.data.columnCount,
-        resolveHomeFeedAdEvery(this.data.columnCount),
-        adsOn,
-      );
+      patch.feedBlocks = this.feedBlocksFrom(this.data.list, adsOn);
     }
     this.setData(patch);
   },
@@ -1219,7 +1351,7 @@ Page({
     let changed = false;
     const feedBlocks = prev.map((b) => {
       if (!b || b.type !== 'row' || !b.pack || !b.pack.moodId) return b;
-      const pack = enrichPreviewRowPack(b.pack);
+      const pack = enrichPreviewRowPack(b.pack, this.data.previewRowCount || resolvePreviewRowCount());
       if (
         pack &&
         pack.mood &&
@@ -1289,16 +1421,13 @@ Page({
           : [],
         moreCount: Number(item.moreCount) || 0,
       };
-      return isPreviewRowPack(base) ? enrichPreviewRowPack(base) : base;
+      return isPreviewRowPack(base)
+        ? enrichPreviewRowPack(base, this.data.previewRowCount || resolvePreviewRowCount())
+        : base;
     };
     const safeList = (list || []).map(normalizePack);
     const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
-    const feedBlocks = buildFeedBlocks(
-      safeList,
-      this.data.columnCount,
-      resolveHomeFeedAdEvery(this.data.columnCount),
-      showAds,
-    );
+    const feedBlocks = this.feedBlocksFrom(safeList, showAds);
     // 不在每次列表更新里写 enable，避免误触 refresher-triggered 抖动
     const patch = {
       list: safeList,
@@ -1549,20 +1678,88 @@ Page({
   },
 
   onSearchChange(e) {
-    this.setData({ keyword: e.detail.value || '' });
+    const keyword = e.detail.value || '';
+    this.setData({ keyword });
+    if (this._libSearchTimer) clearTimeout(this._libSearchTimer);
+    this._libSearchTimer = setTimeout(() => {
+      const kw = String(this.data.keyword || '').trim();
+      // 输入中只搜素材库（轻量）；合集仍点搜索/回车再查，避免打爆 listPacks
+      this.loadLibSearch(kw);
+    }, 360);
   },
 
   onSearchSubmit(e) {
     const keyword = (e.detail && e.detail.value) || this.data.keyword || '';
-    this.setData({ keyword: keyword.trim(), searchFocus: false });
+    const kw = String(keyword || '').trim();
+    this.setData({ keyword: kw, searchFocus: false });
+    this.clearPackSelection();
+    if (this._libSearchTimer) clearTimeout(this._libSearchTimer);
+    this.loadList(true);
+    this.loadLibSearch(kw);
+  },
+
+  onSearchClear() {
+    if (this._libSearchTimer) clearTimeout(this._libSearchTimer);
+    this._libSearchSeq = (this._libSearchSeq || 0) + 1;
+    this.setData({ keyword: '', libSearchHits: [], libSearchLoading: false });
     this.clearPackSelection();
     this.loadList(true);
   },
 
-  onSearchClear() {
-    this.setData({ keyword: '' });
-    this.clearPackSelection();
-    this.loadList(true);
+  async loadLibSearch(keyword) {
+    const kw = String(keyword || '').trim();
+    if (!kw) {
+      this._libSearchSeq = (this._libSearchSeq || 0) + 1;
+      this.setData({ libSearchHits: [], libSearchLoading: false });
+      return;
+    }
+    const seq = (this._libSearchSeq = (this._libSearchSeq || 0) + 1);
+    this.setData({ libSearchLoading: true });
+    try {
+      const res = await callFunction('listLibrary', {
+        action: 'search',
+        keyword: kw,
+        pageSize: 12,
+      });
+      if (seq !== this._libSearchSeq) return;
+      const list = ((res && res.data && res.data.list) || [])
+        .filter((x) => x && x._id)
+        .slice(0, 12);
+      this.setData({ libSearchHits: list, libSearchLoading: false });
+    } catch (e) {
+      if (seq !== this._libSearchSeq) return;
+      this.setData({ libSearchHits: [], libSearchLoading: false });
+    }
+  },
+
+  onLibSearchTap(e) {
+    const id =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) ||
+      '';
+    const sourceId =
+      (e.currentTarget &&
+        e.currentTarget.dataset &&
+        e.currentTarget.dataset.sourceid) ||
+      '';
+    if (!id || !sourceId) return;
+    const url = `/pages/library/source/index?sourceId=${encodeURIComponent(
+      sourceId,
+    )}&itemId=${encodeURIComponent(id)}`;
+    wx.navigateTo({
+      url,
+      fail: () => {
+        wx.showToast({ title: '打不开该素材', icon: 'none' });
+      },
+    });
+  },
+
+  goLibrarySearchMore() {
+    const kw = String(this.data.keyword || '').trim();
+    wx.navigateTo({
+      url: kw
+        ? `/pages/library/index?q=${encodeURIComponent(kw)}`
+        : '/pages/library/index',
+    });
   },
 
   onSearchBlur() {
@@ -1926,89 +2123,10 @@ Page({
     return true;
   },
 
-  onBodyTouchStart(e) {
-    if (this._swipeSwitching) return;
-    const t = e.changedTouches && e.changedTouches[0];
-    if (!t) return;
-    this._touchStartX = t.clientX;
-    this._touchStartY = t.clientY;
-    this._touchTracking = true;
-    this._touchLocked = '';
-    this._lastSwipeSetAt = 0;
-    this.refreshHintMeta();
-  },
-
-  onBodyTouchMove(e) {
-    if (!this._touchTracking || this._swipeSwitching) return;
-    const t = e.touches && e.touches[0];
-    if (!t) return;
-    const dx = t.clientX - this._touchStartX;
-    const dy = t.clientY - this._touchStartY;
-    const absX = Math.abs(dx);
-    const absY = Math.abs(dy);
-
-    if (!this._touchLocked) {
-      // 走出死区后再锁轴：横滑切分类，竖滑交给列表
-      if (absX < 12 && absY < 12) return;
-      const atTop = (this._listScrollTop || 0) <= 2;
-      // 顶部下拉优先交给 refresher，避免斜滑误锁横轴关掉 refresher-enabled
-      if (atTop && dy > 0 && absY >= absX * 0.85) {
-        this._touchLocked = 'v';
-        return;
-      }
-      this._touchLocked = absX > absY * 1.15 ? 'h' : 'v';
-      if (this._touchLocked === 'h') {
-        // 立刻关掉 scroll-y，避免横滑时瀑布流还在滚
-        this.setSwipeScrollLock(true);
-      }
-      if (this._touchLocked === 'v') return;
-    }
-
-    if (this._touchLocked !== 'h') return;
-
-    const swipeX = this.calcSwipeX(dx);
-    const now = Date.now();
-    // 约 30fps 节流：跟手够用，且少打 setData
-    if (now - this._lastSwipeSetAt < 32 && Math.abs(swipeX - this.data.swipeX) < 4) {
-      return;
-    }
-    this._lastSwipeSetAt = now;
-    this.setData(this.buildSwipeMovePatch(swipeX));
-  },
-
-  onBodyTouchEnd(e) {
-    if (!this._touchTracking) return;
-    const locked = this._touchLocked;
-    this._touchTracking = false;
-    this._touchLocked = '';
-
-    const t = e.changedTouches && e.changedTouches[0];
-    if (!t) {
-      this.resetSwipePane(true);
-      return;
-    }
-    const dx = t.clientX - this._touchStartX;
-    const dy = t.clientY - this._touchStartY;
-    const absX = Math.abs(dx);
-    const absY = Math.abs(dy);
-
-    // 竖滑或未形成横滑：回弹（若有跟手位移）
-    if (locked === 'v' || (locked !== 'h' && absX <= absY * 1.2)) {
-      this.resetSwipePane(true);
-      return;
-    }
-
-    const { windowWidth } = getWindowInfoSafe();
-    const threshold = Math.max(56, Math.round((windowWidth || 375) * 0.18));
-    if (absX < threshold || absX < absY * 1.2) {
-      this.resetSwipePane(true);
-      return;
-    }
-
-    if (!this.switchCategoryBySwipe(dx)) {
-      this.resetSwipePane(true);
-    }
-  },
+  /** 已取消左右滑切分类 */
+  onBodyTouchStart() {},
+  onBodyTouchMove() {},
+  onBodyTouchEnd() {},
 
   onListScroll(e) {
     const top = e && e.detail && e.detail.scrollTop;
@@ -2153,12 +2271,7 @@ Page({
         batchMetaText: '已选 0 个合集',
         batchVariant: 'static',
         showFeedAds: showAds,
-        feedBlocks: buildFeedBlocks(
-          this.data.list,
-          this.data.columnCount,
-          resolveHomeFeedAdEvery(this.data.columnCount),
-          showAds,
-        ),
+        feedBlocks: this.feedBlocksFrom(this.data.list, showAds),
       });
       return;
     }
@@ -2174,12 +2287,7 @@ Page({
       batchShowVariant: false,
       batchMetaText: '请选择同一类型的合集',
       batchVariant: 'static',
-      feedBlocks: buildFeedBlocks(
-        this.data.list,
-        this.data.columnCount,
-        resolveHomeFeedAdEvery(this.data.columnCount),
-        false,
-      ),
+      feedBlocks: this.feedBlocksFrom(this.data.list, false),
     });
   },
 
@@ -2550,12 +2658,7 @@ Page({
 
     const list = (this.data.list || []).map(patchItem);
     const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
-    const feedBlocks = buildFeedBlocks(
-      list,
-      this.data.columnCount,
-      resolveHomeFeedAdEvery(this.data.columnCount),
-      showAds,
-    );
+    const feedBlocks = this.feedBlocksFrom(list, showAds);
     this.setData({ list, feedBlocks });
 
     const cacheKey = listCacheKey(
@@ -2597,12 +2700,7 @@ Page({
     };
     const list = (this.data.list || []).map(patchItem);
     const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
-    const feedBlocks = buildFeedBlocks(
-      list,
-      this.data.columnCount,
-      resolveHomeFeedAdEvery(this.data.columnCount),
-      showAds,
-    );
+    const feedBlocks = this.feedBlocksFrom(list, showAds);
     this.setData({ list, feedBlocks });
     const cacheKey = listCacheKey(
       this.data.categoryId,
@@ -2647,12 +2745,7 @@ Page({
     };
     const list = (this.data.list || []).map(patchItem);
     const showAds = shouldShowHomeFeedAds() && !this.data.selectMode;
-    const feedBlocks = buildFeedBlocks(
-      list,
-      this.data.columnCount,
-      resolveHomeFeedAdEvery(this.data.columnCount),
-      showAds,
-    );
+    const feedBlocks = this.feedBlocksFrom(list, showAds);
     this.setData({ list, feedBlocks });
     const cacheKey = listCacheKey(
       this.data.categoryId,
@@ -2665,51 +2758,19 @@ Page({
   },
 
   /**
-   * 四预览临时链失效：按 previewFileIDs[i] 换新签后重载该格。
-   * 切勿整表刷新，避免翻页后连环 error 打回第一页。
+   * smart-image 已换签重挂；这里只同步列表/缓存，避免滚动回收后又用旧链。
    */
-  async onPreviewError(e) {
+  onPreviewResign(e) {
     const ds =
       (e && e.currentTarget && e.currentTarget.dataset) ||
       (e && e.target && e.target.dataset) ||
       {};
     const packId = String(ds.packId || '').trim();
     const index = Number(ds.index);
-    if (!packId || !Number.isFinite(index) || index < 0) return;
-
-    const item =
-      (this.data.list || []).find((row) => row && row._id === packId) || null;
-    if (!item) return;
-
-    const fileIDs = Array.isArray(item.previewFileIDs) ? item.previewFileIDs : [];
-    const fileID = String(fileIDs[index] || '').trim();
-
-    forgetTempUrl(packPreviewCacheKey(packId, index));
-    if (fileID) forgetTempUrl(fileID);
-
-    const lockKey = `${packId}:${index}`;
-    if (!this._previewResignKeys) this._previewResignKeys = new Set();
-    if (!this._previewResignCount) this._previewResignCount = Object.create(null);
-    if (this._previewResignKeys.has(lockKey)) return;
-    const tried = Number(this._previewResignCount[lockKey]) || 0;
-    if (tried >= 2) return; // 避免永久裂图死循环
-    this._previewResignKeys.add(lockKey);
-    this._previewResignCount[lockKey] = tried + 1;
-
-    try {
-      if (!fileID) return;
-      const urls = await getTempFileURLs([fileID]);
-      const next = String((urls && urls[0]) || '').trim();
-      if (!next) return;
-      rememberTempUrl(packPreviewCacheKey(packId, index), next);
-      rememberTempUrl(fileID, next);
-      // bump reload token，强制 t-image 重挂再加载
-      this.patchPackPreview(packId, index, next, fileID, { forceRemount: true });
-    } catch (err) {
-      /* 单格失败保留错误态，等下拉刷新 */
-    } finally {
-      this._previewResignKeys.delete(lockKey);
-    }
+    const next = String((e && e.detail && e.detail.src) || '').trim();
+    const fileID = String((e && e.detail && e.detail.fileId) || '').trim();
+    if (!packId || !Number.isFinite(index) || index < 0 || !next) return;
+    this.patchPackPreview(packId, index, next, fileID, { forceRemount: false });
   },
 
   /**

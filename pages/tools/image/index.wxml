@@ -24,49 +24,61 @@
       <text class="imghub__banner-desc">压缩、裁剪、水印、拼接、转 GIF，处理好再保存</text>
     </view>
 
-    <view wx:for="{{sections}}" wx:key="id" class="imghub__section">
-      <text class="imghub__section-title">{{item.title}}</text>
-      <view class="imghub__group">
-        <view
-          wx:for="{{item.tools}}"
-          wx:for-item="tool"
-          wx:key="id"
-          class="imghub__row"
-          data-url="{{tool.url}}"
-          bindtap="goTool"
-          hover-class="imghub__row--hover"
-          hover-stay-time="80"
-        >
-          <view class="imghub__row-icon" style="background: {{tool.color}};">
-            <kubai-icon
-              name="{{tool.icon}}"
-              size="52rpx"
-              color="#ffffff"
-              motion="{{false}}"
-            />
-          </view>
-          <view class="imghub__row-body">
-            <view class="imghub__row-head">
-              <text class="imghub__row-title">{{tool.title}}</text>
-              <t-tag
-                wx:if="{{tool.tag}}"
-                size="small"
-                variant="light"
-                theme="{{tool.tagTheme || 'success'}}"
-              >{{tool.tag}}</t-tag>
+    <block wx:for="{{sections}}" wx:key="id">
+      <view class="imghub__section">
+        <text class="imghub__section-title">{{item.title}}</text>
+        <view class="imghub__group">
+          <view
+            wx:for="{{item.tools}}"
+            wx:for-item="tool"
+            wx:key="id"
+            class="imghub__row"
+            data-url="{{tool.url}}"
+            bindtap="goTool"
+            hover-class="imghub__row--hover"
+            hover-stay-time="80"
+          >
+            <view class="imghub__row-icon" style="background: {{tool.color}};">
+              <kubai-icon
+                name="{{tool.icon}}"
+                size="52rpx"
+                color="#ffffff"
+                motion="{{false}}"
+              />
             </view>
-            <text class="imghub__row-desc">{{tool.desc}}</text>
-          </view>
-          <view class="imghub__row-go">
-            <kubai-icon
-              name="chevron-right"
-              size="28rpx"
-              color="{{themeChevron}}"
-              motion="{{false}}"
-            />
+            <view class="imghub__row-body">
+              <view class="imghub__row-head">
+                <text class="imghub__row-title">{{tool.title}}</text>
+                <t-tag
+                  wx:if="{{tool.tag}}"
+                  size="small"
+                  variant="light"
+                  theme="{{tool.tagTheme || 'success'}}"
+                >{{tool.tag}}</t-tag>
+              </view>
+              <text class="imghub__row-desc">{{tool.desc}}</text>
+            </view>
+            <view class="imghub__row-go">
+              <kubai-icon
+                name="chevron-right"
+                size="28rpx"
+                color="{{themeChevron}}"
+                motion="{{false}}"
+              />
+            </view>
           </view>
         </view>
       </view>
-    </view>
+
+      <view
+        wx:if="{{index === 0 && showNativeAd && nativeAdUnitId}}"
+        class="imgtool__native-ad"
+      >
+        <ad-custom
+          unit-id="{{nativeAdUnitId}}"
+          binderror="onNativeAdError"
+        />
+      </view>
+    </block>
   </view>
 </view>

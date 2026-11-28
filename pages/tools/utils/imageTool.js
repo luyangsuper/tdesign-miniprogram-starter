@@ -3,6 +3,13 @@
  */
 import { callFunction, uploadFile } from '~/utils/cloud';
 import { ensureAlbumAuth } from '~/utils/download';
+import {
+  extractJpegMetaSegments,
+  normalizeOrientation,
+  insertJpegSegments,
+  readFileArrayBuffer,
+  writeJpegTemp,
+} from './jpegExif';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const SAFE_CHECK_EXTS = ['jpg', 'jpeg', 'png', 'bmp', 'gif', 'webp', 'heic', 'heif'];
@@ -150,7 +157,8 @@ export function pickCheckedImages(opts = {}) {
       count,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
-      sizeType: ['compressed'],
+      // 原图：裁剪/改尺寸等非压缩工具依赖此保画质；压缩工具再自行降质
+      sizeType: ['original'],
       success: async (res) => {
         const files = (res.tempFiles || []).filter((f) => f && f.tempFilePath);
         if (!files.length) {
@@ -219,14 +227,24 @@ function fitSize(srcW, srcH, maxEdge) {
   };
 }
 
-async function drawSource(src, destW, destH) {
+async function drawSource(src, destW, destH, opts = {}) {
   const canvas = createOffscreenCanvas(destW, destH);
   canvas.width = destW;
   canvas.height = destH;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('无法创建画布');
   const img = await loadCanvasImage(canvas, src);
-  if ('imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled = true;
+  const srcW = Math.max(1, Number(img.width) || destW);
+  const srcH = Math.max(1, Number(img.height) || destH);
+  const sameSize = srcW === destW && srcH === destH;
+  // 1:1 拷贝关平滑，避免无故发糊；缩放时开 high，尽量保细节
+  if ('imageSmoothingEnabled' in ctx) {
+    const smooth = opts.smooth != null ? !!opts.smooth : !sameSize;
+    ctx.imageSmoothingEnabled = smooth;
+    if (smooth && 'imageSmoothingQuality' in ctx) {
+      ctx.imageSmoothingQuality = opts.smoothQuality || 'high';
+    }
+  }
   ctx.clearRect(0, 0, destW, destH);
   ctx.drawImage(img, 0, 0, destW, destH);
   return { canvas, ctx, img };
@@ -237,7 +255,12 @@ async function drawSource(src, destW, destH) {
  */
 export async function exportCanvasToTemp(canvas, opts = {}) {
   const fileType = String(opts.fileType || 'png').toLowerCase() === 'jpg' ? 'jpg' : 'png';
-  const quality = Math.min(1, Math.max(0.1, Number(opts.quality) || 0.92));
+  // png 无损；未指定时 jpg 默认偏高，避免「只改尺寸却发糊」
+  const rawQ = Number(opts.quality);
+  const quality =
+    fileType === 'png'
+      ? 1
+      : Math.min(1, Math.max(0.1, Number.isFinite(rawQ) ? rawQ : 0.95));
   const width = Math.max(1, Number(canvas.width) || 1);
   const height = Math.max(1, Number(canvas.height) || 1);
 
@@ -303,8 +326,13 @@ export async function resizeImage(src, opts = {}) {
   } else if (lock && opts.height && !opts.width) {
     width = Math.max(1, Math.round((height / probed.height) * probed.width));
   }
+  // 尺寸未变：不重编码，彻底避免发糊
+  if (width === probed.width && height === probed.height) {
+    const size = await fileSize(probed.path || src);
+    return { path: probed.path || src, width, height, size };
+  }
   const fileType = String(opts.fileType || 'png').toLowerCase() === 'jpg' ? 'jpg' : 'png';
-  const quality = Math.min(1, Math.max(0.1, Number(opts.quality) || 0.92));
+  const quality = Math.min(1, Math.max(0.1, Number(opts.quality) || 1));
   const { canvas } = await drawSource(src, width, height);
   const path = await exportCanvasToTemp(canvas, { fileType, quality });
   const size = await fileSize(path);
@@ -313,7 +341,10 @@ export async function resizeImage(src, opts = {}) {
 
 export async function convertImage(src, opts = {}) {
   const format = String(opts.format || 'png').toLowerCase() === 'jpg' ? 'jpg' : 'png';
-  const quality = Math.min(1, Math.max(0.1, Number(opts.quality) || 0.92));
+  const quality = Math.min(
+    1,
+    Math.max(0.1, Number(opts.quality) || (format === 'jpg' ? 0.95 : 1)),
+  );
   const maxEdge = Math.max(0, Number(opts.maxEdge) || 4096);
   const probed = await probeImage(src);
   const sized = fitSize(probed.width, probed.height, maxEdge);
@@ -353,13 +384,15 @@ export async function cropImage(src, rect, opts = {}) {
     Math.min(probed.height - y, Math.round(Number(rect.h) || probed.height)),
   );
   const fileType = String(opts.fileType || 'png').toLowerCase() === 'jpg' ? 'jpg' : 'png';
-  const quality = Math.min(1, Math.max(0.1, Number(opts.quality) || 0.92));
+  const quality = Math.min(1, Math.max(0.1, Number(opts.quality) || 1));
   const canvas = createOffscreenCanvas(w, h);
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('无法创建画布');
   const img = await loadCanvasImage(canvas, src);
+  // 裁剪为 1:1 像素拷贝，关平滑以免边缘发糊
+  if ('imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
   const path = await exportCanvasToTemp(canvas, { fileType, quality });
   const size = await fileSize(path);
@@ -380,102 +413,219 @@ const WATERMARK_POS = {
 
 export async function watermarkImage(src, opts = {}) {
   const text = String(opts.text || '').trim() || '水印';
+  const tile = !!opts.tile || String(opts.position || '') === 'tile';
   const pos = WATERMARK_POS[opts.position] || WATERMARK_POS.br;
   const opacity = Math.min(1, Math.max(0.05, Number(opts.opacity) || 0.45));
-  const fontSize = Math.max(12, Math.round(Number(opts.fontSize) || 36));
   const color = String(opts.color || '#ffffff');
   const probed = await probeImage(src);
+  // sizePct：相对图片宽度；否则用绝对字号
+  let fontSize = Math.max(12, Math.round(Number(opts.fontSize) || 36));
+  const sizePct = Number(opts.sizePct);
+  if (Number.isFinite(sizePct) && sizePct > 0) {
+    fontSize = Math.max(12, Math.round((probed.width * sizePct) / 100));
+  }
   const { canvas, ctx } = await drawSource(src, probed.width, probed.height);
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.fillStyle = color;
   ctx.font = `bold ${fontSize}px sans-serif`;
-  ctx.textAlign =
-    pos[0] < 0.34 ? 'left' : pos[0] > 0.66 ? 'right' : 'center';
-  ctx.textBaseline =
-    pos[1] < 0.34 ? 'top' : pos[1] > 0.66 ? 'bottom' : 'middle';
-  const x = probed.width * pos[0];
-  const y = probed.height * pos[1];
   ctx.shadowColor = 'rgba(0,0,0,0.35)';
   ctx.shadowBlur = 4;
-  ctx.fillText(text, x, y);
+  if (tile) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const stepX = Math.max(fontSize * 4, Math.round(probed.width / 4));
+    const stepY = Math.max(fontSize * 3, Math.round(probed.height / 5));
+    ctx.translate(probed.width / 2, probed.height / 2);
+    ctx.rotate((-28 * Math.PI) / 180);
+    ctx.translate(-probed.width / 2, -probed.height / 2);
+    for (let y = -stepY; y < probed.height + stepY; y += stepY) {
+      for (let x = -stepX; x < probed.width + stepX; x += stepX) {
+        ctx.fillText(text, x, y);
+      }
+    }
+  } else {
+    ctx.textAlign =
+      pos[0] < 0.34 ? 'left' : pos[0] > 0.66 ? 'right' : 'center';
+    ctx.textBaseline =
+      pos[1] < 0.34 ? 'top' : pos[1] > 0.66 ? 'bottom' : 'middle';
+    ctx.fillText(text, probed.width * pos[0], probed.height * pos[1]);
+  }
   ctx.restore();
   const path = await exportCanvasToTemp(canvas, {
     fileType: 'png',
-    quality: 0.95,
+    quality: 1,
   });
   const size = await fileSize(path);
   return { path, width: probed.width, height: probed.height, size };
 }
 
+/**
+ * 拼接长图（对齐 hahaimage）：
+ * - unify=true：统一到最短边（等比缩小）
+ * - unify=false：按原尺寸，沿主轴拼接，另一轴取最大并居中
+ * - gap / bgColor / fileType
+ */
 export async function stitchImages(paths, opts = {}) {
   const list = (paths || []).filter(Boolean);
   if (list.length < 2) throw new Error('至少选 2 张图拼接');
   const direction = opts.direction === 'horizontal' ? 'horizontal' : 'vertical';
   const gap = Math.max(0, Math.round(Number(opts.gap) || 0));
   const bg = String(opts.bgColor || '#ffffff');
+  const doUnify = opts.unify !== false;
+  const fileType = String(opts.fileType || 'png').toLowerCase() === 'jpg' ? 'jpg' : 'png';
+  const quality = Math.min(1, Math.max(0.1, Number(opts.quality) || (fileType === 'jpg' ? 0.92 : 1)));
   const metas = [];
   for (const p of list) {
     const m = await probeImage(p);
     metas.push({ path: p, width: m.width, height: m.height });
   }
-  let unify = Math.max(0, Number(opts.unifySide) || 0);
-  if (!unify) {
-    unify =
-      direction === 'horizontal'
-        ? Math.max(...metas.map((m) => m.height))
-        : Math.max(...metas.map((m) => m.width));
+
+  let drawn;
+  let totalW;
+  let totalH;
+
+  if (direction === 'vertical') {
+    const targetW = doUnify
+      ? Math.min(...metas.map((m) => m.width))
+      : Math.max(...metas.map((m) => m.width));
+    drawn = metas.map((m) => {
+      if (doUnify) {
+        const scale = targetW / m.width;
+        return {
+          ...m,
+          dw: targetW,
+          dh: Math.max(1, Math.round(m.height * scale)),
+          ox: 0,
+        };
+      }
+      return { ...m, dw: m.width, dh: m.height, ox: Math.round((targetW - m.width) / 2) };
+    });
+    totalW = targetW;
+    totalH = drawn.reduce((s, d) => s + d.dh, 0) + gap * (drawn.length - 1);
+  } else {
+    const targetH = doUnify
+      ? Math.min(...metas.map((m) => m.height))
+      : Math.max(...metas.map((m) => m.height));
+    drawn = metas.map((m) => {
+      if (doUnify) {
+        const scale = targetH / m.height;
+        return {
+          ...m,
+          dw: Math.max(1, Math.round(m.width * scale)),
+          dh: targetH,
+          oy: 0,
+        };
+      }
+      return { ...m, dw: m.width, dh: m.height, oy: Math.round((targetH - m.height) / 2) };
+    });
+    totalH = targetH;
+    totalW = drawn.reduce((s, d) => s + d.dw, 0) + gap * (drawn.length - 1);
   }
-  const drawn = metas.map((m) => {
-    if (direction === 'horizontal') {
-      const scale = unify / m.height;
-      return {
-        ...m,
-        dw: Math.max(1, Math.round(m.width * scale)),
-        dh: unify,
-      };
-    }
-    const scale = unify / m.width;
-    return {
-      ...m,
-      dw: unify,
-      dh: Math.max(1, Math.round(m.height * scale)),
-    };
-  });
-  const totalW =
-    direction === 'horizontal'
-      ? drawn.reduce((s, d) => s + d.dw, 0) + gap * (drawn.length - 1)
-      : unify;
-  const totalH =
-    direction === 'vertical'
-      ? drawn.reduce((s, d) => s + d.dh, 0) + gap * (drawn.length - 1)
-      : unify;
+
   const canvas = createOffscreenCanvas(totalW, totalH);
   canvas.width = totalW;
   canvas.height = totalH;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('无法创建画布');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, totalW, totalH);
+  if ('imageSmoothingEnabled' in ctx) {
+    ctx.imageSmoothingEnabled = true;
+    if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+  }
+  if (bg === 'transparent') {
+    ctx.clearRect(0, 0, totalW, totalH);
+  } else {
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, totalW, totalH);
+  }
   let cursor = 0;
   for (const d of drawn) {
     const img = await loadCanvasImage(canvas, d.path);
     if (direction === 'horizontal') {
-      ctx.drawImage(img, cursor, 0, d.dw, d.dh);
+      ctx.drawImage(img, cursor, d.oy || 0, d.dw, d.dh);
       cursor += d.dw + gap;
     } else {
-      ctx.drawImage(img, 0, cursor, d.dw, d.dh);
+      ctx.drawImage(img, d.ox || 0, cursor, d.dw, d.dh);
       cursor += d.dh + gap;
     }
   }
-  const path = await exportCanvasToTemp(canvas, { fileType: 'png', quality: 0.95 });
+  const outType = bg === 'transparent' ? 'png' : fileType;
+  const path = await exportCanvasToTemp(canvas, {
+    fileType: outType,
+    quality: outType === 'jpg' ? quality : 1,
+  });
   const size = await fileSize(path);
   return { path, width: totalW, height: totalH, size };
 }
 
+/** 旋转 / 翻转 */
+export async function rotateImage(src, opts = {}) {
+  const deg = ((Number(opts.rotate) || 0) % 360 + 360) % 360;
+  const flipH = !!opts.flipH;
+  const flipV = !!opts.flipV;
+  const probed = await probeImage(src);
+  const swap = deg === 90 || deg === 270;
+  const outW = swap ? probed.height : probed.width;
+  const outH = swap ? probed.width : probed.height;
+  const canvas = createOffscreenCanvas(outW, outH);
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('无法创建画布');
+  if ('imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled = false;
+  const img = await loadCanvasImage(canvas, src);
+  ctx.save();
+  ctx.translate(outW / 2, outH / 2);
+  ctx.rotate((deg * Math.PI) / 180);
+  ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+  ctx.drawImage(img, -probed.width / 2, -probed.height / 2);
+  ctx.restore();
+  const path = await exportCanvasToTemp(canvas, { fileType: 'png', quality: 1 });
+  const size = await fileSize(path);
+  return { path, width: outW, height: outH, size };
+}
+
+/** 圆角（透明底 PNG） */
+export async function roundCornerImage(src, opts = {}) {
+  const probed = await probeImage(src);
+  const maxR = Math.floor(Math.min(probed.width, probed.height) / 2);
+  const radius = Math.max(
+    0,
+    Math.min(maxR, Math.round(Number(opts.radius) || 0)),
+  );
+  const canvas = createOffscreenCanvas(probed.width, probed.height);
+  canvas.width = probed.width;
+  canvas.height = probed.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('无法创建画布');
+  const img = await loadCanvasImage(canvas, src);
+  ctx.clearRect(0, 0, probed.width, probed.height);
+  if (radius <= 0) {
+    ctx.drawImage(img, 0, 0);
+  } else {
+    const w = probed.width;
+    const h = probed.height;
+    const r = radius;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.arcTo(w, 0, w, h, r);
+    ctx.arcTo(w, h, 0, h, r);
+    ctx.arcTo(0, h, 0, 0, r);
+    ctx.arcTo(0, 0, w, 0, r);
+    ctx.closePath();
+    ctx.clip();
+    if ('imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0);
+  }
+  const path = await exportCanvasToTemp(canvas, { fileType: 'png', quality: 1 });
+  const size = await fileSize(path);
+  return { path, width: probed.width, height: probed.height, size };
+}
+
 export async function splitImage(src, opts = {}) {
-  const rows = Math.max(1, Math.min(6, Math.round(Number(opts.rows) || 3)));
-  const cols = Math.max(1, Math.min(6, Math.round(Number(opts.cols) || 3)));
+  // 自定义行列：1～12（过多张保存相册体验差，上限卡一下）
+  const rows = Math.max(1, Math.min(12, Math.round(Number(opts.rows) || 3)));
+  const cols = Math.max(1, Math.min(12, Math.round(Number(opts.cols) || 3)));
   const probed = await probeImage(src);
   const cellW = Math.floor(probed.width / cols);
   const cellH = Math.floor(probed.height / rows);
@@ -489,6 +639,7 @@ export async function splitImage(src, opts = {}) {
       canvas.height = cellH;
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, cellW, cellH);
+      if ('imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled = false;
       ctx.drawImage(
         img,
         c * cellW,
@@ -502,7 +653,7 @@ export async function splitImage(src, opts = {}) {
       );
       const path = await exportCanvasToTemp(canvas, {
         fileType: 'png',
-        quality: 0.95,
+        quality: 1,
       });
       const size = await fileSize(path);
       pieces.push({
@@ -558,6 +709,77 @@ export async function compressToTargetSize(src, opts = {}) {
   }
   if (!best) throw new Error('压缩失败');
   return best;
+}
+
+/**
+ * 压缩 JPG 并保留 EXIF / ICC（对齐 hahaimage compressJpegKeepExif）
+ */
+export async function compressJpegKeepExif(src, opts = {}) {
+  const origBuf = await readFileArrayBuffer(src);
+  const head = new DataView(origBuf);
+  if (!(head.byteLength > 4 && head.getUint16(0) === 0xffd8)) {
+    throw new Error('仅支持 JPG / JPEG');
+  }
+  const compressed = await compressImage(src, {
+    quality: Math.min(1, Math.max(0.1, Number(opts.quality) || 0.8)),
+    maxEdge: Math.max(0, Number(opts.maxEdge) || 0),
+  });
+  const newBuf = await readFileArrayBuffer(compressed.path);
+  const segments = extractJpegMetaSegments(origBuf).map((seg) => {
+    const copy = new Uint8Array(seg);
+    if (copy[1] === 0xe1) normalizeOrientation(copy);
+    return copy;
+  });
+  const merged = insertJpegSegments(new Uint8Array(newBuf), segments);
+  const path = await writeJpegTemp(merged);
+  const size = await fileSize(path);
+  return {
+    path,
+    width: compressed.width,
+    height: compressed.height,
+    size,
+    keptExif: segments.length > 0,
+  };
+}
+
+/** 图片水印（透明 PNG 更佳） */
+export async function watermarkWithImage(src, wmPath, opts = {}) {
+  const tile = !!opts.tile || String(opts.position || '') === 'tile';
+  const pos = WATERMARK_POS[opts.position] || WATERMARK_POS.br;
+  const opacity = Math.min(1, Math.max(0.05, Number(opts.opacity) || 0.45));
+  const sizePct = Math.max(2, Math.min(40, Number(opts.sizePct) || 12));
+  const probed = await probeImage(src);
+  const { canvas, ctx } = await drawSource(src, probed.width, probed.height);
+  const wm = await loadCanvasImage(canvas, wmPath);
+  const ww = Math.max(8, Math.round((probed.width * sizePct) / 100));
+  const wh = Math.max(8, Math.round((wm.height * ww) / Math.max(1, wm.width)));
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  if (tile) {
+    for (let y = 0; y < probed.height; y += wh * 2) {
+      for (let x = 0; x < probed.width; x += ww * 2) {
+        ctx.drawImage(wm, x, y, ww, wh);
+      }
+    }
+  } else {
+    const x =
+      pos[0] < 0.34
+        ? probed.width * 0.04
+        : pos[0] > 0.66
+          ? probed.width * 0.96 - ww
+          : (probed.width - ww) / 2;
+    const y =
+      pos[1] < 0.34
+        ? probed.height * 0.04
+        : pos[1] > 0.66
+          ? probed.height * 0.96 - wh
+          : (probed.height - wh) / 2;
+    ctx.drawImage(wm, x, y, ww, wh);
+  }
+  ctx.restore();
+  const path = await exportCanvasToTemp(canvas, { fileType: 'png', quality: 1 });
+  const size = await fileSize(path);
+  return { path, width: probed.width, height: probed.height, size };
 }
 
 export async function saveLocalImageToAlbum(filePath) {

@@ -2,27 +2,31 @@ const DEFAULTS = {
   welcomeGiftPoints: 18,
   checkinPoints: 1,
   oaBonusPoints: 1,
-  /** 主动看广告（约 30s）奖励；0 关闭 */
+  /** 主动看广告（�?30s）奖励；0 关闭 */
   adRewardPoints: 1,
   /** 主动看广告每日上限；0 关闭 */
   adRewardDailyMax: 5,
-  /** 救急/签到再领奖励（广告约 30s，与主动领同单元）；0 关闭 */
+  /** 救�?签到再领奖励（广告约 30s，与主动领同单元）；0 关闭 */
   saveAdRewardPoints: 1,
-  /** 救急广告每日上限；0 关闭（签到再领另计每天 1 次） */
+  /** 救急广告每日上限；0 关闭（签到再领另计每�?1 次） */
   saveAdRewardDailyMax: 8,
-  /** 首页信息流每隔多少个合集插一条原生广告；0=关闭；建议 6～8 */
+  /** 首页信息流每隔多少个合集插一条原生广告；0=关闭；建�?6�? */
   homeFeedAdEvery: 6,
-  /** 保存单价（与客户端 config.downloadCosts 默认对齐） */
+  /** 素材库网格每隔多少个表情插一条广告；0=关闭；建�?8�?6 */
+  libraryGridAdEvery: 12,
+  /** 保存单价（与客户�?config.downloadCosts 默认对齐�?*/
   costStatic: 1,
   costAnim: 2,
   costWallpaper: 4,
   costAvatar: 4,
   costVideo: 8,
-  /** 趣味工坊 · 拼豆：导出解锁 / 高级功能积分消耗 */
+  /** 趣味工坊 · 拼豆：导出解�?/ 高级功能积分消�?*/
   costBeadExport: 4,
   costBeadAdvanced: 1,
-  /** 趣味工坊 · 图片工具箱：导出解锁积分消耗 */
+  /** 趣味工坊 · 图片工具箱：导出解锁积分消�?*/
   costImageExport: 2,
+  /** 「我的」像素头像创作：导出并设为头�?*/
+  costAvatarCreate: 2,
 };
 
 function clampPoints(n, fallback) {
@@ -43,7 +47,14 @@ function clampHomeFeedAdEvery(n, fallback) {
   return Math.max(0, Math.min(20, Math.floor(v)));
 }
 
-/** 保存单价：至少 1，避免误设成免费 */
+function clampLibraryGridAdEvery(n, fallback) {
+  const v = Number(n);
+  if (Number.isNaN(v)) return fallback;
+  if (v === 0) return 0;
+  return Math.max(4, Math.min(40, Math.floor(v)));
+}
+
+/** 保存单价：至�?1，避免误设成免费 */
 function clampDownloadCost(n, fallback) {
   const v = Number(n);
   if (Number.isNaN(v)) return fallback;
@@ -72,6 +83,10 @@ function normalizeSettings(raw = {}) {
       raw.homeFeedAdEvery,
       DEFAULTS.homeFeedAdEvery,
     ),
+    libraryGridAdEvery: clampLibraryGridAdEvery(
+      raw.libraryGridAdEvery,
+      DEFAULTS.libraryGridAdEvery,
+    ),
     costStatic: clampDownloadCost(raw.costStatic, DEFAULTS.costStatic),
     costAnim: clampDownloadCost(raw.costAnim, DEFAULTS.costAnim),
     costWallpaper: clampDownloadCost(raw.costWallpaper, DEFAULTS.costWallpaper),
@@ -88,6 +103,10 @@ function normalizeSettings(raw = {}) {
     costImageExport: clampDownloadCost(
       raw.costImageExport,
       DEFAULTS.costImageExport,
+    ),
+    costAvatarCreate: clampDownloadCost(
+      raw.costAvatarCreate,
+      DEFAULTS.costAvatarCreate,
     ),
   };
 }
@@ -156,6 +175,10 @@ async function savePointsSettings(db, patch, meta = {}) {
       patch.homeFeedAdEvery !== undefined && patch.homeFeedAdEvery !== null
         ? patch.homeFeedAdEvery
         : prev.homeFeedAdEvery,
+    libraryGridAdEvery:
+      patch.libraryGridAdEvery !== undefined && patch.libraryGridAdEvery !== null
+        ? patch.libraryGridAdEvery
+        : prev.libraryGridAdEvery,
     costStatic:
       patch.costStatic !== undefined && patch.costStatic !== null
         ? patch.costStatic
@@ -188,6 +211,10 @@ async function savePointsSettings(db, patch, meta = {}) {
       patch.costImageExport !== undefined && patch.costImageExport !== null
         ? patch.costImageExport
         : prev.costImageExport,
+    costAvatarCreate:
+      patch.costAvatarCreate !== undefined && patch.costAvatarCreate !== null
+        ? patch.costAvatarCreate
+        : prev.costAvatarCreate,
   });
   await ensureAppConfigCollection(db);
   try {

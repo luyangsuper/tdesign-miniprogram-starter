@@ -102,13 +102,130 @@ export function getNativePuzzleAdUnitId() {
   );
 }
 
-/** 趣味工坊 / 拼豆工具常显；未单独配置时回退合集详情横版位 */
+/** 趣味工坊 / 拼豆 / 图片工具常显；未单独配置时回退合集详情横版位 */
 export function getNativeWorkshopAdUnitId() {
   return (
     String(config.nativeWorkshopAdUnitId || '').trim() ||
     getNativePackDetailAdUnitId() ||
     getNativeMyPageAdUnitId()
   );
+}
+
+/** 素材库入口；未单独配置时回退「我的」坑位 */
+export function getNativeLibraryAdUnitId() {
+  return (
+    String(config.nativeLibraryAdUnitId || '').trim() ||
+    getNativeMyPageAdUnitId() ||
+    getNativeWorkshopAdUnitId()
+  );
+}
+
+/**
+ * 素材源列表混排广告位（占两格宽的横版广告）
+ * 空则回退入口位；建议用横版原生模板（无正方形模板时两格合并）
+ */
+export function getNativeLibraryGridAdUnitId() {
+  return (
+    String(config.nativeLibraryGridAdUnitId || '').trim() ||
+    getNativeLibraryAdUnitId()
+  );
+}
+
+const LIBRARY_GRID_EVERY_KEY = 'library_grid_ad_every';
+
+export function clampLibraryGridAdEvery(raw, fallback = 12) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || Number.isNaN(n)) {
+    return Math.max(0, Math.min(40, Math.floor(Number(fallback) || 12)));
+  }
+  if (n === 0) return 0;
+  return Math.max(4, Math.min(40, Math.floor(n)));
+}
+
+export function defaultLibraryGridAdEvery() {
+  return clampLibraryGridAdEvery(config.libraryGridAdEvery, 12);
+}
+
+export function getLibraryGridAdEvery() {
+  try {
+    const cached = wx.getStorageSync(LIBRARY_GRID_EVERY_KEY);
+    if (cached !== '' && cached != null && !Number.isNaN(Number(cached))) {
+      return clampLibraryGridAdEvery(cached, defaultLibraryGridAdEvery());
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  return defaultLibraryGridAdEvery();
+}
+
+export function setLibraryGridAdEvery(n) {
+  const v = clampLibraryGridAdEvery(n, defaultLibraryGridAdEvery());
+  try {
+    wx.setStorageSync(LIBRARY_GRID_EVERY_KEY, v);
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    const app = getApp();
+    if (app && app.globalData) app.globalData.libraryGridAdEvery = v;
+    if (app && app.eventBus) {
+      app.eventBus.emit('libraryGridAdEveryChange', { every: v });
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  return v;
+}
+
+export function applyLibraryGridAdEveryFromSettings(settings) {
+  if (!settings || settings.libraryGridAdEvery == null) {
+    return getLibraryGridAdEvery();
+  }
+  return setLibraryGridAdEvery(settings.libraryGridAdEvery);
+}
+
+export function shouldShowLibraryGridAds() {
+  if (!getNativeLibraryGridAdUnitId()) return false;
+  if (getLibraryGridAdEvery() <= 0) return false;
+  return shouldShowNativeAds();
+}
+
+/**
+ * 四列素材网格：每隔 every 条插入一条占两格的广告
+ * @param {Array} items
+ * @param {number} every
+ * @param {boolean} showAds
+ */
+export function injectLibraryGridAds(items, every, showAds) {
+  const list = Array.isArray(items) ? items : [];
+  const n = Math.max(0, Number(every) || 0);
+  if (!showAds || n <= 0 || !list.length) {
+    return list.map((item) => ({
+      ...item,
+      isAd: false,
+      hidden: false,
+    }));
+  }
+  const out = [];
+  let adSeq = 0;
+  list.forEach((item, i) => {
+    out.push({
+      ...item,
+      isAd: false,
+      hidden: false,
+    });
+    if ((i + 1) % n === 0 && i + 1 < list.length) {
+      out.push({
+        _id: `lib-grid-ad-${adSeq}`,
+        key: `lib-grid-ad-${adSeq}`,
+        isAd: true,
+        hidden: false,
+        name: '',
+      });
+      adSeq += 1;
+    }
+  });
+  return out;
 }
 
 /**

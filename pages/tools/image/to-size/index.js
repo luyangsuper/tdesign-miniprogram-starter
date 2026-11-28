@@ -43,6 +43,7 @@ Page({
 
   onShow() {
     this.refreshFestivalDecor();
+    this.refreshNativeAd();
   },
 
   async onPick() {
@@ -62,6 +63,7 @@ Page({
         outPath: '',
         outMeta: '',
         exportUnlocked: false,
+        paramsDirty: false,
       });
       if (typeof this.afterPick === 'function') this.afterPick(f);
     } catch (e) {
@@ -85,6 +87,7 @@ Page({
         outPath: res.path,
         outMeta: res.meta || '',
         exportUnlocked: false,
+        paramsDirty: false,
       });
       wx.showToast({ title: '处理完成', icon: 'success' });
     } catch (e) {
@@ -100,6 +103,7 @@ Page({
 
   async onSave() {
     if (!this.data.outPath || this.data.busy || this.data.gating) return;
+    if (!(await this.confirmSaveIfDirty())) return;
     this.setData({ gating: true });
     try {
       if (!this.data.exportUnlocked) {
@@ -123,25 +127,20 @@ Page({
 
   onTarget(e) {
     const v = Number((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.v) || 200);
-    this.setData({
+    this.markParamsDirty({
       targetKb: v,
       targetLabel: v >= 1024 ? (v / 1024) + ' MB' : v + ' KB',
       targetInput: String(v),
-      exportUnlocked: false,
-      outPath: '',
-      outMeta: '',
     });
   },
+
   onTargetInput(e) {
     const raw = String((e.detail && e.detail.value) || '');
     const v = Math.max(20, Math.round(Number(raw) || 0));
-    this.setData({
+    this.markParamsDirty({
       targetInput: raw,
       targetKb: v || this.data.targetKb,
       targetLabel: (v || this.data.targetKb) + ' KB',
-      exportUnlocked: false,
-      outPath: '',
-      outMeta: '',
     });
   },
   async runProcess() {

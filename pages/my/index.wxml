@@ -1,3 +1,4 @@
+<page-meta page-style="{{pixabotPageStyle}}" />
 <view class="my-page {{festivalClass}}" style="{{themeStyle}};{{festivalStyle}};{{navBarStyle}}">
 <!-- 节日 virtualHost 不占流；顶栏与首页一致：fixed + placeholder + 胶囊公式 CSS 变量 -->
 <festival-decor
@@ -17,19 +18,17 @@
 </t-navbar>
 <view class="my">
   <view class="my__profile">
-    <view class="my__avatar-wrap">
-      <button class="my__avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
-        <t-avatar
-          t-class="my__avatar"
-          image="{{avatarUrl}}"
-          icon="user"
-          size="88rpx"
-          shape="circle"
+    <view class="my__avatar-wrap" bind:tap="openPixabotSheet">
+      <view class="my__avatar-btn">
+        <avatar-with-frame
+          avatar-url="{{avatarUrl}}"
+          frame-url="{{avatarFrameUrl}}"
+          size="68rpx"
           bind:error="onAvatarError"
         />
-      </button>
+      </view>
       <view wx:if="{{avatarBadge}}" class="my__avatar-badge my__avatar-badge--{{avatarBadge.tone}}">
-        <kubai-icon name="{{avatarBadge.icon}}" size="20rpx" color="#ffffff" />
+        <kubai-icon name="{{avatarBadge.icon}}" size="18rpx" color="#ffffff" />
         <text wx:if="{{avatarBadge.text}}" class="my__avatar-badge-text">{{avatarBadge.text}}</text>
       </view>
     </view>
@@ -59,7 +58,7 @@
     >
       <kubai-icon
         name="{{checkinCheckedToday ? 'check' : 'calendar-check'}}"
-        size="32rpx"
+        size="28rpx"
         color="{{checkinCheckedToday ? '#8a8a8a' : '#ffffff'}}"
       />
       <text class="my__checkin-btn-text">{{checkinEntryText}}</text>
@@ -240,6 +239,23 @@
     >
       <view slot="left-icon" class="my-menu-icon">
         <kubai-icon name="gift" size="52rpx" color="#c41e3a" />
+      </view>
+    </t-cell>
+    <t-cell
+      t-class="my-menu-cell"
+      t-class-left="my-menu-cell__left"
+      t-class-left-icon="my-menu-cell__icon"
+      t-class-center="my-menu-cell__center"
+      t-class-title="my-menu-cell__title"
+      t-class-note="my-menu-cell__note"
+      title="成就装扮"
+      note="解锁并佩戴头像框"
+      arrow
+      hover
+      bind:click="openFrameWardrobe"
+    >
+      <view slot="left-icon" class="my-menu-icon">
+        <kubai-icon name="sparkles" size="52rpx" color="#0d9488" />
       </view>
     </t-cell>
     <t-cell
@@ -592,7 +608,7 @@
       t-class-center="my-menu-cell__center"
       t-class-title="my-menu-cell__title"
       t-class-note="my-menu-cell__note"
-      title="{{previewAsUser ? '恢复管理员视图' : '预览普通用户'}}"
+      title="{{previewAsUser ? '退出普通用户预览' : '预览普通用户'}}"
       note="仅本地预览"
       hover
       bind:click="onTogglePreviewAsUser"
@@ -946,12 +962,12 @@
       <kubai-icon name="view-module" size="40rpx" color="{{themeBrand}}" />
       <text>显示设置</text>
     </view>
-    <view class="my__theme-sheet-desc">调节合集浏览密度与文字大小</view>
+    <view class="my__theme-sheet-desc">调节每行预览几个表情，以及文字大小</view>
     <scroll-view scroll-y class="my__display-sheet-scroll" enhanced show-scrollbar="{{false}}">
 
-    <!-- 布局参考：上预览 + 下 Chip/Segmented（Material / iOS Settings 常见做法） -->
+    <!-- 布局参考：上预览 + 下 Chip（Material / iOS Settings 常见做法） -->
     <view class="my__display-section">
-      <view class="my__display-section-title">浏览密度</view>
+      <view class="my__display-section-title">每行预览</view>
       <view class="my__display-phone">
         <view class="my__display-phone-notch" />
         <view class="my__display-phone-screen">
@@ -959,35 +975,31 @@
             <view class="my__display-phone-bar-dot" />
             <view class="my__display-phone-bar-line" />
           </view>
-          <view class="my__display-feed">
-            <view
-              class="my__display-feed-col"
-              wx:for="{{displayPreviewColumns}}"
-              wx:for-item="col"
-              wx:for-index="colIndex"
-              wx:key="colIndex"
-            >
+          <view class="my__display-row-preview">
+            <view class="my__display-row-card">
+              <view class="my__display-row-title" />
               <view
-                class="my__display-card my__display-card--tone{{card.tone}}"
-                wx:for="{{col}}"
-                wx:for-item="card"
-                wx:key="key"
+                class="my__display-row-grid"
+                style="grid-template-columns: repeat({{displayPreviewColumnCount}}, 1fr);"
               >
-                <view class="my__display-card-cover" style="padding-bottom: {{card.coverPct}}%;" />
-                <view class="my__display-card-body">
-                  <view class="my__display-card-title" style="width: {{card.titleW}}%;" />
-                  <view class="my__display-card-meta" style="width: {{card.metaW}}%;" />
+                <view
+                  wx:for="{{displayPreviewCells}}"
+                  wx:key="key"
+                  class="my__display-row-cell my__display-row-cell--tone{{item.tone}}"
+                >
+                  <text wx:if="{{item.more}}" class="my__display-row-more">+N</text>
                 </view>
+              </view>
+              <view class="my__display-row-foot">
+                <view class="my__display-row-tag" />
+                <view class="my__display-row-meta" />
               </view>
             </view>
           </view>
         </view>
       </view>
       <view class="my__display-meta">
-        <text class="my__display-meta-main">
-          <text wx:if="{{displayPreviewIsAuto}}">本机 {{displayPreviewColumnCount}} 列</text>
-          <text wx:else>固定 {{displayPreviewColumnCount}} 列</text>
-        </text>
+        <text class="my__display-meta-main">每行 {{displayPreviewColumnCount}} 个表情</text>
         <text class="my__display-meta-sub">{{displayPrefHint}}</text>
       </view>
       <view class="my__display-chips">
@@ -1028,7 +1040,7 @@
             </view>
             <view class="my__font-phone-cell">
               <text class="my__font-phone-cell-title">显示设置</text>
-              <text class="my__font-phone-cell-note">跟随设备</text>
+              <text class="my__font-phone-cell-note">每行 4 个</text>
             </view>
           </view>
         </view>
@@ -1117,19 +1129,35 @@
                 </view>
               </view>
             </view>
-            <view class="my__home-pref-phone-feed">
-              <view class="my__display-card my__display-card--tone0">
-                <view class="my__display-card-cover" style="padding-bottom: 88%;" />
-                <view class="my__display-card-body">
-                  <view class="my__display-card-title" style="width: 70%;" />
-                  <view class="my__display-card-meta" style="width: 42%;" />
+            <view class="my__home-pref-phone-feed my__display-row-preview my__display-row-preview--stack">
+              <view class="my__display-row-card">
+                <view class="my__display-row-title" style="width: 70%;" />
+                <view class="my__display-row-grid" style="grid-template-columns: repeat(4, 1fr);">
+                  <view class="my__display-row-cell my__display-row-cell--tone0" />
+                  <view class="my__display-row-cell my__display-row-cell--tone1" />
+                  <view class="my__display-row-cell my__display-row-cell--tone2" />
+                  <view class="my__display-row-cell my__display-row-cell--tone0">
+                    <text class="my__display-row-more">+N</text>
+                  </view>
+                </view>
+                <view class="my__display-row-foot">
+                  <view class="my__display-row-tag" />
+                  <view class="my__display-row-meta" />
                 </view>
               </view>
-              <view class="my__display-card my__display-card--tone1">
-                <view class="my__display-card-cover" style="padding-bottom: 72%;" />
-                <view class="my__display-card-body">
-                  <view class="my__display-card-title" style="width: 62%;" />
-                  <view class="my__display-card-meta" style="width: 36%;" />
+              <view class="my__display-row-card">
+                <view class="my__display-row-title" style="width: 58%;" />
+                <view class="my__display-row-grid" style="grid-template-columns: repeat(4, 1fr);">
+                  <view class="my__display-row-cell my__display-row-cell--tone1" />
+                  <view class="my__display-row-cell my__display-row-cell--tone2" />
+                  <view class="my__display-row-cell my__display-row-cell--tone0" />
+                  <view class="my__display-row-cell my__display-row-cell--tone1">
+                    <text class="my__display-row-more">+N</text>
+                  </view>
+                </view>
+                <view class="my__display-row-foot">
+                  <view class="my__display-row-tag" />
+                  <view class="my__display-row-meta" />
                 </view>
               </view>
             </view>
@@ -1311,37 +1339,35 @@
               />
             </view>
           </view>
-          <view class="my__festival-phone-feed">
-            <view class="my__festival-phone-col">
-              <view class="my__display-card my__display-card--tone0">
-                <view class="my__display-card-cover" style="padding-bottom: 92%;" />
-                <view class="my__display-card-body">
-                  <view class="my__display-card-title" style="width: 72%;" />
-                  <view class="my__display-card-meta" style="width: 44%;" />
+          <view class="my__festival-phone-feed my__display-row-preview my__display-row-preview--stack">
+            <view class="my__display-row-card">
+              <view class="my__display-row-title" style="width: 68%;" />
+              <view class="my__display-row-grid" style="grid-template-columns: repeat(4, 1fr);">
+                <view class="my__display-row-cell my__display-row-cell--tone0" />
+                <view class="my__display-row-cell my__display-row-cell--tone1" />
+                <view class="my__display-row-cell my__display-row-cell--tone2" />
+                <view class="my__display-row-cell my__display-row-cell--tone0">
+                  <text class="my__display-row-more">+N</text>
                 </view>
               </view>
-              <view class="my__display-card my__display-card--tone2">
-                <view class="my__display-card-cover" style="padding-bottom: 70%;" />
-                <view class="my__display-card-body">
-                  <view class="my__display-card-title" style="width: 64%;" />
-                  <view class="my__display-card-meta" style="width: 40%;" />
-                </view>
+              <view class="my__display-row-foot">
+                <view class="my__display-row-tag" />
+                <view class="my__display-row-meta" />
               </view>
             </view>
-            <view class="my__festival-phone-col">
-              <view class="my__display-card my__display-card--tone1">
-                <view class="my__display-card-cover" style="padding-bottom: 78%;" />
-                <view class="my__display-card-body">
-                  <view class="my__display-card-title" style="width: 68%;" />
-                  <view class="my__display-card-meta" style="width: 36%;" />
+            <view class="my__display-row-card">
+              <view class="my__display-row-title" style="width: 54%;" />
+              <view class="my__display-row-grid" style="grid-template-columns: repeat(4, 1fr);">
+                <view class="my__display-row-cell my__display-row-cell--tone1" />
+                <view class="my__display-row-cell my__display-row-cell--tone2" />
+                <view class="my__display-row-cell my__display-row-cell--tone0" />
+                <view class="my__display-row-cell my__display-row-cell--tone1">
+                  <text class="my__display-row-more">+N</text>
                 </view>
               </view>
-              <view class="my__display-card my__display-card--tone0">
-                <view class="my__display-card-cover" style="padding-bottom: 100%;" />
-                <view class="my__display-card-body">
-                  <view class="my__display-card-title" style="width: 76%;" />
-                  <view class="my__display-card-meta" style="width: 42%;" />
-                </view>
+              <view class="my__display-row-foot">
+                <view class="my__display-row-tag" />
+                <view class="my__display-row-meta" />
               </view>
             </view>
           </view>
@@ -1581,6 +1607,277 @@
   bind:close="onCheckinClose"
   bind:success="onCheckinSuccess"
 />
+
+<t-popup
+  visible="{{frameWardrobeVisible}}"
+  placement="bottom"
+  bind:visible-change="onFrameWardrobeVisible"
+>
+  <view class="frame-wardrobe">
+    <view class="frame-wardrobe__head">
+      <text class="frame-wardrobe__title">头像装扮</text>
+      <view class="frame-wardrobe__close" bind:tap="closeFrameWardrobe">
+        <kubai-icon name="close" size="40rpx" color="#999999" />
+      </view>
+    </view>
+    <text class="frame-wardrobe__metrics">{{frameMetricsText || '加载进度中…'}}</text>
+    <view class="frame-wardrobe__tabs">
+      <view
+        class="frame-wardrobe__tab-cell"
+        wx:for="{{frameTabOptions}}"
+        wx:key="id"
+      >
+        <t-check-tag
+          t-class="frame-wardrobe__tab {{frameWardrobeTab === item.id ? 'frame-wardrobe__tab--on' : ''}}"
+          size="medium"
+          shape="round"
+          variant="light"
+          content="{{item.label}}"
+          checked="{{frameWardrobeTab === item.id}}"
+          data-id="{{item.id}}"
+          bind:change="onFrameTabChange"
+        />
+      </view>
+    </view>
+    <view wx:if="{{frameWardrobeLoading}}" class="frame-wardrobe__loading">
+      <t-loading theme="circular" size="40rpx" text="加载中" />
+    </view>
+    <scroll-view wx:else scroll-y class="frame-wardrobe__scroll">
+      <view
+        class="frame-wardrobe__item {{item.frameEquipped ? 'frame-wardrobe__item--on' : ''}}"
+        wx:for="{{frameList}}"
+        wx:key="id"
+        data-index="{{index}}"
+        bind:tap="onEquipFrame"
+        hover-class="frame-wardrobe__item--press"
+      >
+        <view class="frame-wardrobe__preview">
+          <avatar-with-frame
+            avatar-url="{{avatarUrl}}"
+            frame-url="{{item.framePreviewUrl}}"
+            size="84rpx"
+          />
+          <view wx:if="{{!item.framePreviewUrl}}" class="frame-wardrobe__no-frame">无</view>
+        </view>
+        <view class="frame-wardrobe__meta">
+          <view class="frame-wardrobe__title-row">
+            <text class="frame-wardrobe__name">{{item.title}}</text>
+            <t-tag
+              wx:if="{{item.unlocked && item.frameEquipped}}"
+              size="small"
+              variant="light"
+              theme="success"
+            >佩戴中</t-tag>
+            <t-tag
+              wx:elif="{{item.unlocked}}"
+              size="small"
+              variant="light"
+              theme="primary"
+            >已解锁</t-tag>
+            <t-tag
+              wx:elif="{{item.source === 'paid'}}"
+              size="small"
+              variant="light"
+              theme="warning"
+            >¥{{item.priceYuan || '3'}}</t-tag>
+            <t-tag
+              wx:elif="{{item.source === 'vip'}}"
+              size="small"
+              variant="light"
+              theme="danger"
+            >开通可用</t-tag>
+            <t-tag
+              wx:else
+              size="small"
+              variant="light"
+            >未解锁</t-tag>
+          </view>
+          <text class="frame-wardrobe__desc">
+            {{item.source === 'achievement' && !item.unlocked ? (item.desc + ' · ' + item.current + '/' + item.target) : item.desc}}
+          </text>
+        </view>
+        <view wx:if="{{!item.unlocked && item.source === 'paid'}}" class="frame-wardrobe__buy">
+          <text class="frame-wardrobe__buy-text">购买</text>
+          <kubai-icon name="chevron-right" size="28rpx" color="#e37318" />
+        </view>
+        <kubai-icon
+          wx:else
+          name="{{item.unlocked ? (item.frameEquipped ? 'check' : 'chevron-right') : 'chevron-right'}}"
+          size="32rpx"
+          color="{{item.unlocked ? '#0d9488' : (item.source === 'vip' ? '#eb5757' : '#bbbbbb')}}"
+        />
+      </view>
+      <view wx:if="{{!frameList.length}}" class="frame-wardrobe__empty">
+        {{frameWardrobeTab === 'shop' ? '暂无在售头像框' : (frameWardrobeTab === 'vip' ? '暂无会员专属框' : '暂无成就配置')}}
+      </view>
+    </scroll-view>
+  </view>
+</t-popup>
+
+<t-popup
+  visible="{{pixabotSheetVisible}}"
+  placement="bottom"
+  bind:visible-change="onPixabotSheetVisible"
+>
+  <view class="pixabot-sheet">
+    <view class="pixabot-sheet__head">
+      <text class="pixabot-sheet__title">创作像素头像</text>
+      <view class="pixabot-sheet__close" bind:tap="closePixabotSheet">
+        <kubai-icon name="close" size="40rpx" color="#999999" />
+      </view>
+    </view>
+    <text class="pixabot-sheet__hint">设头像 {{pixabotCost}} 积分（动态需会员）· 微信头像免费</text>
+
+    <view class="pixabot-sheet__preview-wrap">
+      <view class="pixabot-sheet__preview-stage">
+        <image
+          wx:if="{{pixabotPreviewUrl}}"
+          class="pixabot-sheet__preview-img"
+          src="{{pixabotPreviewUrl}}"
+          mode="aspectFit"
+        />
+        <view wx:if="{{pixabotPreviewLoading}}" class="pixabot-sheet__preview-loading">
+          <t-loading theme="circular" size="40rpx" text="生成预览" />
+        </view>
+      </view>
+      <view class="pixabot-sheet__id-row">
+        <text class="pixabot-sheet__id">#{{pixabotId}}</text>
+        <view class="pixabot-sheet__id-copy" bind:tap="onPixabotCopyId" hover-class="pixabot-sheet__id-copy--press">
+          <kubai-icon name="copy" size="28rpx" color="#999999" />
+          <text>复制</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="pixabot-sheet__formats">
+      <view
+        class="pixabot-sheet__format-cell"
+        wx:for="{{pixabotFormatTabs}}"
+        wx:key="id"
+      >
+        <t-check-tag
+          t-class="pixabot-sheet__format {{pixabotFormat === item.id ? 'pixabot-sheet__format--on' : ''}}"
+          size="medium"
+          shape="round"
+          variant="outline"
+          content="{{item.label}}"
+          checked="{{pixabotFormat === item.id}}"
+          data-format="{{item.id}}"
+          bind:change="onPixabotFormatChange"
+        />
+      </view>
+    </view>
+    <text class="pixabot-sheet__format-hint">{{pixabotFormatHint}}</text>
+
+    <view class="pixabot-sheet__colors">
+      <scroll-view
+        class="pixabot-sheet__colors-scroll"
+        scroll-x
+        enhanced
+        show-scrollbar="{{false}}"
+        enable-flex
+      >
+        <view class="pixabot-sheet__colors-row">
+          <view
+            wx:for="{{pixabotHuePresets}}"
+            wx:key="id"
+            class="pixabot-sheet__swatch-wrap {{pixabotHuePresetId === item.id ? 'pixabot-sheet__swatch-wrap--on' : ''}}"
+            data-id="{{item.id}}"
+            bind:tap="onPixabotHuePick"
+            hover-class="pixabot-sheet__swatch-wrap--press"
+          >
+            <view
+              class="pixabot-sheet__swatch"
+              style="background: {{item.swatch}};"
+            >
+              <text class="pixabot-sheet__swatch-label">{{item.label}}</text>
+            </view>
+            <view
+              wx:if="{{pixabotHuePresetId === item.id}}"
+              class="pixabot-sheet__swatch-check"
+            />
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view class="pixabot-sheet__tabs">
+      <view
+        class="pixabot-sheet__tab-cell"
+        wx:for="{{pixabotCategoryTabs}}"
+        wx:key="id"
+      >
+        <t-check-tag
+          t-class="pixabot-sheet__tab {{pixabotCategory === item.id ? 'pixabot-sheet__tab--on' : ''}}"
+          size="medium"
+          shape="round"
+          variant="light"
+          content="{{item.label}}"
+          checked="{{pixabotCategory === item.id}}"
+          data-id="{{item.id}}"
+          bind:change="onPixabotCategoryChange"
+        />
+      </view>
+    </view>
+
+    <scroll-view
+      class="pixabot-sheet__parts"
+      scroll-x
+      enhanced
+      show-scrollbar="{{false}}"
+      enable-flex
+    >
+      <view class="pixabot-sheet__parts-row">
+        <view
+          class="pixabot-sheet__part {{pixabotSelectedIndex === item.index ? 'pixabot-sheet__part--on' : ''}}"
+          wx:for="{{pixabotPartOptions}}"
+          wx:key="name"
+          data-index="{{item.index}}"
+          bind:tap="onPixabotPartPick"
+        >
+          <image
+            class="pixabot-sheet__part-img"
+            src="{{item.thumb}}"
+            mode="aspectFit"
+          />
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="pixabot-sheet__actions">
+      <t-button
+        theme="default"
+        variant="outline"
+        size="large"
+        icon="refresh"
+        content="随机"
+        disabled="{{pixabotSetting}}"
+        bind:tap="onPixabotShuffle"
+      />
+      <t-button
+        theme="primary"
+        size="large"
+        content="{{pixabotSetLabel}}"
+        loading="{{pixabotSetting}}"
+        disabled="{{pixabotSetting}}"
+        bind:tap="onPixabotSetAvatar"
+      />
+    </view>
+    <view class="pixabot-sheet__actions pixabot-sheet__actions--second">
+      <button
+        class="pixabot-sheet__wx-outline"
+        open-type="chooseAvatar"
+        bind:chooseavatar="onChooseAvatar"
+        disabled="{{pixabotSetting}}"
+        hover-class="pixabot-sheet__wx-outline--press"
+      >
+        <t-icon name="logo-wechat-stroke" size="40rpx" />
+        <text>用微信头像</text>
+      </button>
+    </view>
+    <text class="pixabot-sheet__credit">离屏合成图片预览 · 部件来自 Pixabots</text>
+  </view>
+</t-popup>
 
 <festival-image-crop
   visible="{{festivalCropVisible}}"

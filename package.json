@@ -1,6 +1,6 @@
 {
   "name": "emoji-share",
-  "version": "3.4.0",
+  "version": "3.6.0",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -16,6 +16,9 @@
     "library:import": "node scripts/library-import/import.mjs",
     "library:upload": "node scripts/library-import/upload-remote.mjs",
     "library:upload:packs": "node scripts/library-import/upload-open-packs.mjs",
+    "library:upload:particlefx": "node scripts/library-import/upload-particlefx.mjs",
+    "avatar-frames:upload": "node scripts/avatar-frames/import-upload.mjs",
+    "avatar-frames:classify": "node scripts/avatar-frames/classify-access.mjs",
     "gifski:wx": "node scripts/patch-gifski-wx.mjs"
   },
   "keywords": [
@@ -26,7 +29,7 @@
   ],
   "author": "leejim",
   "license": "MIT",
-  "description": "趣图铺子 · 微信云开发合集分享（表情/壁纸/头像/视频）：封面/预览/原文件，积分保存到相册",
+  "description": "???? ? ?????????",
   "dependencies": {
     "dayjs": "^1.11.13",
     "gifski-wasm": "^2.2.0",

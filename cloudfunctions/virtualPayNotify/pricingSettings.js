@@ -68,6 +68,15 @@ const DEFAULT_PRODUCTS = {
     value: 170,
     priceFen: 3200,
   },
+  /** 头像框单买 ¥3；具体框由下单 frameId 指定 */
+  frame_skin: {
+    productId: 'frame_skin',
+    planKey: 'frame',
+    title: '高级头像框',
+    type: 'avatar_frame',
+    value: 1,
+    priceFen: 300,
+  },
 };
 
 /** 槽位 id（云库 products 的 key），不等于微信 productId */
@@ -82,6 +91,7 @@ const SLOT_PREFIX = {
   points_20: 'p0',
   points_66: 'p1',
   points_170: 'p2',
+  frame_skin: 'fs',
 };
 
 const WX_STATUS = ['ok', 'syncing', 'ready', 'fail', 'await_mp'];
@@ -138,7 +148,11 @@ function normalizeProduct(raw, fallback, slotId) {
   let productId = String((raw && raw.productId) || def.productId || slot || '').trim();
   if (!isValidWxProductId(productId)) productId = def.productId || slot;
 
-  const type = raw && raw.type === 'points' ? 'points' : def.type || 'vip_days';
+  const rawType = String((raw && raw.type) || def.type || '').trim();
+  const type =
+    rawType === 'points' || rawType === 'avatar_frame' || rawType === 'vip_days'
+      ? rawType
+      : def.type || 'vip_days';
   const wxRaw = (raw && raw.wx) || {};
   const draftRaw = raw && raw.draft;
   let draft = null;

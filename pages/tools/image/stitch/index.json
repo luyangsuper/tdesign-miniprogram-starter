@@ -6,7 +6,9 @@
     "t-button": "tdesign-miniprogram/button/button",
     "t-check-tag": "tdesign-miniprogram/check-tag/check-tag",
     "t-slider": "tdesign-miniprogram/slider/slider",
+    "t-switch": "tdesign-miniprogram/switch/switch",
     "t-loading": "tdesign-miniprogram/loading/loading",
-    "festival-decor": "/components/festival-decor/index"
+    "festival-decor": "/components/festival-decor/index",
+    "kubai-icon": "/components/kubai-icon/index"
   }
 }

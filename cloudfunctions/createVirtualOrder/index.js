@@ -215,6 +215,49 @@ exports.main = async (event = {}) => {
       return { ok: false, code: 'BAD_PRODUCT', message: '未知商品' };
     }
 
+    const buyFrameId = String(event.frameId || '').trim();
+    let orderGrantType = product.type;
+    let orderGrantValue = product.value;
+    let orderTitle = product.title;
+    if (product.type === 'avatar_frame') {
+      if (!buyFrameId) {
+        return { ok: false, code: 'BAD_FRAME', message: '请选择头像框' };
+      }
+      let frameDoc = null;
+      try {
+        const fs = await db.collection('avatar_frames').doc(buyFrameId).get();
+        frameDoc = (fs && fs.data) || null;
+        if (frameDoc && frameDoc.data && frameDoc.data.fileID) {
+          frameDoc = { ...frameDoc.data, _id: frameDoc._id || buyFrameId };
+        }
+      } catch (_) {
+        frameDoc = null;
+      }
+      if (
+        !frameDoc ||
+        !frameDoc.fileID ||
+        (frameDoc.status && frameDoc.status !== 'published')
+      ) {
+        return { ok: false, code: 'FRAME_NOT_FOUND', message: '头像框不存在' };
+      }
+      if (String(frameDoc.access || '') !== 'paid') {
+        return { ok: false, code: 'NOT_FOR_SALE', message: '该头像框不可购买' };
+      }
+      try {
+        const uSnap = await db.collection('users').doc(OPENID).get();
+        const u = (uSnap && uSnap.data) || {};
+        const owned = Array.isArray(u.ownedFrameIds) ? u.ownedFrameIds.map(String) : [];
+        if (owned.includes(buyFrameId)) {
+          return { ok: false, code: 'ALREADY_OWNED', message: '已拥有该头像框' };
+        }
+      } catch (_) {
+        /* ignore */
+      }
+      orderGrantType = 'avatar_frame';
+      orderGrantValue = buyFrameId;
+      orderTitle = String(frameDoc.title || product.title || '高级头像框').slice(0, 20);
+    }
+
     const jsCode = String(event.code || '').trim();
     const sessionKey = await resolveSessionKey(db, cloud, OPENID, jsCode);
 
@@ -223,6 +266,7 @@ exports.main = async (event = {}) => {
       openid: OPENID,
       productId: product.productId,
       planKey: product.planKey,
+      ...(buyFrameId ? { frameId: buyFrameId } : {}),
     };
     const signObj = {
       offerId: OFFER_ID,
@@ -245,11 +289,12 @@ exports.main = async (event = {}) => {
         slotId: product.slotId || '',
         productId: product.productId,
         planKey: product.planKey,
-        grantType: product.type,
-        grantValue: product.value,
+        grantType: orderGrantType,
+        grantValue: orderGrantValue,
+        frameId: buyFrameId || '',
         buyQuantity: 1,
         priceFen: product.priceFen,
-        title: product.title,
+        title: orderTitle,
         env: PAY_ENV,
         status: 'pending',
         wxOrderId: '',
@@ -270,7 +315,8 @@ exports.main = async (event = {}) => {
         outTradeNo,
         productId: product.productId,
         priceFen: product.priceFen,
-        title: product.title,
+        title: orderTitle,
+        frameId: buyFrameId || '',
         env: PAY_ENV,
       },
     };

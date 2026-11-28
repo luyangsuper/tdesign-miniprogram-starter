@@ -24,6 +24,17 @@
       <text class="imgtool__hero-desc">选比例后拖动/双指缩放，框内区域将导出</text>
     </view>
 
+    <view
+      wx:if="{{showNativeAd && nativeAdUnitId}}"
+      class="imgtool__native-ad"
+    >
+      <ad-custom
+        unit-id="{{nativeAdUnitId}}"
+        binderror="onNativeAdError"
+      />
+    </view>
+
+
     <view class="imgtool__card">
       <view class="imgtool__card-title">选图</view>
       <view
@@ -97,6 +108,14 @@
 
     <view class="imgtool__card">
       <view class="imgtool__card-title">结果</view>
+      <view
+        wx:if="{{paramsDirty && outPath}}"
+        class="imgtool__dirty-tip"
+        bindtap="onProcess"
+      >
+        <text class="imgtool__dirty-tip-t">参数已改，点这里重新处理</text>
+        <text class="imgtool__dirty-tip-go">去处理</text>
+      </view>
       <view class="imgtool__preview">
         <block wx:if="{{outPath}}">
           <image class="imgtool__preview-img" src="{{outPath}}" mode="aspectFit" />
@@ -112,7 +131,7 @@
           size="large"
           shape="round"
           block
-          content="{{busy ? '裁剪中…' : '开始裁剪'}}"
+          content="{{busy ? '裁剪中…' : (paramsDirty ? '重新裁剪' : '开始裁剪')}}"
           disabled="{{!srcPath || busy || checking || !ready}}"
           bind:tap="onProcess"
         />

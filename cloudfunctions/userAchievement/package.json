@@ -1,0 +1,9 @@
+{
+  "name": "userAchievement",
+  "version": "1.0.0",
+  "description": "成就头像框：进度同步 / 列表 / 佩戴",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

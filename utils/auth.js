@@ -101,12 +101,22 @@ export function applyLoginResult(res = {}) {
     }
   }
 
+  // 头像框：服务端显式下发（含空串=已卸下）时覆盖；否则沿用本地
+  let avatarFrameId = prev.avatarFrameId || '';
+  let avatarFrameUrl = prev.avatarFrameUrl || '';
+  if (Object.prototype.hasOwnProperty.call(res, 'avatarFrameId')) {
+    avatarFrameId = String(res.avatarFrameId || '').trim();
+    if (!avatarFrameId) avatarFrameUrl = '';
+  }
+
   const profile = {
     nickName: res.nickName != null ? res.nickName : prev.nickName || '',
     avatarUrl,
     avatarFileID: nextFileID,
     // 用于判断云临时链是否可能过期（约 2h），过期则不再直接展示
     avatarUrlAt: avatarUrl ? Date.now() : 0,
+    avatarFrameId,
+    avatarFrameUrl,
   };
   setUserProfile(profile);
   if (app) app.globalData.userInfo = profile;

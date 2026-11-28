@@ -56,6 +56,13 @@
     line-height: 1.45;
   }
 
+  &__native-ad {
+    margin: 4rpx 0 14rpx;
+    overflow: hidden;
+    border-radius: 16rpx;
+    background: transparent;
+  }
+
   &__state {
     width: 100%;
     min-height: 52vh;
@@ -75,8 +82,10 @@
   &__card {
     width: 100%;
     box-sizing: border-box;
-    padding: 18rpx 16rpx 14rpx;
-    border-radius: 20rpx;
+    --pack-row-radius: 16rpx;
+    --pack-row-cell-radius: 16rpx;
+    padding: 16rpx 14rpx 14rpx;
+    border-radius: var(--pack-row-radius);
     background: var(--td-bg-color-container);
     box-shadow: 0 4rpx 16rpx rgba(15, 23, 42, 0.04);
     transition:
@@ -124,16 +133,27 @@
   &__card-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10rpx;
+    gap: 12rpx;
   }
 
   &__card-cell {
     position: relative;
     width: 100%;
     aspect-ratio: 1;
-    border-radius: 14rpx;
+    border-radius: var(--pack-row-cell-radius, 14rpx);
     overflow: hidden;
-    background: var(--td-bg-color-secondarycontainer);
+    /* 表情透明 PNG：格子透明 */
+    background: transparent;
+    --td-image-round-radius: var(--pack-row-cell-radius, 14rpx);
+
+    .smart-img,
+    smart-image {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      display: block !important;
+    }
   }
 
   &__card-cell--emoji {
@@ -163,15 +183,23 @@
 
   &__card-moremask {
     position: absolute;
-    inset: 0;
-    z-index: 1;
-    display: flex;
+    top: 6rpx;
+    right: 6rpx;
+    z-index: 2;
+    min-width: 32rpx;
+    height: 26rpx;
+    padding: 0 7rpx;
+    box-sizing: border-box;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(15, 23, 42, 0.48);
+    border-radius: 18%;
+    background: rgba(15, 23, 42, 0.72);
     color: #fff;
-    font-size: 28rpx;
-    font-weight: 650;
+    font-size: 17rpx;
+    font-weight: 700;
+    line-height: 1;
+    pointer-events: none;
   }
 
   &__card-skeleton {
