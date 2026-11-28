@@ -18,14 +18,18 @@ import {
 import { encodeGifski } from '~/utils/gifskiEncode';
 
 const pathCache = new Map();
-/** @type {{ canvas: any, ctx: any, size: number, imageCache: Map } | null} */
-let offscreen = null;
+/** 原生 32×32 合成画布（部件 1:1 绘制，避免真机 drawImage 缩放被强制平滑） */
+/** @type {{ canvas: any, ctx: any, imageCache: Map } | null} */
+let nativeSession = null;
+/** 输出尺寸画布（最近邻放大后的结果） */
+/** @type {{ canvas: any, ctx: any, size: number } | null} */
+let outputSession = null;
 
 /** 导出头像默认边长（物理像素，32 的倍数） */
 export const PIXABOT_EXPORT_SIZE = 512;
 
 /**
- * 按预览区 CSS 尺寸 × 屏幕 pixelRatio 取合成边长，并对齐到 NATIVE_SIZE 倍数，避免高分屏被放大发糊。
+ * 按预览区 CSS 尺寸 × 屏幕 pixelRatio 取合成边长，并对齐到 NATIVE_SIZE 倍数。
  * @param {{ cssRpx?: number, max?: number, min?: number }} [opts]
  */
 export function resolvePixabotRenderSize(opts = {}) {
@@ -34,9 +38,18 @@ export function resolvePixabotRenderSize(opts = {}) {
   const min = Math.max(NATIVE_SIZE, Number(opts.min) || NATIVE_SIZE * 4);
   let raw = cssRpx;
   try {
-    const sys = wx.getSystemInfoSync();
-    const w = Number(sys.windowWidth) || 375;
-    const dpr = Math.max(1, Number(sys.pixelRatio) || 2);
+    const win =
+      typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : null;
+    const dev =
+      typeof wx.getDeviceInfo === 'function' ? wx.getDeviceInfo() : null;
+    const sys = win || dev ? null : wx.getSystemInfoSync();
+    const w = Number((win && win.windowWidth) || (sys && sys.windowWidth)) || 375;
+    const dpr =
+      Math.max(
+        1,
+        Number((win && win.pixelRatio) || (dev && dev.pixelRatio) || (sys && sys.pixelRatio)) ||
+          2,
+      );
     raw = (cssRpx * w) / 750 * dpr;
   } catch (_) {
     raw = cssRpx * 2;
@@ -76,39 +89,55 @@ async function ensurePartPath(category, part) {
   return temp;
 }
 
-function ensureOffscreen(size) {
-  const s = Math.max(64, Math.min(1024, Number(size) || 140));
-  if (offscreen && offscreen.size === s && offscreen.canvas && offscreen.ctx) {
-    return offscreen;
-  }
+function create2dCanvas(size) {
   if (typeof wx.createOffscreenCanvas !== 'function') {
     throw new Error('当前微信版本过低，无法合成头像');
   }
-  const canvas = wx.createOffscreenCanvas({ type: '2d', width: s, height: s });
+  const canvas = wx.createOffscreenCanvas({
+    type: '2d',
+    width: size,
+    height: size,
+  });
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('无法创建画布');
-  // 像素风：关闭平滑，整数倍缩放才清晰
   ctx.imageSmoothingEnabled = false;
-  if ('imageSmoothingQuality' in ctx) {
-    try {
-      ctx.imageSmoothingQuality = 'low';
-    } catch (_) {
-      /* ignore */
-    }
-  }
-  offscreen = { canvas, ctx, size: s, imageCache: new Map() };
-  return offscreen;
+  return { canvas, ctx };
 }
 
-function drawLayer(ctx, layer, bounce, scale, size) {
+function ensureNativeSession() {
+  if (nativeSession && nativeSession.canvas && nativeSession.ctx) {
+    return nativeSession;
+  }
+  const { canvas, ctx } = create2dCanvas(NATIVE_SIZE);
+  nativeSession = { canvas, ctx, imageCache: new Map() };
+  return nativeSession;
+}
+
+function ensureOutputSession(size) {
+  const s = Math.max(NATIVE_SIZE, Math.min(1024, Number(size) || 140));
+  if (outputSession && outputSession.size === s && outputSession.canvas) {
+    return outputSession;
+  }
+  const { canvas, ctx } = create2dCanvas(s);
+  outputSession = { canvas, ctx, size: s };
+  return outputSession;
+}
+
+/** 仍给外部兼容：返回输出 session 形态 */
+function ensureOffscreen(size) {
+  ensureNativeSession();
+  return ensureOutputSession(size);
+}
+
+/** 仅在原生 32×32 上 1:1 画部件（不做放大） */
+function drawLayerNative(ctx, layer, bounce) {
   if (!layer || !layer.img) return;
   const { img, frames } = layer;
   const fi = Math.max(0, Math.min((frames || 1) - 1, layer.frameIndex || 0));
-  const offNative = Math.round(Number(bounce[layer.cat]) || 0);
-  const dy = offNative * scale;
+  const dy = Math.round(Number(bounce[layer.cat]) || 0);
   const sx = fi * NATIVE_SIZE;
 
-  if (layer.cat === 'body' && offNative > 0) {
+  if (layer.cat === 'body' && dy > 0) {
     ctx.drawImage(
       img,
       sx,
@@ -117,8 +146,8 @@ function drawLayer(ctx, layer, bounce, scale, size) {
       NATIVE_SIZE - 1,
       0,
       dy,
-      size,
-      (NATIVE_SIZE - 1) * scale,
+      NATIVE_SIZE,
+      NATIVE_SIZE - 1,
     );
     ctx.drawImage(
       img,
@@ -127,14 +156,42 @@ function drawLayer(ctx, layer, bounce, scale, size) {
       NATIVE_SIZE,
       1,
       0,
-      size - scale,
-      size,
-      scale,
+      NATIVE_SIZE - 1,
+      NATIVE_SIZE,
+      1,
     );
     return;
   }
 
-  ctx.drawImage(img, sx, 0, NATIVE_SIZE, NATIVE_SIZE, 0, dy, size, size);
+  ctx.drawImage(img, sx, 0, NATIVE_SIZE, NATIVE_SIZE, 0, dy, NATIVE_SIZE, NATIVE_SIZE);
+}
+
+/**
+ * 最近邻放大：真机上比 drawImage+imageSmoothingEnabled=false 可靠，像素块不会被平滑糊掉。
+ * @param {Uint8ClampedArray|Uint8Array} src
+ * @param {number} srcSize
+ * @param {number} dstSize
+ */
+function nearestNeighborScale(src, srcSize, dstSize) {
+  if (srcSize === dstSize) {
+    return src instanceof Uint8ClampedArray ? src : new Uint8ClampedArray(src);
+  }
+  const out = new Uint8ClampedArray(dstSize * dstSize * 4);
+  for (let y = 0; y < dstSize; y += 1) {
+    const sy = Math.min(srcSize - 1, Math.floor((y * srcSize) / dstSize));
+    const srcRow = sy * srcSize * 4;
+    const dstRow = y * dstSize * 4;
+    for (let x = 0; x < dstSize; x += 1) {
+      const sx = Math.min(srcSize - 1, Math.floor((x * srcSize) / dstSize));
+      const si = srcRow + sx * 4;
+      const di = dstRow + x * 4;
+      out[di] = src[si];
+      out[di + 1] = src[si + 1];
+      out[di + 2] = src[si + 2];
+      out[di + 3] = src[si + 3];
+    }
+  }
+  return out;
 }
 
 function rgbToHsl(r, g, b) {
@@ -197,8 +254,10 @@ function applyPaletteToImageData(imageData, palette) {
 }
 
 async function drawFrame(session, combo, tick, bg, palette) {
-  const { canvas, ctx, size, imageCache } = session;
-  const scale = size / NATIVE_SIZE;
+  const native = ensureNativeSession();
+  const { canvas: nativeCanvas, ctx: nativeCtx, imageCache } = native;
+  const { ctx, size } = session;
+
   const layers = await Promise.all(
     LAYER_ORDER.map(async (cat) => {
       const idx = Number(combo[cat]) || 0;
@@ -208,7 +267,8 @@ async function drawFrame(session, combo, tick, bg, palette) {
       let img = imageCache.get(cacheKey);
       if (!img) {
         const temp = await ensurePartPath(cat, part);
-        img = await loadCanvasImage(canvas, temp);
+        // 必须用原生画布 createImage，避免跨 canvas 混用
+        img = await loadCanvasImage(nativeCanvas, temp);
         imageCache.set(cacheKey, img);
       }
       return {
@@ -221,35 +281,43 @@ async function drawFrame(session, combo, tick, bg, palette) {
   );
 
   const bounce = bounceOffsets(tick);
+  nativeCtx.imageSmoothingEnabled = false;
+  nativeCtx.clearRect(0, 0, NATIVE_SIZE, NATIVE_SIZE);
+
+  // 透明底上 1:1 合成（调色前不铺 bg，避免底色被 hue 染色）
+  nativeCtx.save();
+  nativeCtx.beginPath();
+  nativeCtx.rect(0, 0, NATIVE_SIZE, NATIVE_SIZE);
+  nativeCtx.clip();
+  layers.forEach((layer) => drawLayerNative(nativeCtx, layer, bounce));
+  nativeCtx.restore();
+
+  const nativeData = nativeCtx.getImageData(0, 0, NATIVE_SIZE, NATIVE_SIZE);
+  if (hasPaletteTransform(palette)) {
+    applyPaletteToImageData(nativeData, palette);
+  }
+
+  const scaled = nearestNeighborScale(nativeData.data, NATIVE_SIZE, size);
+
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, size, size);
 
-  const needPalette = hasPaletteTransform(palette);
-  if (!needPalette && bg) {
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, size, size);
-  }
+  const writeScaled = (rgba) => {
+    const buf = ctx.createImageData(size, size);
+    buf.data.set(rgba);
+    ctx.putImageData(buf, 0, 0);
+  };
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(0, 0, size, size);
-  ctx.clip();
-  layers.forEach((layer) => drawLayer(ctx, layer, bounce, scale, size));
-  ctx.restore();
-
-  if (!needPalette) return;
-
-  // 先透明合成再调色，最后铺底，避免底色被 hue 染色（对齐官网 render.ts）
-  const imageData = ctx.getImageData(0, 0, size, size);
-  applyPaletteToImageData(imageData, palette);
   if (!bg) {
-    ctx.putImageData(imageData, 0, 0);
+    writeScaled(scaled);
     return;
   }
+
+  // 先铺底再贴像素（半透明边缘正确叠在背景上）
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, size, size);
   const base = ctx.getImageData(0, 0, size, size);
-  const tinted = imageData.data;
+  const tinted = scaled;
   const out = base.data;
   for (let i = 0; i < tinted.length; i += 4) {
     const a = tinted[i + 3] / 255;
