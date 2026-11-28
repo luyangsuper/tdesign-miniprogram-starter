@@ -21,6 +21,30 @@ const pathCache = new Map();
 /** @type {{ canvas: any, ctx: any, size: number, imageCache: Map } | null} */
 let offscreen = null;
 
+/** 导出头像默认边长（物理像素，32 的倍数） */
+export const PIXABOT_EXPORT_SIZE = 512;
+
+/**
+ * 按预览区 CSS 尺寸 × 屏幕 pixelRatio 取合成边长，并对齐到 NATIVE_SIZE 倍数，避免高分屏被放大发糊。
+ * @param {{ cssRpx?: number, max?: number, min?: number }} [opts]
+ */
+export function resolvePixabotRenderSize(opts = {}) {
+  const cssRpx = Math.max(64, Number(opts.cssRpx) || 280);
+  const max = Math.max(NATIVE_SIZE, Number(opts.max) || 512);
+  const min = Math.max(NATIVE_SIZE, Number(opts.min) || NATIVE_SIZE * 4);
+  let raw = cssRpx;
+  try {
+    const sys = wx.getSystemInfoSync();
+    const w = Number(sys.windowWidth) || 375;
+    const dpr = Math.max(1, Number(sys.pixelRatio) || 2);
+    raw = (cssRpx * w) / 750 * dpr;
+  } catch (_) {
+    raw = cssRpx * 2;
+  }
+  const snapped = Math.round(raw / NATIVE_SIZE) * NATIVE_SIZE;
+  return Math.max(min, Math.min(max, snapped || NATIVE_SIZE * 10));
+}
+
 function downloadToTemp(url) {
   return new Promise((resolve, reject) => {
     wx.downloadFile({
@@ -53,7 +77,7 @@ async function ensurePartPath(category, part) {
 }
 
 function ensureOffscreen(size) {
-  const s = Math.max(64, Math.min(512, Number(size) || 140));
+  const s = Math.max(64, Math.min(1024, Number(size) || 140));
   if (offscreen && offscreen.size === s && offscreen.canvas && offscreen.ctx) {
     return offscreen;
   }
@@ -63,7 +87,15 @@ function ensureOffscreen(size) {
   const canvas = wx.createOffscreenCanvas({ type: '2d', width: s, height: s });
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('无法创建画布');
+  // 像素风：关闭平滑，整数倍缩放才清晰
   ctx.imageSmoothingEnabled = false;
+  if ('imageSmoothingQuality' in ctx) {
+    try {
+      ctx.imageSmoothingQuality = 'low';
+    } catch (_) {
+      /* ignore */
+    }
+  }
   offscreen = { canvas, ctx, size: s, imageCache: new Map() };
   return offscreen;
 }
@@ -304,7 +336,7 @@ function canvasToPngPath(canvas, size) {
  * @returns {Promise<string>} 本地路径
  */
 export async function renderPixabotPng(combo, opts = {}) {
-  const size = Math.max(64, Number(opts.size) || 140);
+  const size = Math.max(64, Number(opts.size) || resolvePixabotRenderSize());
   const bg = opts.bg || '#f3f4f6';
   const palette = normalizePalette(opts);
   const session = ensureOffscreen(size);
@@ -317,7 +349,7 @@ export async function renderPixabotPng(combo, opts = {}) {
  * @returns {Promise<string>} 本地 .gif 路径
  */
 export async function renderPixabotGif(combo, opts = {}) {
-  const size = Math.max(64, Number(opts.size) || 140);
+  const size = Math.max(64, Number(opts.size) || resolvePixabotRenderSize({ max: 384 }));
   const bg = opts.bg || '#f3f4f6';
   const palette = normalizePalette(opts);
   const session = ensureOffscreen(size);

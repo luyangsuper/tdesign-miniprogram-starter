@@ -49,7 +49,12 @@ import {
   randomPalette,
   saveLastPixabot,
 } from '~/utils/pixabotParts';
-import { renderPixabotGif, renderPixabotPng } from '~/utils/pixabotRender';
+import {
+  PIXABOT_EXPORT_SIZE,
+  renderPixabotGif,
+  renderPixabotPng,
+  resolvePixabotRenderSize,
+} from '~/utils/pixabotRender';
 import {
   syncAchievements,
   listAchievements,
@@ -2319,8 +2324,10 @@ Page({
     });
 
     try {
+      // 预览区 280rpx × DPR，避免高分屏把低分辨率图画糊
+      const previewSize = resolvePixabotRenderSize({ cssRpx: 280 });
       const pngPath = await renderPixabotPng(next, {
-        size: 160,
+        size: previewSize,
         bg: '#f3f4f6',
         ...palette,
       });
@@ -2330,7 +2337,9 @@ Page({
         pixabotPreviewLoading: false,
       });
       if (!wantGif) return;
-      renderPixabotGif(next, { size: 160, bg: '#f3f4f6', ...palette })
+      // GIF 略降尺寸，减轻编码；仍按 DPR 取值
+      const gifSize = resolvePixabotRenderSize({ cssRpx: 280, max: 384 });
+      renderPixabotGif(next, { size: gifSize, bg: '#f3f4f6', ...palette })
         .then((gifPath) => {
           if (token !== this._pixabotPreviewToken) return;
           if (!this.data.pixabotSheetVisible) return;
@@ -2720,9 +2729,18 @@ Page({
       }
 
       const openid = getOpenId() || 'anon';
+      const exportSize = PIXABOT_EXPORT_SIZE;
       const filePath = animated
-        ? await renderPixabotGif(combo, { size: 256, bg: '#f3f4f6', ...palette })
-        : await renderPixabotPng(combo, { size: 256, bg: '#f3f4f6', ...palette });
+        ? await renderPixabotGif(combo, {
+            size: exportSize,
+            bg: '#f3f4f6',
+            ...palette,
+          })
+        : await renderPixabotPng(combo, {
+            size: exportSize,
+            bg: '#f3f4f6',
+            ...palette,
+          });
       const ext = animated ? 'gif' : 'png';
       const cloudPath = `avatars/${openid}_pixabot_${id}_${Date.now()}.${ext}`;
       const fileID = await uploadFile(cloudPath, filePath);

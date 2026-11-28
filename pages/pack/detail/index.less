@@ -508,9 +508,8 @@
   &__slot-cover-wrap {
     position: relative;
     width: 100%;
-    /* 原 210×280 → 3:4，随列宽等比 */
-    height: 0;
-    padding-bottom: 133.333%;
+    /* 壁纸等竖图：3:4；表情见 --clear 正方形 */
+    aspect-ratio: 3 / 4;
     border-radius: 12rpx;
     overflow: hidden;
     /* 壁纸/头像等：淡底衬 aspectFit 留白 */
@@ -519,6 +518,7 @@
     animation: detail-fade-in 0.28s ease 0.04s both;
 
     &--clear {
+      aspect-ratio: 1 / 1;
       background: transparent;
       --td-image-bg-color: transparent;
       --td-image-color: #00000000;

@@ -2928,8 +2928,10 @@
     width: 100%;
     height: 100%;
     display: block;
+    /* 像素风近邻放大；基础库支持有限时仍靠高 DPR 合成保清晰 */
     image-rendering: pixelated;
-    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    -webkit-image-rendering: pixelated;
   }
 
   &__preview-loading {
