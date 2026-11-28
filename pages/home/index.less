@@ -664,7 +664,7 @@
   &__pack-row-title-wrap {
     display: flex;
     align-items: center;
-    gap: 12rpx;
+    gap: 10rpx;
     min-width: 0;
     flex: 1;
   }
@@ -687,8 +687,23 @@
     .ui-body();
     font-weight: 600;
     color: var(--td-text-color-primary);
+    min-width: 0;
+    flex-shrink: 1;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__pack-row-cat {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  &__pack-row-meta {
+    flex-shrink: 0;
+    font-size: 22rpx;
+    color: var(--td-text-color-placeholder);
     white-space: nowrap;
   }
 
@@ -810,30 +825,6 @@
     letter-spacing: 0.02em;
     line-height: 1;
     pointer-events: none;
-  }
-
-  &__pack-row-foot {
-    margin-top: 12rpx;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12rpx;
-    min-height: 40rpx;
-  }
-
-  &__pack-row-tags {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8rpx;
-    min-width: 0;
-    flex: 1;
-  }
-
-  &__pack-row-meta {
-    flex-shrink: 0;
-    font-size: 22rpx;
-    color: var(--td-text-color-placeholder);
   }
 
   &__feed-card {

@@ -325,6 +325,21 @@
                             class="home__pack-row-check {{selectedMap[item.pack._id] ? 'is-on' : ''}}"
                           />
                           <text class="home__pack-row-title">{{item.pack.title}}</text>
+                          <view
+                            wx:if="{{item.pack.categoryName}}"
+                            class="home__pack-row-cat"
+                          >
+                            <t-tag
+                              size="small"
+                              theme="default"
+                              variant="light"
+                              custom-style="{{item.pack.categoryTagStyle}}"
+                            >{{item.pack.categoryName}}</t-tag>
+                          </view>
+                          <text
+                            wx:if="{{isAdmin}}"
+                            class="home__pack-row-meta"
+                          >下载 {{item.pack.downloadCount || 0}}</text>
                         </view>
                         <view wx:if="{{item.pack.mood}}" class="home__pack-row-mood-badge">
                           <kubai-icon
@@ -367,25 +382,6 @@
                             class="home__pack-row-moremask"
                           >+{{item.pack.moreCount}}</view>
                         </view>
-                      </view>
-                      <view class="home__pack-row-foot">
-                        <view class="home__pack-row-tags">
-                          <t-tag
-                            wx:if="{{item.pack.categoryName}}"
-                            size="small"
-                            theme="default"
-                            variant="light"
-                            custom-style="{{item.pack.categoryTagStyle}}"
-                          >{{item.pack.categoryName}}</t-tag>
-                        </view>
-                        <text
-                          wx:if="{{isAdmin}}"
-                          class="home__pack-row-meta"
-                        >{{item.pack.countText ? item.pack.countText + ' · ' : ''}}下载 {{item.pack.downloadCount || 0}}</text>
-                        <text
-                          wx:elif="{{item.pack.countText}}"
-                          class="home__pack-row-meta"
-                        >{{item.pack.countText}}</text>
                       </view>
                     </view>
                   </view>
